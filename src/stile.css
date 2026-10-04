@@ -190,3 +190,32 @@ dl { margin: 0; }
 }
 .salvato { color: var(--verde); font-size: 0.85rem; }
 .note { white-space: pre-wrap; margin-top: 8px !important; }
+
+/* --- Modulo --- */
+.titolo-pagina { font-size: 1.3rem; margin: 0 0 12px; }
+.modulo fieldset {
+  border: 1px solid var(--bordo); border-radius: var(--raggio);
+  background: #fff; margin: 0 0 12px; padding: 10px 14px 14px;
+}
+.modulo legend { font-weight: 700; padding: 0 6px; }
+.campo { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; min-width: 0; }
+.campo > span { font-size: 0.85rem; color: var(--testo-tenue); }
+.campo small, .aiuto { font-size: 0.78rem; color: var(--testo-tenue); display: block; }
+.modulo input:not([type='checkbox']), .modulo select, .modulo textarea {
+  width: 100%; min-height: 44px; padding: 8px 10px;
+  border: 1px solid var(--bordo); border-radius: 8px;
+  background: #fff; font: inherit; font-size: 16px; color: var(--testo);
+}
+.modulo textarea { resize: vertical; }
+.due { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.tre { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 0 10px; }
+@media (max-width: 380px) {
+  .tre { grid-template-columns: 1fr 1fr; }
+  .tre > :last-child { grid-column: 1 / -1; }
+}
+.durata { display: flex; gap: 6px; }
+.scelte { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.scelta { display: flex; align-items: center; gap: 6px; min-height: 40px; }
+.scelta input { width: 20px; height: 20px; accent-color: var(--verde); }
+.modulo button.link { margin-top: 10px; min-height: 36px; text-align: left; }
+.pieno { width: 100%; margin-top: 4px; margin-bottom: 40px; }

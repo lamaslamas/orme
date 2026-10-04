@@ -2,6 +2,7 @@ import './stile.css';
 import { caricaDatiIniziali } from './db.js';
 import { vistaLista } from './viste/lista.js';
 import { vistaScheda } from './viste/scheda.js';
+import { vistaModifica } from './viste/modifica.js';
 import { escapeHtml } from './lib/formato.js';
 
 const app = document.getElementById('app');
@@ -10,6 +11,8 @@ const app = document.getElementById('app');
 const percorsi = [
   [/^\/?$/, vistaLista],
   [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
+  [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
+  [/^\/nuovo\/?$/, (app) => vistaModifica(app, null)],
 ];
 
 let pulisciVistaPrecedente = null;
