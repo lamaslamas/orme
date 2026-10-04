@@ -1,6 +1,7 @@
 import './stile.css';
 import { caricaDatiIniziali } from './db.js';
 import { vistaLista } from './viste/lista.js';
+import { vistaScheda } from './viste/scheda.js';
 import { escapeHtml } from './lib/formato.js';
 
 const app = document.getElementById('app');
@@ -8,6 +9,7 @@ const app = document.getElementById('app');
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [
   [/^\/?$/, vistaLista],
+  [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
 ];
 
 let pulisciVistaPrecedente = null;

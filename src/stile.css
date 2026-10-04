@@ -136,3 +136,57 @@ button.link {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
   z-index: 900;
 }
+
+/* --- Scheda --- */
+.indietro { display: inline-block; margin-bottom: 10px; text-decoration: none; font-size: 0.95rem; }
+.scheda h1 {
+  font-size: 1.35rem; line-height: 1.3; margin: 0;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
+}
+.scheda h1 .codice { font-size: 1rem; }
+.zona { margin: 4px 0 0; color: var(--testo-tenue); }
+.descrizione { margin: 12px 0 0; line-height: 1.45; }
+.tenue { color: var(--testo-tenue); }
+
+.azioni { display: flex; gap: 10px; margin: 16px 0; }
+.azioni .bottone { flex: 1; }
+.bottone {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 8px 16px;
+  border: 1px solid var(--verde); border-radius: var(--raggio);
+  background: #fff; color: var(--verde);
+  font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.bottone.primario { background: var(--verde); color: #fff; }
+.bottone.pericolo { border-color: #a12a1a; color: #a12a1a; }
+.bottone:disabled { opacity: 0.5; cursor: default; }
+
+.riquadro {
+  background: #fff; border: 1px solid var(--bordo); border-radius: var(--raggio);
+  padding: 12px 14px; margin-bottom: 12px;
+}
+.riquadro h2 { font-size: 1rem; margin: 0 0 8px; }
+.riquadro p { margin: 0 0 8px; line-height: 1.4; }
+.riquadro .bottone { margin-top: 10px; }
+
+.accesso { border-left: 5px solid var(--bordo); }
+.accesso-guida, .accesso-numero_chiuso, .accesso-chiusure_periodiche {
+  border-left-color: #d9682f; background: #fff8f3;
+}
+.accesso-libero { border-left-color: var(--verde); }
+
+dl { margin: 0; }
+.riga { display: flex; gap: 12px; padding: 5px 0; border-bottom: 1px solid #f0ece4; }
+.riga:last-child { border-bottom: none; }
+.riga dt { flex: 0 0 96px; color: var(--testo-tenue); font-size: 0.9rem; }
+.riga dd { margin: 0; flex: 1; }
+
+.stato-riga { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 44px; }
+.interruttore { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.interruttore input { width: 22px; height: 22px; accent-color: var(--verde); }
+.stato-riga input[type='date'] {
+  min-height: 40px; padding: 4px 8px; font-size: 16px;
+  border: 1px solid var(--bordo); border-radius: 8px;
+}
+.salvato { color: var(--verde); font-size: 0.85rem; }
+.note { white-space: pre-wrap; margin-top: 8px !important; }
