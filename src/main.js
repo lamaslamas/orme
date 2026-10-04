@@ -4,6 +4,7 @@ import { vistaLista } from './viste/lista.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
 import { vistaMappa } from './viste/mappa.js';
+import { vistaBackup } from './viste/backup.js';
 import { escapeHtml } from './lib/formato.js';
 
 const app = document.getElementById('app');
@@ -15,6 +16,7 @@ const percorsi = [
   [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
   [/^\/nuovo\/?$/, (app) => vistaModifica(app, null)],
+  [/^\/backup\/?$/, vistaBackup],
 ];
 
 let pulisciVistaPrecedente = null;
@@ -42,6 +44,9 @@ window.addEventListener('hashchange', () => {
   mostra();
   window.scrollTo(0, 0);
 });
+
+// Chiede al browser di non cancellare i dati quando lo spazio scarseggia
+navigator.storage?.persist?.().catch(() => {});
 
 caricaDatiIniziali()
   .catch((errore) => console.error('Dati iniziali non caricati', errore))
