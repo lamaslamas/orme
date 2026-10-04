@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
 import { leggiGpx } from '../src/lib/gpx.js';
-import { lunghezzaKm, distanzaKm } from '../src/lib/geo.js';
+import { lunghezzaKm, distanzaKm, distanzaDallaTracciaM } from '../src/lib/geo.js';
 
 const traccia = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
@@ -49,5 +49,22 @@ describe('file GPX', () => {
     const { geojson } = leggiGpx(rotta);
     expect(lunghezzaKm(geojson)).toBeGreaterThan(1.3);
     expect(lunghezzaKm(geojson)).toBeLessThan(1.5);
+  });
+});
+
+describe('distanza dalla traccia', () => {
+  const linea = { type: 'MultiLineString', coordinates: [[[13.8, 41.7], [13.8, 41.72]]] };
+  it('è zero su un punto della traccia', () => {
+    expect(distanzaDallaTracciaM([13.8, 41.71], linea)).toBeLessThan(0.01);
+  });
+  it('misura la distanza laterale', () => {
+    // 0,001° di longitudine a 41,7° ≈ 83 m
+    expect(distanzaDallaTracciaM([13.801, 41.71], linea)).toBeCloseTo(83, 0);
+  });
+  it('misura dal capo della linea se si è oltre la fine', () => {
+    expect(distanzaDallaTracciaM([13.8, 41.73], linea)).toBeCloseTo(1112, -1);
+  });
+  it('restituisce Infinity senza traccia', () => {
+    expect(distanzaDallaTracciaM([13.8, 41.7], null)).toBe(Infinity);
   });
 });

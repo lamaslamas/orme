@@ -238,3 +238,17 @@ body.con-mappa main { max-width: none; padding: 0; }
 .risultati .scelta { align-items: flex-start; }
 .risultati .scelta input { margin-top: 2px; flex: none; }
 .leaflet-container { font: inherit; }
+
+/* --- GPS --- */
+.gps-bottone { display: grid !important; place-items: center; color: #333; }
+.gps-bottone.attivo { color: #2563eb; }
+.gps-bottone.segue { background: #dbeafe !important; }
+.gps-stato {
+  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
+  z-index: 800; max-width: calc(100% - 24px);
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  font-size: 0.85rem; text-align: center;
+}
+.gps-stato.sulla { border: 2px solid #3d5a3a; }
+.gps-stato.fuori { border: 2px solid #c2410c; color: #8a2f0f; }

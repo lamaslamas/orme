@@ -24,3 +24,29 @@ export function lunghezzaKm(geojson) {
 export function contaPunti(geojson) {
   return (geojson?.coordinates ?? []).reduce((n, linea) => n + linea.length, 0);
 }
+
+// Distanza minima (in metri) tra un punto [lon, lat] e un MultiLineString.
+// Usa una proiezione piana locale: precisa a sufficienza per poche centinaia di km.
+export function distanzaDallaTracciaM(punto, geojson) {
+  const [lon0, lat0] = punto;
+  const kx = RAGGIO_TERRA_KM * 1000 * Math.cos(rad(lat0)) * (Math.PI / 180);
+  const ky = RAGGIO_TERRA_KM * 1000 * (Math.PI / 180);
+  const xy = ([lon, lat]) => [(lon - lon0) * kx, (lat - lat0) * ky];
+  let minimo = Infinity;
+  for (const linea of geojson?.coordinates ?? []) {
+    for (let i = 0; i < linea.length; i++) {
+      const [ax, ay] = xy(linea[i]);
+      if (linea.length === 1 || i === linea.length - 1) {
+        minimo = Math.min(minimo, Math.hypot(ax, ay));
+        continue;
+      }
+      const [bx, by] = xy(linea[i + 1]);
+      const dx = bx - ax;
+      const dy = by - ay;
+      const lung2 = dx * dx + dy * dy;
+      const t = lung2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lung2)) : 0;
+      minimo = Math.min(minimo, Math.hypot(ax + t * dx, ay + t * dy));
+    }
+  }
+  return minimo;
+}

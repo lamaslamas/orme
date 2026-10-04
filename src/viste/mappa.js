@@ -4,6 +4,7 @@ import { leggiSentiero, leggiTraccia, salvaTraccia, eliminaTraccia } from '../db
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
+import { aggiungiGps } from './gps.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
 const CENTRO_PNALM = [41.79, 13.85];
@@ -67,6 +68,7 @@ export async function vistaMappa(app, id) {
   const livelloTraccia = L.layerGroup().addTo(mappa);
   const livelloAnteprima = L.layerGroup().addTo(mappa);
   let risultati = null; // risultati della ricerca OSM in corso di scelta
+  const fermaGps = aggiungiGps(mappa, () => traccia);
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
@@ -240,6 +242,7 @@ export async function vistaMappa(app, id) {
   requestAnimationFrame(() => mappa.invalidateSize());
 
   return () => {
+    fermaGps();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };
