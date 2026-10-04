@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#3d5a3a"/>
+  <g fill="#f5efe2">
+    <!-- cuscinetto plantare -->
+    <path d="M256 236c-62 0-116 40-124 96-6 44 22 76 62 80 24 2 40-8 62-8s38 10 62 8c40-4 68-36 62-80-8-56-62-96-124-96z"/>
+    <!-- dita -->
+    <ellipse cx="128" cy="214" rx="30" ry="38" transform="rotate(-28 128 214)"/>
+    <ellipse cx="184" cy="152" rx="32" ry="42" transform="rotate(-12 184 152)"/>
+    <ellipse cx="256" cy="130" rx="33" ry="44"/>
+    <ellipse cx="328" cy="152" rx="32" ry="42" transform="rotate(12 328 152)"/>
+    <ellipse cx="384" cy="214" rx="30" ry="38" transform="rotate(28 384 214)"/>
+  </g>
+</svg>
