@@ -315,3 +315,25 @@ body.con-mappa main { max-width: none; padding: 0; }
   color: #fff; font-weight: 700; font-size: 0.8rem; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .etichetta-salto { font-size: 0.75rem; }
+
+/* --- Misure --- */
+.misura-bottone { display: grid !important; place-items: center; color: #333; }
+.misura-bottone.attivo { background: #fef9c3 !important; color: #111827; }
+.misurando { cursor: crosshair; }
+.misurando .gps-stato { bottom: auto; top: 10px; }
+.misura-barra {
+  position: absolute; left: 8px; right: 8px; bottom: 22px; z-index: 850;
+  background: rgba(255, 255, 255, 0.97); border-radius: 12px; padding: 8px 10px 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); font-size: 0.9rem; cursor: default;
+}
+.misura-modi { display: flex; border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; }
+.misura-modi button { flex: 1; min-height: 36px; border: none; background: #fff; cursor: pointer; }
+.misura-modi button.scelto { background: var(--verde); color: #fff; font-weight: 600; }
+.misura-modi button:disabled { color: #aaa; }
+.misura-testo { margin: 8px 2px; line-height: 1.4; }
+.misura-comandi { display: flex; gap: 6px; }
+.misura-comandi button {
+  flex: 1; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px; background: #fff; cursor: pointer;
+}
+.misura-nota { margin: 4px 2px 0; font-size: 0.72rem; color: var(--testo-tenue); }
+.misurando .legenda { display: none; }

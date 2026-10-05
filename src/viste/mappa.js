@@ -8,6 +8,7 @@ import { dislivello } from '../lib/quote.js';
 import { percorsoSentiero } from '../lib/tracce.js';
 import { aggiungiQuote } from '../lib/openMeteo.js';
 import { aggiungiGps } from './gps.js';
+import { aggiungiMisura } from './misura.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
@@ -73,6 +74,7 @@ export async function vistaMappa(app, id) {
   const livelloAnteprima = L.layerGroup().addTo(mappa);
   let risultati = null; // risultati della ricerca OSM in corso di scelta
   const fermaGps = aggiungiGps(mappa, () => traccia);
+  aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {

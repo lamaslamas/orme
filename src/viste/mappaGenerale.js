@@ -4,6 +4,7 @@ import { filtraSentieri, ordinaSentieri, dividiPerTraccia, unisciGeometrie } fro
 import { escapeHtml, codici } from '../lib/formato.js';
 import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
+import { aggiungiMisura } from './misura.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 
 export const COLORI_STATO = {
@@ -58,6 +59,7 @@ export async function vistaMappaGenerale(app) {
   const legenda = new Legenda().addTo(mappa);
 
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
+  const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
 
   function disegna() {
     const filtrati = ordinaSentieri(filtraSentieri(sentieri, filtri));
@@ -72,9 +74,17 @@ export async function vistaMappaGenerale(app) {
       const linea = disegnaTraccia(traccia.geojson, { color: colore, weight: 4 }).addTo(livello);
       // linea invisibile più larga: più facile da toccare con il dito
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0 }).addTo(livello);
-      area.bindPopup(riquadroSentiero(sentiero));
-      area.on('popupopen', () => linea.setStyle({ weight: 7 }));
-      area.on('popupclose', () => linea.setStyle({ weight: 4 }));
+      // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
+      // così durante la misura il tocco arriva allo strumento di misura
+      area.on('click', (e) => {
+        if (misura.attiva()) return;
+        L.popup()
+          .setLatLng(e.latlng)
+          .setContent(riquadroSentiero(sentiero))
+          .on('add', () => linea.setStyle({ weight: 7 }))
+          .on('remove', () => linea.setStyle({ weight: 4 }))
+          .openOn(mappa);
+      });
       limiti.extend(linea.getBounds());
     }
     if (primaVolta && limiti.isValid()) mappa.fitBounds(limiti, { padding: [24, 24], maxZoom: 14 });

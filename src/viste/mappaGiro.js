@@ -4,6 +4,7 @@ import { calcolaGiro } from '../lib/giro.js';
 import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
+import { aggiungiMisura } from './misura.js';
 import { caricaContesto, htmlMisure } from './giri.js';
 
 // colori ben distinguibili per le tappe, ripetuti se il giro è lungo
@@ -72,6 +73,7 @@ export async function vistaMappaGiro(app, id) {
 
   if (limiti.isValid()) mappa.fitBounds(limiti, { padding: [24, 24] });
   const fermaGps = aggiungiGps(mappa, () => (calcolo.pezzi.length ? { geojson: calcolo.geojson } : null));
+  aggiungiMisura(mappa, () => (calcolo.pezzi.length ? [calcolo.geojson] : []));
   requestAnimationFrame(() => mappa.invalidateSize());
 
   return () => {
