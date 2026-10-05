@@ -263,3 +263,22 @@ body.con-mappa main { max-width: none; padding: 0; }
 .bici-no { border-left-color: #dc2626; }
 .suggerimento { margin-top: 10px; padding: 10px; border: 1px dashed var(--avviso-bordo); border-radius: 8px; background: var(--avviso); }
 .suggerimento .bottone { margin-top: 4px; width: 100%; }
+
+/* --- Mappa generale --- */
+.filtri-mappa summary { cursor: pointer; font-weight: 600; min-height: 32px; display: flex; align-items: center; }
+.filtri-mappa .filtri { margin: 8px 0; }
+.legenda {
+  background: rgba(255, 255, 255, 0.95); padding: 6px 10px; border-radius: 8px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25); font-size: 0.8rem; line-height: 1.6;
+}
+.legenda .segno { display: inline-block; width: 18px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.popup-sentiero { line-height: 1.5; }
+.popup-sentiero .codice { font-size: 0.75rem; }
+.titolo-sezione { font-size: 1rem; margin: 4px 0 8px; }
+.senza-traccia { list-style: none; margin: 0; padding: 0; }
+.senza-traccia li {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid #f0ece4;
+}
+.senza-traccia li a { white-space: nowrap; font-size: 0.9rem; }
+.menu a + a { margin-left: 14px; }

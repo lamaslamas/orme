@@ -5,6 +5,7 @@ import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
 import { vistaMappa } from './viste/mappa.js';
 import { vistaBackup } from './viste/backup.js';
+import { vistaMappaGenerale } from './viste/mappaGenerale.js';
 import { escapeHtml } from './lib/formato.js';
 
 const app = document.getElementById('app');
@@ -17,6 +18,7 @@ const percorsi = [
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
   [/^\/nuovo\/?$/, (app) => vistaModifica(app, null)],
   [/^\/backup\/?$/, vistaBackup],
+  [/^\/mappa\/?$/, vistaMappaGenerale],
 ];
 
 let pulisciVistaPrecedente = null;

@@ -69,3 +69,24 @@ describe('filtro bici', () => {
     expect(ids(filtraSentieri(dati, f({ bici: 'da_verificare' })))).toEqual(['c']);
   });
 });
+
+import { dividiPerTraccia, unisciGeometrie } from '../src/lib/filtri.js';
+
+describe('mappa generale', () => {
+  const linea = (x) => ({ type: 'MultiLineString', coordinates: [[[x, 41], [x + 0.01, 41]]] });
+  const tracce = new Map([
+    ['a', { sentieroId: 'a', geojson: linea(13.8) }],
+    ['b', { sentieroId: 'b', geojson: { type: 'MultiLineString', coordinates: [] } }],
+  ]);
+
+  it('separa i sentieri con e senza traccia', () => {
+    const { conTraccia, senzaTraccia } = dividiPerTraccia([{ id: 'a' }, { id: 'b' }, { id: 'c' }], tracce);
+    expect(conTraccia.map((x) => x.sentiero.id)).toEqual(['a']);
+    expect(senzaTraccia.map((s) => s.id)).toEqual(['b', 'c']);
+  });
+
+  it('unisce le geometrie di più tracce', () => {
+    const u = unisciGeometrie([{ geojson: linea(13.8) }, { geojson: linea(13.9) }, {}]);
+    expect(u.coordinates).toHaveLength(2);
+  });
+});

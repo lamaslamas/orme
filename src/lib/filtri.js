@@ -46,3 +46,20 @@ export function ordinaSentieri(sentieri) {
     return (a.nome ?? '').localeCompare(b.nome ?? '', 'it');
   });
 }
+
+// Per la mappa generale: separa i sentieri filtrati con e senza traccia salvata
+export function dividiPerTraccia(sentieri, tracce) {
+  const conTraccia = [];
+  const senzaTraccia = [];
+  for (const s of sentieri) {
+    const t = tracce.get(s.id);
+    if (t?.geojson?.coordinates?.length) conTraccia.push({ sentiero: s, traccia: t });
+    else senzaTraccia.push(s);
+  }
+  return { conTraccia, senzaTraccia };
+}
+
+// Unisce più tracce in un'unica geometria (es. per la distanza GPS dalla più vicina)
+export function unisciGeometrie(tracce) {
+  return { type: 'MultiLineString', coordinates: tracce.flatMap((t) => t.geojson?.coordinates ?? []) };
+}

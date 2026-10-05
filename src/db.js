@@ -116,6 +116,10 @@ export async function eliminaTraccia(sentieroId) {
   await fine(tx);
 }
 
+export async function tutteLeTracce() {
+  return new Map((await tuttiDa('tracce')).map((t) => [t.sentieroId, t]));
+}
+
 export async function sentieriConTraccia() {
   const db = await apriDb();
   const chiavi = await richiesta(db.transaction('tracce').objectStore('tracce').getAllKeys());
