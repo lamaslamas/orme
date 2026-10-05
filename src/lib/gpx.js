@@ -1,4 +1,5 @@
 // Legge un file GPX e restituisce un MultiLineString GeoJSON.
+// Le coordinate sono [lon, lat] oppure [lon, lat, quota] se il GPX ha le quote.
 // Usa le tracce (trk); se non ci sono, usa le rotte (rte).
 export function leggiGpx(testo) {
   const doc = new DOMParser().parseFromString(testo, 'application/xml');
@@ -12,9 +13,13 @@ export function leggiGpx(testo) {
   const punto = (el) => {
     const lat = Number(el.getAttribute('lat'));
     const lon = Number(el.getAttribute('lon'));
-    return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180
-      ? [round(lon), round(lat)]
-      : null;
+    if (!(Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return null;
+    // la quota (ele) è facoltativa
+    const eleEl = [...el.children].find((c) => c.localName === 'ele');
+    const ele = eleEl ? Number(eleEl.textContent) : NaN;
+    return Number.isFinite(ele) && eleEl.textContent.trim() !== ''
+      ? [round(lon), round(lat), Math.round(ele * 10) / 10]
+      : [round(lon), round(lat)];
   };
   // Cerca per nome locale, qualunque sia il namespace del GPX
   const figli = (radice, nome) => [...radice.getElementsByTagName('*')].filter((el) => el.localName === nome);

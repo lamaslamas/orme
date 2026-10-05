@@ -4,6 +4,9 @@ import { leggiSentiero, leggiTraccia, salvaTraccia, eliminaTraccia } from '../db
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
+import { dislivello } from '../lib/quote.js';
+import { percorsoSentiero } from '../lib/tracce.js';
+import { aggiungiQuote } from '../lib/openMeteo.js';
 import { aggiungiGps } from './gps.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
@@ -86,8 +89,15 @@ export async function vistaMappa(app, id) {
     if (inquadra) mappa.fitBounds(linea.getBounds(), { padding: [24, 24] });
   }
 
+  function dislivelloTraccia() {
+    return dislivello(percorsoSentiero(traccia.geojson).pezzi);
+  }
+
   function descriviTraccia() {
-    const lunghezza = km(lunghezzaKm(traccia.geojson).toFixed(1));
+    const d = dislivelloTraccia();
+    const lunghezza =
+      km(lunghezzaKm(traccia.geojson).toFixed(1)) +
+      (d ? `, dislivello +${d.salita} m / −${d.discesa} m${traccia.dettagli?.quote === 'open-meteo' ? ' stimato da Open-Meteo' : ''}` : '');
     if (traccia.origine === 'osm') {
       const rel = traccia.dettagli?.relazioniOsm ?? [];
       const link = rel
@@ -113,8 +123,14 @@ export async function vistaMappa(app, id) {
             : ''
         }
         <button class="bottone ${traccia || haCodici ? '' : 'primario'}" data-azione="gpx">Importa file GPX</button>
+        ${traccia && !dislivelloTraccia() ? '<button class="bottone" data-azione="quote">Aggiungi le quote</button>' : ''}
         ${traccia ? '<button class="bottone pericolo" data-azione="elimina">Elimina traccia</button>' : ''}
       </div>
+      ${
+        traccia && !dislivelloTraccia()
+          ? '<p class="tenue">La traccia non ha le quote. "Aggiungi le quote" le chiede al servizio gratuito Open-Meteo (modello del terreno, precisione circa 90 m): vengono inviate solo le coordinate del sentiero.</p>'
+          : ''
+      }
       ${haCodici ? '' : '<p class="tenue">Senza codice ufficiale non è possibile cercare su OpenStreetMap: importa un GPX.</p>'}
     `;
   }
@@ -206,6 +222,17 @@ export async function vistaMappa(app, id) {
     );
   }
 
+  async function aggiungiQuoteTraccia() {
+    pannello.innerHTML = '<p class="messaggio">Chiedo le quote a Open-Meteo…</p>';
+    try {
+      const geojson = await aggiungiQuote(traccia.geojson);
+      traccia = await salvaTraccia({ ...traccia, geojson, dettagli: { ...traccia.dettagli, quote: 'open-meteo' } });
+      pannelloBase('Quote aggiunte alla traccia.');
+    } catch (e) {
+      pannelloBase(`<span class="errore">${escapeHtml(e.message)}</span>`);
+    }
+  }
+
   async function importaGpx(file) {
     try {
       const { geojson } = leggiGpx(await file.text());
@@ -228,6 +255,7 @@ export async function vistaMappa(app, id) {
     if (azione === 'osm') cercaOsm();
     if (azione === 'gpx') fileGpx.click();
     if (azione === 'annulla') pannelloBase();
+    if (azione === 'quote') aggiungiQuoteTraccia();
     if (azione === 'salva-osm') salvaOsm();
     if (azione === 'elimina' && confirm('Eliminare la traccia salvata?')) {
       await eliminaTraccia(id);

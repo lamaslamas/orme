@@ -99,3 +99,36 @@ describe('aggiornamento dalla versione 1', () => {
     expect(tutti.every((s) => s.bici.consentita === 'da_verificare')).toBe(true);
   });
 });
+
+describe('giri', () => {
+  it('salva, legge ed elimina un giro', async () => {
+    await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [{ sentieroId: 'a' }, { sentieroId: 'b', alContrario: true }] });
+    const g = await db.leggiGiro('g1');
+    expect(g.tappe[1].alContrario).toBe(true);
+    expect(g.stato).toBe('da_fare');
+    expect(await db.tuttiIGiri()).toHaveLength(1);
+    await db.eliminaGiro('g1');
+    expect(await db.leggiGiro('g1')).toBeUndefined();
+  });
+
+  it('eliminare un sentiero non elimina i giri che lo contengono', async () => {
+    await db.salvaSentiero({ id: 'a', nome: 'A' });
+    await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [{ sentieroId: 'a' }, { sentieroId: 'b' }] });
+    await db.eliminaSentiero('a');
+    expect((await db.leggiGiro('g1')).tappe).toHaveLength(2);
+  });
+
+  it('il backup include i giri e accetta backup vecchi senza giri', async () => {
+    await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [] });
+    const backup = JSON.parse(JSON.stringify(await db.esporta()));
+    expect(backup.versione).toBe(2);
+    expect(backup.giri).toHaveLength(1);
+
+    await db.importa({ app: 'orme', versione: 1, sentieri: [], tracce: [] }, 'sostituisci');
+    expect(await db.tuttiIGiri()).toHaveLength(0);
+    const n = await db.importa(backup, 'unisci');
+    expect(n.giri).toBe(1);
+    expect(await db.leggiGiro('g1')).toBeTruthy();
+    await expect(db.importa({ ...backup, giri: [{ nome: 'senza id' }] })).rejects.toThrow('giro non valido');
+  });
+});

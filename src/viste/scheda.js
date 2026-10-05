@@ -1,4 +1,5 @@
-import { leggiSentiero, salvaSentiero, leggiTraccia } from '../db.js';
+import { leggiSentiero, salvaSentiero, leggiTraccia, tuttiIGiri } from '../db.js';
+import { giriConSentiero } from '../lib/giro.js';
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA } from '../lib/costanti.js';
 import { escapeHtml, codici, durata, km } from '../lib/formato.js';
 import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
@@ -62,7 +63,7 @@ export function linkSicuro(url) {
 }
 
 export async function vistaScheda(app, id) {
-  const [s, traccia] = await Promise.all([leggiSentiero(id), leggiTraccia(id)]);
+  const [s, traccia, giri] = await Promise.all([leggiSentiero(id), leggiTraccia(id), tuttiIGiri()]);
   if (!s) {
     app.innerHTML = '<p class="vuoto">Sentiero non trovato. <a href="#/">Torna alla lista</a></p>';
     return;
@@ -134,6 +135,18 @@ export async function vistaScheda(app, id) {
             </section>`
           : ''
       }
+
+      ${(() => {
+        const suoi = giriConSentiero(giri, s.id);
+        return suoi.length
+          ? `<section class="riquadro">
+              <h2>Fa parte di ${suoi.length === 1 ? 'un giro' : `${suoi.length} giri`}</h2>
+              <ul class="elenco-link">${suoi
+                .map((g) => `<li><a href="#/giro/${encodeURIComponent(g.id)}">${escapeHtml(g.nome)}</a>${g.stato === 'fatto' ? ' <span class="chip chip-fatto">Fatto</span>' : ''}</li>`)
+                .join('')}</ul>
+            </section>`
+          : '';
+      })()}
 
       <section class="riquadro">
         <h2>Il mio diario</h2>

@@ -1,15 +1,19 @@
 // Archivio locale su IndexedDB.
 // - sentieri: un elemento per sentiero (chiave: id)
 // - tracce:   la traccia GeoJSON di un sentiero (chiave: sentieroId)
+// - giri:     giri combinati di più sentieri (chiave: id)
 // - meta:     informazioni interne (es. dati iniziali già caricati)
 import { DATI_INIZIALI } from './datiIniziali.js';
 import { completaSentiero } from './lib/sentiero.js';
+import { completaGiro } from './lib/giro.js';
 
 const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
 // 2: aggiunto il campo "bici" ai sentieri già salvati
-const VERSIONE_DB = 2;
-export const VERSIONE_BACKUP = 1;
+// 3: aggiunto l'archivio "giri"
+const VERSIONE_DB = 3;
+// backup 1: sentieri e tracce; 2: anche i giri
+export const VERSIONE_BACKUP = 2;
 
 let promessaDb = null;
 
@@ -37,6 +41,7 @@ export function apriDb() {
       if (!db.objectStoreNames.contains('sentieri')) db.createObjectStore('sentieri', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('tracce')) db.createObjectStore('tracce', { keyPath: 'sentieroId' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'chiave' });
+      if (!db.objectStoreNames.contains('giri')) db.createObjectStore('giri', { keyPath: 'id' });
       if (evento.oldVersion >= 1 && evento.oldVersion < 2) {
         // Aggiunge la bici "da verificare" solo dove manca, senza toccare il resto
         const cursore = req.transaction.objectStore('sentieri').openCursor();
@@ -126,6 +131,27 @@ export async function sentieriConTraccia() {
   return new Set(chiavi);
 }
 
+// --- Giri ---
+
+export const tuttiIGiri = async () => (await tuttiDa('giri')).map(completaGiro);
+
+export async function leggiGiro(id) {
+  const g = await leggiDa('giri', id);
+  return g && completaGiro(g);
+}
+
+export function salvaGiro(giro) {
+  const adesso = new Date().toISOString();
+  return scriviIn('giri', completaGiro({ ...giro, creato: giro.creato ?? adesso, modificato: adesso }));
+}
+
+export async function eliminaGiro(id) {
+  const db = await apriDb();
+  const tx = db.transaction('giri', 'readwrite');
+  tx.objectStore('giri').delete(id);
+  await fine(tx);
+}
+
 // --- Dati iniziali ---
 
 // Carica i sentieri di partenza solo la prima volta che l'app viene aperta
@@ -151,6 +177,7 @@ export async function esporta() {
     esportato: new Date().toISOString(),
     sentieri: await tuttiISentieri(),
     tracce: await tuttiDa('tracce'),
+    giri: await tuttiIGiri(),
   };
 }
 
@@ -169,6 +196,13 @@ export function controllaBackup(dati) {
   for (const t of dati.tracce) {
     if (!t || typeof t.sentieroId !== 'string') throw new Error('Nel backup c’è una traccia senza sentiero.');
   }
+  // i backup della versione 1 non hanno i giri
+  if (dati.giri != null && !Array.isArray(dati.giri)) throw new Error('Nel backup i giri non sono validi.');
+  for (const g of dati.giri ?? []) {
+    if (!g || typeof g.id !== 'string' || !g.id || !Array.isArray(g.tappe)) {
+      throw new Error('Nel backup c’è un giro non valido.');
+    }
+  }
 }
 
 // modo "sostituisci": cancella tutto e carica il backup
@@ -176,17 +210,20 @@ export function controllaBackup(dati) {
 export async function importa(dati, modo = 'unisci') {
   controllaBackup(dati);
   const db = await apriDb();
-  const tx = db.transaction(['sentieri', 'tracce', 'meta'], 'readwrite');
+  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'meta'], 'readwrite');
   const sentieri = tx.objectStore('sentieri');
   const tracce = tx.objectStore('tracce');
+  const giri = tx.objectStore('giri');
   if (modo === 'sostituisci') {
     sentieri.clear();
     tracce.clear();
+    giri.clear();
   }
   for (const s of dati.sentieri) sentieri.put(completaSentiero(s));
   for (const t of dati.tracce) tracce.put(t);
+  for (const g of dati.giri ?? []) giri.put(completaGiro(g));
   // dopo un import i dati iniziali non vanno ricaricati
   tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: new Date().toISOString() });
   await fine(tx);
-  return { sentieri: dati.sentieri.length, tracce: dati.tracce.length };
+  return { sentieri: dati.sentieri.length, tracce: dati.tracce.length, giri: dati.giri?.length ?? 0 };
 }

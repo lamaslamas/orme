@@ -282,3 +282,36 @@ body.con-mappa main { max-width: none; padding: 0; }
 }
 .senza-traccia li a { white-space: nowrap; font-size: 0.9rem; }
 .menu a + a { margin-left: 14px; }
+
+/* --- Giri --- */
+.tappe { margin: 0; padding-left: 22px; }
+.tappe li { padding: 4px 0; }
+.legenda-tappe { list-style: none; padding: 0; margin-bottom: 12px; }
+.legenda-tappe li { counter-increment: tappa; }
+.legenda-tappe li::before { content: counter(tappa) '. '; font-weight: 700; }
+.segno { display: inline-block; width: 18px; height: 5px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.editor-tappe { margin: 0; padding-left: 22px; }
+.editor-tappe li { padding: 8px 0; border-bottom: 1px solid #f0ece4; }
+.etichetta-tappa { display: block; font-weight: 600; }
+.comandi-tappa { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.comandi-tappa .scelta { margin-right: auto; min-height: 36px; font-size: 0.9rem; }
+.mini {
+  min-width: 40px; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px;
+  background: #fff; font-size: 1rem; cursor: pointer;
+}
+.mini.pericolo { color: #a12a1a; }
+.mini:disabled { opacity: 0.35; }
+.aggiungi-tappa { display: flex; gap: 8px; margin-top: 10px; }
+.aggiungi-tappa select { flex: 1; min-width: 0; }
+.avvisi { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: #fff4ed; border: 1px solid #f3c2a5; }
+.avvisi ul { margin: 4px 0 0; padding-left: 18px; }
+.spiegazione { margin-top: 8px; font-size: 0.9rem; }
+.spiegazione summary { cursor: pointer; color: var(--verde); }
+.spiegazione p { margin-top: 6px; color: var(--testo-tenue); }
+.elenco-link { margin: 0; padding-left: 18px; }
+.elenco-link li { padding: 3px 0; }
+.numero-tappa span {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  color: #fff; font-weight: 700; font-size: 0.8rem; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.etichetta-salto { font-size: 0.75rem; }

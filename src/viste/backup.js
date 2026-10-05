@@ -1,4 +1,4 @@
-import { esporta, importa, controllaBackup, tuttiISentieri, sentieriConTraccia } from '../db.js';
+import { esporta, importa, controllaBackup, tuttiISentieri, sentieriConTraccia, tuttiIGiri } from '../db.js';
 import { escapeHtml, data } from '../lib/formato.js';
 
 function nomeFile() {
@@ -13,7 +13,7 @@ async function statoArchivio() {
 }
 
 export async function vistaBackup(app) {
-  const [sentieri, tracce, archivio] = await Promise.all([tuttiISentieri(), sentieriConTraccia(), statoArchivio()]);
+  const [sentieri, tracce, giri, archivio] = await Promise.all([tuttiISentieri(), sentieriConTraccia(), tuttiIGiri(), statoArchivio()]);
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Tutti i sentieri</a>
@@ -21,7 +21,7 @@ export async function vistaBackup(app) {
 
     <section class="riquadro">
       <h2>Dati sul dispositivo</h2>
-      <p>${sentieri.length} sentieri, ${tracce.size} tracce salvate.</p>
+      <p>${sentieri.length} sentieri, ${tracce.size} tracce, ${giri.length} giri salvati.</p>
       <p>Archivio: <b id="statoArchivio">${archivio}</b>
         ${archivio === 'non protetto' ? '<button type="button" class="link" id="proteggi">Proteggi</button>' : ''}</p>
       <p class="tenue">Un archivio non protetto può essere svuotato dal browser se il telefono ha poco spazio. Installare Orme come app aiuta. In ogni caso, fai spesso un backup.</p>
@@ -29,7 +29,7 @@ export async function vistaBackup(app) {
 
     <section class="riquadro">
       <h2>Esporta</h2>
-      <p>Salva un file JSON con tutti i sentieri, le note e le tracce.</p>
+      <p>Salva un file JSON con tutti i sentieri, le note, le tracce e i giri.</p>
       <div class="azioni-mappa">
         <button type="button" class="bottone primario" id="esporta">Scarica backup</button>
         <button type="button" class="bottone" id="condividi" hidden>Condividi…</button>
@@ -111,7 +111,7 @@ export async function vistaBackup(app) {
     }
     anteprima.innerHTML = `
       <p style="margin-top:12px"><b>${escapeHtml(file.name)}</b><br />
-        ${dati.sentieri.length} sentieri, ${dati.tracce.length} tracce${dati.esportato ? ` · creato il ${data(dati.esportato)}` : ''}</p>
+        ${dati.sentieri.length} sentieri, ${dati.tracce.length} tracce, ${dati.giri?.length ?? 0} giri${dati.esportato ? ` · creato il ${data(dati.esportato)}` : ''}</p>
       <div class="azioni-mappa">
         <button type="button" class="bottone primario" data-modo="unisci">Unisci ai miei dati</button>
         <button type="button" class="bottone pericolo" data-modo="sostituisci">Sostituisci tutto</button>
@@ -125,7 +125,7 @@ export async function vistaBackup(app) {
       try {
         const n = await importa(dati, modo);
         anteprima.innerHTML = '';
-        mostraEsito(`Importati ${n.sentieri} sentieri e ${n.tracce} tracce. <a href="#/">Vai alla lista</a>`);
+        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce e ${n.giri} giri. <a href="#/">Vai alla lista</a>`);
       } catch (e) {
         mostraEsito(escapeHtml(e.message), true);
       }

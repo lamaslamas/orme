@@ -6,6 +6,9 @@ import { vistaModifica } from './viste/modifica.js';
 import { vistaMappa } from './viste/mappa.js';
 import { vistaBackup } from './viste/backup.js';
 import { vistaMappaGenerale } from './viste/mappaGenerale.js';
+import { vistaGiri, vistaGiro } from './viste/giri.js';
+import { vistaModificaGiro } from './viste/modificaGiro.js';
+import { vistaMappaGiro } from './viste/mappaGiro.js';
 import { escapeHtml } from './lib/formato.js';
 
 const app = document.getElementById('app');
@@ -19,6 +22,11 @@ const percorsi = [
   [/^\/nuovo\/?$/, (app) => vistaModifica(app, null)],
   [/^\/backup\/?$/, vistaBackup],
   [/^\/mappa\/?$/, vistaMappaGenerale],
+  [/^\/giri\/?$/, vistaGiri],
+  [/^\/giro-nuovo\/?$/, (app) => vistaModificaGiro(app, null)],
+  [/^\/giro\/([^/]+)\/?$/, vistaGiro],
+  [/^\/giro\/([^/]+)\/modifica\/?$/, vistaModificaGiro],
+  [/^\/giro\/([^/]+)\/mappa\/?$/, vistaMappaGiro],
 ];
 
 let pulisciVistaPrecedente = null;

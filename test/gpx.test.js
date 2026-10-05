@@ -30,7 +30,9 @@ describe('file GPX', () => {
     expect(nome).toBe('Val Fondillo');
     expect(geojson.coordinates).toHaveLength(2);
     expect(geojson.coordinates[1]).toHaveLength(2);
-    expect(geojson.coordinates[0][0]).toEqual([13.85, 41.76]);
+    expect(geojson.coordinates[0][0]).toEqual([13.85, 41.76, 1100]);
+    // i punti senza <ele> restano senza quota
+    expect(geojson.coordinates[1][0]).toEqual([13.855, 41.765]);
   });
 
   it('usa le rotte se non ci sono tracce', () => {
