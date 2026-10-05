@@ -1,0 +1,19 @@
+import { LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB } from './costanti.js';
+
+export function biciPredefinita() {
+  return { consentita: 'da_verificare', nota: '', link: LINK_PARCO, pedalabilita: null, scalaMtb: null };
+}
+
+// Completa un sentiero con i campi aggiunti nelle versioni successive dell'app.
+// Non modifica i valori già presenti (se validi): serve per l'archivio e per i backup vecchi.
+export function completaSentiero(s) {
+  const bici = { ...biciPredefinita(), ...(s.bici ?? {}) };
+  if (!Object.hasOwn(BICI_CONSENTITA, bici.consentita)) bici.consentita = 'da_verificare';
+  if (!Object.hasOwn(PEDALABILITA, bici.pedalabilita ?? '')) bici.pedalabilita = null;
+  if (!SCALE_MTB.includes(bici.scalaMtb)) bici.scalaMtb = null;
+  if (bici.consentita === 'no') {
+    bici.pedalabilita = null;
+    bici.scalaMtb = null;
+  }
+  return { ...s, bici };
+}

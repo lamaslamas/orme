@@ -1,5 +1,5 @@
 import { tuttiISentieri, sentieriConTraccia } from '../db.js';
-import { ANIMALI, STATI, ACCESSI } from '../lib/costanti.js';
+import { ANIMALI, STATI, ACCESSI, BICI_CONSENTITA } from '../lib/costanti.js';
 import { FILTRI_VUOTI, filtraSentieri, paesiDiPartenza, ordinaSentieri } from '../lib/filtri.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
@@ -30,6 +30,13 @@ function opzioni(voci, selezionato, etichettaTutti) {
   return righe.join('');
 }
 
+const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
+
+export function bollinoBici(s) {
+  const c = s.bici?.consentita || 'da_verificare';
+  return `<span class="chip chip-bici-${c}" title="Bici: ${BICI_CONSENTITA[c]}">${BOLLINO_BICI[c]}</span>`;
+}
+
 export function schedaInLista(s, haTraccia) {
   const dati = [s.zona, s.partenza?.paese && `da ${s.partenza.paese}`, km(s.lunghezzaKm)]
     .filter(Boolean)
@@ -50,6 +57,7 @@ export function schedaInLista(s, haTraccia) {
         <div class="chips">
           ${animali}
           ${tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${ACCESSI[tipo]}</span>` : ''}
+          ${bollinoBici(s)}
           ${s.stato === 'fatto' ? '<span class="chip chip-fatto">Fatto</span>' : ''}
           ${haTraccia ? '<span class="chip chip-traccia">Traccia</span>' : ''}
           ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
@@ -71,6 +79,11 @@ export async function vistaLista(app) {
       <select name="stato" aria-label="Stato">${opzioni(Object.entries(STATI), filtri.stato, 'Tutti gli stati')}</select>
       <select name="accesso" aria-label="Tipo di accesso">${opzioni(Object.entries(ACCESSI), filtri.accesso, 'Ogni accesso')}</select>
       <select name="paese" aria-label="Paese di partenza">${opzioni(paesi.map((p) => [p, p]), filtri.paese, 'Ogni paese')}</select>
+      <select name="bici" class="intera" aria-label="Bici">${opzioni(
+        [['si', 'Bici consentita'], ['no', 'Bici vietata'], ['da_verificare', 'Bici da verificare']],
+        filtri.bici,
+        'Bici: tutte',
+      )}</select>
     </form>
     <div class="riga-conteggio">
       <span id="conteggio"></span>

@@ -56,3 +56,16 @@ describe('filtri della lista', () => {
     expect(ids(ordinaSentieri(dati))).toEqual(['b', 'a', 'd', 'c']);
   });
 });
+
+describe('filtro bici', () => {
+  const dati = [
+    { id: 'a', bici: { consentita: 'si' } },
+    { id: 'b', bici: { consentita: 'no' } },
+    { id: 'c' },
+  ];
+  it('filtra per consentita, vietata e da verificare (anche se manca il campo)', () => {
+    expect(ids(filtraSentieri(dati, f({ bici: 'si' })))).toEqual(['a']);
+    expect(ids(filtraSentieri(dati, f({ bici: 'no' })))).toEqual(['b']);
+    expect(ids(filtraSentieri(dati, f({ bici: 'da_verificare' })))).toEqual(['c']);
+  });
+});

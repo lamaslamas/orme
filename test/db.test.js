@@ -61,3 +61,41 @@ describe('archivio locale', () => {
     await expect(db.importa(null)).rejects.toThrow();
   });
 });
+
+describe('aggiornamento dalla versione 1', () => {
+  it('aggiunge la bici ai sentieri salvati senza toccare le modifiche', async () => {
+    await new Promise((risolvi, rifiuta) => {
+      const req = indexedDB.open('orme', 1);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        d.createObjectStore('sentieri', { keyPath: 'id' }).put({ id: 'mio', nome: 'Mio', notePersonali: 'note mie', stato: 'fatto' });
+        d.createObjectStore('tracce', { keyPath: 'sentieroId' });
+        d.createObjectStore('meta', { keyPath: 'chiave' }).put({ chiave: 'datiIniziali', caricati: 'ieri' });
+      };
+      req.onsuccess = () => {
+        req.result.close();
+        risolvi();
+      };
+      req.onerror = () => rifiuta(req.error);
+    });
+
+    const s = await db.leggiSentiero('mio');
+    expect(s.bici.consentita).toBe('da_verificare');
+    expect(s.notePersonali).toBe('note mie');
+    expect(s.stato).toBe('fatto');
+    expect(await db.caricaDatiIniziali()).toBe(false);
+  });
+
+  it('importa un backup vecchio senza il campo bici', async () => {
+    await db.importa({ app: 'orme', versione: 1, sentieri: [{ id: 'a', nome: 'A' }], tracce: [] }, 'sostituisci');
+    expect((await db.leggiSentiero('a')).bici.consentita).toBe('da_verificare');
+    const backup = await db.esporta();
+    expect(backup.sentieri[0].bici).toBeTruthy();
+  });
+
+  it('i dati iniziali hanno tutti la bici da verificare', async () => {
+    await db.caricaDatiIniziali();
+    const tutti = await db.tuttiISentieri();
+    expect(tutti.every((s) => s.bici.consentita === 'da_verificare')).toBe(true);
+  });
+});

@@ -67,3 +67,43 @@ describe('ricerca su OpenStreetMap', () => {
     await expect(interrogaOverpass('q', { server: ['a'], fetchFn })).rejects.toThrow('OpenStreetMap non risponde');
   });
 });
+
+describe('tag bici dei tratti', () => {
+  it('la query chiede anche i tag delle way', () => {
+    expect(costruisciQuery(['F10'])).toContain('way(r);\nout tags;');
+  });
+
+  it('riassume i tag bici per ogni sentiero e li unisce nella traccia', () => {
+    const json = {
+      elements: [
+        {
+          type: 'relation', id: 1, tags: { ref: 'B4' },
+          members: [
+            { type: 'way', ref: 10, geometry: [{ lat: 41.8, lon: 13.7 }, { lat: 41.81, lon: 13.71 }] },
+            { type: 'way', ref: 11, geometry: [{ lat: 41.81, lon: 13.71 }, { lat: 41.82, lon: 13.72 }] },
+          ],
+        },
+        {
+          type: 'relation', id: 2, tags: { ref: 'B5' },
+          members: [{ type: 'way', ref: 12, geometry: [{ lat: 41.82, lon: 13.72 }, { lat: 41.83, lon: 13.73 }] }],
+        },
+        { type: 'way', id: 10, tags: { bicycle: 'no', 'mtb:scale': '2' } },
+        { type: 'way', id: 11, tags: { highway: 'path' } },
+        { type: 'way', id: 12, tags: { bicycle: 'yes', 'mtb:scale': '4' } },
+      ],
+    };
+    const [b4, b5] = interpretaRisposta(json);
+    expect(b4.suggerimentoBici.bicycle).toMatchObject({ no: 1, nonIndicato: 1 });
+    expect(b5.suggerimentoBici.mtbScale).toEqual({ min: 4, max: 4 });
+    const traccia = combinaTraccia([b4, b5]);
+    expect(traccia.dettagli.suggerimentoBici.tratti).toBe(3);
+    expect(traccia.dettagli.suggerimentoBici.mtbScale).toEqual({ min: 2, max: 4 });
+  });
+
+  it('senza tag dei tratti non dà suggerimenti', () => {
+    const [c] = interpretaRisposta({
+      elements: [{ type: 'relation', id: 1, tags: { ref: 'X' }, members: [{ type: 'way', ref: 5, geometry: [{ lat: 1, lon: 1 }, { lat: 2, lon: 2 }] }] }],
+    });
+    expect(c.suggerimentoBici).toBeNull();
+  });
+});

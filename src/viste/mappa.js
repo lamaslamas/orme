@@ -5,6 +5,7 @@ import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { aggiungiGps } from './gps.js';
+import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
 const CENTRO_PNALM = [41.79, 13.85];
@@ -150,7 +151,11 @@ export async function vistaMappa(app, id) {
             const tratto = [c.da, c.a].filter(Boolean).map(escapeHtml).join(' → ') || escapeHtml(c.nome) || `relazione ${c.idOsm}`;
             return `<li><label class="scelta">
               <input type="${tipo}" name="scelta-${escapeHtml(codice)}" value="${c.idOsm}" ${i === 0 ? 'checked' : ''} />
-              <span><b>${escapeHtml(codice)}</b> ${tratto} · ${km(lunghezzaKm({ coordinates: c.linee }).toFixed(1))}</span>
+              <span><b>${escapeHtml(codice)}</b> ${tratto} · ${km(lunghezzaKm({ coordinates: c.linee }).toFixed(1))}${
+                haInformazioniBici(c.suggerimentoBici)
+                  ? `<br /><small class="tenue">Bici su OSM: ${escapeHtml(descriviSuggerimento(c.suggerimentoBici))}</small>`
+                  : ''
+              }</span>
             </label></li>`;
           })
           .join('');
@@ -194,7 +199,11 @@ export async function vistaMappa(app, id) {
     }
     traccia = await salvaTraccia({ sentieroId: id, ...combinaTraccia(selezione) });
     mostraTracciaSalvata();
-    pannelloBase('Traccia salvata sul dispositivo.');
+    pannelloBase(
+      haInformazioniBici(traccia.dettagli.suggerimentoBici)
+        ? 'Traccia salvata. Nella scheda trovi un suggerimento sulla bici da confermare.'
+        : 'Traccia salvata sul dispositivo.',
+    );
   }
 
   async function importaGpx(file) {

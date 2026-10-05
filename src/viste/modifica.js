@@ -1,5 +1,6 @@
 import { leggiSentiero, salvaSentiero, eliminaSentiero, tuttiISentieri } from '../db.js';
-import { ANIMALI, ACCESSI, STATI, LINK_PARCO } from '../lib/costanti.js';
+import { ANIMALI, ACCESSI, STATI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB } from '../lib/costanti.js';
+import { completaSentiero } from '../lib/sentiero.js';
 import { paesiDiPartenza } from '../lib/filtri.js';
 import { sentieroDaModulo } from '../lib/modulo.js';
 import { escapeHtml, creaId } from '../lib/formato.js';
@@ -34,7 +35,7 @@ export async function vistaModifica(app, id) {
     app.innerHTML = '<p class="vuoto">Sentiero non trovato. <a href="#/">Torna alla lista</a></p>';
     return;
   }
-  const s = esistente ?? NUOVO;
+  const s = completaSentiero(esistente ?? NUOVO);
   const tutti = await tuttiISentieri();
   const paesi = paesiDiPartenza(tutti);
   const ore = s.durataMin != null ? Math.floor(s.durataMin / 60) : '';
@@ -112,6 +113,32 @@ export async function vistaModifica(app, id) {
       </fieldset>
 
       <fieldset>
+        <legend>Bici / MTB</legend>
+        ${campo(
+          'Consentita dal Parco',
+          `<select name="biciConsentita">${Object.entries(BICI_CONSENTITA)
+            .map(([k, et]) => `<option value="${k}" ${s.bici.consentita === k ? 'selected' : ''}>${et}</option>`)
+            .join('')}</select>`,
+        )}
+        ${campo('Nota sulla bici', `<textarea name="biciNota" rows="2">${v(s.bici.nota)}</textarea>`)}
+        ${campo('Link per la verifica', `<input name="biciLink" type="url" value="${v(s.bici.link)}" placeholder="${LINK_PARCO}" />`)}
+        <div class="due" id="pedalabilita" ${s.bici.consentita === 'no' ? 'hidden' : ''}>
+          ${campo(
+            'Pedalabilità',
+            `<select name="pedalabilita"><option value="">Non indicata</option>${Object.entries(PEDALABILITA)
+              .map(([k, et]) => `<option value="${k}" ${s.bici.pedalabilita === k ? 'selected' : ''}>${et}</option>`)
+              .join('')}</select>`,
+          )}
+          ${campo(
+            'Scala MTB',
+            `<select name="scalaMtb"><option value="">Non indicata</option>${SCALE_MTB.map(
+              (k) => `<option value="${k}" ${s.bici.scalaMtb === k ? 'selected' : ''}>${k}</option>`,
+            ).join('')}</select>`,
+          )}
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>Il mio diario</legend>
         <div class="due">
           ${campo(
@@ -147,6 +174,10 @@ export async function vistaModifica(app, id) {
     errore.hidden = false;
     errore.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+
+  form.elements.biciConsentita.addEventListener('change', () => {
+    app.querySelector('#pedalabilita').hidden = form.elements.biciConsentita.value === 'no';
+  });
 
   form.addEventListener('submit', async (evento) => {
     evento.preventDefault();

@@ -1,4 +1,5 @@
 import { BBOX_PNALM } from './costanti.js';
+import { riassumiTagBici, unisciRiassunti } from './bici.js';
 
 // Confine del PNALM su OpenStreetMap (relazione 8426003 → area 3600000000 + id)
 export const AREA_PNALM = 3608426003;
@@ -15,6 +16,7 @@ function escapeRegex(s) {
 
 // Cerca le relazioni route=hiking con quei codici dentro il confine del Parco.
 // Se il confine non viene trovato, ripiega sul riquadro del Parco.
+// Chiede anche i tag dei singoli tratti (way), dove su OSM stanno bicycle e mtb:scale.
 export function costruisciQuery(codici) {
   const lista = codici.map((c) => escapeRegex(c.trim())).filter(Boolean);
   if (!lista.length) throw new Error('Il sentiero non ha codici da cercare.');
@@ -24,7 +26,9 @@ export function costruisciQuery(codici) {
 area(id:${AREA_PNALM})->.parco;
 rel["route"="hiking"]["ref"~"${ref}",i](area.parco)->.dentro;
 (.dentro;rel["route"="hiking"]["ref"~"${ref}",i](${s},${o},${n},${e})(if:dentro.count(relations)==0););
-out geom;`;
+out geom;
+way(r);
+out tags;`;
 }
 
 export function normalizzaCodice(ref) {
@@ -36,6 +40,10 @@ export function normalizzaCodice(ref) {
 
 // Trasforma la risposta di Overpass in un elenco di candidati
 export function interpretaRisposta(json) {
+  const tagTratti = new Map();
+  for (const el of json?.elements ?? []) {
+    if (el.type === 'way') tagTratti.set(el.id, el.tags ?? {});
+  }
   const candidati = [];
   for (const el of json?.elements ?? []) {
     if (el.type !== 'relation') continue;
@@ -49,6 +57,8 @@ export function interpretaRisposta(json) {
     }
     if (!linee.length) continue;
     const t = el.tags ?? {};
+    const idTratti = [...new Set((el.members ?? []).filter((m) => m.type === 'way').map((m) => m.ref))];
+    const conTag = idTratti.filter((r) => tagTratti.has(r));
     candidati.push({
       idOsm: el.id,
       codice: normalizzaCodice(t.ref),
@@ -56,6 +66,7 @@ export function interpretaRisposta(json) {
       da: t.from ?? '',
       a: t.to ?? '',
       linee,
+      suggerimentoBici: conTag.length ? riassumiTagBici(conTag.map((r) => tagTratti.get(r))) : null,
     });
   }
   return candidati;
@@ -74,7 +85,11 @@ export function combinaTraccia(scelti) {
   return {
     origine: 'osm',
     geojson: { type: 'MultiLineString', coordinates: scelti.flatMap((c) => c.linee) },
-    dettagli: { relazioniOsm: scelti.map((c) => c.idOsm), codici: scelti.map((c) => c.codice) },
+    dettagli: {
+      relazioniOsm: scelti.map((c) => c.idOsm),
+      codici: scelti.map((c) => c.codice),
+      suggerimentoBici: unisciRiassunti(scelti.map((c) => c.suggerimentoBici)),
+    },
   };
 }
 

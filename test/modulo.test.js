@@ -48,3 +48,22 @@ describe('modulo sentiero', () => {
     expect(creaId([], 'Città Sant’Àngelo')).toBe('citta-sant-angelo');
   });
 });
+
+describe('modulo: bici', () => {
+  it('salva consentita, pedalabilità e scala', () => {
+    const s = sentieroDaModulo({ nome: 'X', biciConsentita: 'si', pedalabilita: 'media', scalaMtb: 'S2', biciNota: ' nota ' });
+    expect(s.bici).toMatchObject({ consentita: 'si', pedalabilita: 'media', scalaMtb: 'S2', nota: 'nota' });
+  });
+  it('svuota la pedalabilità se la bici è vietata', () => {
+    const s = sentieroDaModulo({ nome: 'X', biciConsentita: 'no', pedalabilita: 'facile', scalaMtb: 'S1' });
+    expect(s.bici.pedalabilita).toBeNull();
+    expect(s.bici.scalaMtb).toBeNull();
+  });
+  it('usa "da verificare" se manca o non è valida', () => {
+    expect(sentieroDaModulo({ nome: 'X' }).bici.consentita).toBe('da_verificare');
+    expect(sentieroDaModulo({ nome: 'X', biciConsentita: 'boh', scalaMtb: 'S7' }).bici).toMatchObject({
+      consentita: 'da_verificare',
+      scalaMtb: null,
+    });
+  });
+});

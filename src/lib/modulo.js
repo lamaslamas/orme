@@ -1,4 +1,4 @@
-import { ANIMALI, ACCESSI, LINK_PARCO } from './costanti.js';
+import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB } from './costanti.js';
 
 // "F10, b4 + U1" -> ["F10", "B4", "U1"]
 export function leggiCodici(testo) {
@@ -34,6 +34,8 @@ export function sentieroDaModulo(v, precedente = {}) {
 
   const tipo = Object.hasOwn(ACCESSI, v.accessoTipo) ? v.accessoTipo : 'nessuno';
   const stato = v.stato === 'fatto' ? 'fatto' : 'da_fare';
+  const consentita = Object.hasOwn(BICI_CONSENTITA, v.biciConsentita) ? v.biciConsentita : 'da_verificare';
+  const vietata = consentita === 'no';
 
   return {
     ...precedente,
@@ -60,6 +62,13 @@ export function sentieroDaModulo(v, precedente = {}) {
       tipo,
       nota: (v.accessoNota ?? '').trim(),
       link: (v.accessoLink ?? '').trim() || LINK_PARCO,
+    },
+    bici: {
+      consentita,
+      nota: (v.biciNota ?? '').trim(),
+      link: (v.biciLink ?? '').trim() || LINK_PARCO,
+      pedalabilita: !vietata && Object.hasOwn(PEDALABILITA, v.pedalabilita ?? '') ? v.pedalabilita : null,
+      scalaMtb: !vietata && SCALE_MTB.includes(v.scalaMtb) ? v.scalaMtb : null,
     },
     stato,
     dataPercorso: stato === 'fatto' ? v.dataPercorso || null : precedente.dataPercorso ?? null,

@@ -3,9 +3,12 @@
 // - tracce:   la traccia GeoJSON di un sentiero (chiave: sentieroId)
 // - meta:     informazioni interne (es. dati iniziali già caricati)
 import { DATI_INIZIALI } from './datiIniziali.js';
+import { completaSentiero } from './lib/sentiero.js';
 
 const NOME_DB = 'orme';
-const VERSIONE_DB = 1;
+// 1: sentieri, tracce, meta
+// 2: aggiunto il campo "bici" ai sentieri già salvati
+const VERSIONE_DB = 2;
 export const VERSIONE_BACKUP = 1;
 
 let promessaDb = null;
@@ -29,11 +32,21 @@ export function apriDb() {
   if (promessaDb) return promessaDb;
   promessaDb = new Promise((risolvi, rifiuta) => {
     const req = indexedDB.open(NOME_DB, VERSIONE_DB);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (evento) => {
       const db = req.result;
       if (!db.objectStoreNames.contains('sentieri')) db.createObjectStore('sentieri', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('tracce')) db.createObjectStore('tracce', { keyPath: 'sentieroId' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'chiave' });
+      if (evento.oldVersion >= 1 && evento.oldVersion < 2) {
+        // Aggiunge la bici "da verificare" solo dove manca, senza toccare il resto
+        const cursore = req.transaction.objectStore('sentieri').openCursor();
+        cursore.onsuccess = () => {
+          const c = cursore.result;
+          if (!c) return;
+          if (!c.value.bici) c.update(completaSentiero(c.value));
+          c.continue();
+        };
+      }
     };
     req.onsuccess = () => risolvi(req.result);
     req.onerror = () => rifiuta(req.error);
@@ -68,12 +81,16 @@ async function scriviIn(store, valore) {
 
 // --- Sentieri ---
 
-export const tuttiISentieri = () => tuttiDa('sentieri');
-export const leggiSentiero = (id) => leggiDa('sentieri', id);
+export const tuttiISentieri = async () => (await tuttiDa('sentieri')).map(completaSentiero);
+
+export async function leggiSentiero(id) {
+  const s = await leggiDa('sentieri', id);
+  return s && completaSentiero(s);
+}
 
 export function salvaSentiero(sentiero) {
   const adesso = new Date().toISOString();
-  return scriviIn('sentieri', { ...sentiero, creato: sentiero.creato ?? adesso, modificato: adesso });
+  return scriviIn('sentieri', completaSentiero({ ...sentiero, creato: sentiero.creato ?? adesso, modificato: adesso }));
 }
 
 export async function eliminaSentiero(id) {
@@ -114,7 +131,7 @@ export async function caricaDatiIniziali() {
   const tx = db.transaction(['sentieri', 'meta'], 'readwrite');
   const adesso = new Date().toISOString();
   for (const s of DATI_INIZIALI) {
-    tx.objectStore('sentieri').put({ ...s, creato: adesso, modificato: adesso });
+    tx.objectStore('sentieri').put(completaSentiero({ ...s, creato: adesso, modificato: adesso }));
   }
   tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: adesso });
   await fine(tx);
@@ -128,7 +145,7 @@ export async function esporta() {
     app: 'orme',
     versione: VERSIONE_BACKUP,
     esportato: new Date().toISOString(),
-    sentieri: await tuttiDa('sentieri'),
+    sentieri: await tuttiISentieri(),
     tracce: await tuttiDa('tracce'),
   };
 }
@@ -162,7 +179,7 @@ export async function importa(dati, modo = 'unisci') {
     sentieri.clear();
     tracce.clear();
   }
-  for (const s of dati.sentieri) sentieri.put(s);
+  for (const s of dati.sentieri) sentieri.put(completaSentiero(s));
   for (const t of dati.tracce) tracce.put(t);
   // dopo un import i dati iniziali non vanno ricaricati
   tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: new Date().toISOString() });

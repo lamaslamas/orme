@@ -1,10 +1,50 @@
 import { leggiSentiero, salvaSentiero, leggiTraccia } from '../db.js';
-import { ANIMALI, ACCESSI, LINK_PARCO } from '../lib/costanti.js';
+import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA } from '../lib/costanti.js';
 import { escapeHtml, codici, durata, km } from '../lib/formato.js';
+import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
+import { bollinoBici } from './lista.js';
 
 function riga(etichetta, valore) {
   if (valore == null || valore === '') return '';
   return `<div class="riga"><dt>${etichetta}</dt><dd>${valore}</dd></div>`;
+}
+
+function riquadroBici(s, traccia) {
+  const b = s.bici;
+  const link = linkSicuro(b.link) ?? LINK_PARCO;
+  const suggerimento = traccia?.dettagli?.suggerimentoBici;
+  const proposti = valoriSuggeriti(suggerimento);
+  const daApplicare = Object.entries(proposti).filter(([k, v]) => b[k] !== v);
+  const etichette = { consentita: (v) => BICI_CONSENTITA[v], scalaMtb: (v) => `scala ${v}` };
+  return `
+    <section class="riquadro bici bici-${b.consentita}">
+      <h2>Bici / MTB: ${BICI_CONSENTITA[b.consentita]}</h2>
+      ${b.nota ? `<p>${escapeHtml(b.nota)}</p>` : ''}
+      ${
+        b.consentita !== 'no' && (b.pedalabilita || b.scalaMtb)
+          ? `<dl>
+              ${riga('Pedalabilità', b.pedalabilita ? PEDALABILITA[b.pedalabilita] : '')}
+              ${riga('Scala MTB', escapeHtml(b.scalaMtb ?? ''))}
+            </dl>`
+          : ''
+      }
+      <a href="${escapeHtml(link)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
+      ${
+        haInformazioniBici(suggerimento)
+          ? `<div class="suggerimento">
+              <p><b>Suggerimento da OpenStreetMap:</b> ${escapeHtml(descriviSuggerimento(suggerimento))}.</p>
+              <p class="tenue">I tag di OpenStreetMap non sono il regolamento del Parco: conferma solo dopo aver verificato.</p>
+              ${
+                daApplicare.length
+                  ? `<button type="button" class="bottone" id="usaSuggerimento">Usa questi valori (${daApplicare
+                      .map(([k, v]) => etichette[k](v))
+                      .join(', ')})</button>`
+                  : ''
+              }
+            </div>`
+          : ''
+      }
+    </section>`;
 }
 
 function oggi() {
@@ -46,6 +86,7 @@ export async function vistaScheda(app, id) {
       ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
       <div class="chips">
         ${(s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('')}
+        ${bollinoBici(s)}
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
       ${s.descrizione ? `<p class="descrizione">${escapeHtml(s.descrizione)}</p>` : ''}
@@ -62,6 +103,8 @@ export async function vistaScheda(app, id) {
         ${s.accesso?.nota ? `<p>${escapeHtml(s.accesso.nota)}</p>` : ''}
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
+
+      ${riquadroBici(s, traccia)}
 
       <section class="riquadro">
         <h2>Percorso</h2>
@@ -118,6 +161,12 @@ export async function vistaScheda(app, id) {
     clearTimeout(salva.timer);
     salva.timer = setTimeout(() => (avviso.hidden = true), 1500);
   }
+
+  app.querySelector('#usaSuggerimento')?.addEventListener('click', async () => {
+    const proposti = valoriSuggeriti(traccia.dettagli.suggerimentoBici);
+    await salvaSentiero({ ...attuale, bici: { ...attuale.bici, ...proposti } });
+    vistaScheda(app, id);
+  });
 
   casella.addEventListener('change', () => {
     if (casella.checked) {
