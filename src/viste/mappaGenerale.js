@@ -1,6 +1,8 @@
 import L from 'leaflet';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
-import { filtraSentieri, ordinaSentieri, dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
+import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
+import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
+import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { escapeHtml, codici } from '../lib/formato.js';
 import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
@@ -49,6 +51,7 @@ export async function vistaMappaGenerale(app) {
   document.body.classList.add('con-mappa');
   app.innerHTML = `
     <div class="mappa-barra">
+      ${htmlSelettoreAttivita({ titolo: false })}
       ${htmlFiltri(sentieri, filtri)}
       <div class="riassunto-mappa" id="riassuntoFiltri"></div>
       <p class="avviso-vuoto" id="nessunRisultato" hidden>Nessun percorso con traccia corrisponde ai filtri.
@@ -111,8 +114,9 @@ export async function vistaMappaGenerale(app) {
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
   const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
 
+  const preparati = preparaPercorsi(sentieri, tracce);
   function disegna() {
-    const filtrati = ordinaSentieri(filtraSentieri(sentieri, filtri));
+    const filtrati = filtraPercorsi(preparati, filtri, stato.leggi().attivita).map((p) => p.sentiero);
     const { conTraccia, senzaTraccia } = dividiPerTraccia(filtrati, tracce);
     visibili = conTraccia.map((x) => x.traccia);
 
@@ -120,7 +124,7 @@ export async function vistaMappaGenerale(app) {
     selezione.clearLayers();
     mappa.closePopup();
     // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
-    const ricerca = filtriAttivi(filtri) > 0;
+    const ricerca = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
     mappa.attenuaSentieri(ricerca && conTraccia.length > 0);
     const limiti = L.latLngBounds([]);
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
@@ -187,6 +191,7 @@ export async function vistaMappaGenerale(app) {
   }
 
   const controlli = collegaFiltri(app.querySelector('.filtri'), sentieri, filtri, disegna);
+  const scollegaAttivita = collegaSelettoreAttivita(app);
   app.querySelector('#nessunRisultato').addEventListener('click', (e) => {
     if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
   });
@@ -196,6 +201,7 @@ export async function vistaMappaGenerale(app) {
     fermaGps();
     heat.rimuovi();
     controlli.scollega();
+    scollegaAttivita();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

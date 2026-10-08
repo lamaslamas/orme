@@ -5,6 +5,7 @@ import { FILTRI_VUOTI, paesiDiPartenza } from '../lib/filtri.js';
 import { escapeHtml } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { stato } from '../stato.js';
+import { INTERVALLI } from '../lib/motore.js';
 
 // I filtri vivono nello stato condiviso: parco e animale sono gli stessi della
 // heatmap e restano scelti passando da una sezione all'altra.
@@ -25,12 +26,15 @@ function vociAnimali(idParco) {
   return Object.entries(ANIMALI).filter(([k]) => ammessi.has(k));
 }
 
-function definizioni(sentieri, parcoFisso) {
+function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
+  const inBici = attivita !== 'trekking';
   return [
     ...(parcoFisso
       ? []
       : [{ chiave: 'parco', titolo: 'Parco', voci: PARCHI.map((p) => [p.id, p.nomeBreve]) }]),
     { chiave: 'animale', titolo: 'Animale', voci: vociAnimali(parcoFisso) },
+    ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['si', 'Solo percorribili in bici']], breve: () => 'Solo percorribili' }] : []),
+    ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),
     { chiave: 'stato', titolo: 'Stato', voci: Object.entries(STATI) },
     {
       chiave: 'difficolta',
@@ -40,7 +44,7 @@ function definizioni(sentieri, parcoFisso) {
     },
     { chiave: 'accesso', titolo: 'Accesso', voci: Object.entries(ACCESSI) },
     { chiave: 'paese', titolo: 'Paese', voci: paesiDiPartenza(sentieri).map((p) => [p, p]) },
-    {
+    ...(inBici ? [] : [{
       chiave: 'bici',
       titolo: 'Bici',
       voci: [
@@ -49,7 +53,7 @@ function definizioni(sentieri, parcoFisso) {
         ['da_verificare', 'Da verificare'],
       ],
       breve: (v, et) => `Bici: ${et.toLowerCase()}`,
-    },
+    }]),
   ];
 }
 
@@ -77,7 +81,8 @@ export function htmlFiltri(sentieri, filtri) {
 
 // Collega i filtri: alAggiornamento(filtri) viene chiamata a ogni modifica
 export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { parcoFisso = null } = {}) {
-  const defs = definizioni(sentieri, parcoFisso);
+  let defs = definizioni(sentieri, parcoFisso, stato.leggi().attivita);
+  let attivita = stato.leggi().attivita;
   const pillole = contenitore.querySelector('.pillole');
   const ricerca = contenitore.querySelector('input[name=testo]');
   const foglio = contenitore.querySelector('.foglio');
@@ -112,10 +117,15 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
     alAggiornamento(filtri);
   }
 
-  // una scelta fatta altrove (es. l'animale della heatmap) aggiorna anche questi filtri
-  const scollega = stato.ascolta(() => {
+  // una scelta fatta altrove (es. l'animale della heatmap o l'attività) aggiorna anche questi filtri
+  const scollega = stato.ascolta((s) => {
     const nuovi = leggiFiltri(parcoFisso);
-    if (JSON.stringify(nuovi) === JSON.stringify(filtri)) return;
+    const cambiaAttivita = s.attivita !== attivita;
+    if (cambiaAttivita) {
+      attivita = s.attivita;
+      defs = definizioni(sentieri, parcoFisso, attivita);
+    }
+    if (!cambiaAttivita && JSON.stringify(nuovi) === JSON.stringify(filtri)) return;
     Object.assign(filtri, nuovi);
     if (ricerca.value !== filtri.testo) ricerca.value = filtri.testo;
     disegnaPillole();

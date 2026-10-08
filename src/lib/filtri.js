@@ -1,4 +1,4 @@
-export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '' };
 
 function normalizza(s) {
   return String(s ?? '')

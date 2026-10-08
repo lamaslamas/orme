@@ -70,6 +70,7 @@ export function sentieroDaModulo(v, precedente = {}) {
     },
     bici: {
       consentita,
+      emtb: vietata ? 'no' : Object.hasOwn(BICI_CONSENTITA, v.biciEmtb) ? v.biciEmtb : 'da_verificare',
       nota: (v.biciNota ?? '').trim(),
       link: (v.biciLink ?? '').trim() || sitoParco || LINK_PARCO,
       pedalabilita: !vietata && Object.hasOwn(PEDALABILITA, v.pedalabilita ?? '') ? v.pedalabilita : null,

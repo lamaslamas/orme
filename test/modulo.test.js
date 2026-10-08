@@ -86,3 +86,11 @@ describe('modulo: parco', () => {
     expect(sentieroDaModulo({ nome: 'X', parco: 'boh' }, { parco: 'appennino-lucano' }).parco).toBe('appennino-lucano');
   });
 });
+
+describe('modulo: e-MTB', () => {
+  it('salva il permesso e-MTB e lo vieta se la bici è vietata', () => {
+    expect(sentieroDaModulo({ nome: 'X', biciConsentita: 'si', biciEmtb: 'si' }).bici.emtb).toBe('si');
+    expect(sentieroDaModulo({ nome: 'X', biciConsentita: 'no', biciEmtb: 'si' }).bici.emtb).toBe('no');
+    expect(sentieroDaModulo({ nome: 'X' }).bici.emtb).toBe('da_verificare');
+  });
+});

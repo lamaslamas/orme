@@ -16,6 +16,24 @@ const STATI_VERIFICA = {
   non_piu_verificabile: 'Fonte non più raggiungibile',
 };
 
+// Compatibilità con trekking, MTB ed e-MTB (stima prudente, sezione 15 del piano)
+function htmlCompatibilita(s, traccia) {
+  const c = valutaCompatibilita(s, traccia);
+  const attuale = statoApp.leggi().attivita;
+  return `<section class="riquadro compatibilita">
+    <h2>Compatibilità del percorso</h2>
+    <dl>${Object.entries(ATTIVITA)
+      .map(
+        ([k, nome]) => `<div class="riga ${k === attuale ? 'attivita-scelta' : ''}"><dt>${nome}</dt><dd>
+          <span class="chip compat compat-${c[k].stato}">${STATI_COMPATIBILITA[c[k].stato]}</span>
+          ${c[k].motivi.length ? `<div class="tenue piccolo">${c[k].motivi.map(escapeHtml).join(' · ')}</div>` : ''}
+        </dd></div>`,
+      )
+      .join('')}</dl>
+    <p class="tenue piccolo">Prima contano divieti e regole del parco, poi le caratteristiche tecniche. Se mancano informazioni lo stato è "da verificare": la presenza di un sentiero su OpenStreetMap non basta a dire che è percorribile in bici. Le regole del parco prevalgono sempre.</p>
+  </section>`;
+}
+
 // Fonti, organizzatori e stato di verifica (solo informativo) dell'archivio
 function htmlFontiVerifica(s) {
   const fonti = (s.fonti ?? []).filter((f) => linkSicuro(f.url));
@@ -82,6 +100,8 @@ function descriviStatoTraccia(stato, traccia) {
 import { creaMappa } from './mappa.js';
 import { htmlProfiloPendenze } from './profilo.js';
 import { htmlNaturaSentiero, collegaNaturaSentiero } from './natura.js';
+import { valutaCompatibilita, STATI_COMPATIBILITA, ATTIVITA } from '../lib/compatibilita.js';
+import { stato as statoApp } from '../stato.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
@@ -216,6 +236,8 @@ export async function vistaScheda(app, id) {
         ${s.accesso?.nota ? `<p>${escapeHtml(s.accesso.nota)}</p>` : ''}
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
+
+      ${htmlCompatibilita(s, traccia)}
 
       ${riquadroBici(s, traccia)}
 

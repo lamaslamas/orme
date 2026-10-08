@@ -1,6 +1,9 @@
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { ANIMALI, ACCESSI, BICI_CONSENTITA } from '../lib/costanti.js';
-import { filtraSentieri, ordinaSentieri } from '../lib/filtri.js';
+import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
+import { STATI_COMPATIBILITA, ATTIVITA } from '../lib/compatibilita.js';
+import { stato } from '../stato.js';
+import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
@@ -39,7 +42,13 @@ export function rigaNumeri(m) {
   return parti.join('<span class="sep">·</span>');
 }
 
-export function schedaInLista(s, traccia, mostraParco = true) {
+export function bollinoCompatibilita(compat, attivita) {
+  if (!compat || attivita === 'trekking') return '';
+  const c = compat[attivita];
+  return `<span class="chip compat compat-${c.stato}">${ATTIVITA[attivita]}: ${STATI_COMPATIBILITA[c.stato].toLowerCase()}</span>`;
+}
+
+export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
   const m = misureSentiero(s, traccia);
   const luogo = [s.zona, s.partenza?.paese && `da ${s.partenza.paese}`].filter(Boolean).map(escapeHtml).join(' · ');
   const animali = (s.animali ?? [])
@@ -62,6 +71,7 @@ export function schedaInLista(s, traccia, mostraParco = true) {
           ${mostraParco ? `<div class="carta-parco-nome">${escapeHtml(parcoDa(s.parco)?.nomeBreve ?? '')}</div>` : ''}
           ${numeri ? `<div class="numeri">${numeri}</div>` : ''}
           <div class="chips">
+            ${bollinoCompatibilita(compat, stato.leggi().attivita)}
             ${animali}
             ${tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${ACCESSI[tipo]}</span>` : ''}
             ${bollinoBici(s)}
@@ -82,20 +92,26 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null }
   `;
   const lista = contenitore.querySelector('.lista');
   const conteggio = contenitore.querySelector('.conteggio');
-  return collegaFiltri(
+  const preparati = preparaPercorsi(sentieri, tracce);
+  lista.addEventListener('click', (e) => {
+    if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
+  });
+  const controlli = collegaFiltri(
     contenitore.querySelector('.filtri'),
     sentieri,
     filtri,
     () => {
-      const risultato = ordinaSentieri(filtraSentieri(sentieri, filtri));
-      const attivi = filtriAttivi(filtri) - (parcoFisso ? 1 : 0);
-      conteggio.textContent = attivi ? `${risultato.length} di ${sentieri.length} sentieri` : `${sentieri.length} sentieri`;
+      const attivita = stato.leggi().attivita;
+      const risultato = filtraPercorsi(preparati, filtri, attivita);
+      const attivi = filtriAttivi(filtri) - (parcoFisso ? 1 : 0) || attivita !== 'trekking';
+      conteggio.textContent = attivi ? `${risultato.length} di ${sentieri.length} percorsi` : `${sentieri.length} percorsi`;
       lista.innerHTML = risultato.length
-        ? risultato.map((s) => schedaInLista(s, tracce.get(s.id), !parcoFisso)).join('')
-        : '<li class="vuoto">Nessun sentiero corrisponde ai filtri.</li>';
+        ? risultato.map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat)).join('')
+        : `<li class="vuoto">Nessun percorso corrisponde ai filtri${attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''}. <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></li>`;
     },
     { parcoFisso },
   );
+  return controlli;
 }
 
 export function schedaParco(parco, sentieri) {
@@ -119,6 +135,7 @@ export async function vistaLista(app) {
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Parchi</h1>
+    ${htmlSelettoreAttivita()}
     <div class="scorciatoie">
       <a class="pillola" href="#/giri">I miei giri</a>
       <a class="pillola" href="#/avvistamenti">I miei avvistamenti</a>
@@ -129,5 +146,9 @@ export async function vistaLista(app) {
     <a class="fab" href="#/nuovo" aria-label="Aggiungi sentiero">+</a>
   `;
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce);
-  return () => elenco.scollega();
+  const scollegaAttivita = collegaSelettoreAttivita(app);
+  return () => {
+    elenco.scollega();
+    scollegaAttivita();
+  };
 }

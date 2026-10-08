@@ -138,6 +138,13 @@ export async function vistaModifica(app, id, parcoIniziale = null) {
             .map(([k, et]) => `<option value="${k}" ${s.bici.consentita === k ? 'selected' : ''}>${et}</option>`)
             .join('')}</select>`,
         )}
+        ${campo(
+          'e-MTB (bici elettrica) consentita',
+          `<select name="biciEmtb">${Object.entries(BICI_CONSENTITA)
+            .map(([k, et]) => `<option value="${k}" ${s.bici.emtb === k ? 'selected' : ''}>${et}</option>`)
+            .join('')}</select>`,
+          'Alcuni parchi regolano le bici elettriche in modo diverso dalle MTB.',
+        )}
         ${campo('Nota sulla bici', `<textarea name="biciNota" rows="2">${v(s.bici.nota)}</textarea>`)}
         ${campo('Link per la verifica', `<input name="biciLink" type="url" value="${v(s.bici.link)}" placeholder="${LINK_PARCO}" />`)}
         <div class="due" id="pedalabilita" ${s.bici.consentita === 'no' ? 'hidden' : ''}>

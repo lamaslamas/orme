@@ -12,6 +12,7 @@ import { aggiungiHeatmap } from './heatmap.js';
 import { aggiungiGps } from './gps.js';
 import { stato } from '../stato.js';
 import { ANIMALI } from '../lib/costanti.js';
+import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
@@ -56,11 +57,13 @@ export async function vistaParco(app, id) {
         <a class="bottone" href="#/nuovo?parco=${encodeURIComponent(parco.id)}">Aggiungi sentiero</a>
       </div>
 
-      <h2 class="titolo-sezione">Sentieri</h2>
+      <h2 class="titolo-sezione">Percorsi</h2>
+      ${htmlSelettoreAttivita({ titolo: false })}
       <div id="elenco"></div>
     </article>
   `;
 
+  const scollegaAttivita = collegaSelettoreAttivita(app);
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { parcoFisso: parco.id });
 
   const mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'percorsi', 'confini', 'gps'] });
@@ -125,6 +128,7 @@ export async function vistaParco(app, id) {
     chiusa = true;
     elenco.scollega();
     scollegaAnimali();
+    scollegaAttivita();
     fermaGps();
     heat.rimuovi();
     mappa.remove();

@@ -2,7 +2,7 @@ import { LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from
 import { PARCO_PREDEFINITO } from '../datiParchi.js';
 
 export function biciPredefinita() {
-  return { consentita: 'da_verificare', nota: '', link: LINK_PARCO, pedalabilita: null, scalaMtb: null };
+  return { consentita: 'da_verificare', emtb: 'da_verificare', nota: '', link: LINK_PARCO, pedalabilita: null, scalaMtb: null };
 }
 
 // Completa un sentiero con i campi aggiunti nelle versioni successive dell'app.
@@ -10,6 +10,7 @@ export function biciPredefinita() {
 export function completaSentiero(s) {
   const bici = { ...biciPredefinita(), ...(s.bici ?? {}) };
   if (!Object.hasOwn(BICI_CONSENTITA, bici.consentita)) bici.consentita = 'da_verificare';
+  if (!Object.hasOwn(BICI_CONSENTITA, bici.emtb)) bici.emtb = 'da_verificare';
   if (!Object.hasOwn(PEDALABILITA, bici.pedalabilita ?? '')) bici.pedalabilita = null;
   if (!SCALE_MTB.includes(bici.scalaMtb)) bici.scalaMtb = null;
   if (bici.consentita === 'no') {
