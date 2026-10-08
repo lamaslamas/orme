@@ -337,3 +337,19 @@ body.con-mappa main { max-width: none; padding: 0; }
 }
 .misura-nota { margin: 4px 2px 0; font-size: 0.72rem; color: var(--testo-tenue); }
 .misurando .legenda { display: none; }
+
+/* --- Partenza, arrivo, verso --- */
+.estremo span {
+  position: absolute; left: 10px; top: -11px; white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
+  color: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); border: 2px solid #fff;
+}
+.estremo.partenza span { background: #16a34a; }
+.estremo.arrivo span { background: #111827; }
+.freccia-verso { pointer-events: none; }
+.avviso-mappa {
+  position: absolute; z-index: 800; left: 50%; top: 12px; transform: translateX(-50%);
+  width: max-content; max-width: calc(100% - 120px);
+  background: rgba(255, 255, 255, 0.96); border-radius: 10px; padding: 8px 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3); font-size: 0.85rem; text-align: center; line-height: 1.35;
+}

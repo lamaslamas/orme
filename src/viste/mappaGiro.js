@@ -5,6 +5,9 @@ import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
+import { freccia, marcatoreEstremo } from './disegnoTraccia.js';
+import { frecceLungoPercorso, SOGLIA_ANELLO_M } from '../lib/tracce.js';
+import { distanzaKm } from '../lib/geo.js';
 import { caricaContesto, htmlMisure } from './giri.js';
 
 // colori ben distinguibili per le tappe, ripetuti se il giro è lungo
@@ -47,7 +50,9 @@ export async function vistaMappaGiro(app, id) {
 
   for (const pezzo of calcolo.pezzi) {
     const colore = COLORI_TAPPE[pezzo.tappa % COLORI_TAPPE.length];
-    const linea = L.polyline(pezzo.linea.map(latlng), { color: colore, weight: 5, opacity: 0.9 }).addTo(mappa);
+    L.polyline(pezzo.linea.map(latlng), { color: '#fff', weight: 9, opacity: 0.9, interactive: false }).addTo(mappa);
+    const linea = L.polyline(pezzo.linea.map(latlng), { color: colore, weight: 5, opacity: 0.95 }).addTo(mappa);
+    for (const f of frecceLungoPercorso([pezzo.linea], 3)) freccia(f.punto, f.direzione, colore).addTo(mappa);
     limiti.extend(linea.getBounds());
     // numero all'inizio di ogni tappa
     if (!giaNumerate.has(pezzo.tappa)) {
@@ -71,7 +76,16 @@ export async function vistaMappaGiro(app, id) {
       .addTo(mappa);
   }
 
-  if (limiti.isValid()) mappa.fitBounds(limiti, { padding: [24, 24] });
+  // arrivo del giro (oppure "partenza e arrivo" se si torna al punto di partenza)
+  if (calcolo.pezzi.length) {
+    const inizio = calcolo.pezzi[0].linea[0];
+    const ultima = calcolo.pezzi[calcolo.pezzi.length - 1].linea;
+    const fine = ultima[ultima.length - 1];
+    const anello = distanzaKm(inizio, fine) * 1000 <= SOGLIA_ANELLO_M;
+    marcatoreEstremo(anello ? inizio : fine, anello ? 'Partenza e arrivo' : 'Arrivo', anello ? 'partenza' : 'arrivo').addTo(mappa);
+  }
+  mappa.attenuaSentieri(calcolo.pezzi.length > 0);
+  if (limiti.isValid()) mappa.fitBounds(limiti, { padding: [36, 36] });
   const fermaGps = aggiungiGps(mappa, () => (calcolo.pezzi.length ? { geojson: calcolo.geojson } : null));
   aggiungiMisura(mappa, () => (calcolo.pezzi.length ? [calcolo.geojson] : []));
   requestAnimationFrame(() => mappa.invalidateSize());

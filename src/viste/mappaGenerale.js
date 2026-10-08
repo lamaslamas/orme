@@ -5,6 +5,7 @@ import { escapeHtml, codici } from '../lib/formato.js';
 import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
+import { disegnaPercorso } from './disegnoTraccia.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 
 export const COLORI_STATO = {
@@ -46,6 +47,7 @@ export async function vistaMappaGenerale(app) {
 
   const mappa = creaMappa(app.querySelector('#mappa'));
   const livello = L.layerGroup().addTo(mappa);
+  const selezione = L.layerGroup().addTo(mappa);
   let visibili = [];
   let primaVolta = true;
 
@@ -67,6 +69,9 @@ export async function vistaMappaGenerale(app) {
     visibili = conTraccia.map((x) => x.traccia);
 
     livello.clearLayers();
+    selezione.clearLayers();
+    mappa.closePopup();
+    mappa.attenuaSentieri(conTraccia.length > 0);
     const limiti = L.latLngBounds([]);
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
     for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
@@ -76,13 +81,23 @@ export async function vistaMappaGenerale(app) {
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0 }).addTo(livello);
       // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
       // così durante la misura il tocco arriva allo strumento di misura
-      area.on('click', (e) => {
+      area.on('click', () => {
         if (misura.attiva()) return;
-        L.popup()
-          .setLatLng(e.latlng)
+        // la traccia scelta si evidenzia con partenza, arrivo e verso di percorrenza
+        // e viene inquadrata, lasciando in alto lo spazio per il riquadro
+        selezione.clearLayers();
+        const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6 }).addTo(selezione);
+        mappa.fitBounds(evidenziata.getBounds(), {
+          paddingTopLeft: [40, 150],
+          paddingBottomRight: [40, 30],
+          maxZoom: 15,
+          animate: false,
+        });
+        const limitiScelta = evidenziata.getBounds();
+        L.popup({ autoPan: false })
+          .setLatLng([limitiScelta.getNorth(), limitiScelta.getCenter().lng])
           .setContent(riquadroSentiero(sentiero))
-          .on('add', () => linea.setStyle({ weight: 7 }))
-          .on('remove', () => linea.setStyle({ weight: 4 }))
+          .on('remove', () => selezione.clearLayers())
           .openOn(mappa);
       });
       limiti.extend(linea.getBounds());

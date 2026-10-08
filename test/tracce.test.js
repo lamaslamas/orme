@@ -141,3 +141,59 @@ describe('durata (metodo CAI / DIN 33466)', () => {
     expect(stimaDurataMin(NaN, null)).toBeNull();
   });
 });
+
+import { estremiTraccia, frecceLungoPercorso, invertiGeojson } from '../src/lib/tracce.js';
+import { direzioneGradi } from '../src/lib/geo.js';
+
+describe('partenza, arrivo e verso', () => {
+  it('calcola la direzione', () => {
+    expect(direzioneGradi([13.8, 41.7], [13.8, 41.8])).toBeCloseTo(0, 0);
+    expect(direzioneGradi([13.8, 41.7], [13.9, 41.7])).toBeCloseTo(90, 0);
+    expect(direzioneGradi([13.8, 41.7], [13.8, 41.6])).toBeCloseTo(180, 0);
+  });
+
+  it('trova partenza e arrivo anche con tratti in disordine', () => {
+    // il tratto 0→2 si attacca prima del tratto 2→3: il percorso va da 0 a 3
+    const e = estremiTraccia({ coordinates: [linea(2, 3), linea(0, 1, 2)] });
+    expect(e.inizio).toEqual(p(0));
+    expect(e.fine).toEqual(p(3));
+    expect(e.anello).toBe(false);
+  });
+
+  it('riconosce un anello', () => {
+    const anello = [[13.8, 41.7], [13.81, 41.7], [13.81, 41.71], [13.8, 41.7005]];
+    expect(estremiTraccia({ coordinates: [anello] }).anello).toBe(true);
+    expect(estremiTraccia({ coordinates: [] })).toBeNull();
+  });
+
+  it('distribuisce le frecce lungo il percorso con la direzione giusta', () => {
+    const f = frecceLungoPercorso([linea(0, 10)], 4);
+    expect(f).toHaveLength(4);
+    expect(f[0].direzione).toBeCloseTo(0, 0);
+    expect(f[0].punto[1]).toBeCloseTo(41.702, 3);
+    expect(f[3].punto[1]).toBeCloseTo(41.708, 3);
+    expect(frecceLungoPercorso([], 4)).toEqual([]);
+  });
+
+  it('inverte partenza e arrivo', () => {
+    const g = { type: 'MultiLineString', coordinates: [linea(0, 1), linea(1, 2)] };
+    const inv = invertiGeojson(g);
+    const e = estremiTraccia(inv);
+    expect(e.inizio).toEqual(p(2));
+    expect(e.fine).toEqual(p(0));
+    expect(g.coordinates[0][0]).toEqual(p(0));
+  });
+});
+
+describe('frecce sui tornanti', () => {
+  it('indicano il verso generale e non quello della singola curva', () => {
+    // zig-zag verso nord: ogni tratto va a nord-est o a nord-ovest di circa 45°
+    const zigzag = [];
+    for (let i = 0; i <= 40; i++) zigzag.push([13.8 + (i % 2) * 0.0003, 41.7 + i * 0.0003]);
+    const f = frecceLungoPercorso([zigzag], 5);
+    for (const freccia of f) {
+      const d = freccia.direzione > 180 ? freccia.direzione - 360 : freccia.direzione;
+      expect(Math.abs(d)).toBeLessThan(25);
+    }
+  });
+});

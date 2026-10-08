@@ -50,3 +50,10 @@ export function distanzaDallaTracciaM(punto, geojson) {
   }
   return minimo;
 }
+
+// Direzione da a verso b in gradi (0 = nord, 90 = est)
+export function direzioneGradi([lon1, lat1], [lon2, lat2]) {
+  const y = Math.sin(rad(lon2 - lon1)) * Math.cos(rad(lat2));
+  const x = Math.cos(rad(lat1)) * Math.sin(rad(lat2)) - Math.sin(rad(lat1)) * Math.cos(rad(lat2)) * Math.cos(rad(lon2 - lon1));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}

@@ -5,10 +5,11 @@ import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello } from '../lib/quote.js';
-import { percorsoSentiero } from '../lib/tracce.js';
+import { percorsoSentiero, invertiGeojson } from '../lib/tracce.js';
 import { aggiungiQuote } from '../lib/openMeteo.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
+import { disegnaPercorso } from './disegnoTraccia.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
@@ -38,6 +39,8 @@ export function creaMappa(contenitore) {
     .layers({ OpenStreetMap: osm, 'OpenTopoMap (curve di livello)': topo }, { 'Sentieri escursionistici': sentieri })
     .addTo(mappa);
   L.control.scale({ imperial: false }).addTo(mappa);
+  // i sentieri di Waymarked si attenuano quando si vuole far risaltare una traccia
+  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.45 : 0.8);
   return mappa;
 }
 
@@ -69,6 +72,7 @@ export async function vistaMappa(app, id) {
 
   const mappa = creaMappa(app.querySelector('#mappa'));
   const pannello = app.querySelector('#pannello');
+  const avviso = L.DomUtil.create('div', 'avviso-mappa', app.querySelector('#mappa'));
   const fileGpx = app.querySelector('#fileGpx');
   const livelloTraccia = L.layerGroup().addTo(mappa);
   const livelloAnteprima = L.layerGroup().addTo(mappa);
@@ -86,9 +90,12 @@ export async function vistaMappa(app, id) {
 
   function mostraTracciaSalvata({ inquadra = true } = {}) {
     livelloTraccia.clearLayers();
+    mappa.attenuaSentieri(Boolean(traccia));
+    avviso.hidden = Boolean(traccia);
+    avviso.textContent = 'Questo sentiero non ha ancora una traccia: i sentieri sulla mappa sono tutti quelli della zona.';
     if (!traccia) return;
-    const linea = disegnaTraccia(traccia.geojson, { color: COLORE_TRACCIA }).addTo(livelloTraccia);
-    if (inquadra) mappa.fitBounds(linea.getBounds(), { padding: [24, 24] });
+    const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORE_TRACCIA }).addTo(livelloTraccia);
+    if (inquadra) mappa.fitBounds(gruppo.getBounds(), { padding: [36, 36] });
   }
 
   function dislivelloTraccia() {
@@ -125,6 +132,7 @@ export async function vistaMappa(app, id) {
             : ''
         }
         <button class="bottone ${traccia || haCodici ? '' : 'primario'}" data-azione="gpx">Importa file GPX</button>
+        ${traccia ? '<button class="bottone" data-azione="inverti">Inverti partenza e arrivo</button>' : ''}
         ${traccia && !dislivelloTraccia() ? '<button class="bottone" data-azione="quote">Aggiungi le quote</button>' : ''}
         ${traccia ? '<button class="bottone pericolo" data-azione="elimina">Elimina traccia</button>' : ''}
       </div>
@@ -200,9 +208,11 @@ export async function vistaMappa(app, id) {
       livelloAnteprima.clearLayers();
       const selezione = scelti();
       if (!selezione.length) return;
-      const linea = disegnaTraccia(combinaTraccia(selezione).geojson, { color: COLORE_ANTEPRIMA, dashArray: '8 6' });
-      linea.addTo(livelloAnteprima);
-      mappa.fitBounds(linea.getBounds(), { padding: [24, 24] });
+      const gruppo = disegnaPercorso(combinaTraccia(selezione).geojson, { colore: COLORE_ANTEPRIMA, tratteggio: '8 6' });
+      gruppo.addTo(livelloAnteprima);
+      avviso.hidden = true;
+      mappa.attenuaSentieri(true);
+      mappa.fitBounds(gruppo.getBounds(), { padding: [36, 36] });
     }
 
     risultati = { scelti, anteprima };
@@ -256,8 +266,16 @@ export async function vistaMappa(app, id) {
     if (!azione) return;
     if (azione === 'osm') cercaOsm();
     if (azione === 'gpx') fileGpx.click();
-    if (azione === 'annulla') pannelloBase();
+    if (azione === 'annulla') {
+      pannelloBase();
+      mostraTracciaSalvata({ inquadra: false });
+    }
     if (azione === 'quote') aggiungiQuoteTraccia();
+    if (azione === 'inverti') {
+      traccia = await salvaTraccia({ ...traccia, geojson: invertiGeojson(traccia.geojson) });
+      mostraTracciaSalvata({ inquadra: false });
+      pannelloBase('Partenza e arrivo scambiati.');
+    }
     if (azione === 'salva-osm') salvaOsm();
     if (azione === 'elimina' && confirm('Eliminare la traccia salvata?')) {
       await eliminaTraccia(id);
