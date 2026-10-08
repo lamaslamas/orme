@@ -1,4 +1,4 @@
-export const FILTRI_VUOTI = { animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '' };
 
 function normalizza(s) {
   return String(s ?? '')
@@ -11,6 +11,7 @@ function normalizza(s) {
 export function filtraSentieri(sentieri, filtri) {
   const testo = normalizza(filtri.testo);
   return sentieri.filter((s) => {
+    if (filtri.parco && (s.parco || 'pnalm') !== filtri.parco) return false;
     if (filtri.animale && !(s.animali ?? []).includes(filtri.animale)) return false;
     if (filtri.stato && s.stato !== filtri.stato) return false;
     if (filtri.accesso && (s.accesso?.tipo || 'nessuno') !== filtri.accesso) return false;

@@ -1,8 +1,8 @@
-import { BBOX_PNALM } from './costanti.js';
+import { parcoDa, PARCO_PREDEFINITO } from '../datiParchi.js';
 import { riassumiTagBici, unisciRiassunti } from './bici.js';
 
-// Confine del PNALM su OpenStreetMap (relazione 8426003 → area 3600000000 + id)
-export const AREA_PNALM = 3608426003;
+// Un'area Overpass ha come id 3600000000 + id della relazione del confine
+export const areaDaRelazione = (relazione) => 3600000000 + relazione;
 
 export const SERVER_OVERPASS = [
   'https://overpass-api.de/api/interpreter',
@@ -17,13 +17,14 @@ function escapeRegex(s) {
 // Cerca le relazioni route=hiking con quei codici dentro il confine del Parco.
 // Se il confine non viene trovato, ripiega sul riquadro del Parco.
 // Chiede anche i tag dei singoli tratti (way), dove su OSM stanno bicycle e mtb:scale.
-export function costruisciQuery(codici) {
+export function costruisciQuery(codici, idParco = PARCO_PREDEFINITO) {
   const lista = codici.map((c) => escapeRegex(c.trim())).filter(Boolean);
   if (!lista.length) throw new Error('Il sentiero non ha codici da cercare.');
-  const ref = `^(PNALM[ -]?)?(${lista.join('|')})$`;
-  const [s, o, n, e] = BBOX_PNALM;
+  const parco = parcoDa(idParco) ?? parcoDa(PARCO_PREDEFINITO);
+  const ref = `^(PNALM[ -]?|CAI[ -]?)?(${lista.join('|')})$`;
+  const [s, o, n, e] = parco.bbox;
   return `[out:json][timeout:60];
-area(id:${AREA_PNALM})->.parco;
+area(id:${areaDaRelazione(parco.osm.relazione)})->.parco;
 rel["route"="hiking"]["ref"~"${ref}",i](area.parco)->.dentro;
 (.dentro;rel["route"="hiking"]["ref"~"${ref}",i](${s},${o},${n},${e})(if:dentro.count(relations)==0););
 out geom;
@@ -34,7 +35,7 @@ out tags;`;
 export function normalizzaCodice(ref) {
   return String(ref ?? '')
     .toUpperCase()
-    .replace(/^PNALM[ -]?/, '')
+    .replace(/^(PNALM|CAI)[ -]?/, '')
     .trim();
 }
 
@@ -118,7 +119,7 @@ export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetch
   throw new Error(`OpenStreetMap non risponde (${motivo}). Riprova tra qualche minuto o importa un GPX.`);
 }
 
-export async function cercaSuOsm(codici, opzioni) {
-  const json = await interrogaOverpass(costruisciQuery(codici), opzioni);
+export async function cercaSuOsm(codici, opzioni = {}) {
+  const json = await interrogaOverpass(costruisciQuery(codici, opzioni.parco), opzioni);
   return raggruppaPerCodice(codici, interpretaRisposta(json));
 }

@@ -10,6 +10,8 @@ import { aggiungiQuote } from '../lib/openMeteo.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
+import { impostaBanner } from './banner.js';
+import { parcoDa } from '../datiParchi.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
@@ -62,6 +64,8 @@ export async function vistaMappa(app, id) {
     return;
   }
   let traccia = await leggiTraccia(id);
+  const parco = parcoDa(sentiero.parco);
+  impostaBanner(sentiero.parco);
 
   document.body.classList.add('con-mappa');
   app.innerHTML = `
@@ -76,6 +80,7 @@ export async function vistaMappa(app, id) {
   `;
 
   const mappa = creaMappa(app.querySelector('#mappa'));
+  if (parco) mappa.setView(parco.centro, 11);
   const pannello = app.querySelector('#pannello');
   const avviso = L.DomUtil.create('div', 'avviso-mappa', app.querySelector('#mappa'));
   const fileGpx = app.querySelector('#fileGpx');
@@ -155,7 +160,7 @@ export async function vistaMappa(app, id) {
     pannello.innerHTML = `<p class="messaggio">Cerco ${escapeHtml(elenco.join(', '))} su OpenStreetMap…</p>`;
     let gruppi;
     try {
-      gruppi = await cercaSuOsm(elenco);
+      gruppi = await cercaSuOsm(elenco, { parco: sentiero.parco });
     } catch (e) {
       pannelloBase(`<span class="errore">${escapeHtml(e.message)}</span>`);
       return;
@@ -167,7 +172,7 @@ export async function vistaMappa(app, id) {
     const trovati = elenco.filter((c) => gruppi[c].length);
     if (!trovati.length) {
       pannelloBase(
-        `<span class="errore">Nessun sentiero ${escapeHtml(elenco.join(', '))} trovato su OpenStreetMap nel Parco.</span> Puoi importare un file GPX.`,
+        `<span class="errore">Nessun sentiero ${escapeHtml(elenco.join(', '))} trovato su OpenStreetMap nel parco ${escapeHtml(parco?.nomeBreve ?? '')}.</span> Puoi importare un file GPX.`,
       );
       return;
     }

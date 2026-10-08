@@ -1,4 +1,5 @@
 import { LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from './costanti.js';
+import { PARCO_PREDEFINITO } from '../datiParchi.js';
 
 export function biciPredefinita() {
   return { consentita: 'da_verificare', nota: '', link: LINK_PARCO, pedalabilita: null, scalaMtb: null };
@@ -16,5 +17,7 @@ export function completaSentiero(s) {
     bici.scalaMtb = null;
   }
   const difficolta = Object.hasOwn(DIFFICOLTA, s.difficolta ?? '') ? s.difficolta : null;
-  return { ...s, bici, difficolta };
+  // i sentieri creati prima dei parchi erano tutti del PNALM
+  const parco = typeof s.parco === 'string' && s.parco ? s.parco : PARCO_PREDEFINITO;
+  return { ...s, bici, difficolta, parco };
 }

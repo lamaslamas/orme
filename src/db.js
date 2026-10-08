@@ -2,8 +2,11 @@
 // - sentieri: un elemento per sentiero (chiave: id)
 // - tracce:   la traccia GeoJSON di un sentiero (chiave: sentieroId)
 // - giri:     giri combinati di più sentieri (chiave: id)
+// - avvistamenti: i miei avvistamenti (chiave: id) – restano solo sul dispositivo
+// - confini:  confini dei parchi scaricati da OpenStreetMap (chiave: parco)
+// - osservazioni: osservazioni iNaturalist in memoria (chiave: id)
 // - meta:     informazioni interne (es. dati iniziali già caricati)
-import { DATI_INIZIALI } from './datiIniziali.js';
+import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI } from './datiIniziali.js';
 import { completaSentiero } from './lib/sentiero.js';
 import { completaGiro } from './lib/giro.js';
 
@@ -11,7 +14,8 @@ const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
 // 2: aggiunto il campo "bici" ai sentieri già salvati
 // 3: aggiunto l'archivio "giri"
-const VERSIONE_DB = 3;
+// 4: parchi (campo "parco" nei sentieri), avvistamenti, confini, osservazioni
+const VERSIONE_DB = 4;
 // backup 1: sentieri e tracce; 2: anche i giri
 export const VERSIONE_BACKUP = 2;
 
@@ -42,13 +46,18 @@ export function apriDb() {
       if (!db.objectStoreNames.contains('tracce')) db.createObjectStore('tracce', { keyPath: 'sentieroId' });
       if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'chiave' });
       if (!db.objectStoreNames.contains('giri')) db.createObjectStore('giri', { keyPath: 'id' });
-      if (evento.oldVersion >= 1 && evento.oldVersion < 2) {
-        // Aggiunge la bici "da verificare" solo dove manca, senza toccare il resto
+      if (!db.objectStoreNames.contains('avvistamenti')) db.createObjectStore('avvistamenti', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('confini')) db.createObjectStore('confini', { keyPath: 'parco' });
+      if (!db.objectStoreNames.contains('osservazioni')) {
+        db.createObjectStore('osservazioni', { keyPath: 'id' }).createIndex('parco', 'parco');
+      }
+      if (evento.oldVersion >= 1 && evento.oldVersion < 4) {
+        // Aggiunge i campi nuovi (bici, parco) solo dove mancano, senza toccare il resto
         const cursore = req.transaction.objectStore('sentieri').openCursor();
         cursore.onsuccess = () => {
           const c = cursore.result;
           if (!c) return;
-          if (!c.value.bici) c.update(completaSentiero(c.value));
+          if (!c.value.bici || !c.value.parco) c.update(completaSentiero(c.value));
           c.continue();
         };
       }
@@ -152,20 +161,33 @@ export async function eliminaGiro(id) {
   await fine(tx);
 }
 
+// --- Confini dei parchi ---
+
+export const leggiConfine = (parco) => leggiDa('confini', parco);
+export const tuttiIConfini = () => tuttiDa('confini');
+export const salvaConfine = (confine) => scriviIn('confini', { ...confine, scaricato: new Date().toISOString() });
+
 // --- Dati iniziali ---
 
 // Carica i sentieri di partenza solo la prima volta che l'app viene aperta
+// La prima volta carica tutti i sentieri di partenza; in seguito aggiunge solo
+// quelli comparsi in versioni più recenti dell'app (es. i nuovi parchi), senza
+// ricreare quelli che ho eliminato. Restituisce true se ha aggiunto qualcosa.
 export async function caricaDatiIniziali() {
-  if (await leggiDa('meta', 'datiIniziali')) return false;
+  const meta = await leggiDa('meta', 'datiIniziali');
+  const versione = meta ? (meta.versione ?? 1) : 0;
+  if (versione >= VERSIONE_DATI_INIZIALI) return false;
   const db = await apriDb();
+  const esistenti = new Set(await richiesta(db.transaction('sentieri').objectStore('sentieri').getAllKeys()));
+  const nuovi = DATI_INIZIALI.filter((s) => (s.aggiunto ?? 1) > versione && !esistenti.has(s.id));
   const tx = db.transaction(['sentieri', 'meta'], 'readwrite');
   const adesso = new Date().toISOString();
-  for (const s of DATI_INIZIALI) {
+  for (const s of nuovi) {
     tx.objectStore('sentieri').put(completaSentiero({ ...s, creato: adesso, modificato: adesso }));
   }
-  tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: adesso });
+  tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: adesso, versione: VERSIONE_DATI_INIZIALI });
   await fine(tx);
-  return true;
+  return nuovi.length > 0;
 }
 
 // --- Backup ---

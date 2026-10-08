@@ -1,4 +1,5 @@
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from './costanti.js';
+import { parcoDa, PARCO_PREDEFINITO } from '../datiParchi.js';
 
 // "F10, b4 + U1" -> ["F10", "B4", "U1"]
 export function leggiCodici(testo) {
@@ -37,8 +38,11 @@ export function sentieroDaModulo(v, precedente = {}) {
   const consentita = Object.hasOwn(BICI_CONSENTITA, v.biciConsentita) ? v.biciConsentita : 'da_verificare';
   const vietata = consentita === 'no';
 
+  const parco = parcoDa(v.parco) ? v.parco : precedente.parco ?? PARCO_PREDEFINITO;
+  const sitoParco = parcoDa(parco).sito;
   return {
     ...precedente,
+    parco,
     codici: leggiCodici(v.codici),
     nome,
     zona: (v.zona ?? '').trim(),
@@ -62,12 +66,12 @@ export function sentieroDaModulo(v, precedente = {}) {
     accesso: {
       tipo,
       nota: (v.accessoNota ?? '').trim(),
-      link: (v.accessoLink ?? '').trim() || LINK_PARCO,
+      link: (v.accessoLink ?? '').trim() || sitoParco || LINK_PARCO,
     },
     bici: {
       consentita,
       nota: (v.biciNota ?? '').trim(),
-      link: (v.biciLink ?? '').trim() || LINK_PARCO,
+      link: (v.biciLink ?? '').trim() || sitoParco || LINK_PARCO,
       pedalabilita: !vietata && Object.hasOwn(PEDALABILITA, v.pedalabilita ?? '') ? v.pedalabilita : null,
       scalaMtb: !vietata && SCALE_MTB.includes(v.scalaMtb) ? v.scalaMtb : null,
     },

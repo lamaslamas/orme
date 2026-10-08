@@ -3,28 +3,42 @@
 import { ANIMALI, STATI, ACCESSI, DIFFICOLTA } from '../lib/costanti.js';
 import { FILTRI_VUOTI, paesiDiPartenza } from '../lib/filtri.js';
 import { escapeHtml } from '../lib/formato.js';
+import { PARCHI, parcoDa } from '../datiParchi.js';
 
 const CHIAVE_FILTRI = 'orme.filtri';
 
-export function leggiFiltri() {
+// Ogni pagina di parco ricorda i suoi filtri; Esplora e Mappa condividono i loro
+export function leggiFiltri(parcoFisso = null) {
   try {
-    return { ...FILTRI_VUOTI, ...JSON.parse(sessionStorage.getItem(CHIAVE_FILTRI) ?? '{}') };
+    const salvati = JSON.parse(sessionStorage.getItem(chiaveFiltri(parcoFisso)) ?? '{}');
+    return { ...FILTRI_VUOTI, ...salvati, ...(parcoFisso ? { parco: parcoFisso } : {}) };
   } catch {
-    return { ...FILTRI_VUOTI };
+    return { ...FILTRI_VUOTI, ...(parcoFisso ? { parco: parcoFisso } : {}) };
   }
 }
 
-function salvaFiltri(filtri) {
+const chiaveFiltri = (parcoFisso) => (parcoFisso ? `${CHIAVE_FILTRI}.${parcoFisso}` : CHIAVE_FILTRI);
+
+function salvaFiltri(filtri, parcoFisso) {
   try {
-    sessionStorage.setItem(CHIAVE_FILTRI, JSON.stringify(filtri));
+    sessionStorage.setItem(chiaveFiltri(parcoFisso), JSON.stringify(filtri));
   } catch {
     // non importa: i filtri semplicemente non vengono ricordati
   }
 }
 
-function definizioni(sentieri) {
+// Animali da proporre: quelli del parco scelto, oppure di tutti i parchi
+function vociAnimali(idParco) {
+  const ammessi = new Set(idParco ? parcoDa(idParco)?.animali ?? [] : PARCHI.flatMap((p) => p.animali));
+  return Object.entries(ANIMALI).filter(([k]) => ammessi.has(k));
+}
+
+function definizioni(sentieri, parcoFisso) {
   return [
-    { chiave: 'animale', titolo: 'Animale', voci: Object.entries(ANIMALI) },
+    ...(parcoFisso
+      ? []
+      : [{ chiave: 'parco', titolo: 'Parco', voci: PARCHI.map((p) => [p.id, p.nomeBreve]) }]),
+    { chiave: 'animale', titolo: 'Animale', voci: vociAnimali(parcoFisso) },
     { chiave: 'stato', titolo: 'Stato', voci: Object.entries(STATI) },
     {
       chiave: 'difficolta',
@@ -70,8 +84,8 @@ export function htmlFiltri(sentieri, filtri) {
 }
 
 // Collega i filtri: alAggiornamento(filtri) viene chiamata a ogni modifica
-export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento) {
-  const defs = definizioni(sentieri);
+export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { parcoFisso = null } = {}) {
+  const defs = definizioni(sentieri, parcoFisso);
   const pillole = contenitore.querySelector('.pillole');
   const ricerca = contenitore.querySelector('input[name=testo]');
   const foglio = contenitore.querySelector('.foglio');
@@ -86,7 +100,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento) {
   }
 
   function disegnaPillole() {
-    const attivi = filtriAttivi(filtri) - (filtri.testo ? 1 : 0);
+    const attivi = filtriAttivi(filtri) - (filtri.testo ? 1 : 0) - (parcoFisso ? 1 : 0);
     pillole.innerHTML =
       (attivi
         ? `<button type="button" class="pillola azzera" data-azione="azzera" aria-label="Azzera filtri">✕ Azzera</button>`
@@ -101,7 +115,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento) {
   }
 
   function aggiorna() {
-    salvaFiltri(filtri);
+    salvaFiltri(filtri, parcoFisso);
     disegnaPillole();
     alAggiornamento(filtri);
   }

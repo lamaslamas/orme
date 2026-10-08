@@ -11,6 +11,8 @@ import { vistaGiri, vistaGiro } from './viste/giri.js';
 import { vistaModificaGiro } from './viste/modificaGiro.js';
 import { vistaMappaGiro } from './viste/mappaGiro.js';
 import { vistaAltro } from './viste/altro.js';
+import { vistaParco } from './viste/parco.js';
+import { impostaBanner } from './viste/banner.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi } from './lib/sezioni.js';
 
@@ -22,7 +24,8 @@ const percorsi = [
   [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
   [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
-  [/^\/nuovo\/?$/, (app) => vistaModifica(app, null)],
+  [/^\/nuovo(?:\?parco=([^&]+))?$/, (app, parco) => vistaModifica(app, null, parco)],
+  [/^\/parco\/([^/]+)\/?$/, vistaParco],
   [/^\/backup\/?$/, vistaBackup],
   [/^\/altro\/?$/, vistaAltro],
   [/^\/mappa\/?$/, vistaMappaGenerale],
@@ -48,6 +51,8 @@ function aggiornaBarraSchede(percorso) {
 async function mostra() {
   const percorso = location.hash.replace(/^#/, '') || '/';
   aggiornaBarraSchede(percorso);
+  // ogni schermata legata a un parco imposta poi le sue regole
+  impostaBanner(null);
   if (typeof pulisciVistaPrecedente === 'function') pulisciVistaPrecedente();
   pulisciVistaPrecedente = null;
   for (const [regola, vista] of percorsi) {

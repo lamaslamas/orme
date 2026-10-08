@@ -1,8 +1,40 @@
+// Animali: nome in italiano. Ogni parco ne mostra un sottoinsieme (src/datiParchi.js).
 export const ANIMALI = {
   orso: 'Orso',
   lupo: 'Lupo',
   camoscio: 'Camoscio',
   cervo: 'Cervo',
+  capriolo: 'Capriolo',
+  daino: 'Daino',
+  muflone: 'Muflone',
+  cinghiale: 'Cinghiale',
+  volpe: 'Volpe',
+  lontra: 'Lontra',
+  gatto_selvatico: 'Gatto selvatico',
+  aquila_reale: 'Aquila reale',
+  gufo_reale: 'Gufo reale',
+  nibbio_reale: 'Nibbio reale',
+  cicogna_nera: 'Cicogna nera',
+  altro: 'Altro',
+};
+
+// Nome scientifico per iNaturalist
+export const TAXON_INATURALIST = {
+  orso: 'Ursus arctos',
+  lupo: 'Canis lupus',
+  camoscio: 'Rupicapra pyrenaica',
+  cervo: 'Cervus elaphus',
+  capriolo: 'Capreolus capreolus',
+  daino: 'Dama dama',
+  muflone: 'Ovis gmelini',
+  cinghiale: 'Sus scrofa',
+  volpe: 'Vulpes vulpes',
+  lontra: 'Lutra lutra',
+  gatto_selvatico: 'Felis silvestris',
+  aquila_reale: 'Aquila chrysaetos',
+  gufo_reale: 'Bubo bubo',
+  nibbio_reale: 'Milvus milvus',
+  cicogna_nera: 'Ciconia nigra',
 };
 
 export const STATI = {
@@ -21,8 +53,6 @@ export const ACCESSI = {
 
 export const LINK_PARCO = 'https://www.parcoabruzzo.it/';
 
-// Riquadro che contiene il PNALM e l'area contigua: [sud, ovest, nord, est]
-export const BBOX_PNALM = [41.58, 13.55, 42.05, 14.15];
 
 export const BICI_CONSENTITA = {
   si: 'Consentita',

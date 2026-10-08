@@ -1,6 +1,8 @@
 import { leggiSentiero, salvaSentiero, eliminaSentiero, tuttiISentieri } from '../db.js';
 import { ANIMALI, ACCESSI, STATI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from '../lib/costanti.js';
 import { completaSentiero } from '../lib/sentiero.js';
+import { PARCHI, parcoDa, PARCO_PREDEFINITO } from '../datiParchi.js';
+import { impostaBanner } from './banner.js';
 import { paesiDiPartenza } from '../lib/filtri.js';
 import { sentieroDaModulo } from '../lib/modulo.js';
 import { escapeHtml, creaId } from '../lib/formato.js';
@@ -29,18 +31,31 @@ function campo(etichetta, html, aiuto = '') {
   return `<label class="campo"><span>${etichetta}</span>${html}${aiuto ? `<small>${aiuto}</small>` : ''}</label>`;
 }
 
-export async function vistaModifica(app, id) {
+export async function vistaModifica(app, id, parcoIniziale = null) {
   const esistente = id ? await leggiSentiero(id) : null;
   if (id && !esistente) {
     app.innerHTML = '<p class="vuoto">Sentiero non trovato. <a href="#/">Torna alla lista</a></p>';
     return;
   }
-  const s = completaSentiero(esistente ?? NUOVO);
+  const parcoNuovo = parcoDa(parcoIniziale) ? parcoIniziale : PARCO_PREDEFINITO;
+  const s = completaSentiero(
+    esistente ?? {
+      ...NUOVO,
+      parco: parcoNuovo,
+      accesso: { ...NUOVO.accesso, link: parcoDa(parcoNuovo).sito },
+      bici: { link: parcoDa(parcoNuovo).sito },
+    },
+  );
+  impostaBanner(s.parco);
   const tutti = await tuttiISentieri();
   const paesi = paesiDiPartenza(tutti);
   const ore = s.durataMin != null ? Math.floor(s.durataMin / 60) : '';
   const minuti = s.durataMin != null ? s.durataMin % 60 : '';
-  const indietro = esistente ? `#/sentiero/${encodeURIComponent(esistente.id)}` : '#/';
+  const indietro = esistente
+    ? `#/sentiero/${encodeURIComponent(esistente.id)}`
+    : parcoIniziale
+      ? `#/parco/${encodeURIComponent(parcoNuovo)}`
+      : '#/';
 
   app.innerHTML = `
     <a class="indietro" href="${indietro}">‹ Annulla</a>
@@ -48,8 +63,12 @@ export async function vistaModifica(app, id) {
     <form class="modulo" novalidate>
       <fieldset>
         <legend>Sentiero</legend>
+        ${campo(
+          'Parco',
+          `<select name="parco">${PARCHI.map((p) => `<option value="${p.id}" ${s.parco === p.id ? 'selected' : ''}>${v(p.nomeBreve)}</option>`).join('')}</select>`,
+        )}
         <div class="due">
-          ${campo('Codici PNALM', `<input name="codici" value="${v((s.codici ?? []).join(', '))}" placeholder="F10, B4" autocapitalize="characters" />`, 'Separati da virgola')}
+          ${campo('Codici del sentiero', `<input name="codici" value="${v((s.codici ?? []).join(', '))}" placeholder="F10, B4" autocapitalize="characters" />`, 'Separati da virgola')}
           ${campo('Zona', `<input name="zona" value="${v(s.zona)}" />`)}
         </div>
         ${campo('Nome *', `<input name="nome" value="${v(s.nome)}" required />`)}
@@ -61,14 +80,7 @@ export async function vistaModifica(app, id) {
             .join('')}</select>`,
         )}
         <div class="campo"><span>Animali di riferimento</span>
-          <div class="scelte">
-            ${Object.entries(ANIMALI)
-              .map(
-                ([k, et]) =>
-                  `<label class="scelta"><input type="checkbox" name="animali" value="${k}" ${s.animali?.includes(k) ? 'checked' : ''} /> ${et}</label>`,
-              )
-              .join('')}
-          </div>
+          <div class="scelte" id="sceltaAnimali"></div>
         </div>
       </fieldset>
 
@@ -183,6 +195,27 @@ export async function vistaModifica(app, id) {
 
   form.elements.biciConsentita.addEventListener('change', () => {
     app.querySelector('#pedalabilita').hidden = form.elements.biciConsentita.value === 'no';
+  });
+
+  // animali: quelli del parco scelto, più quelli già segnati
+  const sceltaAnimali = app.querySelector('#sceltaAnimali');
+  function disegnaAnimali() {
+    const segnati = new Set(
+      sceltaAnimali.childElementCount ? new FormData(form).getAll('animali') : (s.animali ?? []),
+    );
+    const delParco = parcoDa(form.elements.parco.value)?.animali ?? [];
+    const voci = Object.entries(ANIMALI).filter(([k]) => delParco.includes(k) || segnati.has(k) || k === 'altro');
+    sceltaAnimali.innerHTML = voci
+      .map(
+        ([k, et]) =>
+          `<label class="scelta"><input type="checkbox" name="animali" value="${k}" ${segnati.has(k) ? 'checked' : ''} /> ${et}</label>`,
+      )
+      .join('');
+  }
+  disegnaAnimali();
+  form.elements.parco.addEventListener('change', () => {
+    disegnaAnimali();
+    impostaBanner(form.elements.parco.value);
   });
 
   form.addEventListener('submit', async (evento) => {

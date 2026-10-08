@@ -74,3 +74,15 @@ describe('modulo: difficoltà', () => {
     expect(sentieroDaModulo({ nome: 'X', difficolta: '' }).difficolta).toBeNull();
   });
 });
+
+describe('modulo: parco', () => {
+  it('salva il parco scelto e usa il suo sito come link predefinito', () => {
+    const s = sentieroDaModulo({ nome: 'X', parco: 'foreste-casentinesi' });
+    expect(s.parco).toBe('foreste-casentinesi');
+    expect(s.accesso.link).toContain('parcoforestecasentinesi');
+  });
+  it('ignora parchi sconosciuti', () => {
+    expect(sentieroDaModulo({ nome: 'X', parco: 'boh' }).parco).toBe('pnalm');
+    expect(sentieroDaModulo({ nome: 'X', parco: 'boh' }, { parco: 'appennino-lucano' }).parco).toBe('appennino-lucano');
+  });
+});

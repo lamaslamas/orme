@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { filtraSentieri, paesiDiPartenza, ordinaSentieri, FILTRI_VUOTI } from '../src/lib/filtri.js';
-import { DATI_INIZIALI } from '../src/datiIniziali.js';
+import { DATI_INIZIALI as TUTTI } from '../src/datiIniziali.js';
+
+// i test sui filtri usano i sentieri iniziali del PNALM
+const DATI_INIZIALI = TUTTI.filter((s) => s.parco === 'pnalm');
 
 const f = (extra) => ({ ...FILTRI_VUOTI, ...extra });
 const ids = (lista) => lista.map((s) => s.id);

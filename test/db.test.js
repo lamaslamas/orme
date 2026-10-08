@@ -18,8 +18,10 @@ describe('archivio locale', () => {
     expect(await db.tuttiISentieri()).toHaveLength(DATI_INIZIALI.length - 1);
   });
 
-  it('tutti i dati iniziali sono da verificare', () => {
+  it('tutti i dati iniziali sono da verificare e hanno un parco esistente', async () => {
+    const { parcoDa } = await import('../src/datiParchi.js');
     expect(DATI_INIZIALI.every((s) => s.daVerificare)).toBe(true);
+    expect(DATI_INIZIALI.every((s) => parcoDa(s.parco))).toBe(true);
     expect(new Set(DATI_INIZIALI.map((s) => s.id)).size).toBe(DATI_INIZIALI.length);
   });
 
@@ -81,8 +83,14 @@ describe('aggiornamento dalla versione 1', () => {
 
     const s = await db.leggiSentiero('mio');
     expect(s.bici.consentita).toBe('da_verificare');
+    expect(s.parco).toBe('pnalm');
     expect(s.notePersonali).toBe('note mie');
     expect(s.stato).toBe('fatto');
+    // arrivano i sentieri dei nuovi parchi, ma non quelli del PNALM già caricati (e magari eliminati)
+    expect(await db.caricaDatiIniziali()).toBe(true);
+    const tutti = await db.tuttiISentieri();
+    expect(tutti.some((x) => x.parco === 'foreste-casentinesi')).toBe(true);
+    expect(tutti.some((x) => x.id === 'cicerana')).toBe(false);
     expect(await db.caricaDatiIniziali()).toBe(false);
   });
 

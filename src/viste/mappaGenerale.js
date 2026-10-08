@@ -6,6 +6,8 @@ import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
+import { tuttiIConfini } from '../db.js';
+import { disegnaConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 
 export const COLORI_STATO = {
@@ -43,6 +45,8 @@ export async function vistaMappaGenerale(app) {
   `;
 
   const mappa = creaMappa(app.querySelector('#mappa'));
+  // confini dei parchi già scaricati (si scaricano aprendo la pagina del parco)
+  for (const confine of await tuttiIConfini()) disegnaConfine(confine).addTo(mappa);
   const livello = L.layerGroup().addTo(mappa);
   const selezione = L.layerGroup().addTo(mappa);
   let visibili = [];

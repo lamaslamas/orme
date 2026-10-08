@@ -9,6 +9,8 @@ import { profiloAltimetrico, percorsoProfiloSvg } from '../lib/profilo.js';
 import { percorsoSentiero } from '../lib/tracce.js';
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
+import { impostaBanner } from './banner.js';
+import { parcoDa } from '../datiParchi.js';
 
 // Riga di numeri grandi: lunghezza, dislivello, durata
 function numeriGrandi(m) {
@@ -46,7 +48,7 @@ function riga(etichetta, valore) {
 
 function riquadroBici(s, traccia) {
   const b = s.bici;
-  const link = linkSicuro(b.link) ?? LINK_PARCO;
+  const link = linkSicuro(b.link) ?? parcoDa(s.parco)?.sito ?? LINK_PARCO;
   const suggerimento = traccia?.dettagli?.suggerimentoBici;
   const proposti = valoriSuggeriti(suggerimento);
   const daApplicare = Object.entries(proposti).filter(([k, v]) => b[k] !== v);
@@ -103,8 +105,10 @@ export async function vistaScheda(app, id) {
     return;
   }
 
+  impostaBanner(s.parco);
+  const parco = parcoDa(s.parco);
   const tipo = s.accesso?.tipo || 'nessuno';
-  const linkParco = linkSicuro(s.accesso?.link) ?? LINK_PARCO;
+  const linkParco = linkSicuro(s.accesso?.link) ?? parco?.sito ?? LINK_PARCO;
   const p = s.partenza ?? {};
   const haCoordinate = Number.isFinite(p.lat) && Number.isFinite(p.lon);
   const partenza = [p.paese, p.descrizione].filter(Boolean).map(escapeHtml).join(' – ');
@@ -127,6 +131,7 @@ export async function vistaScheda(app, id) {
         ${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span>` : ''}
       </div>
       <h1>${escapeHtml(s.nome)}</h1>
+      ${parco ? `<a class="link-parco" href="#/parco/${encodeURIComponent(parco.id)}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
       ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
       <div class="chips">
         ${(s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('')}
