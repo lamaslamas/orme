@@ -109,6 +109,23 @@ window.addEventListener('orme-aggiornata-altrove', () => {
   </section>`;
 });
 
+globalThis.__ormeFase = 'avvio';
 caricaDatiIniziali()
-  .catch((errore) => console.error('Dati iniziali non caricati', errore))
-  .finally(mostra);
+  .then(() => {
+    globalThis.__ormeFase = 'dati pronti';
+    return mostra();
+  })
+  .then(() => (globalThis.__ormeFase = 'pagina mostrata'))
+  .catch((errore) => {
+    console.error('Avvio non riuscito', errore);
+    app.innerHTML = `<section class="riquadro" style="margin-top:24px">
+      <h2>${errore.codice === 'archivio-non-risponde' ? "L'archivio dei dati non risponde" : 'Orme non è riuscita a caricare i dati'}</h2>
+      <p>Succede quando un'altra finestra di Orme (anche l'app installata o una scheda in sospensione) tiene occupato l'archivio, oppure quando il browser ha un problema con i dati del sito.</p>
+      <ol>
+        <li>Chiudi tutte le schede di Orme e la finestra dell'app installata, poi ricarica.</li>
+        <li>Se non basta, chiudi e riapri il browser.</li>
+      </ol>
+      <button type="button" class="bottone primario" onclick="location.reload()">Ricarica</button>
+      <p class="tenue piccolo">Dettagli: ${escapeHtml(errore.name ?? '')} ${escapeHtml(errore.message ?? String(errore))}</p>
+    </section>`;
+  });

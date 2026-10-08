@@ -41,10 +41,21 @@ function fine(tx) {
   });
 }
 
+export const ATTESA_ARCHIVIO_MS = 8000;
+
 export function apriDb() {
   if (promessaDb) return promessaDb;
   promessaDb = new Promise((risolvi, rifiuta) => {
+    globalThis.__ormeFase = 'apertura archivio';
     const req = indexedDB.open(NOME_DB, VERSIONE_DB);
+    // se il browser non risponde affatto, meglio un errore chiaro di un'attesa infinita
+    const limite = setTimeout(() => {
+      promessaDb = null;
+      const e = new Error("L'archivio dei dati del browser non risponde.");
+      e.codice = 'archivio-non-risponde';
+      rifiuta(e);
+    }, ATTESA_ARCHIVIO_MS);
+    const fineAttesa = () => clearTimeout(limite);
     req.onupgradeneeded = (evento) => {
       const db = req.result;
       if (!db.objectStoreNames.contains('sentieri')) db.createObjectStore('sentieri', { keyPath: 'id' });
@@ -69,6 +80,8 @@ export function apriDb() {
       }
     };
     req.onsuccess = () => {
+      fineAttesa();
+      globalThis.__ormeFase = 'archivio aperto';
       const db = req.result;
       // se un'altra scheda apre una versione più nuova dell'archivio, questa lo libera
       db.onversionchange = () => {
@@ -78,7 +91,11 @@ export function apriDb() {
       };
       risolvi(db);
     };
-    req.onerror = () => rifiuta(req.error);
+    req.onerror = () => {
+      fineAttesa();
+      promessaDb = null;
+      rifiuta(req.error);
+    };
     // un'altra scheda o l'app installata, con una versione vecchia, tiene aperto l'archivio
     req.onblocked = () => globalThis.dispatchEvent?.(new CustomEvent('orme-archivio-bloccato'));
   });

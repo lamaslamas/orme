@@ -55,7 +55,10 @@
             '<p>Di solito succede quando il browser tiene in memoria una versione vecchia dell\'app.</p>' +
             '<button type="button" class="bottone primario" id="ripara">Ripara e ricarica</button>' +
             '<p class="tenue piccolo" id="dettagli"></p></section>';
-          document.getElementById('dettagli').textContent = errori.length ? 'Dettagli: ' + errori.slice(0, 3).join(' · ') : 'Nessun errore registrato.';
+          document.getElementById('dettagli').textContent =
+            'Fase: ' + (window.__ormeFase || 'il codice dell\'app non è partito') +
+            ' · ' + (errori.length ? 'Errori: ' + errori.slice(0, 3).join(' · ') : 'nessun errore registrato') +
+            ' · ' + navigator.userAgent;
           document.getElementById('ripara').onclick = function () {
             var fatto = function () { location.reload(); };
             var passi = [];
