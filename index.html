@@ -32,6 +32,50 @@
       </div>
     </div>
     <main id="app"></main>
+    <script>
+      // Se l'app non riesce a partire (versione vecchia in memoria, browser non aggiornato,
+      // errore), al posto della pagina vuota compare un messaggio con il pulsante per ripararla.
+      (function () {
+        var errori = [];
+        function registra(messaggio) {
+          errori.push(String(messaggio || 'errore sconosciuto'));
+        }
+        window.addEventListener('error', function (e) {
+          registra(e.message || (e.target && e.target.src ? 'file non caricato: ' + e.target.src : ''));
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          registra(e.reason && e.reason.message ? e.reason.message : e.reason);
+        });
+        function controlla() {
+          var app = document.getElementById('app');
+          if (!app || app.childElementCount > 0) return;
+          app.innerHTML =
+            '<section class="riquadro" style="margin-top:24px">' +
+            '<h2>Orme non è riuscita a partire</h2>' +
+            '<p>Di solito succede quando il browser tiene in memoria una versione vecchia dell\'app.</p>' +
+            '<button type="button" class="bottone primario" id="ripara">Ripara e ricarica</button>' +
+            '<p class="tenue piccolo" id="dettagli"></p></section>';
+          document.getElementById('dettagli').textContent = errori.length ? 'Dettagli: ' + errori.slice(0, 3).join(' · ') : 'Nessun errore registrato.';
+          document.getElementById('ripara').onclick = function () {
+            var fatto = function () { location.reload(); };
+            var passi = [];
+            if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+              passi.push(navigator.serviceWorker.getRegistrations().then(function (r) {
+                return Promise.all(r.map(function (x) { return x.unregister(); }));
+              }));
+            }
+            if (window.caches && caches.keys) {
+              passi.push(caches.keys().then(function (k) {
+                return Promise.all(k.map(function (x) { return caches.delete(x); }));
+              }));
+            }
+            // i dati (sentieri, tracce, avvistamenti) non vengono toccati
+            Promise.all(passi).then(fatto, fatto);
+          };
+        }
+        window.addEventListener('load', function () { setTimeout(controlla, 4000); });
+      })();
+    </script>
     <nav class="barra-schede" aria-label="Sezioni">
       <a href="#/mappa" data-sezione="mappa">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z M9 4v14 M15 6v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>

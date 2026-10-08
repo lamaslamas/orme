@@ -44,6 +44,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // la nuova versione prende subito il posto della vecchia e ne cancella i file
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         navigateFallback: `${BASE}index.html`,
         runtimeCaching: [
           cacheMappa('mappa-osm', /^https:\/\/tile\.openstreetmap\.org\//),
