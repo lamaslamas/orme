@@ -47,8 +47,12 @@ async function importaEcotur() {
   const robots = await regoleRobots(new URL(ECOTUR.elenco).origin);
   const attesa = Math.max(ECOTUR.attesaMs, robots.attesaMs);
   if (!robots.consentito(ECOTUR.elenco)) throw new Error('robots.txt non consente la lettura');
-  const link = linkEscursioni(await scarica(ECOTUR.elenco));
-  if (!link.length) throw new Error("nessuna escursione nell'elenco (pagina cambiata?)");
+  const elenco = await scarica(ECOTUR.elenco);
+  const link = linkEscursioni(elenco);
+  if (!link.length) {
+    const titolo = elenco.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
+    throw new Error(`nessuna escursione nell'elenco (pagina "${titolo.slice(0, 80)}", ${elenco.length} caratteri)`);
+  }
   const candidati = [];
   let completo = true;
   for (const url of link) {
