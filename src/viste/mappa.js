@@ -63,7 +63,7 @@ export async function vistaMappa(app, id) {
   const livelloTraccia = L.layerGroup().addTo(mappa);
   const livelloAnteprima = L.layerGroup().addTo(mappa);
   let risultati = null; // risultati della ricerca OSM in corso di scelta
-  const fermaGps = aggiungiGps(mappa, () => traccia);
+  const fermaGps = aggiungiGps(mappa, () => traccia, { naviga: true });
   const misura = aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
   const avv = aggiungiAvvistamenti(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
@@ -123,6 +123,12 @@ export async function vistaMappa(app, id) {
     pannello.innerHTML = `
       ${messaggio ? `<p class="messaggio">${messaggio}</p>` : ''}
       <p>${traccia ? descriviTraccia() : 'Nessuna traccia salvata per questo sentiero.'}</p>
+      ${
+        traccia
+          ? `<button class="bottone primario pieno-largo naviga" data-azione="naviga">${mappa.gps?.attivo() ? 'Ferma la navigazione' : 'Naviga lungo il sentiero'}</button>
+             <p class="tenue piccolo">Usa il GPS: mostra quanto hai fatto, quanto manca e ti avvisa se esci dalla traccia. Lo schermo resta acceso.</p>`
+          : ''
+      }
       <div class="azioni-mappa">
         ${
           haCodici
@@ -272,6 +278,14 @@ export async function vistaMappa(app, id) {
       mostraTracciaSalvata({ inquadra: false });
     }
     if (azione === 'quote') aggiungiQuoteTraccia();
+    if (azione === 'naviga') {
+      if (mappa.gps.attivo()) mappa.gps.ferma();
+      else {
+        mappa.gps.avvia();
+        document.getElementById('mappa')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      evento.target.closest('[data-azione]').textContent = mappa.gps.attivo() ? 'Ferma la navigazione' : 'Naviga lungo il sentiero';
+    }
     if (azione === 'inverti') {
       traccia = await salvaTraccia({ ...traccia, geojson: invertiGeojson(traccia.geojson) });
       mostraTracciaSalvata({ inquadra: false });

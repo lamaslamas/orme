@@ -10,6 +10,7 @@ import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
 import { htmlPanorama, collegaPanorama } from './panorama.js';
+import { htmlFotoPersonali, collegaFotoPersonali } from './fotoPersonali.js';
 
 const STATI_VERIFICA = {
   verificato: 'Verificato',
@@ -296,6 +297,8 @@ export async function vistaScheda(app, id) {
           : '';
       })()}
 
+      ${htmlFotoPersonali()}
+
       <section class="riquadro">
         <h2>Il mio diario</h2>
         <div class="stato-riga">
@@ -348,6 +351,7 @@ export async function vistaScheda(app, id) {
   const fileGpx = app.querySelector('#fileGpxScheda');
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
+  const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {
     const file = fileGpx.files?.[0];
@@ -407,7 +411,7 @@ export async function vistaScheda(app, id) {
 
   // anteprima della mappa: ferma, si tocca per aprire la mappa completa
   const contenitoreMini = app.querySelector('#miniMappa');
-  if (!contenitoreMini) return;
+  if (!contenitoreMini) return liberaFoto;
   const mini = creaMappa(contenitoreMini, { anteprima: true });
   const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false }).addTo(mini);
   mini.attenuaSentieri(true);
@@ -415,5 +419,8 @@ export async function vistaScheda(app, id) {
     mini.invalidateSize();
     mini.fitBounds(gruppo.getBounds(), { padding: [28, 28] });
   });
-  return () => mini.remove();
+  return () => {
+    mini.remove();
+    liberaFoto();
+  };
 }

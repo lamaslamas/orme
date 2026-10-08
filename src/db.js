@@ -16,6 +16,7 @@ import { completaGiro } from './lib/giro.js';
 import { completaAvvistamento } from './lib/avvistamenti.js';
 import { completaPercorso } from './lib/percorso.js';
 import { pianoSincronizzazione, controllaArchivio } from './lib/archivio.js';
+import { inBase64, daBase64, fotoValida } from './lib/foto.js';
 
 const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
@@ -24,9 +25,11 @@ const NOME_DB = 'orme';
 // 4: parchi (campo "parco" nei sentieri), avvistamenti, confini, osservazioni
 // 5: percorsi della sezione Pianifica
 // 6: copia dell'archivio pubblico per l'unione con i miei dati
-const VERSIONE_DB = 6;
-// backup 1: sentieri e tracce; 2: anche i giri; 3: anche gli avvistamenti (facoltativi); 4: anche i percorsi
-export const VERSIONE_BACKUP = 4;
+// 7: foto personali (solo sul telefono)
+const VERSIONE_DB = 7;
+// backup 1: sentieri e tracce; 2: anche i giri; 3: anche gli avvistamenti (facoltativi); 4: anche i percorsi;
+// 5: anche le foto personali (facoltative)
+export const VERSIONE_BACKUP = 5;
 
 let promessaDb = null;
 
@@ -73,6 +76,7 @@ export function apriDb() {
       }
       if (!db.objectStoreNames.contains('percorsi')) db.createObjectStore('percorsi', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('archivio')) db.createObjectStore('archivio', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('foto')) db.createObjectStore('foto', { keyPath: 'id' }).createIndex('sentiero', 'sentieroId');
       if (evento.oldVersion >= 1 && evento.oldVersion < 4) {
         // Aggiunge i campi nuovi (bici, parco) solo dove mancano, senza toccare il resto
         const cursore = req.transaction.objectStore('sentieri').openCursor();
@@ -148,9 +152,12 @@ export function salvaSentiero(sentiero) {
 
 export async function eliminaSentiero(id) {
   const db = await apriDb();
-  const tx = db.transaction(['sentieri', 'tracce'], 'readwrite');
+  const tx = db.transaction(['sentieri', 'tracce', 'foto'], 'readwrite');
   tx.objectStore('sentieri').delete(id);
   tx.objectStore('tracce').delete(id);
+  // anche le mie foto del sentiero
+  const foto = tx.objectStore('foto');
+  foto.index('sentiero').getAllKeys(id).onsuccess = (e) => e.target.result.forEach((k) => foto.delete(k));
   await fine(tx);
 }
 
@@ -242,6 +249,26 @@ export async function eliminaPercorso(id) {
   await fine(tx);
 }
 
+// --- Foto personali (solo sul dispositivo) ---
+// { id, sentieroId, immagine: ArrayBuffer, miniatura: ArrayBuffer, tipo, larghezza, altezza, scattata, aggiunta, nota }
+
+export async function fotoDelSentiero(sentieroId) {
+  const db = await apriDb();
+  const foto = await richiesta(db.transaction('foto').objectStore('foto').index('sentiero').getAll(sentieroId));
+  return foto.sort((a, b) => (a.aggiunta ?? '').localeCompare(b.aggiunta ?? ''));
+}
+
+export const leggiFoto = (id) => leggiDa('foto', id);
+export const tutteLeFoto = () => tuttiDa('foto');
+export const salvaFoto = (f) => scriviIn('foto', { ...f, aggiunta: f.aggiunta ?? new Date().toISOString() });
+
+export async function eliminaFoto(id) {
+  const db = await apriDb();
+  const tx = db.transaction('foto', 'readwrite');
+  tx.objectStore('foto').delete(id);
+  await fine(tx);
+}
+
 // --- Archivio pubblico ---
 
 // Unisce l'archivio scaricato con i miei dati: solo i campi che non ho modificato
@@ -317,7 +344,8 @@ export async function caricaDatiIniziali() {
 // --- Backup ---
 
 // Per i file da condividere gli avvistamenti si escludono (è la scelta predefinita)
-export async function esporta({ escludiAvvistamenti = true } = {}) {
+// Le foto si includono solo se richiesto (file molto più grande)
+export async function esporta({ escludiAvvistamenti = true, includiFoto = false } = {}) {
   const meta = await leggiDa('meta', 'datiIniziali');
   return {
     app: 'orme',
@@ -329,6 +357,15 @@ export async function esporta({ escludiAvvistamenti = true } = {}) {
     giri: await tuttiIGiri(),
     percorsi: await tuttiIPercorsi(),
     ...(escludiAvvistamenti ? { avvistamentiEsclusi: true } : { avvistamenti: await tuttiGliAvvistamenti() }),
+    ...(includiFoto
+      ? {
+          foto: (await tutteLeFoto()).map(({ immagine, miniatura, ...f }) => ({
+            ...f,
+            immagine: inBase64(immagine),
+            miniatura: miniatura ? inBase64(miniatura) : null,
+          })),
+        }
+      : {}),
   };
 }
 
@@ -362,6 +399,7 @@ export function controllaBackup(dati) {
   for (const a of dati.avvistamenti ?? []) {
     if (!a || typeof a.id !== 'string' || !a.id) throw new Error('Nel backup c’è un avvistamento non valido.');
   }
+  if (dati.foto != null && (!Array.isArray(dati.foto) || !dati.foto.every(fotoValida))) throw new Error('Nel backup le foto non sono valide.');
 }
 
 // modo "sostituisci": cancella tutto e carica il backup
@@ -369,7 +407,7 @@ export function controllaBackup(dati) {
 export async function importa(dati, modo = 'unisci') {
   controllaBackup(dati);
   const db = await apriDb();
-  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'avvistamenti', 'percorsi', 'meta'], 'readwrite');
+  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'avvistamenti', 'percorsi', 'meta', 'foto'], 'readwrite');
   const percorsi = tx.objectStore('percorsi');
   const sentieri = tx.objectStore('sentieri');
   const tracce = tx.objectStore('tracce');
@@ -383,6 +421,10 @@ export async function importa(dati, modo = 'unisci') {
     if (Array.isArray(dati.percorsi)) percorsi.clear();
     // un backup senza avvistamenti non cancella quelli che ho sul telefono
     if (conAvvistamenti) avvistamenti.clear();
+  }
+  // le foto si aggiungono e basta: un backup senza foto non cancella quelle del telefono
+  for (const f of dati.foto ?? []) {
+    tx.objectStore('foto').put({ ...f, immagine: daBase64(f.immagine), miniatura: f.miniatura ? daBase64(f.miniatura) : null });
   }
   for (const a of dati.avvistamenti ?? []) avvistamenti.put(completaAvvistamento(a));
   for (const p of dati.percorsi ?? []) percorsi.put(completaPercorso(p));
@@ -402,5 +444,6 @@ export async function importa(dati, modo = 'unisci') {
     giri: dati.giri?.length ?? 0,
     avvistamenti: dati.avvistamenti?.length ?? 0,
     percorsi: dati.percorsi?.length ?? 0,
+    foto: dati.foto?.length ?? 0,
   };
 }

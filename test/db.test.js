@@ -129,7 +129,7 @@ describe('giri', () => {
   it('il backup include i giri e accetta backup vecchi senza giri', async () => {
     await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [] });
     const backup = JSON.parse(JSON.stringify(await db.esporta()));
-    expect(backup.versione).toBe(4);
+    expect(backup.versione).toBe(5);
     expect(backup.giri).toHaveLength(1);
 
     await db.importa({ app: 'orme', versione: 1, sentieri: [], tracce: [] }, 'sostituisci');
@@ -275,5 +275,23 @@ describe('sincronizzazione con l\'archivio pubblico', () => {
     const ancora = await db.leggiSentiero('f1-monte-amaro');
     expect(ancora.accesso.nota).toBe('mia nota');
     expect(ancora.zona).toBe('Monte Amaro di Opi');
+  });
+});
+
+describe('foto personali nel database e nel backup', () => {
+  it('si salvano per sentiero e nel backup entrano solo se richiesto', async () => {
+    const db = await import('../src/db.js');
+    const immagine = new Uint8Array([1, 2, 3, 4]).buffer;
+    await db.salvaFoto({ id: 'foto-1', sentieroId: 'f2-val-fondillo', immagine, miniatura: immagine, tipo: 'image/jpeg' });
+    expect((await db.fotoDelSentiero('f2-val-fondillo')).map((f) => f.id)).toEqual(['foto-1']);
+    expect((await db.esporta()).foto).toBeUndefined();
+    const conFoto = await db.esporta({ includiFoto: true });
+    expect(conFoto.foto).toHaveLength(1);
+    expect(typeof conFoto.foto[0].immagine).toBe('string');
+    await db.eliminaFoto('foto-1');
+    expect(await db.fotoDelSentiero('f2-val-fondillo')).toEqual([]);
+    await db.importa(JSON.parse(JSON.stringify(conFoto)), 'unisci');
+    const [ripristinata] = await db.fotoDelSentiero('f2-val-fondillo');
+    expect(new Uint8Array(ripristinata.immagine)).toEqual(new Uint8Array([1, 2, 3, 4]));
   });
 });

@@ -58,7 +58,8 @@ export const PARCHI = [
     nome: 'Parco Nazionale del Pollino',
     nomeBreve: 'Pollino',
     regioni: ['Basilicata', 'Calabria'],
-    sito: 'https://www.parcopollino.it/',
+    // sito dell'Ente Parco (indicato dall'ISPRA)
+    sito: 'https://www.parcopollino.gov.it/',
     // su OpenStreetMap il confine è una sola linea chiusa, non una relazione
     osm: { way: 33911573 },
     bbox: [39.61, 15.82, 40.23, 16.44],

@@ -28,7 +28,7 @@ export function htmlPanorama(s, traccia, idUrl) {
       <div class="panorama-punteggio" style="--valore:${p.punteggio}"><b>${p.punteggio}</b><span>/100</span></div>
       <div>
         <div class="panorama-etichetta">${escapeHtml(p.etichetta)}</div>
-        <div class="tenue piccolo">Stima ${p.metodo === 'preliminare' ? 'preliminare' : 'algoritmica'} · affidabilità <b>${escapeHtml(p.affidabilita)}</b></div>
+        <div class="tenue piccolo">${p.metodo === 'viewshed' ? 'Stima con analisi di visibilità' : 'Stima preliminare'} · affidabilità <b>${escapeHtml(p.affidabilita)}</b></div>
       </div>
     </div>
     <div class="panorama-numeri">
@@ -36,6 +36,7 @@ export function htmlPanorama(s, traccia, idUrl) {
       <div><b>${r.belvedere}</b><span>${r.belvedere === 1 ? 'Belvedere' : 'Belvedere'}</span></div>
       <div><b>${r.paesaggio}</b><span>Paesaggio</span></div>
     </div>
+    ${htmlFotoBelvedere(p.belvedere)}
     ${p.migliore ? `<p class="piccolo">Tratto più panoramico: <b>km ${km(p.migliore.daKm)}–${km(p.migliore.aKm)}</b>${stessaTraccia ? ` · <a href="#/sentiero/${idUrl}/mappa" data-azione="mostra-panorama">vedi sulla mappa</a>` : ''}</p>` : ''}
     ${!stessaTraccia && traccia ? '<p class="tenue piccolo">Calcolato sulla traccia dell\'archivio: la tua traccia è diversa.</p>' : ''}
     <details class="spiegazione">
@@ -52,13 +53,29 @@ export function htmlPanorama(s, traccia, idUrl) {
         p.vetteVisibili ? `Altre vette probabilmente visibili: ${p.vetteVisibili}.` : '',
         p.laghiVisibili?.length ? `Laghi in vista: ${p.laghiVisibili.map(escapeHtml).join(', ')}.` : '',
         `Bosco: circa ${p.boscoPercento}% del percorso.`,
+        p.visibileMedio != null ? `In media da ogni punto si vede il ${p.visibileMedio}% del territorio entro 8 km.` : '',
       ]
         .filter(Boolean)
         .join(' ')}</p>
       <p class="tenue piccolo">${p.motivi.map(escapeHtml).join('. ')}. È una stima algoritmica, non un giudizio sulla bellezza: quota alta e assenza di bosco da sole non garantiscono un bel panorama.</p>
+      ${p.metodo === 'viewshed' ? '<p class="tenue piccolo">Metodo: da un punto ogni 100 m si tracciano 72 direzioni fino a 8 km e si controlla quali zone del terreno si vedono davvero (curvatura terrestre inclusa); il bosco entro 1 km copre la vista come una chioma di 15 m. La visuale combina quanto territorio si vede e quanto è basso l\'orizzonte.</p>' : ''}
       <p class="tenue piccolo">Dati: quote Terrain Tiles (AWS Open Data), bosco © ESA WorldCover 2021 (CC BY 4.0), belvedere, vette e laghi © OpenStreetMap (ODbL). Calcolato il ${escapeHtml(new Date(p.calcolato).toLocaleDateString('it-IT'))}.</p>
     </details>
   </section>`;
+}
+
+// Foto dei belvedere lungo il percorso (Wikimedia Commons, licenze libere, con autore)
+function htmlFotoBelvedere(belvedere = []) {
+  const conFoto = belvedere.filter((b) => b.foto?.url);
+  if (!conFoto.length) return '';
+  return `<ul class="foto-belvedere">${conFoto
+    .map(
+      (b) => `<li><a href="${escapeHtml(b.foto.pagina)}" target="_blank" rel="noopener">
+        <img src="${escapeHtml(b.foto.url)}" alt="Vista vicino al belvedere ${escapeHtml(b.nome || '')}" loading="lazy" decoding="async" />
+        <span class="foto-belvedere-nome">${escapeHtml(b.nome || 'Belvedere')}</span></a>
+        <span class="credito">Foto: ${escapeHtml(b.foto.autore)} · ${escapeHtml(b.foto.licenza)}</span></li>`,
+    )
+    .join('')}</ul>`;
 }
 
 // Il collegamento "vedi sulla mappa" accende il livello
@@ -101,7 +118,7 @@ export function aggiungiLivelloPanorama(mappa, s, leggiTraccia) {
     if (!panoramaPerTraccia(s, leggiTraccia())) return '<p class="voce-legenda tenue">Panoramicità: non disponibile per questa traccia.</p>';
     return `<div class="voce-legenda"><b>Panoramicità stimata</b><ul class="legenda-stati">${Object.entries(NOMI_CLASSI)
       .map(([k, n]) => `<li><span class="campione" style="background:${COLORI_PANORAMA[k]}"></span>${n}</li>`)
-      .join('')}</ul><p class="tenue piccolo">Stima preliminare dalla forma del terreno e dal bosco. In evidenza il chilometro più panoramico.</p></div>`;
+      .join('')}</ul><p class="tenue piccolo">${s.panorama.metodo === 'viewshed' ? 'Visibilità calcolata sul terreno e sul bosco' : 'Stima preliminare dalla forma del terreno e dal bosco'}. In evidenza il chilometro più panoramico.</p></div>`;
   });
   mappa.suLivello('panoramicita', (acceso) => {
     if (acceso) {

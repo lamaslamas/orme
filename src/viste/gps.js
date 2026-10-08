@@ -1,5 +1,7 @@
 import L from 'leaflet';
 import { distanzaDallaTracciaM } from '../lib/geo.js';
+import { preparaNavigazione, posizioneSulPercorso } from '../lib/navigazioneSentiero.js';
+import { durata } from '../lib/formato.js';
 
 const SOGLIA_FUORI_TRACCIA_M = 50;
 
@@ -16,7 +18,12 @@ function formattaMetri(m) {
 
 // Aggiunge alla mappa il pulsante "La mia posizione".
 // leggiTraccia() restituisce la traccia attuale (o nulla) per calcolare la distanza.
-export function aggiungiGps(mappa, leggiTraccia) {
+// naviga: sulla mappa di un singolo sentiero mostra anche quanto ho fatto e quanto manca.
+export function aggiungiGps(mappa, leggiTraccia, { naviga = false } = {}) {
+  let nav = null;
+  let geojsonNav = null;
+  let fattiM = null;
+  let eraFuori = false;
   let idWatch = null;
   let segui = true;
   let wakeLock = null;
@@ -106,6 +113,7 @@ export function aggiungiGps(mappa, leggiTraccia) {
       mostraStato(precisione);
       return;
     }
+    if (naviga) return mostraNavigazione(traccia, [longitude, latitude], accuracy, precisione);
     const distanza = distanzaDallaTracciaM([longitude, latitude], traccia.geojson);
     // la precisione del GPS conta: si è "fuori" solo se la distanza supera anche l'errore
     const fuori = distanza > Math.max(SOGLIA_FUORI_TRACCIA_M, accuracy);
@@ -114,6 +122,33 @@ export function aggiungiGps(mappa, leggiTraccia) {
         ? `<b>Sei a ${formattaMetri(distanza)} dalla traccia</b> · ${precisione}`
         : `Sulla traccia · ${precisione}`,
       fuori ? 'fuori' : 'sulla',
+    );
+  }
+
+  // Pannello di navigazione: avanzamento, distanza e salita rimanenti, tempo all'arrivo
+  function mostraNavigazione(traccia, punto, accuracy, precisione) {
+    if (geojsonNav !== traccia.geojson) {
+      geojsonNav = traccia.geojson;
+      nav = preparaNavigazione(traccia.geojson);
+      fattiM = null;
+    }
+    if (!nav) return mostraStato(precisione);
+    const p = posizioneSulPercorso(nav, punto, fattiM);
+    // fuori traccia solo se la distanza supera anche l'errore del GPS
+    const fuori = p.distanzaDallaTracciaM > Math.max(SOGLIA_FUORI_TRACCIA_M, accuracy);
+    if (!fuori) fattiM = p.fattiM;
+    if (fuori && !eraFuori) navigator.vibrate?.([200, 100, 200]);
+    eraFuori = fuori;
+    const dati = p.arrivato
+      ? '<b>Sei arrivato alla fine del percorso</b>'
+      : `<b>${formattaMetri(p.fattiM)}</b> fatti · mancano <b>${formattaMetri(p.mancantiM)}</b>` +
+        (p.salitaRimanenteM ? ` · +${p.salitaRimanenteM} m` : '') +
+        (p.durataRimanenteMin ? ` · ~${durata(p.durataRimanenteMin)}` : '');
+    mostraStato(
+      `${fuori ? `<b>Sei a ${formattaMetri(p.distanzaDallaTracciaM)} dalla traccia</b><br>` : ''}${dati}
+       <span class="nav-barra" aria-hidden="true"><i style="width:${p.percento}%"></i></span>
+       <span class="nav-precisione">${precisione}</span>`,
+      `navigazione ${fuori ? 'fuori' : 'sulla'}`,
     );
   }
 

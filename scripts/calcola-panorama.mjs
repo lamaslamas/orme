@@ -115,6 +115,41 @@ out center tags;`;
   return luoghi;
 }
 
+// Foto di Wikimedia Commons scattata vicino al belvedere (entro 300 m), solo con licenza libera
+const fotoInCache = new Map();
+const LICENZA_LIBERA = /^(cc[ -]by|cc0|public domain|pd)/i;
+async function fotoVicina({ lat, lon }) {
+  const chiave = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  if (fotoInCache.has(chiave)) return fotoInCache.get(chiave);
+  let foto = null;
+  try {
+    const url =
+      'https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=geosearch&ggsnamespace=6&ggsradius=300&ggslimit=10' +
+      `&ggscoord=${lat}|${lon}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480`;
+    const r = await (await fetch(url, { headers: { 'User-Agent': AGENTE }, signal: AbortSignal.timeout(30_000) })).json();
+    const pagine = Object.values(r.query?.pages ?? {}).sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    for (const pg of pagine) {
+      const i = pg.imageinfo?.[0];
+      const m = i?.extmetadata ?? {};
+      const licenza = m.LicenseShortName?.value ?? '';
+      if (!i?.thumburl || !LICENZA_LIBERA.test(licenza) || /\b(nc|nd)\b/i.test(licenza)) continue;
+      if (!/\.(jpe?g|png|webp)$/i.test(pg.title)) continue;
+      foto = {
+        url: i.thumburl.split('?')[0],
+        pagina: i.descriptionurl,
+        autore: (m.Artist?.value ?? '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'autore su Commons',
+        licenza,
+      };
+      break;
+    }
+  } catch (e) {
+    console.warn(`  foto belvedere ${chiave}: ${e.message}`);
+  }
+  fotoInCache.set(chiave, foto);
+  await attendi(200);
+  return foto;
+}
+
 function riquadro(geojson, margineGradi) {
   const punti = geojson.coordinates.flat();
   const lon = punti.map((p) => p[0]);
@@ -135,14 +170,15 @@ for (const p of archivio.percorsi) {
   }
   try {
     const luoghi = await luoghiDelParco(p.parco);
-    await terreno.prepara(riquadro(g, 0.085)); // 6 km di orizzonte + margine
-    await copertura.prepara(riquadro(g, 0.002));
+    await terreno.prepara(riquadro(g, 0.11)); // 8 km di visuale + margine
+    await copertura.prepara(riquadro(g, 0.015)); // la chioma conta entro 1 km
     const d = p.traccia.dettagli ?? {};
     const r = calcolaPanorama(g, { quota, bosco, luoghi, parziale: Boolean(d.notaParziale || d.mancanti?.length), oggi });
     if (!r) {
       console.warn(`  ${p.id}: non calcolabile (quote mancanti)`);
       continue;
     }
+    for (const b of r.belvedere) b.foto = await fotoVicina(b);
     p.panorama = { ...r, impronta: imp };
     calcolati++;
     console.log(`${String(r.punteggio).padStart(3)}  ${r.affidabilita.padEnd(5)}  ${p.nome}`);

@@ -7,14 +7,17 @@
 import { percorsoSentiero } from './tracce.js';
 import { distanzaKm } from './geo.js';
 
-export const VERSIONE_PANORAMA = 1;
+// 1 = stima preliminare (orizzonte dalla forma del terreno), 2 = analisi di visibilità (viewshed)
+export const VERSIONE_PANORAMA = 2;
+// cambia quando si ritocca la taratura: l'archivio si ricalcola da solo
+export const TARATURA_PANORAMA = 2;
 
 // Impronta della traccia: l'indice si ricalcola solo se cambia. Serve anche all'app
 // per sapere se l'indice è stato calcolato proprio sulla traccia che sto guardando.
 export function improntaTraccia(geojson) {
   let h = 2166136261;
   for (const c of JSON.stringify(geojson?.coordinates ?? [])) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
-  return `${VERSIONE_PANORAMA}-${(h >>> 0).toString(36)}`;
+  return `${VERSIONE_PANORAMA}.${TARATURA_PANORAMA}-${(h >>> 0).toString(36)}`;
 }
 export const PASSO_M = 100;
 
@@ -97,8 +100,68 @@ export function aperturaOrizzonte(punto, quota) {
   return somma / DIREZIONI;
 }
 
+// --- Versione 2: analisi di visibilità (viewshed) ---
+const RAGGI = 72; // una direzione ogni 5°
+const RAGGIO_VISTA_M = 8000;
+const ALTEZZA_CHIOMA_M = 15; // gli alberi vicini coprono la vista
+const RAGGIO_CHIOMA_M = 1000;
+// raggio terrestre "efficace" con la rifrazione dell'aria (coefficiente 0,13)
+const RAGGIO_TERRA_EFF_M = 6_371_000 / (1 - 0.13);
+// passi lungo ogni raggio: fitti vicino al punto, più radi lontano
+const PASSI_M = [
+  ...Array.from({ length: 25 }, (_, i) => 40 * (i + 1)),
+  ...Array.from({ length: 70 }, (_, i) => 1000 + 100 * (i + 1)),
+];
+
+// tolleranza sull'angolo (circa 2,4 m a 8 km): l'errore verticale del modello del terreno
+const TOLLERANZA_PENDENZA = 0.0003;
+
+// Visibilità da un punto entro 8 km, con curvatura terrestre e chioma del bosco.
+// visibile: parte di territorio visibile (0-1), pesata per area (una cella lontana conta di più);
+// apertura: quanto è basso l'orizzonte tutto intorno (0 = chiuso, 1 = aperto).
+export function visibilitaPunto(punto, quota, bosco) {
+  const h0 = quota(punto.lon, punto.lat);
+  if (h0 == null) return null;
+  const occhi = h0 + ALTEZZA_OCCHI_M;
+  let visibile = 0;
+  let totale = 0;
+  let mancanti = 0;
+  let aperturaSomma = 0;
+  for (let r = 0; r < RAGGI; r++) {
+    const gradi = (360 / RAGGI) * r;
+    let massimo = -Infinity;
+    let precedente = 0;
+    for (const d of PASSI_M) {
+      const area = d * (d - precedente);
+      precedente = d;
+      totale += area;
+      const [lon, lat] = spostaPunto([punto.lon, punto.lat], d, gradi);
+      const h = quota(lon, lat);
+      if (h == null) {
+        mancanti += area;
+        continue;
+      }
+      const superficie = h + (d <= RAGGIO_CHIOMA_M && bosco(lon, lat) ? ALTEZZA_CHIOMA_M : 0);
+      const pendenza = (superficie - (d * d) / (2 * RAGGIO_TERRA_EFF_M) - occhi) / d;
+      if (pendenza >= massimo - TOLLERANZA_PENDENZA) visibile += area;
+      if (pendenza > massimo) massimo = pendenza;
+    }
+    const angolo = (Math.atan(massimo) * 180) / Math.PI;
+    aperturaSomma += Math.min(1, Math.max(0, (ANGOLO_CHIUSO - angolo) / (ANGOLO_CHIUSO - ANGOLO_APERTO)));
+  }
+  if (mancanti > totale / 2) return null;
+  return { visibile: visibile / (totale - mancanti), apertura: aperturaSomma / RAGGI };
+}
+
+// Visuale 0-1: serve vedere tanto territorio e avere l'orizzonte basso (dal fondo di una conca
+// si vedono le pareti, non un panorama). Tarata su sentieri reali dell'Appennino: anche dai punti
+// più panoramici si vede circa il 15-20% del territorio entro 8 km (versanti e cime nascondono il resto).
+export const VISIBILE_PIENO = 0.15;
+export const visualeDaVisibilita = ({ visibile, apertura }) => Math.min(1, Math.sqrt(visibile / VISIBILE_PIENO)) * (0.3 + 0.7 * apertura);
+
 // Linea di vista tra il punto (occhi a 1,7 m) e un obiettivo (vetta o lago) sul terreno
-export function siVede(da, a, quota) {
+// bosco (facoltativo): la chioma entro 1 km dal punto copre la vista anche verso vette e laghi
+export function siVede(da, a, quota, bosco = null) {
   const h0 = quota(da.lon, da.lat);
   const h1 = quota(a.lon, a.lat);
   if (h0 == null || h1 == null) return false;
@@ -108,7 +171,8 @@ export function siVede(da, a, quota) {
     const t = i / passi;
     const h = quota(da.lon + t * (a.lon - da.lon), da.lat + t * (a.lat - da.lat));
     const linea = h0 + ALTEZZA_OCCHI_M + t * (h1 + 2 - (h0 + ALTEZZA_OCCHI_M));
-    if (h != null && h > linea) return false;
+    const chioma = bosco && t * distanzaM <= RAGGIO_CHIOMA_M && bosco(da.lon + t * (a.lon - da.lon), da.lat + t * (a.lat - da.lat)) ? ALTEZZA_CHIOMA_M : 0;
+    if (h != null && h + chioma > linea) return false;
   }
   return true;
 }
@@ -170,16 +234,25 @@ export const etichettaIndice = (p) =>
 // Calcolo completo per una traccia.
 // luoghi: { belvedere: [{lon,lat,nome}], vette: [{lon,lat,nome,quota}], laghi: [{lon,lat,nome}] }
 // opzioni.parziale: la traccia copre solo una parte del percorso
-export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale = false, oggi = null } = {}) {
+// metodo: 'viewshed' (versione 2, predefinito) o 'preliminare' (versione 1)
+export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale = false, oggi = null, metodo = 'viewshed' } = {}) {
   const punti = campionaPercorso(geojson);
   if (punti.length < 3) return null;
   let senzaQuota = 0;
   let senzaBosco = 0;
+  const viewshed = metodo === 'viewshed';
   const campioni = punti.map((p) => {
-    const apertura = aperturaOrizzonte(p, quota);
     const b = bosco(p.lon, p.lat);
-    if (apertura == null) senzaQuota++;
     if (b == null) senzaBosco++;
+    if (viewshed) {
+      const v = visibilitaPunto(p, quota, bosco);
+      if (v == null) senzaQuota++;
+      const visuale = v == null ? 0 : visualeDaVisibilita(v);
+      // "apertura": quanto è aperto il punto, serve a scegliere da dove guardare vette e laghi
+      return { ...p, apertura: v?.apertura ?? 0, bosco: Boolean(b), visuale, visibile: v?.visibile ?? 0 };
+    }
+    const apertura = aperturaOrizzonte(p, quota);
+    if (apertura == null) senzaQuota++;
     const visuale = (apertura ?? 0) * (b ? FATTORE_BOSCO : 1);
     return { ...p, apertura: apertura ?? 0, bosco: Boolean(b), visuale };
   });
@@ -191,10 +264,17 @@ export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale =
   const nBelvedere = belvedere.length + vetteRaggiunte.length;
 
   // vette e laghi entro 6 km visibili da almeno un punto aperto del percorso
+  // osservatori: i punti aperti; se non ce ne sono, il 10% con la visuale migliore
   const aperti = campioni.filter((c) => !c.bosco && c.apertura >= 0.4);
-  const osservatori = (aperti.length ? aperti : campioni).filter((_, i, a) => a.length < 40 || i % Math.ceil(a.length / 40) === 0);
+  const migliori = [...campioni].sort((a, b) => b.visuale - a.visuale).slice(0, Math.max(1, Math.ceil(campioni.length / 10)));
+  const osservatori = (aperti.length ? aperti : migliori).filter((_, i, a) => a.length < 40 || i % Math.ceil(a.length / 40) === 0);
+  const boscoVista = viewshed ? bosco : null;
   const visibili = (elenco) =>
-    elenco.filter((e) => entro(osservatori, e, RAGGIO_ELEMENTI_KM) && osservatori.some((o) => distanzaKm([o.lon, o.lat], [e.lon, e.lat]) <= RAGGIO_ELEMENTI_KM && siVede(o, e, quota)));
+    elenco.filter(
+      (e) =>
+        entro(osservatori, e, RAGGIO_ELEMENTI_KM) &&
+        osservatori.some((o) => distanzaKm([o.lon, o.lat], [e.lon, e.lat]) <= RAGGIO_ELEMENTI_KM && siVede(o, e, quota, boscoVista)),
+    );
   const vetteVisibili = visibili((luoghi.vette ?? []).filter((v) => !vetteRaggiunte.includes(v)));
   const laghiVisibili = visibili(luoghi.laghi ?? []);
   for (const c of campioni) c.acqua = laghiVisibili.some((l) => distanzaKm([c.lon, c.lat], [l.lon, l.lat]) <= 1);
@@ -208,22 +288,29 @@ export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale =
     varieta: Math.round(
       100 * (0.6 * varieta(campioni) + (0.4 * [vetteVisibili.length, laghiVisibili.length, vetteRaggiunte.length].filter(Boolean).length) / 3),
     ),
-    elementi: Math.min(100, 12 * vetteVisibili.length + 25 * laghiVisibili.length + 10 * vetteRaggiunte.length),
+    // le vette contano sempre meno: in Appennino da quasi ovunque si vede qualche cima minore
+    elementi: Math.min(100, Math.round(18 * Math.log2(1 + vetteVisibili.length) + 25 * laghiVisibili.length + 10 * vetteRaggiunte.length)),
     apertura: Math.round((100 * visuali.filter((v) => v >= 0.5).length) / visuali.length),
   };
   const punteggio = Math.round(Object.entries(PESI).reduce((s, [k, p]) => s + p * criteri[k], 0));
 
-  // affidabilità: mai "alta" nella stima preliminare
-  const motivi = ['Stima preliminare: visuale dedotta dalla forma del terreno, senza analisi di visibilità completa'];
-  if (parziale) motivi.push('La traccia copre solo una parte del percorso');
-  if (senzaBosco > punti.length * 0.2) motivi.push('Copertura del bosco non disponibile su parte del percorso');
-  if (senzaQuota) motivi.push('Quote mancanti su parte del percorso');
-  if (punti.length < 15) motivi.push('Percorso molto breve');
-  const affidabilita = motivi.length > 1 ? 'bassa' : 'media';
+  // affidabilità: la stima preliminare non è mai "alta"; l'analisi di visibilità sì, se i dati sono completi
+  const problemi = [];
+  if (parziale) problemi.push('La traccia copre solo una parte del percorso');
+  if (senzaBosco > punti.length * 0.2) problemi.push('Copertura del bosco non disponibile su parte del percorso');
+  if (senzaQuota) problemi.push('Quote mancanti su parte del percorso');
+  if (punti.length < 15) problemi.push('Percorso molto breve');
+  const motivi = [
+    viewshed
+      ? 'Visibilità calcolata sul modello del terreno (circa 30 m) e sul bosco: edifici, singoli alberi, foschia e meteo non sono considerati'
+      : 'Stima preliminare: visuale dedotta dalla forma del terreno, senza analisi di visibilità completa',
+    ...problemi,
+  ];
+  const affidabilita = viewshed ? ['alta', 'media'][problemi.length] ?? 'bassa' : problemi.length ? 'bassa' : 'media';
 
   return {
-    versione: VERSIONE_PANORAMA,
-    metodo: 'preliminare',
+    versione: viewshed ? 2 : 1,
+    metodo,
     punteggio,
     etichetta: etichettaIndice(punteggio),
     affidabilita,
@@ -234,6 +321,7 @@ export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale =
     vetteVisibili: vetteVisibili.length,
     laghiVisibili: laghiVisibili.map((l) => l.nome ?? '').filter(Boolean),
     boscoPercento: Math.round((100 * campioni.filter((c) => c.bosco).length) / campioni.length),
+    ...(viewshed ? { visibileMedio: Math.round((100 * campioni.reduce((s, c) => s + c.visibile, 0)) / campioni.length) } : {}),
     // visuale stimata ogni 100 m (0-100): l'app la usa per colorare i tratti
     visuale: visuali.map((v) => Math.round(v * 100)),
     tratti: trattiPanoramici(campioni),

@@ -1,4 +1,4 @@
-import { esporta, importa, controllaBackup, tuttiISentieri, sentieriConTraccia, tuttiIGiri, tuttiGliAvvistamenti } from '../db.js';
+import { esporta, importa, controllaBackup, tuttiISentieri, sentieriConTraccia, tuttiIGiri, tuttiGliAvvistamenti, tutteLeFoto } from '../db.js';
 import { escapeHtml, data } from '../lib/formato.js';
 
 function nomeFile() {
@@ -13,7 +13,8 @@ async function statoArchivio() {
 }
 
 export async function vistaBackup(app) {
-  const [sentieri, tracce, giri, avvistamenti, archivio] = await Promise.all([tuttiISentieri(), sentieriConTraccia(), tuttiIGiri(), tuttiGliAvvistamenti(), statoArchivio()]);
+  const [sentieri, tracce, giri, avvistamenti, archivio, foto] = await Promise.all([tuttiISentieri(), sentieriConTraccia(), tuttiIGiri(), tuttiGliAvvistamenti(), statoArchivio(), tutteLeFoto()]);
+  const numeroFoto = foto.length;
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Tutti i sentieri</a>
@@ -21,7 +22,7 @@ export async function vistaBackup(app) {
 
     <section class="riquadro">
       <h2>Dati sul dispositivo</h2>
-      <p>${sentieri.length} sentieri, ${tracce.size} tracce, ${giri.length} giri, ${avvistamenti.length} avvistamenti.</p>
+      <p>${sentieri.length} sentieri, ${tracce.size} tracce, ${giri.length} giri, ${avvistamenti.length} avvistamenti, ${numeroFoto} foto.</p>
       <p>Archivio: <b id="statoArchivio">${archivio}</b>
         ${archivio === 'non protetto' ? '<button type="button" class="link" id="proteggi">Proteggi</button>' : ''}</p>
       <p class="tenue">Un archivio non protetto può essere svuotato dal browser se il telefono ha poco spazio. Installare Orme come app aiuta. In ogni caso, fai spesso un backup.</p>
@@ -32,6 +33,8 @@ export async function vistaBackup(app) {
       <p>Salva un file JSON con sentieri, note, tracce e giri.</p>
       <label class="backup-opzione"><input type="checkbox" id="escludiAvv" checked />
         <span><b>Escludi avvistamenti</b><br><span class="tenue">Lascialo spuntato se condividi il file. Toglilo per il tuo backup completo.</span></span></label>
+      <label class="backup-opzione"><input type="checkbox" id="includiFoto" />
+        <span><b>Includi le mie foto</b><br><span class="tenue">Il file diventa molto più grande (${numeroFoto} ${numeroFoto === 1 ? 'foto' : 'foto'} sul telefono).</span></span></label>
       <div class="azioni-mappa">
         <button type="button" class="bottone primario" id="esporta">Scarica backup</button>
         <button type="button" class="bottone" id="condividi" hidden>Condividi…</button>
@@ -58,7 +61,7 @@ export async function vistaBackup(app) {
   };
 
   async function creaFile() {
-    const json = JSON.stringify(await esporta({ escludiAvvistamenti: app.querySelector('#escludiAvv').checked }), null, 1);
+    const json = JSON.stringify(await esporta({ escludiAvvistamenti: app.querySelector('#escludiAvv').checked, includiFoto: app.querySelector('#includiFoto').checked }), null, 1);
     return new File([json], nomeFile(), { type: 'application/json' });
   }
 
@@ -127,7 +130,7 @@ export async function vistaBackup(app) {
       try {
         const n = await importa(dati, modo);
         anteprima.innerHTML = '';
-        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce, ${n.giri} giri e ${n.avvistamenti} avvistamenti. <a href="#/">Vai ai parchi</a>`);
+        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce, ${n.giri} giri, ${n.avvistamenti} avvistamenti e ${n.foto} foto. <a href="#/">Vai ai parchi</a>`);
       } catch (e) {
         mostraEsito(escapeHtml(e.message), true);
       }

@@ -1015,3 +1015,27 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .pallino-stato { flex: none; width: 10px; height: 10px; border-radius: 50%; }
 .risultato-testo { line-height: 1.35; }
 .piccolo-inline { font-size: 0.78rem; }
+
+/* foto dei belvedere nell'indice panoramico */
+.foto-belvedere { list-style: none; margin: 4px 0 10px; padding: 0; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
+.foto-belvedere li { flex: none; width: 160px; }
+.foto-belvedere a { display: block; position: relative; border-radius: 14px; overflow: hidden; text-decoration: none; }
+.foto-belvedere img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--verde-chiaro); }
+.foto-belvedere-nome {
+  position: absolute; inset: auto 0 0 0; padding: 16px 8px 6px; color: #fff; font-size: 0.75rem; font-weight: 700;
+  background: linear-gradient(transparent, rgba(20, 38, 40, 0.75));
+}
+
+/* navigazione lungo il sentiero */
+.gps-stato.navigazione { border-radius: 16px; padding: 8px 14px 10px; line-height: 1.4; width: min(360px, calc(100% - 24px)); }
+.nav-barra { display: block; height: 6px; margin: 6px 0 4px; border-radius: 3px; background: rgba(63, 94, 90, 0.15); overflow: hidden; }
+.nav-barra i { display: block; height: 100%; border-radius: 3px; background: var(--teal); transition: width var(--morbido); }
+.nav-precisione { display: block; font-size: 0.72rem; color: var(--testo-tenue); }
+.bottone.naviga { margin-bottom: 4px; }
+
+/* le mie foto */
+.mie-foto-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.mia-foto { padding: 0; border: none; border-radius: 12px; overflow: hidden; cursor: pointer; aspect-ratio: 1; background: var(--verde-chiaro); }
+.mia-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.visore-foto img { display: block; width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; background: #111; }
+.visore-foto .azioni { margin-bottom: 0; }
