@@ -43,7 +43,6 @@ function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
       breve: (v) => (v === 'nessuna' ? 'Non indicata' : v),
     },
     { chiave: 'accesso', titolo: 'Accesso', voci: Object.entries(ACCESSI) },
-    { chiave: 'paese', titolo: 'Paese', voci: paesiDiPartenza(sentieri).map((p) => [p, p]) },
     ...(inBici ? [] : [{
       chiave: 'bici',
       titolo: 'Bici',
@@ -54,19 +53,26 @@ function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
       ],
       breve: (v, et) => `Bici: ${et.toLowerCase()}`,
     }]),
+    // filtro secondario: in fondo
+    { chiave: 'paese', titolo: 'Paese', voci: paesiDiPartenza(sentieri).map((p) => [p, p]) },
   ];
+}
+
+export function htmlRicerca(testo, segnaposto = 'Cerca sentiero, codice, zona…') {
+  return `<label class="ricerca">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" name="testo" placeholder="${escapeHtml(segnaposto)}" value="${escapeHtml(testo ?? '')}" aria-label="Cerca" autocomplete="off" />
+      </label>`;
 }
 
 const freccina =
   '<svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 
-export function htmlFiltri(sentieri, filtri) {
+// ricerca=false: la casella di ricerca è altrove (es. in cima alla pagina iniziale)
+export function htmlFiltri(sentieri, filtri, { ricerca = true } = {}) {
   return `
     <div class="filtri">
-      <label class="ricerca">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input type="search" name="testo" placeholder="Cerca sentiero, codice, zona…" value="${escapeHtml(filtri.testo)}" aria-label="Cerca" autocomplete="off" />
-      </label>
+      ${ricerca ? htmlRicerca(filtri.testo) : ''}
       <div class="pillole" role="group" aria-label="Filtri"></div>
       <dialog class="foglio" aria-label="Scegli un filtro">
         <form method="dialog">
@@ -127,7 +133,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
     }
     if (!cambiaAttivita && JSON.stringify(nuovi) === JSON.stringify(filtri)) return;
     Object.assign(filtri, nuovi);
-    if (ricerca.value !== filtri.testo) ricerca.value = filtri.testo;
+    if (ricerca && ricerca.value !== filtri.testo) ricerca.value = filtri.testo;
     disegnaPillole();
     alAggiornamento(filtri);
   });
@@ -169,7 +175,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
     if (e.target === foglio) foglio.close();
   });
 
-  ricerca.addEventListener('input', () => {
+  ricerca?.addEventListener('input', () => {
     filtri.testo = ricerca.value;
     aggiorna();
   });
@@ -178,7 +184,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
   return {
     azzera() {
       Object.assign(filtri, FILTRI_VUOTI, parcoFisso ? { parco: parcoFisso } : {});
-      ricerca.value = '';
+      if (ricerca) ricerca.value = '';
       aggiorna();
     },
     scollega,

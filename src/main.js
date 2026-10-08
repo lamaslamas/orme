@@ -1,7 +1,7 @@
 import '@fontsource-variable/manrope';
 import './stile.css';
 import { caricaDatiIniziali, sincronizzaArchivio } from './db.js';
-import { vistaLista } from './viste/lista.js';
+import { vistaHome } from './viste/home.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
 import { vistaMappa } from './viste/mappa.js';
@@ -25,7 +25,7 @@ const app = document.getElementById('app');
 
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [
-  [/^\/?$/, vistaLista],
+  [/^\/?$/, vistaHome],
   [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
   [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],

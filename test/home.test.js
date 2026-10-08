@@ -1,0 +1,43 @@
+import { describe, it, expect } from 'vitest';
+import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco, diOsservazione } from '../src/lib/home.js';
+import { filtraSentieri, FILTRI_VUOTI } from '../src/lib/filtri.js';
+
+const sentieri = [
+  { id: 'a', nome: 'Val Fondillo', parco: 'pnalm', animali: ['lupo', 'orso'], osservazione: true },
+  { id: 'b', nome: 'Tramazzo', parco: 'foreste-casentinesi', animali: ['lupo'], organizzatori: ['Romagna Selvatica'] },
+  { id: 'c', nome: 'Coppa (MTB)', parco: 'pnalm', animali: [], osservazione: false },
+  { id: 'd', nome: 'Senza flag', parco: 'pnalm', animali: ['camoscio'] },
+];
+
+describe('ricerca', () => {
+  it('trova parchi e animali da qualunque parola', () => {
+    expect(cercaParchiESpecie('lupo casentinesi')).toEqual({ parchi: ['foreste-casentinesi'], specie: ['lupo'] });
+    expect(cercaParchiESpecie('abruzzo')).toEqual({ parchi: ['pnalm'], specie: [] });
+    expect(cercaParchiESpecie('  ')).toEqual({ parchi: [], specie: [] });
+  });
+
+  it('nei percorsi cerca anche parco, animali e organizzatori, parole in qualunque ordine', () => {
+    const cerca = (testo) => filtraSentieri(sentieri, { ...FILTRI_VUOTI, testo }).map((s) => s.id);
+    expect(cerca('casentinesi lupo')).toEqual(['b']);
+    expect(cerca('selvatica')).toEqual(['b']);
+    expect(cerca('orso')).toEqual(['a']);
+    expect(cerca('pnalm camoscio')).toEqual(['d']);
+  });
+});
+
+describe('osservazione', () => {
+  it('un percorso è di osservazione per il flag o, se manca, per gli animali', () => {
+    expect(sentieri.map(diOsservazione)).toEqual([true, true, false, true]);
+  });
+
+  it('conta i percorsi per animale e li divide per parco', () => {
+    const lupo = riepilogoSpecie(sentieri).find((r) => r.animale === 'lupo');
+    expect(lupo).toMatchObject({ nome: 'Lupo', percorsi: 2 });
+    expect(lupo.parchi).toContain('foreste-casentinesi');
+    expect(osservazionePerParco(sentieri, 'lupo').map((g) => [g.parco, g.percorsi.map((s) => s.id)])).toEqual([
+      ['pnalm', ['a']],
+      ['foreste-casentinesi', ['b']],
+    ]);
+    expect(osservazionePerParco(sentieri).find((g) => g.parco === 'pnalm').percorsi.map((s) => s.id)).toEqual(['a', 'd']);
+  });
+});

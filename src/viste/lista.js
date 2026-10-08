@@ -1,15 +1,13 @@
-import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { ANIMALI, ACCESSI, BICI_CONSENTITA } from '../lib/costanti.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { STATI_COMPATIBILITA, ATTIVITA } from '../lib/compatibilita.js';
 import { stato } from '../stato.js';
-import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
-import { PARCHI, parcoDa } from '../datiParchi.js';
+import { parcoDa } from '../datiParchi.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
 
@@ -83,10 +81,10 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
 }
 
 // Elenco dei sentieri con ricerca e filtri, usato dalla pagina Parchi e da quella di ogni parco
-export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null } = {}) {
+export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
-    ${htmlFiltri(sentieri, filtri)}
+    ${htmlFiltri(sentieri, filtri, { ricerca })}
     <div class="riga-conteggio"><span class="conteggio"></span></div>
     <ul class="lista"></ul>
   `;
@@ -112,43 +110,4 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null }
     { parcoFisso },
   );
   return controlli;
-}
-
-export function schedaParco(parco, sentieri) {
-  const suoi = sentieri.filter((s) => s.parco === parco.id);
-  const fatti = suoi.filter((s) => s.stato === 'fatto').length;
-  return `
-    <li>
-      <a class="carta carta-parco" href="#/parco/${encodeURIComponent(parco.id)}">
-        <div class="parco-segno" aria-hidden="true"><svg viewBox="0 0 116 138">${IMPRONTA}</svg></div>
-        <div class="carta-corpo">
-          <div class="nome">${escapeHtml(parco.nomeBreve)}</div>
-          <div class="carta-dati">${escapeHtml(parco.regioni.join(' · '))}</div>
-          <div class="numeri"><b>${suoi.length}</b> sentieri<span class="sep">·</span><b>${fatti}</b> fatti</div>
-        </div>
-      </a>
-    </li>`;
-}
-
-export async function vistaLista(app) {
-  const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
-
-  app.innerHTML = `
-    <h1 class="titolo-pagina">Parchi</h1>
-    ${htmlSelettoreAttivita()}
-    <div class="scorciatoie">
-      <a class="pillola" href="#/giri">I miei giri</a>
-      <a class="pillola" href="#/avvistamenti">I miei avvistamenti</a>
-    </div>
-    <ul class="parchi">${PARCHI.map((p) => schedaParco(p, sentieri)).join('')}</ul>
-    <h2 class="titolo-sezione">Tutti i sentieri</h2>
-    <div id="elenco"></div>
-    <a class="fab" href="#/nuovo" aria-label="Aggiungi sentiero">+</a>
-  `;
-  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce);
-  const scollegaAttivita = collegaSelettoreAttivita(app);
-  return () => {
-    elenco.scollega();
-    scollegaAttivita();
-  };
 }

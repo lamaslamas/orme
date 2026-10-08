@@ -61,6 +61,12 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: { cacheName: 'orme-archivio', networkTimeoutSeconds: 5, expiration: { maxEntries: 20 } },
           },
+          // foto di parchi e animali (Wikimedia Commons): non cambiano, si tengono a lungo
+          {
+            urlPattern: /^https:\/\/(thumb|upload)\.wikimedia\.org\//,
+            handler: 'CacheFirst',
+            options: { cacheName: 'foto-commons', expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 }, cacheableResponse: { statuses: [0, 200] } },
+          },
           // heatmap iNaturalist: si aggiorna spesso, la teniamo solo un giorno
           {
             urlPattern: /^https:\/\/api\.inaturalist\.org\/v1\/heatmap\//,

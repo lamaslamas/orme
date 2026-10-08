@@ -1,6 +1,9 @@
+import { ANIMALI } from './costanti.js';
+import { PARCHI } from '../datiParchi.js';
+
 export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '' };
 
-function normalizza(s) {
+export function normalizza(s) {
   return String(s ?? '')
     .toLowerCase()
     .normalize('NFD')
@@ -18,12 +21,31 @@ export function filtraSentieri(sentieri, filtri) {
     if (filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
     if (filtri.bici && (s.bici?.consentita || 'da_verificare') !== filtri.bici) return false;
     if (filtri.paese && normalizza(s.partenza?.paese) !== normalizza(filtri.paese)) return false;
-    if (testo) {
-      const dove = normalizza([s.nome, s.zona, ...(s.codici ?? []), s.partenza?.paese].join(' '));
-      if (!dove.includes(testo)) return false;
-    }
+    if (testo && !testoNelSentiero(s, testo)) return false;
     return true;
   });
+}
+
+// Ricerca libera: ogni parola deve comparire in nome, zona, codici, paese, parco,
+// animali, organizzatori o nome dell'uscita (in qualunque ordine)
+function testoNelSentiero(s, testo) {
+  const parchi = (s.parchi ?? [s.parco]).map((id) => PARCHI.find((p) => p.id === id)).filter(Boolean);
+  const dove = normalizza(
+    [
+      s.nome,
+      s.zona,
+      ...(s.codici ?? []),
+      s.partenza?.paese,
+      ...parchi.flatMap((p) => [p.nome, p.nomeBreve]),
+      ...(s.animali ?? []).map((a) => ANIMALI[a] ?? a),
+      ...(s.organizzatori ?? []),
+      s.escursione?.associazione,
+      s.escursione?.nomeUscita,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+  return testo.split(/\s+/).every((parola) => dove.includes(parola));
 }
 
 // Elenco dei paesi di partenza presenti, senza doppioni, in ordine alfabetico

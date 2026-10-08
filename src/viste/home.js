@@ -1,0 +1,174 @@
+// Pagina iniziale: "Come vuoi esplorare?", ricerca, parchi, animali,
+// percorsi di osservazione e l'elenco di tutti i percorsi con i filtri.
+import { tuttiISentieri, tutteLeTracce } from '../db.js';
+import { PARCHI, parcoDa } from '../datiParchi.js';
+import { ANIMALI } from '../lib/costanti.js';
+import { ATTIVITA } from '../lib/compatibilita.js';
+import { FILTRI_VUOTI } from '../lib/filtri.js';
+import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
+import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco } from '../lib/home.js';
+import { fotoDi } from '../datiFoto.js';
+import { escapeHtml } from '../lib/formato.js';
+import { stato } from '../stato.js';
+import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
+import { htmlRicerca } from './filtri.js';
+import { montaElenco, schedaInLista } from './lista.js';
+
+const PER_PARCO = 4;
+
+// Foto con il credito (autore e licenza, link alla pagina del file su Commons)
+function htmlFoto(chiave, alt) {
+  const f = fotoDi(chiave);
+  if (!f) return '<div class="foto vuota" aria-hidden="true"></div>';
+  return `<img class="foto" src="${escapeHtml(f.url)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`;
+}
+
+function htmlCredito(chiave) {
+  const f = fotoDi(chiave);
+  return f
+    ? `<a class="credito" href="${escapeHtml(f.pagina)}" target="_blank" rel="noopener" title="Foto da Wikimedia Commons">Foto: ${escapeHtml(f.autore)} · ${escapeHtml(f.licenza)}</a>`
+    : '';
+}
+
+function htmlParco(p, n, evidenziato) {
+  return `<li class="carta-foto ${evidenziato ? 'evidenziata' : ''}">
+    <a class="carta-foto-link" href="#/parco/${encodeURIComponent(p.id)}">
+      ${htmlFoto(p.id, p.nomeBreve)}
+      <span class="carta-foto-testo">
+        <span class="nome">${escapeHtml(p.nomeBreve)}</span>
+        <span class="carta-dati">${escapeHtml(p.regioni.join(' · '))} · <b>${n}</b> percorsi</span>
+      </span>
+    </a>
+    ${htmlCredito(p.id)}
+  </li>`;
+}
+
+function htmlSpecie(r, scelta, evidenziata) {
+  const parchi = r.parchi.map((id) => parcoDa(id)?.nomeBreve).join(', ');
+  return `<li class="carta-specie ${scelta ? 'scelta' : ''} ${evidenziata ? 'evidenziata' : ''}">
+    <button type="button" class="carta-specie-bottone" data-specie="${r.animale}" aria-pressed="${scelta}">
+      ${htmlFoto(r.animale, r.nome)}
+      <span class="nome">${escapeHtml(r.nome)}</span>
+      <span class="carta-dati">${r.percorsi ? `${r.percorsi} ${r.percorsi === 1 ? 'percorso' : 'percorsi'}` : 'nessun percorso'}</span>
+      <span class="carta-dati piccolo">${escapeHtml(parchi)}</span>
+    </button>
+    ${htmlCredito(r.animale)}
+  </li>`;
+}
+
+export async function vistaHome(app) {
+  const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const preparati = preparaPercorsi(sentieri, tracce);
+  const st = stato.leggi();
+
+  app.innerHTML = `
+    <h1 class="titolo-pagina">Esplora i parchi</h1>
+    ${htmlSelettoreAttivita()}
+    <div class="ricerca-home">${htmlRicerca(st.filtri.testo, 'Cerca parco, animale o percorso…')}</div>
+    <p class="trovati tenue" hidden></p>
+
+    <section class="sezione-home">
+      <h2 class="titolo-sezione">Parchi</h2>
+      <ul class="scorrimento parchi-foto"></ul>
+    </section>
+
+    <section class="sezione-home">
+      <h2 class="titolo-sezione">Animali</h2>
+      <p class="tenue piccolo">Tocca un animale per vedere i percorsi dove è stato osservato.</p>
+      <ul class="scorrimento specie-foto"></ul>
+    </section>
+
+    <section class="sezione-home">
+      <h2 class="titolo-sezione">Percorsi di osservazione</h2>
+      <div class="osservazione"></div>
+    </section>
+
+    <section class="sezione-home">
+      <h2 class="titolo-sezione">Tutti i percorsi</h2>
+      <div id="elenco"></div>
+    </section>
+
+    <div class="scorciatoie">
+      <a class="pillola" href="#/giri">I miei giri</a>
+      <a class="pillola" href="#/avvistamenti">I miei avvistamenti</a>
+    </div>
+    <a class="fab" href="#/nuovo" aria-label="Aggiungi sentiero">+</a>
+  `;
+
+  const ricerca = app.querySelector('.ricerca-home input');
+  const trovati = app.querySelector('.trovati');
+  const listaParchi = app.querySelector('.parchi-foto');
+  const listaSpecie = app.querySelector('.specie-foto');
+  const osservazione = app.querySelector('.osservazione');
+
+  function disegna() {
+    const s = stato.leggi();
+    // parchi, animali e osservazione seguono l'attività scelta, non gli altri filtri dell'elenco
+    const visibili = filtraPercorsi(preparati, { ...FILTRI_VUOTI }, s.attivita).map((p) => p.sentiero);
+    const cercati = cercaParchiESpecie(s.filtri.testo);
+    const nomi = [...cercati.parchi.map((id) => parcoDa(id).nomeBreve), ...cercati.specie.map((k) => ANIMALI[k])];
+    trovati.hidden = !nomi.length;
+    trovati.textContent = nomi.length ? `Trovati: ${nomi.join(', ')}` : '';
+
+    // ciò che corrisponde alla ricerca viene prima
+    const parchi = [...PARCHI].sort((a, b) => cercati.parchi.includes(b.id) - cercati.parchi.includes(a.id));
+    listaParchi.innerHTML = parchi
+      .map((p) => htmlParco(p, visibili.filter((x) => (x.parchi ?? [x.parco]).includes(p.id)).length, cercati.parchi.includes(p.id)))
+      .join('');
+
+    const specie = riepilogoSpecie(visibili).sort(
+      (a, b) =>
+        cercati.specie.includes(b.animale) - cercati.specie.includes(a.animale) ||
+        (b.animale === s.specie) - (a.animale === s.specie) ||
+        (b.percorsi > 0) - (a.percorsi > 0),
+    );
+    listaSpecie.innerHTML = specie.map((r) => htmlSpecie(r, r.animale === s.specie, cercati.specie.includes(r.animale))).join('');
+
+    const gruppi = osservazionePerParco(visibili, s.specie);
+    const conTraccia = new Map(preparati.map((p) => [p.sentiero.id, p]));
+    osservazione.innerHTML = gruppi.length
+      ? `${s.specie ? `<p class="tenue">Con <b>${escapeHtml(ANIMALI[s.specie])}</b> · <button type="button" class="link" data-azione="tutte-le-specie">tutti gli animali</button></p>` : ''}
+        ${gruppi
+          .map(
+            (g) => `<div class="gruppo-parco">
+              <h3>${escapeHtml(parcoDa(g.parco).nomeBreve)} <span class="tenue">· ${g.percorsi.length}</span></h3>
+              <ul class="lista">${g.percorsi
+                .slice(0, PER_PARCO)
+                .map((x) => {
+                  const p = conTraccia.get(x.id);
+                  return schedaInLista(x, p?.traccia, false, p?.compat);
+                })
+                .join('')}</ul>
+              ${g.percorsi.length > PER_PARCO ? `<a class="vedi-tutti" href="#/parco/${encodeURIComponent(g.parco)}">Vedi tutti i ${g.percorsi.length} nel parco ›</a>` : ''}
+            </div>`,
+          )
+          .join('')}`
+      : `<p class="vuoto">Nessun percorso di osservazione${s.specie ? ` con ${escapeHtml(ANIMALI[s.specie])}` : ''}${
+          s.attivita !== 'trekking' ? ` per ${ATTIVITA[s.attivita]}: le uscite di osservazione sono quasi sempre a piedi` : ''
+        }.${s.specie ? ' <button type="button" class="link" data-azione="tutte-le-specie">Tutti gli animali</button>' : ''}</p>`;
+  }
+
+  listaSpecie.addEventListener('click', (e) => {
+    const k = e.target.closest('[data-specie]')?.dataset.specie;
+    if (!k) return;
+    stato.imposta({ specie: stato.leggi().specie === k ? '' : k });
+    app.querySelector('.osservazione').closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  app.addEventListener('click', (e) => {
+    if (e.target.closest('[data-azione="tutte-le-specie"]')) stato.imposta({ specie: '' });
+  });
+  ricerca.addEventListener('input', () => stato.imposta({ filtri: { testo: ricerca.value } }));
+
+  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { ricerca: false });
+  const scollegaAttivita = collegaSelettoreAttivita(app);
+  const scollegaStato = stato.ascolta((s) => {
+    if (ricerca.value !== s.filtri.testo && document.activeElement !== ricerca) ricerca.value = s.filtri.testo;
+    disegna();
+  });
+  disegna();
+  return () => {
+    elenco.scollega();
+    scollegaAttivita();
+    scollegaStato();
+  };
+}
