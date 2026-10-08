@@ -197,6 +197,10 @@ export function statoTraccia(sentiero, traccia) {
     return { tipo: 'nessuna', mancanti: codici, serveGpx: codici.length === 0 };
   }
   if (traccia.origine !== 'osm') return { tipo: 'completa', mancanti: [], serveGpx: false };
+  // tratti noti ma non coperti dalla traccia (es. una strada senza codice)
+  if (traccia.dettagli?.notaParziale) {
+    return { tipo: 'parziale', mancanti: traccia.dettagli.mancanti ?? [], serveGpx: true, nota: traccia.dettagli.notaParziale };
+  }
   const trovati = new Set((traccia.dettagli?.codici ?? []).map((c) => c.toUpperCase()));
   const mancanti = traccia.dettagli?.mancanti ?? (trovati.size ? codici.filter((c) => !trovati.has(c)) : []);
   return mancanti.length
@@ -216,4 +220,39 @@ export function sceltaAutomatica(codici, gruppi) {
     else ambigui.push(c);
   }
   return { scelti, mancanti, ambigui };
+}
+
+// Tratto di una linea dall'inizio fino al punto più vicino a "fino" (oppure tra "da" e "fino").
+// Serve per ricostruire percorsi descritti a parole ("fino al rifugio", "fino alla sorgente").
+export function tagliaLinea(linea, { da = null, fino = null } = {}) {
+  const misurati = misuraPezzi([linea])[0];
+  const posizione = (p) => {
+    let migliore = { d: Infinity, s: 0 };
+    for (let i = 1; i < linea.length; i++) {
+      const a = linea[i - 1];
+      const b = linea[i];
+      // proiezione piana locale, sufficiente su distanze di pochi km
+      const k = Math.cos((p[1] * Math.PI) / 180);
+      const ax = (a[0] - p[0]) * k;
+      const ay = a[1] - p[1];
+      const bx = (b[0] - p[0]) * k;
+      const by = b[1] - p[1];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      const d = Math.hypot(ax + t * dx, ay + t * dy);
+      if (d < migliore.d) migliore = { d, s: misurati.prog[i - 1] + t * (misurati.prog[i] - misurati.prog[i - 1]) };
+    }
+    return migliore.s;
+  };
+  const inizio = da ? posizione(da) : 0;
+  const fine = fino ? posizione(fino) : misurati.lunghezza;
+  const [s0, s1] = inizio <= fine ? [inizio, fine] : [fine, inizio];
+  const tratto = [puntoAllaDistanza(misurati, s0)];
+  for (let i = 0; i < linea.length; i++) {
+    if (misurati.prog[i] > s0 && misurati.prog[i] < s1) tratto.push(linea[i].slice(0, 2));
+  }
+  tratto.push(puntoAllaDistanza(misurati, s1));
+  return inizio <= fine ? tratto : tratto.reverse();
 }

@@ -9,6 +9,23 @@ import { profiloAltimetrico, percorsoProfiloSvg } from '../lib/profilo.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
+import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
+
+// Pulsanti per raggiungere la partenza con un'app esterna, partendo da dove mi trovo
+export function htmlPortamiAllaPartenza(punto) {
+  if (!punto) return '';
+  return `<section class="riquadro">
+    <h2>Portami alla partenza</h2>
+    <p class="tenue">Apre Google Maps (o un'altra app di navigazione) dalla tua posizione fino ${
+      punto.fonte === 'manuale' ? 'al punto di partenza indicato' : "all'inizio della traccia"
+    }.</p>
+    <div class="azioni-mappa">
+      <a class="bottone primario" href="${linkGoogleMaps(punto, 'auto')}" target="_blank" rel="noopener">In auto</a>
+      <a class="bottone" href="${linkGoogleMaps(punto, 'piedi')}" target="_blank" rel="noopener">A piedi</a>
+      <a class="bottone" href="${linkGeo(punto)}">Altra app</a>
+    </div>
+  </section>`;
+}
 
 // Testo del riquadro "Traccia"
 function descriviStatoTraccia(stato, traccia) {
@@ -26,12 +43,18 @@ function descriviStatoTraccia(stato, traccia) {
         : traccia.dettagli?.automatica
           ? 'Scaricata in automatico da OpenStreetMap: da verificare.'
           : 'Da OpenStreetMap.';
+  const ricostruita = traccia.dettagli?.ricostruita
+    ? ` <span class="avviso-parziale">Ricostruita da descrizione, da verificare.</span>${
+        linkSicuro(traccia.dettagli.fonte) ? ` <a href="${escapeHtml(linkSicuro(traccia.dettagli.fonte))}" target="_blank" rel="noopener">Fonte ↗</a>` : ''
+      }`
+    : '';
   if (stato.tipo === 'parziale') {
-    return `<span class="avviso-parziale">Traccia parziale:</span> ${elenco(stato.mancanti)} ${
-      stato.mancanti.length === 1 ? 'non è' : 'non sono'
-    } su OpenStreetMap. Per il percorso completo serve un GPX. <span class="tenue">${fonte}</span>`;
+    const motivo = stato.mancanti.length
+      ? `${elenco(stato.mancanti)} ${stato.mancanti.length === 1 ? 'non è' : 'non sono'} su OpenStreetMap.`
+      : escapeHtml(stato.nota ?? '');
+    return `<span class="avviso-parziale">Traccia parziale:</span> ${motivo} Per il percorso completo serve un GPX. <span class="tenue">${fonte}</span>${ricostruita}`;
   }
-  return fonte;
+  return fonte + ricostruita;
 }
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
@@ -136,10 +159,9 @@ export async function vistaScheda(app, id) {
   const tipo = s.accesso?.tipo || 'nessuno';
   const linkParco = linkSicuro(s.accesso?.link) ?? parco?.sito ?? LINK_PARCO;
   const p = s.partenza ?? {};
-  const haCoordinate = Number.isFinite(p.lat) && Number.isFinite(p.lon);
   const partenza = [p.paese, p.descrizione].filter(Boolean).map(escapeHtml).join(' – ');
   const e = s.escursione ?? {};
-  const haEscursione = e.associazione || e.nomeUscita || e.periodo;
+  const haEscursione = e.associazione || e.nomeUscita || e.periodo || e.fonte;
   const misure = misureSentiero(s, traccia);
   const profilo = traccia ? profiloAltimetrico(percorsoSentiero(traccia.geojson).pezzi) : null;
   const idUrl = encodeURIComponent(s.id);
@@ -198,12 +220,9 @@ export async function vistaScheda(app, id) {
           ${riga('Difficoltà', s.difficolta ? escapeHtml(DIFFICOLTA[s.difficolta]) : '')}
           ${riga('Partenza', partenza)}
         </dl>
-        ${
-          haCoordinate
-            ? `<a class="bottone" href="geo:${p.lat},${p.lon}?q=${p.lat},${p.lon}(${encodeURIComponent('Partenza')})">Naviga alla partenza</a>`
-            : ''
-        }
       </section>
+
+      ${htmlPortamiAllaPartenza(puntoDiPartenza(s, traccia))}
 
       ${
         haEscursione
@@ -213,6 +232,7 @@ export async function vistaScheda(app, id) {
                 ${riga('Associazione', escapeHtml(e.associazione))}
                 ${riga('Uscita', escapeHtml(e.nomeUscita))}
                 ${riga('Periodo', escapeHtml(e.periodo))}
+                ${riga('Fonte', linkSicuro(e.url) ? `<a href="${escapeHtml(linkSicuro(e.url))}" target="_blank" rel="noopener">${escapeHtml(e.fonte || 'pagina')} ↗</a>` : escapeHtml(e.fonte ?? ''))}
               </dl>
             </section>`
           : ''

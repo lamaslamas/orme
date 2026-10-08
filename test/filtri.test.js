@@ -46,7 +46,7 @@ describe('filtri della lista', () => {
 
   it('elenca i paesi senza doppioni e in ordine', () => {
     const paesi = paesiDiPartenza([...DATI_INIZIALI, { partenza: { paese: 'OPI' } }]);
-    expect(paesi).toEqual(['Civitella Alfedena', 'Gioia Vecchio', 'Opi']);
+    expect(paesi).toEqual(['Civitella Alfedena', 'Gioia Vecchio', 'Opi', 'Picinisco']);
   });
 
   it('ordina prima i da fare e i codici in ordine naturale', () => {

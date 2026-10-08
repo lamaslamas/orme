@@ -177,8 +177,9 @@ describe('tracce iniziali', () => {
     const f10 = await db.leggiTraccia('f10-pianezza');
     expect(f10.dettagli.iniziale).toBe(true);
     expect(f10.geojson.coordinates.length).toBeGreaterThan(0);
-    expect((await db.leggiTraccia('b5-b4-monte-tranquillo')).dettagli.mancanti).toEqual(['B5']);
-    expect(await db.leggiTraccia('cicerana')).toBeUndefined();
+    expect((await db.leggiTraccia('l1-m1-n1-monte-meta')).dettagli.mancanti).toEqual(['N1']);
+    expect((await db.leggiTraccia('b5-b4-monte-tranquillo')).dettagli.codici).toEqual(['C5', 'B4']);
+    expect((await db.leggiTraccia('cicerana')).dettagli.ricostruita).toBe(true);
   });
 
   it('non sovrascrivono una traccia che ho già salvato', async () => {
@@ -188,5 +189,26 @@ describe('tracce iniziali', () => {
     await db.importa({ ...(await db.esporta()), versioneDatiIniziali: 2 }, 'unisci');
     await db.caricaDatiIniziali();
     expect((await db.leggiTraccia('f2-val-fondillo')).origine).toBe('gpx');
+  });
+});
+
+describe('aggiornamento alla versione 4 dei dati iniziali', () => {
+  it('aggiorna i campi non modificati, lascia le mie modifiche e le mie tracce', async () => {
+    const { PNALM_ORIGINALI } = await import('../src/datiIniziali.js');
+    // telefono con i dati originali della versione 3, una mia nota e un mio GPX
+    const tranquillo = PNALM_ORIGINALI.find((s) => s.id === 'b5-b4-monte-tranquillo');
+    const f1 = { ...PNALM_ORIGINALI.find((s) => s.id === 'f1-monte-amaro'), accesso: { tipo: 'numero_chiuso', nota: 'mia nota', link: 'x' } };
+    await db.importa({ app: 'orme', versione: 3, versioneDatiIniziali: 3, sentieri: [tranquillo, f1], tracce: [
+      { sentieroId: 'f1-monte-amaro', origine: 'gpx', geojson: { type: 'MultiLineString', coordinates: [[[13.8, 41.7], [13.81, 41.71]]] } },
+    ] }, 'sostituisci');
+    expect(await db.caricaDatiIniziali()).toBe(true);
+    const t = await db.leggiSentiero('b5-b4-monte-tranquillo');
+    expect(t.codici).toEqual(['C5', 'B4']);
+    expect(t.escursione.url).toContain('PNALMnov75472');
+    expect((await db.leggiTraccia('b5-b4-monte-tranquillo')).dettagli.codici).toEqual(['C5', 'B4']);
+    const a = await db.leggiSentiero('f1-monte-amaro');
+    expect(a.accesso.nota).toBe('mia nota');
+    expect(a.dislivelloM).toBe(780);
+    expect((await db.leggiTraccia('f1-monte-amaro')).origine).toBe('gpx');
   });
 });

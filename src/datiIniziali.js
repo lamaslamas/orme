@@ -1,5 +1,6 @@
 import { LINK_PARCO } from './lib/costanti.js';
 import { parcoDa } from './datiParchi.js';
+import { applicaAggiornamento } from './lib/aggiornamenti.js';
 
 // Sentieri di partenza: tutti con daVerificare = true.
 // Dove un'informazione non era nota il campo è lasciato vuoto.
@@ -29,7 +30,7 @@ function sentiero(dati) {
   };
 }
 
-const PNALM = [
+export const PNALM_ORIGINALI = [
   sentiero({
     id: 'cicerana',
     nome: 'Altopiano della Cicerana',
@@ -316,7 +317,101 @@ const LUCANO = [
 ];
 
 // 1: sentieri PNALM; 2: nuovi parchi; 3: tracce OSM dei sentieri PNALM (src/tracceIniziali.json)
-export const VERSIONE_DATI_INIZIALI = 3;
-export const VERSIONE_TRACCE_INIZIALI = 3;
+// 1: sentieri PNALM; 2: nuovi parchi; 3: tracce OSM dei sentieri PNALM (src/tracceIniziali.json)
+// 4: dati dalle pagine delle associazioni e degli avvisi del Parco (vedi AGGIORNAMENTI)
+export const VERSIONE_DATI_INIZIALI = 4;
+export const VERSIONE_TRACCE_INIZIALI = 4;
+
+// Aggiornamenti dei sentieri PNALM (versione 4), tutti da verificare.
+// "da" è il valore originale: sul telefono un campo cambia solo se è ancora quello.
+const ECOTUR_ORSO = 'https://www.ecotur.org/en/excursions/Discovering_the_bear_%28bearwatching%29.xhtml';
+export const AGGIORNAMENTI = {
+  cicerana: {
+    descrizione: {
+      da: "Da Passo del Diavolo all'altopiano della Cicerana (1560 m), con il Vallone Lampazzo.",
+      a: "Da Passo del Diavolo al Rifugio della Cicerana (1560 m) e ritorno. Traccia ricostruita dai sentieri T1 e T5 in base alla descrizione Ecotur. Il Vallone Lampazzo fa parte di un'altra uscita Ecotur (weekend con l'orso) e non è ricostruito.",
+    },
+    'escursione.nomeUscita': { da: 'Bearwatching', a: "Alla scoperta dell'orso (bearwatching)" },
+    'escursione.fonte': { da: undefined, a: 'Ecotur' },
+    'escursione.url': { da: undefined, a: ECOTUR_ORSO },
+  },
+  'camosciara-scerto': {
+    codici: { da: [], a: ['G5', 'G6'] },
+    descrizione: {
+      da: '',
+      a: 'Dai piedi della Camosciara lungo il torrente Scerto alle cascate delle Tre Cannelle e delle Ninfe (G5), con prosecuzione verso il Belvedere della Liscia (G6). Prima si percorre una strada pedonale chiusa al traffico, non compresa nella traccia.',
+    },
+    dislivelloM: { da: null, a: 200 },
+    durataMin: { da: null, a: 180 },
+    'accesso.nota': { da: '', a: 'Riserva Integrale: si percorre solo a piedi, restando sui sentieri segnati.' },
+    'escursione.nomeUscita': { da: '', a: 'Camosciara – Cascate' },
+    'escursione.fonte': { da: undefined, a: 'Ecotur' },
+    'escursione.url': { da: undefined, a: 'https://www.ecotur.org/en/excursions/Camosciara_-_Waterfalls.xhtml' },
+  },
+  'f2-val-fondillo': {
+    dislivelloM: { da: null, a: 100 },
+    durataMin: { da: null, a: 180 },
+    'escursione.nomeUscita': { da: '', a: 'Val Fondillo' },
+    'escursione.periodo': { da: '', a: 'Settembre (calendario Ecotur)' },
+    'escursione.fonte': { da: undefined, a: 'Ecotur' },
+    'escursione.url': { da: undefined, a: 'https://www.ecotur.org/en/excursions/Val_Fondillo.xhtml' },
+  },
+  'f10-pianezza': {
+    'accesso.nota': {
+      da: 'Chiuso in tarda primavera nel 2024 e nel 2025.',
+      a: 'Chiuso in tarda primavera nel 2024 e nel 2025. Il sentiero E6 da Opi (versante ovest) è indicato come sempre aperto.',
+    },
+    'escursione.fonte': { da: undefined, a: 'Montagna.tv' },
+    'escursione.url': { da: undefined, a: 'https://www.montagna.tv/261118/il-signore-del-parco-in-vetta-al-monte-marsicano/' },
+  },
+  'i1-k6-val-di-rose-jannanghera': {
+    'partenza.descrizione': { da: '', a: 'Circonvallazione di Civitella Alfedena (1107 m)' },
+    dislivelloM: { da: null, a: 900 },
+    'accesso.nota': {
+      da: 'In estate accesso solo da questi sentieri e con guida.',
+      a: 'In estate accesso solo da questi sentieri e con guida. Negli anni scorsi numero chiuso con guide autorizzate dal Parco, circa dal 1° agosto a metà settembre.',
+    },
+    'escursione.fonte': { da: undefined, a: 'Parco – provvedimento numero chiuso' },
+    'escursione.url': { da: undefined, a: 'https://db.parks.it/news/allegati/PNALMnov36654-all1.pdf' },
+  },
+  'f1-monte-amaro': {
+    difficolta: { da: null, a: 'EE' },
+    dislivelloM: { da: null, a: 780 },
+    durataMin: { da: null, a: 240 },
+    'partenza.descrizione': { da: '', a: 'Parcheggio della Val Fondillo – Grotta Fondillo' },
+    'accesso.nota': {
+      da: 'Numero chiuso in estate.',
+      a: "Numero chiuso in estate (nel 2023 dal 29 luglio al 10 settembre): a luglio e agosto si sale solo con le escursioni guidate del Parco. Difficoltà E, EE oltre l'anticima.",
+    },
+    'escursione.fonte': { da: undefined, a: 'Montagna.tv' },
+    'escursione.url': { da: undefined, a: 'https://www.montagna.tv/263979/sul-monte-amaro-di-opi-tra-colori-dautunno-e-camosci/' },
+  },
+  'l1-m1-n1-monte-meta': {
+    'partenza.paese': { da: '', a: 'Picinisco' },
+    'partenza.descrizione': { da: '', a: 'Prati di Mezzo (versante laziale, sentiero N1)' },
+    'accesso.nota': {
+      da: 'Numero chiuso in estate.',
+      a: 'Numero chiuso in estate. Negli anni scorsi (es. 2019): L1, M1 e N1 liberi fino a Passo dei Monaci senza uscire dal sentiero; da Passo dei Monaci alla vetta (L1) solo gruppi guidati.',
+    },
+    'escursione.fonte': { da: undefined, a: 'Montagna.tv' },
+    'escursione.url': { da: undefined, a: 'https://www.montagna.tv/143808/numero-chiuso-sui-sentieri-pnalm-a-tutela-di-orso-e-camoscio/' },
+  },
+  'b5-b4-monte-tranquillo': {
+    codici: { da: ['B5', 'B4'], a: ['C5', 'B4'] },
+    descrizione: {
+      da: 'Il B5 e il tratto del B4 tra il Valico di Valcallano e Valle Carbonara.',
+      a: 'Il C5 e il tratto del B4 tra il Valico di Val Callano e Valle Carbonara (gli avvisi del Parco citano C5, non B5).',
+    },
+    'accesso.nota': {
+      da: 'Chiusi nel periodo di maturazione del ramno (fine estate).',
+      a: 'Chiusi nel periodo di maturazione del ramno (fine estate): negli anni scorsi dal 5 agosto al 15 settembre, con accesso solo con guida autorizzata il giovedì, venerdì e sabato; nel 2025 numero chiuso (massimo 10 persone al giorno).',
+    },
+    'escursione.fonte': { da: undefined, a: 'Parco – avviso sentieri C5 e B4' },
+    'escursione.url': { da: undefined, a: 'https://db.parks.it/news/allegati/PNALMnov75472-all1.pdf' },
+  },
+};
+
+// chi installa ora riceve i sentieri già aggiornati
+const PNALM = PNALM_ORIGINALI.map((s) => (AGGIORNAMENTI[s.id] ? applicaAggiornamento(s, AGGIORNAMENTI[s.id]).sentiero : s));
 
 export const DATI_INIZIALI = [...PNALM, ...CASENTINESI, ...LUCANO];

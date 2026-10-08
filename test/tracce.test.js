@@ -224,3 +224,27 @@ describe('stato della traccia', () => {
     expect(r.ambigui).toEqual(['C']);
   });
 });
+
+import { tagliaLinea } from '../src/lib/tracce.js';
+import { lunghezzaKm } from '../src/lib/geo.js';
+
+describe('taglio di un sentiero per ricostruire un percorso', () => {
+  const lungo = Array.from({ length: 11 }, (_, i) => p(i)); // ~1,1 km verso nord
+  it('taglia dall\'inizio fino al punto più vicino', () => {
+    const t = tagliaLinea(lungo, { fino: [13.8003, 41.7042] });
+    expect(lunghezzaKm({ coordinates: [t] })).toBeCloseTo(0.467, 2);
+    expect(t[0]).toEqual(p(0));
+  });
+  it('taglia tra due punti, anche se dati al contrario', () => {
+    const t = tagliaLinea(lungo, { da: p(8), fino: p(2) });
+    expect(lunghezzaKm({ coordinates: [t] })).toBeCloseTo(0.667, 2);
+    expect(t[0][1]).toBeCloseTo(41.708, 5);
+  });
+});
+
+describe('traccia parziale con nota', () => {
+  it('è parziale anche senza codici mancanti se c\'è una nota', () => {
+    const t = { origine: 'osm', geojson: { coordinates: [[[13.8, 41.7], [13.8, 41.71]]] }, dettagli: { codici: ['G5'], mancanti: [], notaParziale: 'manca la strada' } };
+    expect(statoTraccia({ codici: ['G5'] }, t)).toMatchObject({ tipo: 'parziale', nota: 'manca la strada' });
+  });
+});

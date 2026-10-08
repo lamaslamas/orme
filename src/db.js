@@ -6,7 +6,8 @@
 // - confini:  confini dei parchi scaricati da OpenStreetMap (chiave: parco)
 // - osservazioni: osservazioni iNaturalist in memoria (chiave: id)
 // - meta:     informazioni interne (es. dati iniziali già caricati)
-import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI, VERSIONE_TRACCE_INIZIALI } from './datiIniziali.js';
+import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI, VERSIONE_TRACCE_INIZIALI, AGGIORNAMENTI } from './datiIniziali.js';
+import { applicaAggiornamento, tracciaDaAggiornare } from './lib/aggiornamenti.js';
 import { completaSentiero } from './lib/sentiero.js';
 import { completaGiro } from './lib/giro.js';
 import { completaAvvistamento } from './lib/avvistamenti.js';
@@ -202,13 +203,22 @@ export async function caricaDatiIniziali() {
   const db = await apriDb();
   const esistenti = new Set(await richiesta(db.transaction('sentieri').objectStore('sentieri').getAllKeys()));
   const nuovi = DATI_INIZIALI.filter((s) => (s.aggiunto ?? 1) > versione && !esistenti.has(s.id));
-  // tracce iniziali: solo per i sentieri presenti e senza una traccia (mai sovrascrivere le mie)
+  // tracce iniziali: solo dove manca la traccia o dove c'è ancora quella iniziale (mai le mie)
   let tracceNuove = [];
   if (versione < VERSIONE_TRACCE_INIZIALI) {
     const { default: tracceIniziali } = await import('./tracceIniziali.json');
-    const conTraccia = new Set(await richiesta(db.transaction('tracce').objectStore('tracce').getAllKeys()));
+    const salvate = new Map((await tuttiDa('tracce')).map((t) => [t.sentieroId, t]));
     const presenti = new Set([...esistenti, ...nuovi.map((s) => s.id)]);
-    tracceNuove = tracceIniziali.filter((t) => presenti.has(t.sentieroId) && !conTraccia.has(t.sentieroId));
+    tracceNuove = tracceIniziali.filter((t) => presenti.has(t.sentieroId) && tracciaDaAggiornare(salvate.get(t.sentieroId), t));
+  }
+  // dati aggiornati dei sentieri già presenti: solo i campi che non ho modificato
+  const aggiornati = [];
+  if (versione >= 1 && versione < 4) {
+    for (const s of await tuttiDa('sentieri')) {
+      if (!AGGIORNAMENTI[s.id]) continue;
+      const { sentiero, cambiati } = applicaAggiornamento(s, AGGIORNAMENTI[s.id]);
+      if (cambiati.length) aggiornati.push(sentiero);
+    }
   }
   const tx = db.transaction(['sentieri', 'tracce', 'meta'], 'readwrite');
   const adesso = new Date().toISOString();
@@ -216,9 +226,10 @@ export async function caricaDatiIniziali() {
     tx.objectStore('sentieri').put(completaSentiero({ ...s, creato: adesso, modificato: adesso }));
   }
   for (const t of tracceNuove) tx.objectStore('tracce').put({ ...t, salvata: adesso });
+  for (const s of aggiornati) tx.objectStore('sentieri').put(completaSentiero(s));
   tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: adesso, versione: VERSIONE_DATI_INIZIALI });
   await fine(tx);
-  return nuovi.length + tracceNuove.length > 0;
+  return nuovi.length + tracceNuove.length + aggiornati.length > 0;
 }
 
 // --- Backup ---

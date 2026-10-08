@@ -2,6 +2,7 @@ import { tuttiIGiri, leggiGiro, salvaGiro, tuttiISentieri, tutteLeTracce } from 
 import { calcolaGiro } from '../lib/giro.js';
 import { SPIEGAZIONE_DURATA } from '../lib/durata.js';
 import { escapeHtml, durata } from '../lib/formato.js';
+import { htmlPortamiAllaPartenza } from './scheda.js';
 
 export async function caricaContesto() {
   const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
@@ -115,6 +116,11 @@ export async function vistaGiro(app, id) {
         <h2>Misure</h2>
         ${htmlMisure(calcolo)}
       </section>
+
+      ${(() => {
+        const inizio = calcolo.pezzi[0]?.linea[0];
+        return inizio ? htmlPortamiAllaPartenza({ lat: inizio[1], lon: inizio[0], fonte: 'traccia' }) : '';
+      })()}
 
       <section class="riquadro">
         <h2>Sentieri, in ordine</h2>
