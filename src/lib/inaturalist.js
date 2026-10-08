@@ -22,9 +22,25 @@ export const FILTRI_INAT_PREDEFINITI = { specie: 'rare', stagione: 'tutto', anni
 export const TUTTE_LE_SPECIE = 'tutte';
 
 // Parametri comuni a tile e ricerche; "oggi" serve ai test
+// Gruppi di iNaturalist ("iconic taxa") per le ricerche lungo i percorsi
+export const GRUPPI = {
+  fauna: { nome: 'Fauna (mammiferi, uccelli, rettili, anfibi)', taxa: 'Mammalia,Aves,Reptilia,Amphibia' },
+  Mammalia: { nome: 'Mammiferi', taxa: 'Mammalia' },
+  Aves: { nome: 'Uccelli', taxa: 'Aves' },
+  Reptilia: { nome: 'Rettili', taxa: 'Reptilia' },
+  Amphibia: { nome: 'Anfibi', taxa: 'Amphibia' },
+  Insecta: { nome: 'Insetti', taxa: 'Insecta' },
+  Plantae: { nome: 'Piante', taxa: 'Plantae' },
+  Fungi: { nome: 'Funghi', taxa: 'Fungi' },
+  tutti: { nome: 'Tutti i gruppi', taxa: '' },
+};
+
 export function parametriInat(filtri, oggi = new Date()) {
   const p = new URLSearchParams();
-  if (filtri.specie === 'minacciate') p.set('threatened', 'true');
+  if (filtri.gruppo) {
+    // ricerca per gruppo (lungo i percorsi): nessun filtro di specie
+    if (GRUPPI[filtri.gruppo]?.taxa) p.set('iconic_taxa', GRUPPI[filtri.gruppo].taxa);
+  } else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
   else {
     const chiavi = filtri.specie === 'rare' ? SPECIE_RARE : [filtri.specie];
     const ids = chiavi.map((k) => TAXON_INATURALIST[k]?.id).filter(Boolean);
@@ -46,7 +62,7 @@ export function urlTileGriglia(filtri, oggi) {
 }
 
 // Osservazioni dentro un riquadro [sud, ovest, nord, est], con foto
-export function urlOsservazioni(riquadro, filtri, { perPagina = 30, oggi } = {}) {
+export function urlOsservazioni(riquadro, filtri, { perPagina = 30, pagina = 1, oggi } = {}) {
   const p = parametriInat(filtri, oggi);
   const [s, o, n, e] = riquadro;
   p.set('swlat', s.toFixed(5));
@@ -54,6 +70,7 @@ export function urlOsservazioni(riquadro, filtri, { perPagina = 30, oggi } = {})
   p.set('nelat', n.toFixed(5));
   p.set('nelng', e.toFixed(5));
   p.set('per_page', String(perPagina));
+  if (pagina > 1) p.set('page', String(pagina));
   p.set('order_by', 'observed_on');
   p.set('locale', 'it');
   return `${API_INATURALIST}/observations?${p}`;
@@ -83,8 +100,16 @@ export function interpretaOsservazioni(json) {
       licenza: o.license_code ?? null,
       url: o.uri ?? `https://www.inaturalist.org/observations/${o.id}`,
       verificata: o.quality_grade === 'research',
+      // solo per contare le persone diverse: un codice anonimo, mai il nome
+      osservatore: o.user?.id != null ? codiceAnonimo(o.user.id) : null,
     };
   });
+}
+
+function codiceAnonimo(id) {
+  let h = 2166136261;
+  for (const c of `orme:${id}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  return h.toString(36);
 }
 
 // Riquadro attorno a un punto toccato: "raggio" in pixel convertito con la funzione della mappa

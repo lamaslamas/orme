@@ -11,6 +11,8 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { numeriGrandi, htmlPortamiAllaPartenza } from './scheda.js';
 import { htmlProfiloPendenze } from './profilo.js';
 import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
+import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
+import L from 'leaflet';
 
 export async function vistaPercorso(app, id) {
   const p = await leggiPercorso(id);
@@ -35,6 +37,7 @@ export async function vistaPercorso(app, id) {
       ${disl ? '' : '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'}
       ${htmlProfiloPendenze(pezzi)}
       <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
+      ${pezzi.length ? htmlNaturaPercorso() : ''}
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
       <section class="riquadro">
         <h2>Note</h2>
@@ -107,6 +110,13 @@ export async function vistaPercorso(app, id) {
   const contenitore = app.querySelector('#miniMappa');
   if (!pezzi.length) return;
   const mini = creaMappa(contenitore, { anteprima: true });
+  const puntiNatura = L.layerGroup().addTo(mini);
+  collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {
+    puntiNatura.clearLayers();
+    for (const o of oss) {
+      L.circleMarker([o.lat, o.lon], { radius: 4, color: '#fff', weight: 1, fillColor: '#7c3aed', fillOpacity: 0.9, interactive: false }).addTo(puntiNatura);
+    }
+  });
   const g = disegnaPercorso(p.geojson, { colore: '#2563eb', frecce: false }).addTo(mini);
   mini.attenuaSentieri(true);
   requestAnimationFrame(() => {

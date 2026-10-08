@@ -57,6 +57,7 @@ function descriviStatoTraccia(stato, traccia) {
 }
 import { creaMappa } from './mappa.js';
 import { htmlProfiloPendenze } from './profilo.js';
+import { htmlNaturaSentiero, collegaNaturaSentiero } from './natura.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
@@ -195,6 +196,7 @@ export async function vistaScheda(app, id) {
       ${riquadroBici(s, traccia)}
 
       ${traccia ? htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi) : ''}
+      ${traccia ? htmlNaturaSentiero() : ''}
 
       <section class="riquadro">
         <h2>Percorso</h2>
@@ -276,6 +278,8 @@ export async function vistaScheda(app, id) {
     }
   });
   campoData.addEventListener('change', () => salva({ dataPercorso: campoData.value || null }));
+
+  if (traccia) collegaNaturaSentiero(app.querySelector('#naturaSentiero'), percorsoSentiero(traccia.geojson).pezzi);
 
   // --- il mio GPX: ha sempre la precedenza sulle tracce di OpenStreetMap ---
   const fileGpx = app.querySelector('#fileGpxScheda');
