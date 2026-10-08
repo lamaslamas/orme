@@ -693,3 +693,14 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .sezione-home + .scorciatoie { margin-top: 16px; }
 .carta-specie { display: flex; flex-direction: column; }
 .carta-specie-bottone { flex: 1; }
+
+/* legenda nel pannello dei livelli */
+.pannello-livelli .legenda { border-top: 1px solid var(--bordo); padding-top: 8px; margin-top: 10px; }
+.voce-legenda { margin: 4px 0 8px; font-size: 0.82rem; line-height: 1.35; }
+.voce-legenda .piccolo { margin-top: 4px !important; }
+.legenda-stati { list-style: none; margin: 4px 0 0; padding: 0; }
+.legenda-stati li { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.campione { display: inline-block; flex: none; width: 18px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.legenda-stati .campione { margin-right: 0; }
+.campione.tratteggio { background: color-mix(in srgb, var(--colore) 22%, transparent); border: 1.5px dashed var(--colore); }
+.campione.sfumato { background: linear-gradient(90deg, #f0abfc, #a855f7, #22c55e, #eab308); }

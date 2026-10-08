@@ -9,6 +9,7 @@ import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
+import { aggiungiDistribuzione } from './distribuzione.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { tuttiIConfini } from '../db.js';
 import { disegnaConfine } from './confine.js';
@@ -64,7 +65,7 @@ export async function vistaMappaGenerale(app) {
     </section>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'percorsi', 'confini', 'gps'] });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
   // confini dei parchi già scaricati (si scaricano aprendo la pagina del parco)
   const confini = L.layerGroup();
   for (const confine of await tuttiIConfini()) disegnaConfine(confine).addTo(confini);
@@ -112,6 +113,7 @@ export async function vistaMappaGenerale(app) {
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
   const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
+  aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
 
   const preparati = preparaPercorsi(sentieri, tracce);

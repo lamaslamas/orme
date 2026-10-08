@@ -65,6 +65,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   let livello = null;
   let attiva = false;
 
+  mappa.vociLegenda?.push(() =>
+    stato.leggi().livelli.heatmap
+      ? `<div class="voce-legenda"><b><span class="campione sfumato"></span>Heatmap: osservazioni su iNaturalist</b>
+          <p class="tenue piccolo">Dove le persone hanno fotografato la specie (dal rosa: poche, al giallo: molte). Densità relativa, non un censimento; per le specie protette le posizioni sono sfumate di circa 20 km.</p></div>`
+      : '',
+  );
+
   if (!mappa.getPane('heatmap')) {
     mappa.createPane('heatmap');
     mappa.getPane('heatmap').style.zIndex = 350; // sopra le mappe, sotto le tracce

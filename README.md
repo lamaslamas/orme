@@ -47,6 +47,16 @@ node scripts/importa-archivio.mjs              # tutte le fonti
 node scripts/importa-archivio.mjs ecotur       # una sola: ecotur, wolf-howling, osm-mtb
 ```
 
+## Distribuzione ufficiale delle specie
+
+`public/dati/distribuzione.json` contiene le celle di 10 km della Direttiva Habitat
+(Art. 17, rapporto 2013-2018) per orso, lupo, camoscio, lontra e gatto selvatico:
+fonte EEA, licenza CC BY 4.0. Il rapporto cambia ogni sei anni; per riscaricarlo:
+
+```bash
+node scripts/scarica-distribuzione.mjs
+```
+
 Icone: `scripts/icona.svg` → `npm install --no-save sharp && node scripts/genera-icone.mjs`.
 
 ## Struttura

@@ -40,6 +40,7 @@ export const NOMI_LIVELLI = {
   percorsi: 'Percorsi in archivio',
   osservazione: 'Percorsi di osservazione',
   confini: 'Confini dei parchi',
+  distribuzione: 'Distribuzione ufficiale (EEA)',
   sentieriOsm: 'Sentieri escursionistici (Waymarked)',
   gps: 'Posizione GPS',
 };
@@ -102,6 +103,9 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
   );
   mappa.on('unload', () => scollegamenti.forEach((f) => f()));
 
+  // ogni livello può aggiungere una voce alla legenda (funzione che restituisce HTML)
+  mappa.vociLegenda = [];
+  mappa.aggiornaLegenda = () => {};
   if (anteprima) return mappa;
   L.control.scale({ imperial: false }).addTo(mappa);
   aggiungiPannelloLivelli(mappa, ['sentieriOsm', ...livelli]);
@@ -154,8 +158,16 @@ function aggiungiPannelloLivelli(mappa, livelli) {
             return `<label class="scelta"><input type="checkbox" name="livello" value="${k}" ${acceso ? 'checked' : ''}/> ${NOMI_LIVELLI[k]}</label>`;
           })
           .join('')}
+      </fieldset>
+      <fieldset class="legenda"><legend>Legenda</legend>
+        ${mappa.vociLegenda.map((f) => f()).join('')}
+        <p class="voce-legenda tenue">Idoneità dell'habitat: <b>non disponibile</b> (non esiste un modello aperto e affidabile per questi parchi).</p>
       </fieldset>`;
   }
+  // la legenda segue le scelte (animale, livelli) mentre il pannello è aperto
+  mappa.aggiornaLegenda = () => {
+    if (!pannello.hidden) disegna();
+  };
 
   pannello.addEventListener('change', (e) => {
     if (e.target.name === 'base') stato.imposta({ base: e.target.value });

@@ -9,6 +9,7 @@ import { montaElenco } from './lista.js';
 import { impostaBanner } from './banner.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
+import { aggiungiDistribuzione } from './distribuzione.js';
 import { aggiungiGps } from './gps.js';
 import { stato } from '../stato.js';
 import { ANIMALI } from '../lib/costanti.js';
@@ -66,7 +67,7 @@ export async function vistaParco(app, id) {
   const scollegaAttivita = collegaSelettoreAttivita(app);
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { parcoFisso: parco.id });
 
-  const mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'percorsi', 'confini', 'gps'] });
+  const mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
   // centratura immediata sul riquadro del parco; il confine, quando arriva, la affina
   mappa.fitBounds(
     [
@@ -78,6 +79,7 @@ export async function vistaParco(app, id) {
   mappa.attenuaSentieri(true);
   const fermaGps = aggiungiGps(mappa, () => null);
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
+  aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
   const percorsi = L.layerGroup();
   for (const s of conTraccia) {
