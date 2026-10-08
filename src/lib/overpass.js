@@ -3,6 +3,18 @@ import { riassumiTagBici, unisciRiassunti } from './bici.js';
 
 // Un'area Overpass ha come id 3600000000 + id della relazione del confine
 export const areaDaRelazione = (relazione) => 3600000000 + relazione;
+// Area del parco: da una relazione oppure da una linea chiusa (2400000000 + id della way)
+export const areaParco = (parco) => (parco.osm.way ? 2400000000 + parco.osm.way : areaDaRelazione(parco.osm.relazione));
+
+// Come limitare una ricerca al parco. Overpass non crea l'area da ogni linea chiusa
+// (per il Pollino resta vuota): in quel caso si usa il riquadro del parco.
+export function dentroIlParco(parco) {
+  if (parco.osm.way) {
+    const [s, o, n, e] = parco.bbox;
+    return { prima: '', filtro: `(${s},${o},${n},${e})` };
+  }
+  return { prima: `area(id:${areaParco(parco)})->.parco;\n`, filtro: '(area.parco)' };
+}
 
 export const SERVER_OVERPASS = [
   'https://overpass-api.de/api/interpreter',
@@ -23,9 +35,9 @@ export function costruisciQuery(codici, idParco = PARCO_PREDEFINITO) {
   const parco = parcoDa(idParco) ?? parcoDa(PARCO_PREDEFINITO);
   const ref = `^(PNALM[ -]?|CAI[ -]?)?(${lista.join('|')})$`;
   const [s, o, n, e] = parco.bbox;
+  const { prima, filtro } = dentroIlParco(parco);
   return `[out:json][timeout:60];
-area(id:${areaDaRelazione(parco.osm.relazione)})->.parco;
-rel["route"="hiking"]["ref"~"${ref}",i](area.parco)->.dentro;
+${prima}rel["route"="hiking"]["ref"~"${ref}",i]${filtro}->.dentro;
 (.dentro;rel["route"="hiking"]["ref"~"${ref}",i](${s},${o},${n},${e})(if:dentro.count(relations)==0););
 out geom;
 way(r);
@@ -132,9 +144,9 @@ export async function cercaSuOsm(codici, opzioni = {}) {
 // Elenco leggero (solo dati, niente geometria) dei sentieri escursionistici nel parco
 export function queryElencoParco(idParco) {
   const parco = parcoDa(idParco);
+  const { prima, filtro } = dentroIlParco(parco);
   return `[out:json][timeout:90];
-area(id:${areaDaRelazione(parco.osm.relazione)})->.parco;
-rel["route"="hiking"](area.parco);
+${prima}rel["route"="hiking"]${filtro};
 out tags;`;
 }
 

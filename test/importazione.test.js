@@ -384,3 +384,32 @@ describe('freno di sicurezza', () => {
     expect(resoconto.nonPiuVerificabili).toEqual([]);
   });
 });
+
+describe('percorsi riportati da più fonti', () => {
+  const mtb = (fonte, parco, km) => ({
+    fonte, tipo: 'itinerario_mtb', chiave: `${parco}:7`, id: 'osm-mtb-7', url: 'https://www.openstreetmap.org/relation/7',
+    nome: 'Giro', parco, animali: [], lunghezzaKm: km, attivita: { mtb: { stato: 'percorribile', motivi: [] } },
+  });
+
+  it('la prima fonte resta principale, la seconda si annota e aggiunge il parco', () => {
+    const a = unisciImportazione({ percorsi: [] }, [{ fonte: 'osm-mtb:lucano', ok: true, candidati: [mtb('osm-mtb:lucano', 'appennino-lucano', 30)] }], OGGI).archivio;
+    const b = unisciImportazione(a, [{ fonte: 'osm-mtb:pollino', ok: true, candidati: [mtb('osm-mtb:pollino', 'pollino', 12)] }], OGGI).archivio;
+    expect(b.percorsi).toHaveLength(1);
+    expect(b.percorsi[0].importazione).toMatchObject({ fonte: 'osm-mtb:lucano', altreFonti: ['osm-mtb:pollino'] });
+    expect(b.percorsi[0].parchi).toEqual(['appennino-lucano', 'pollino']);
+    expect(b.percorsi[0].lunghezzaKm).toBe(30); // i contenuti li decide la fonte principale
+    // la seconda fonte non lo riporta più: si toglie solo lei, il percorso resta attivo
+    const c = unisciImportazione(b, [{ fonte: 'osm-mtb:pollino', ok: true, candidati: [] }], OGGI).archivio;
+    expect(c.percorsi[0]).toMatchObject({ attivo: true, importazione: { fonte: 'osm-mtb:lucano', altreFonti: [] } });
+  });
+});
+
+describe('itinerari dentro il confine vero', () => {
+  it('scarta quelli che passano solo nel riquadro', async () => {
+    const { soloDentroIlConfine } = await import('../src/lib/fonti/osmMtb.js');
+    const quadrato = [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]];
+    const c = (id, punti) => ({ id, traccia: { geojson: { coordinates: [punti] } } });
+    const r = soloDentroIlConfine([c('dentro', [[0.5, 0.5], [2, 2]]), c('fuori', [[1.5, 1.5], [2, 2]])], quadrato);
+    expect(r.map((x) => x.id)).toEqual(['dentro']);
+  });
+});

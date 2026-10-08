@@ -53,6 +53,23 @@ export const PARCHI = [
       "Le montagne più alte dell'Appennino lucano, dal Volturino al massiccio Sirino-Papa, con la Val d'Agri. Tra gli animali citati dal Parco: lupo, lontra lungo l'Agri, gatto selvatico e rapaci come nibbio reale e aquila reale.",
     daVerificare: true,
   },
+  {
+    id: 'pollino',
+    nome: 'Parco Nazionale del Pollino',
+    nomeBreve: 'Pollino',
+    regioni: ['Basilicata', 'Calabria'],
+    sito: 'https://www.parcopollino.it/',
+    // su OpenStreetMap il confine è una sola linea chiusa, non una relazione
+    osm: { way: 33911573 },
+    bbox: [39.61, 15.82, 40.23, 16.44],
+    centro: [39.92, 16.13],
+    animali: ['lupo', 'capriolo', 'lontra', 'cinghiale', 'gatto_selvatico', 'volpe', 'aquila_reale', 'gufo_reale', 'nibbio_reale'],
+    regole:
+      'Resta sui sentieri segnati. Divieti, chiusure e autorizzazioni cambiano nel tempo: verifica sempre sul sito del Parco.',
+    descrizione:
+      "Il parco nazionale più grande d'Italia, tra Basilicata e Calabria: il massiccio del Pollino e i Monti di Orsomarso, con il pino loricato. Tra gli animali: lupo, capriolo italico, lontra, aquila reale e gufo reale.",
+    daVerificare: true,
+  },
 ];
 
 export const PARCO_PREDEFINITO = 'pnalm';

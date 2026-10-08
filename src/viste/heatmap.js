@@ -97,10 +97,11 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       const div = L.DomUtil.create('div', 'leaflet-bar');
       const b = L.DomUtil.create('a', 'heat-bottone', div);
       b.href = '#';
-      b.title = 'Fauna rara – iNaturalist';
+      b.title = 'Heatmap della fauna: dove gli animali sono stati osservati (iNaturalist)';
       b.setAttribute('role', 'button');
-      b.setAttribute('aria-label', 'Mostra la heatmap della fauna rara (iNaturalist)');
-      b.innerHTML = ICONA;
+      b.setAttribute('aria-label', 'Mostra o nascondi la heatmap della fauna (osservazioni iNaturalist)');
+      // con l'etichetta: la sola icona non si capiva
+      b.innerHTML = `${ICONA}<span>Fauna</span>`;
       L.DomEvent.disableClickPropagation(div);
       L.DomEvent.on(b, 'click', (e) => {
         L.DomEvent.preventDefault(e);

@@ -571,8 +571,11 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .scorciatoie .pillola { text-decoration: none; }
 
 /* --- Heatmap iNaturalist --- */
-.heat-bottone { display: grid !important; place-items: center; color: #7c3aed; }
-.heat-bottone.attivo { background: #ede9fe !important; }
+.heat-bottone {
+  display: flex !important; align-items: center; gap: 5px; width: auto !important; padding: 0 10px 0 7px;
+  color: #6d28d9; font-weight: 800; font-size: 0.8rem; text-decoration: none;
+}
+.heat-bottone.attivo { background: #6d28d9 !important; color: #fff !important; }
 .pannello-heatmap { bottom: 22px; }
 .misurando .pannello-heatmap { display: none; }
 .heat-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; }

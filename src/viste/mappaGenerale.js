@@ -12,7 +12,7 @@ import { aggiungiHeatmap } from './heatmap.js';
 import { aggiungiDistribuzione } from './distribuzione.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { tuttiIConfini } from '../db.js';
-import { disegnaConfine } from './confine.js';
+import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import { stato } from '../stato.js';
 import { parcoDa, PARCHI } from '../datiParchi.js';
@@ -73,6 +73,22 @@ export async function vistaMappaGenerale(app) {
   const livello = L.layerGroup();
   mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));
   const selezione = L.layerGroup().addTo(mappa);
+  // confine del parco scelto: sempre visibile e più marcato (si scarica se manca)
+  const confineScelto = L.layerGroup().addTo(mappa);
+  let parcoMostrato = null;
+  function mostraConfineScelto(idParco) {
+    if (idParco === parcoMostrato) return;
+    parcoMostrato = idParco;
+    confineScelto.clearLayers();
+    const parco = parcoDa(idParco);
+    if (!parco) return;
+    ottieniConfine(parco)
+      .then((confine) => {
+        if (parcoMostrato !== idParco) return;
+        disegnaConfine(confine).setStyle({ weight: 3.5, opacity: 0.95, fillOpacity: 0.08 }).addTo(confineScelto);
+      })
+      .catch(() => {}); // senza rete il riquadro del parco basta per inquadrarlo
+  }
   let visibili = [];
   let primaVolta = true;
   let ultimiFiltri = '';
@@ -118,6 +134,7 @@ export async function vistaMappaGenerale(app) {
 
   const preparati = preparaPercorsi(sentieri, tracce);
   function disegna() {
+    mostraConfineScelto(filtri.parco);
     const filtrati = filtraPercorsi(preparati, filtri, stato.leggi().attivita).map((p) => p.sentiero);
     const { conTraccia, senzaTraccia } = dividiPerTraccia(filtrati, tracce);
     visibili = conTraccia.map((x) => x.traccia);

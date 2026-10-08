@@ -248,12 +248,22 @@ function aggiornaFonti(fonti, c, oggi) {
 
 const unione = (a = [], b = []) => [...new Set([...a, ...b])];
 
+// La fonte riporta questo percorso (come fonte principale o come fonte in più)
+const appartiene = (p, fonte) => p.importazione?.fonte === fonte || (p.importazione?.altreFonti ?? []).includes(fonte);
+
 // Aggiorna un record esistente. Quelli creati dall'importazione si aggiornano tutti;
 // quelli scritti a mano (sentieri iniziali) solo nei campi vuoti, più fonti e controllo.
 export function aggiornaRecord(record, c, oggi) {
   const creato = record.importazione?.creato;
+  const imp = record.importazione;
+  // un percorso può comparire in più fonti (es. un itinerario MTB a cavallo di due parchi):
+  // la prima resta la principale e decide i contenuti, le altre si annotano soltanto
+  const primaria = !imp?.fonte || imp.fonte === c.fonte;
   const r = { ...record, fonti: aggiornaFonti(record.fonti, c, oggi) };
-  r.importazione = { ...(record.importazione ?? {}), fonte: c.fonte, chiave: c.chiave, creato: Boolean(creato) };
+  r.importazione = primaria
+    ? { ...(imp ?? {}), fonte: c.fonte, chiave: c.chiave, creato: Boolean(creato) }
+    : { ...imp, altreFonti: unione(imp.altreFonti, [c.fonte]) };
+  if (c.parco) r.parchi = unione(record.parchi ?? [record.parco].filter(Boolean), [c.parco]);
   const stato = record.verifica?.stato === 'verificato' ? 'verificato' : 'da_verificare';
   const ultimoControllo = stato === record.verifica?.stato ? rinfresca(record.verifica?.ultimoControllo, oggi) : oggi;
   r.verifica = { ...(record.verifica ?? {}), stato, ultimoControllo };
@@ -263,16 +273,16 @@ export function aggiornaRecord(record, c, oggi) {
   r.osservazione = r.animali.length > 0;
   if (c.organizzatore) r.organizzatori = unione(record.organizzatori, [c.organizzatore]);
   for (const k of ['lunghezzaKm', 'dislivelloM', 'durataMin']) {
-    if (c[k] != null && (creato || record[k] == null)) r[k] = c[k];
+    if (c[k] != null && ((creato && primaria) || record[k] == null)) r[k] = c[k];
   }
   if (record.escursione || c.tipo === 'uscita_guidata') {
     const e = { ...(record.escursione ?? {}) };
     if (c.periodo && (creato || !e.periodo)) e.periodo = c.periodo;
     if (c.date?.length) e.date = [...new Set([...(e.date ?? []), ...c.date])].sort();
-    if (creato) Object.assign(e, { url: c.url, nomeUscita: c.nome });
+    if (creato && primaria) Object.assign(e, { url: c.url, nomeUscita: c.nome });
     r.escursione = e;
   }
-  if (creato) {
+  if (creato && primaria) {
     Object.assign(r, { nome: c.nome, descrizione: c.descrizione ?? r.descrizione, tipoPercorso: c.tipo });
     if (c.partenza) r.partenza = { ...r.partenza, descrizione: c.partenza };
     if (c.attivita) r.attivita = c.attivita;
@@ -295,7 +305,7 @@ export function unisciImportazione(archivio, risultati, oggi) {
     }
     // freno di sicurezza: se una fonte perde di colpo più di metà dei suoi percorsi
     // è più probabile un errore della fonte che una vera sparizione
-    const giaPresenti = percorsi.filter((p) => p.importazione?.fonte === fonte && p.attivo !== false).length;
+    const giaPresenti = percorsi.filter((p) => appartiene(p, fonte) && p.attivo !== false).length;
     const sospetta = giaPresenti >= 4 && candidati.length < giaPresenti / 2;
     if (sospetta) resoconto.fontiSospette.push(fonte);
     const visti = new Set();
@@ -318,7 +328,17 @@ export function unisciImportazione(archivio, risultati, oggi) {
     if (!completo || sospetta) continue;
     for (let i = 0; i < percorsi.length; i++) {
       const p = percorsi[i];
-      if (p.importazione?.fonte !== fonte || visti.has(p.id)) continue;
+      if (!appartiene(p, fonte) || visti.has(p.id)) continue;
+      const altre = [p.importazione.fonte, ...(p.importazione.altreFonti ?? [])].filter((f) => f !== fonte);
+      if (altre.length) {
+        // un'altra fonte lo riporta ancora: si toglie solo questa
+        const [principale, ...resto] = altre;
+        percorsi[i] = {
+          ...p,
+          importazione: { ...p.importazione, fonte: principale, ...(principale !== p.importazione.fonte ? { chiave: null } : {}), altreFonti: resto },
+        };
+        continue;
+      }
       if (p.importazione.creato) {
         if (p.verifica?.stato === 'non_piu_verificabile') continue;
         percorsi[i] = { ...p, attivo: false, verifica: { ...p.verifica, stato: 'non_piu_verificabile', ultimoControllo: oggi } };

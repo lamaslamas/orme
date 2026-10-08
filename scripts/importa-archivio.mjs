@@ -7,7 +7,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { unisciImportazione } from '../src/lib/importazione.js';
 import { ECOTUR, linkEscursioni, leggiPaginaEcotur } from '../src/lib/fonti/ecotur.js';
 import { WOLF_HOWLING, linkNotizieWolfHowling, linkPdfWolfHowling, righeTabella, candidatiWolfHowling } from '../src/lib/fonti/wolfHowling.js';
-import { OSM_MTB, queryMtbParco, candidatiMtb } from '../src/lib/fonti/osmMtb.js';
+import { OSM_MTB, queryMtbParco, candidatiMtb, soloDentroIlConfine } from '../src/lib/fonti/osmMtb.js';
+import { queryConfine, anelliDaRelazione } from '../src/lib/confini.js';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { controllaArchivio } from '../src/lib/archivio.js';
 import { PARCHI } from '../src/datiParchi.js';
@@ -113,7 +114,14 @@ async function importaMtb(parco) {
   for (let tentativo = 1; tentativo <= 3; tentativo++) {
     try {
       const json = await interrogaOverpass(queryMtbParco(parco.id), { fetchFn: fetchConAgente, timeoutMs: 200_000 });
-      return { candidati: candidatiMtb(json, parco.id), completo: true };
+      let candidati = candidatiMtb(json, parco.id);
+      if (parco.osm.way) {
+        // cercato con il riquadro: serve il confine vero per scartare i parchi vicini
+        const anelli = anelliDaRelazione(await interrogaOverpass(queryConfine(parco.osm), { fetchFn: fetchConAgente, timeoutMs: 120_000 }));
+        if (!anelli.length) throw new Error('confine del parco non trovato');
+        candidati = soloDentroIlConfine(candidati, anelli);
+      }
+      return { candidati, completo: true };
     } catch (e) {
       ultimo = e;
       console.warn(`  osm-mtb ${parco.id}: tentativo ${tentativo} fallito (${e.message})`);

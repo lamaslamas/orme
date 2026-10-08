@@ -7,7 +7,7 @@ import { anelliDaRelazione, queryConfine } from '../lib/confini.js';
 export async function ottieniConfine(parco) {
   const salvato = await leggiConfine(parco.id);
   if (salvato) return salvato;
-  const json = await interrogaOverpass(queryConfine(parco.osm.relazione), { timeoutMs: 90000 });
+  const json = await interrogaOverpass(queryConfine(parco.osm), { timeoutMs: 90000 });
   const anelli = anelliDaRelazione(json);
   if (!anelli.length) throw new Error('Confine del parco non trovato su OpenStreetMap.');
   return salvaConfine({ parco: parco.id, anelli });

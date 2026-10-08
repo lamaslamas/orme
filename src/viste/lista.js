@@ -66,7 +66,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
           </div>
           <div class="nome">${escapeHtml(s.nome)}</div>
           ${luogo ? `<div class="carta-dati">${luogo}</div>` : ''}
-          ${mostraParco ? `<div class="carta-parco-nome">${escapeHtml(parcoDa(s.parco)?.nomeBreve ?? '')}</div>` : ''}
+          ${mostraParco ? `<div class="carta-parco-nome">${escapeHtml((s.parchi ?? [s.parco]).map((id) => parcoDa(id)?.nomeBreve).filter(Boolean).join(' · '))}</div>` : ''}
           ${numeri ? `<div class="numeri">${numeri}</div>` : ''}
           <div class="chips">
             ${bollinoCompatibilita(compat, stato.leggi().attivita)}

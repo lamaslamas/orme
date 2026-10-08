@@ -51,9 +51,11 @@ const ICONA_LIVELLI =
 // anteprima: mappa ferma, senza comandi. livelli: chiavi dei livelli offerti da questa mappa.
 export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {}) {
   const basi = Object.fromEntries(Object.entries(BASI).map(([k, b]) => [k, b.crea()]));
+  // sentieri di Waymarked: tenui e solo da vicino (a scala regionale o nazionale fanno solo confusione)
   const sentieri = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
     maxZoom: 18,
-    opacity: 0.8,
+    minZoom: 11,
+    opacity: 0.55,
     attribution: '&copy; <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a> (CC-BY-SA)',
   });
   const ferma = anteprima
@@ -78,7 +80,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
   applicaSentieri(stato.leggi().livelli.sentieriOsm !== false);
 
   // i sentieri di Waymarked si attenuano quando si vuole far risaltare una traccia
-  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.45 : 0.8);
+  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.3 : 0.55);
 
   // ogni vista può reagire a un livello: f(acceso) subito e a ogni cambio
   const scollegamenti = [];

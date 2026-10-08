@@ -2,8 +2,10 @@
 // Gli anelli sono liste di punti [lon, lat].
 import { concatenaLinee } from './tracce.js';
 
-export function queryConfine(idRelazione) {
-  return `[out:json][timeout:90];rel(${Number(idRelazione)});out geom;`;
+// osm: { relazione } oppure { way } (alcuni parchi su OSM sono una sola linea chiusa)
+export function queryConfine(osm) {
+  if (typeof osm === 'number') osm = { relazione: osm };
+  return osm.way ? `[out:json][timeout:90];way(${Number(osm.way)});out geom;` : `[out:json][timeout:90];rel(${Number(osm.relazione)});out geom;`;
 }
 
 // Riduce i punti di un anello tenendo la forma (Douglas-Peucker, tolleranza in gradi)
@@ -38,8 +40,13 @@ export function semplifica(punti, tolleranza = 0.0003) {
   return punti.filter((_, i) => tieni[i]);
 }
 
-// Dalla risposta Overpass (relazione con "out geom") agli anelli esterni del confine
+// Dalla risposta Overpass (relazione o linea chiusa con "out geom") agli anelli esterni del confine
 export function anelliDaRelazione(json, tolleranza) {
+  const linea = (json?.elements ?? []).find((e) => e.type === 'way' && Array.isArray(e.geometry));
+  if (linea) {
+    const anello = linea.geometry.map((p) => [p.lon, p.lat]);
+    return anello.length >= 4 ? [semplifica(anello, tolleranza)] : [];
+  }
   const rel = (json?.elements ?? []).find((e) => e.type === 'relation');
   if (!rel) return [];
   const tratti = (rel.members ?? [])

@@ -1,20 +1,20 @@
 // Itinerari MTB segnati su OpenStreetMap (route=mtb, o route=bicycle della rete MTB) dentro un parco.
 // Dati © OpenStreetMap, licenza ODbL: la geometria si può salvare citando la fonte.
-import { areaDaRelazione, interpretaRisposta, combinaTraccia } from '../overpass.js';
+import { dentroIlParco, interpretaRisposta, combinaTraccia } from '../overpass.js';
 import { lunghezzaKm } from '../geo.js';
-import { semplifica } from '../confini.js';
+import { semplifica, puntoNelPoligono } from '../confini.js';
 import { parcoDa } from '../../datiParchi.js';
 
 export const OSM_MTB = { fonte: 'osm-mtb' };
 
 export function queryMtbParco(idParco) {
   const parco = parcoDa(idParco);
+  const { prima, filtro } = dentroIlParco(parco);
   return `[out:json][timeout:180];
-area(id:${areaDaRelazione(parco.osm.relazione)})->.parco;
-(
-  rel["route"="mtb"](area.parco);
-  rel["route"="bicycle"]["network"~"mtb",i](area.parco);
-  rel["route"="bicycle"]["mtb"="yes"](area.parco);
+${prima}(
+  rel["route"="mtb"]${filtro};
+  rel["route"="bicycle"]["network"~"mtb",i]${filtro};
+  rel["route"="bicycle"]["mtb"="yes"]${filtro};
 );
 out geom;
 way(r);
@@ -108,4 +108,11 @@ export function candidatiMtb(json, idParco) {
     c.nome = `${c.nome} · ${c.zona || `tratto ${n}`}`;
   }
   return candidati;
+}
+
+// Per i parchi cercati con il riquadro (es. Pollino): restano solo gli itinerari
+// che passano davvero dentro il confine. anelli: [[lon, lat]] come in confini.js
+export function soloDentroIlConfine(candidati, anelli) {
+  if (!anelli?.length) return candidati;
+  return candidati.filter((c) => c.traccia.geojson.coordinates.some((linea) => linea.some((p) => puntoNelPoligono(p, anelli))));
 }

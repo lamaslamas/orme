@@ -23,7 +23,7 @@ export async function vistaParco(app, id) {
   }
   impostaBanner(parco.id);
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
-  const sentieri = tutti.filter((s) => s.parco === parco.id);
+  const sentieri = tutti.filter((s) => (s.parchi ?? [s.parco]).includes(parco.id));
   const conTraccia = sentieri.filter((s) => tracce.has(s.id));
   const fatti = sentieri.filter((s) => s.stato === 'fatto').length;
 
