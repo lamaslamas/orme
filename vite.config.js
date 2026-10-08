@@ -44,7 +44,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        globIgnores: ['dati/**'],
+        // caratteri per alfabeti non usati (cirillico, greco, vietnamita): si scaricano solo se servono
+        globIgnores: ['dati/**', '**/*-cyrillic*', '**/*-greek*', '**/*-vietnamese*'],
         // la nuova versione prende subito il posto della vecchia e ne cancella i file
         cleanupOutdatedCaches: true,
         clientsClaim: true,
