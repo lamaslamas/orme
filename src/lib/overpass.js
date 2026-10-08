@@ -116,7 +116,7 @@ export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetch
     }
   }
   const motivo = ultimoErrore?.name === 'AbortError' ? 'tempo scaduto' : ultimoErrore?.message;
-  throw new Error(`OpenStreetMap non risponde (${motivo}). Riprova tra qualche minuto o importa un GPX.`);
+  throw new Error(`OpenStreetMap non risponde (${motivo}). Riprova tra qualche minuto.`);
 }
 
 export async function cercaSuOsm(codici, opzioni = {}) {

@@ -10,6 +10,7 @@ import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { numeriGrandi, htmlPortamiAllaPartenza } from './scheda.js';
 import { htmlProfiloPendenze } from './profilo.js';
+import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 
 export async function vistaPercorso(app, id) {
   const p = await leggiPercorso(id);
@@ -33,6 +34,7 @@ export async function vistaPercorso(app, id) {
       ${numeriGrandi(misure)}
       ${disl ? '' : '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'}
       ${htmlProfiloPendenze(pezzi)}
+      <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
       <section class="riquadro">
         <h2>Note</h2>
@@ -50,10 +52,31 @@ export async function vistaPercorso(app, id) {
     </article>
   `;
 
+  // terreno: cambio attributo e lettura da OSM per i GPX
+  let attuale = p;
+  const contenitoreTerreno = app.querySelector('#contenitoreTerreno');
+  contenitoreTerreno.addEventListener('click', async (ev) => {
+    const attributo = ev.target.closest('[data-attributo]')?.dataset.attributo;
+    if (attributo) contenitoreTerreno.innerHTML = htmlTerreno(attuale, pezzi, attributo);
+    if (ev.target.closest('[data-azione="leggi-terreno"]')) {
+      const stato = contenitoreTerreno.querySelector('#statoTerreno');
+      ev.target.disabled = true;
+      stato.textContent = 'Chiedo a OpenStreetMap le vie lungo il percorso…';
+      try {
+        const terreno = await leggiTerrenoDaOsm(pezzi);
+        attuale = await salvaPercorso({ ...attuale, terreno, fonteTerreno: 'overpass', aggiornatoTerreno: new Date().toISOString() });
+        contenitoreTerreno.innerHTML = htmlTerreno(attuale, pezzi);
+      } catch (err) {
+        stato.innerHTML = `<span class="errore">${escapeHtml(err.message)}</span>`;
+        ev.target.disabled = false;
+      }
+    }
+  });
+
   app.querySelector('#moduloPercorso').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target;
-    await salvaPercorso({ ...p, nome: f.elements.nome.value.trim(), note: f.elements.note.value.trim() });
+    attuale = await salvaPercorso({ ...attuale, nome: f.elements.nome.value.trim(), note: f.elements.note.value.trim() });
     app.querySelector('#salvato').hidden = false;
   });
 

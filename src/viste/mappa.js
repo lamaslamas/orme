@@ -164,7 +164,7 @@ export async function vistaMappa(app, id) {
     try {
       gruppi = await cercaSuOsm(elenco, { parco: sentiero.parco });
     } catch (e) {
-      pannelloBase(`<span class="errore">${escapeHtml(e.message)}</span>`);
+      pannelloBase(`<span class="errore">${escapeHtml(e.message)}</span> Puoi anche importare un GPX.`);
       return;
     }
     mostraRisultati(elenco, gruppi);

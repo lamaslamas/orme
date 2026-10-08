@@ -601,3 +601,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .legenda-pendenze i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 .legenda-pendenze b { color: var(--testo); }
 .riepilogo-pendenze .riga dt { flex-basis: 110px; }
+.barra-terreno { display: block; width: 100%; height: 14px; border-radius: 4px; margin-top: 10px; }
+.pillole-terreno { margin: 0 -14px; padding: 4px 14px 0; }
+.quadretto { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.mtb summary { font-weight: 700; }
