@@ -226,3 +226,20 @@ describe('percorsi', () => {
     expect(await db.leggiPercorso('p1')).toBeTruthy();
   });
 });
+
+describe('più finestre aperte', () => {
+  it('una finestra vecchia libera l\'archivio quando un\'altra lo aggiorna', async () => {
+    const vecchia = await db.apriDb();
+    let avvisata = false;
+    globalThis.addEventListener?.('orme-aggiornata-altrove', () => (avvisata = true));
+    // un'altra "finestra" apre una versione più nuova
+    const nuova = await new Promise((risolvi, rifiuta) => {
+      const req = indexedDB.open('orme', vecchia.version + 1);
+      req.onsuccess = () => risolvi(req.result);
+      req.onerror = () => rifiuta(req.error);
+    });
+    expect(nuova.version).toBe(vecchia.version + 1);
+    nuova.close();
+    if (globalThis.addEventListener) expect(avvisata).toBe(true);
+  });
+});

@@ -90,6 +90,25 @@ window.addEventListener('hashchange', () => {
 // Chiede al browser di non cancellare i dati quando lo spazio scarseggia
 navigator.storage?.persist?.().catch(() => {});
 
+// Archivio bloccato da un'altra finestra di Orme con una versione vecchia
+window.addEventListener('orme-archivio-bloccato', () => {
+  app.innerHTML = `<section class="riquadro" style="margin-top:24px">
+    <h2>Orme è aperta anche in un'altra finestra</h2>
+    <p>Un'altra scheda o la finestra dell'app installata usa ancora la versione precedente e blocca l'aggiornamento dei dati.</p>
+    <p><b>Chiudi le altre finestre di Orme</b>: questa pagina ripartirà da sola. Se non succede, ricaricala.</p>
+    <button type="button" class="bottone primario" onclick="location.reload()">Ricarica</button>
+  </section>`;
+});
+
+// Un'altra finestra ha aggiornato Orme: questa va ricaricata per usare la versione nuova
+window.addEventListener('orme-aggiornata-altrove', () => {
+  app.innerHTML = `<section class="riquadro" style="margin-top:24px">
+    <h2>Orme è stata aggiornata</h2>
+    <p>In un'altra finestra è partita la versione nuova. Ricarica questa pagina per continuare.</p>
+    <button type="button" class="bottone primario" onclick="location.reload()">Ricarica</button>
+  </section>`;
+});
+
 caricaDatiIniziali()
   .catch((errore) => console.error('Dati iniziali non caricati', errore))
   .finally(mostra);

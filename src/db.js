@@ -68,8 +68,19 @@ export function apriDb() {
         };
       }
     };
-    req.onsuccess = () => risolvi(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // se un'altra scheda apre una versione più nuova dell'archivio, questa lo libera
+      db.onversionchange = () => {
+        db.close();
+        promessaDb = null;
+        globalThis.dispatchEvent?.(new CustomEvent('orme-aggiornata-altrove'));
+      };
+      risolvi(db);
+    };
     req.onerror = () => rifiuta(req.error);
+    // un'altra scheda o l'app installata, con una versione vecchia, tiene aperto l'archivio
+    req.onblocked = () => globalThis.dispatchEvent?.(new CustomEvent('orme-archivio-bloccato'));
   });
   return promessaDb;
 }

@@ -73,6 +73,8 @@
             Promise.all(passi).then(fatto, fatto);
           };
         }
+        // controllo anche se l'evento "load" tarda (risorse lente o bloccate)
+        setTimeout(controlla, 8000);
         window.addEventListener('load', function () { setTimeout(controlla, 4000); });
       })();
     </script>
