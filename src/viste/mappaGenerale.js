@@ -6,6 +6,7 @@ import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
+import { aggiungiHeatmap } from './heatmap.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { tuttiIConfini } from '../db.js';
 import { disegnaConfine } from './confine.js';
@@ -65,6 +66,7 @@ export async function vistaMappaGenerale(app) {
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
   const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
 
   function disegna() {
     const filtrati = ordinaSentieri(filtraSentieri(sentieri, filtri));
@@ -135,6 +137,7 @@ export async function vistaMappaGenerale(app) {
 
   return () => {
     fermaGps();
+    heat.rimuovi();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

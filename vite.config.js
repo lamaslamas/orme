@@ -49,6 +49,12 @@ export default defineConfig({
           cacheMappa('mappa-osm', /^https:\/\/tile\.openstreetmap\.org\//),
           cacheMappa('mappa-topo', /^https:\/\/[abc]\.tile\.opentopomap\.org\//),
           cacheMappa('mappa-sentieri', /^https:\/\/tile\.waymarkedtrails\.org\//),
+          // heatmap iNaturalist: si aggiorna spesso, la teniamo solo un giorno
+          {
+            urlPattern: /^https:\/\/api\.inaturalist\.org\/v1\/heatmap\//,
+            handler: 'CacheFirst',
+            options: { cacheName: 'inaturalist-heatmap', expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 }, cacheableResponse: { statuses: [0, 200] } },
+          },
         ],
       },
     }),

@@ -18,23 +18,24 @@ export const ANIMALI = {
   altro: 'Altro',
 };
 
-// Nome scientifico per iNaturalist
+// Specie su iNaturalist (id del taxon a livello di specie: in Appennino molte osservazioni
+// non indicano la sottospecie). Verificati con l'API di iNaturalist.
 export const TAXON_INATURALIST = {
-  orso: 'Ursus arctos',
-  lupo: 'Canis lupus',
-  camoscio: 'Rupicapra pyrenaica',
-  cervo: 'Cervus elaphus',
-  capriolo: 'Capreolus capreolus',
-  daino: 'Dama dama',
-  muflone: 'Ovis gmelini',
-  cinghiale: 'Sus scrofa',
-  volpe: 'Vulpes vulpes',
-  lontra: 'Lutra lutra',
-  gatto_selvatico: 'Felis silvestris',
-  aquila_reale: 'Aquila chrysaetos',
-  gufo_reale: 'Bubo bubo',
-  nibbio_reale: 'Milvus milvus',
-  cicogna_nera: 'Ciconia nigra',
+  orso: { id: 41641, nome: 'Ursus arctos (orso bruno marsicano)' },
+  lupo: { id: 42048, nome: 'Canis lupus (lupo appenninico)' },
+  camoscio: { id: 42346, nome: 'Rupicapra pyrenaica (camoscio appenninico)' },
+  cervo: { id: 204113, nome: 'Cervus elaphus' },
+  capriolo: { id: 42184, nome: 'Capreolus capreolus' },
+  daino: { id: 42161, nome: 'Dama dama' },
+  muflone: { id: 340942, nome: 'Ovis aries musimon' },
+  cinghiale: { id: 42134, nome: 'Sus scrofa' },
+  volpe: { id: 42069, nome: 'Vulpes vulpes' },
+  lontra: { id: 41850, nome: 'Lutra lutra' },
+  gatto_selvatico: { id: 922459, nome: 'Felis silvestris' },
+  aquila_reale: { id: 5074, nome: 'Aquila chrysaetos' },
+  gufo_reale: { id: 20059, nome: 'Bubo bubo' },
+  nibbio_reale: { id: 5267, nome: 'Milvus milvus' },
+  cicogna_nera: { id: 4736, nome: 'Ciconia nigra' },
 };
 
 export const STATI = {
