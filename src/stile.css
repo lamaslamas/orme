@@ -885,8 +885,8 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 .heat-bottone { color: #5b4b9a !important; }
 .heat-bottone.attivo { background: var(--teal) !important; color: #fff !important; }
 .leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: var(--ombra-alta); }
-/* heatmap di iNaturalist più morbida: meno satura e un po' trasparente */
-.leaflet-heatmap-pane { opacity: 0.72; filter: saturate(0.75); }
+/* heatmap ben visibile sopra il verde della mappa: colori pieni e un leggero alone scuro */
+.leaflet-heatmap-pane { filter: saturate(1.5) contrast(1.15) drop-shadow(0 0 1.5px rgba(37, 50, 56, 0.55)); }
 
 /* --- accessibilità: focus ben visibile, mai solo colore --- */
 :focus-visible { outline: 3px solid rgba(47, 111, 109, 0.55); outline-offset: 2px; border-radius: 8px; }

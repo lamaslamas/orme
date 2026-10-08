@@ -184,9 +184,14 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       disegnaGriglia();
       return;
     }
+    // tile dello zoom precedente mostrate a 512 px: le macchie diventano più grandi e leggibili
     livello = L.tileLayer(urlTileHeatmap(filtri), {
       pane: 'heatmap',
-      opacity: 0.8,
+      opacity: 1,
+      tileSize: 512,
+      zoomOffset: -1,
+      minNativeZoom: 1,
+      maxNativeZoom: 17,
       maxZoom: 19,
       attribution: 'Osservazioni © <a href="https://www.inaturalist.org" target="_blank" rel="noopener">iNaturalist</a> (CC)',
     }).addTo(mappa);
