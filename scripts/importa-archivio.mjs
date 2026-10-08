@@ -153,6 +153,7 @@ if (cambiato) {
 console.log(
   `\nNuovi: ${resoconto.nuovi.length} · aggiornati: ${resoconto.aggiornati.length} · non più verificabili: ${resoconto.nonPiuVerificabili.length}` +
     ` · fonti non raggiunte: ${resoconto.fontiNonRaggiunte.join(', ') || 'nessuna'}` +
+    (resoconto.fontiSospette.length ? ` · fonti con molti percorsi in meno (nessuno segnato come sparito): ${resoconto.fontiSospette.join(', ')}` : '') +
     `\nArchivio ${cambiato ? 'aggiornato' : 'invariato'}: ${archivio.percorsi.length} percorsi.`,
 );
 for (const id of resoconto.nuovi) console.log(`  + ${id}`);

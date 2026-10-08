@@ -144,3 +144,11 @@ describe('importazione dei sentieri di un parco', () => {
     expect(queryGeometrie([1, 2])).toContain('rel(id:1,2)');
   });
 });
+
+describe('risposte incomplete di Overpass', () => {
+  it('un avviso di errore nella risposta conta come server che non risponde', async () => {
+    const { interrogaOverpass } = await import('../src/lib/overpass.js');
+    const fetchFn = async () => ({ ok: true, json: async () => ({ elements: [], remark: 'runtime error: Query timed out in "query" at line 3' }) });
+    await expect(interrogaOverpass('x', { server: ['a', 'b'], fetchFn })).rejects.toThrow(/non risponde/);
+  });
+});

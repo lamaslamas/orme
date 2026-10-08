@@ -108,7 +108,10 @@ export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetch
         signal: controllo.signal,
       });
       if (!risposta.ok) throw new Error(`il server ha risposto ${risposta.status}`);
-      return await risposta.json();
+      const json = await risposta.json();
+      // un server sovraccarico può rispondere "ok" con dati vuoti o parziali e un avviso di errore
+      if (/error|timed out|out of memory/i.test(json?.remark ?? '')) throw new Error(`risposta incompleta (${json.remark.slice(0, 80)})`);
+      return json;
     } catch (e) {
       ultimoErrore = e;
     } finally {

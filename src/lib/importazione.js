@@ -287,12 +287,17 @@ export function aggiornaRecord(record, c, oggi) {
 // completo=false se ha risposto solo in parte (si aggiorna, ma non si segna nulla come sparito).
 export function unisciImportazione(archivio, risultati, oggi) {
   const percorsi = (archivio?.percorsi ?? []).map((p) => ({ ...p }));
-  const resoconto = { nuovi: [], aggiornati: [], nonPiuVerificabili: [], fontiNonRaggiunte: [] };
+  const resoconto = { nuovi: [], aggiornati: [], nonPiuVerificabili: [], fontiNonRaggiunte: [], fontiSospette: [] };
   for (const { fonte, ok, candidati = [], completo = true } of risultati) {
     if (!ok) {
       resoconto.fontiNonRaggiunte.push(fonte);
       continue;
     }
+    // freno di sicurezza: se una fonte perde di colpo più di metà dei suoi percorsi
+    // è più probabile un errore della fonte che una vera sparizione
+    const giaPresenti = percorsi.filter((p) => p.importazione?.fonte === fonte && p.attivo !== false).length;
+    const sospetta = giaPresenti >= 4 && candidati.length < giaPresenti / 2;
+    if (sospetta) resoconto.fontiSospette.push(fonte);
     const visti = new Set();
     for (const c of candidati) {
       const i = trova(percorsi, c, visti);
@@ -310,7 +315,7 @@ export function unisciImportazione(archivio, risultati, oggi) {
       }
     }
     // la fonte ha risposto per intero ma alcuni percorsi non ci sono più
-    if (!completo) continue;
+    if (!completo || sospetta) continue;
     for (let i = 0; i < percorsi.length; i++) {
       const p = percorsi[i];
       if (p.importazione?.fonte !== fonte || visti.has(p.id)) continue;

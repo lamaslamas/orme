@@ -374,3 +374,13 @@ describe('modalità e titoli', () => {
     expect(filtraPercorsi(p, FILTRI_VUOTI, 'mtb').map((x) => x.sentiero.id)).toContain('a');
   });
 });
+
+describe('freno di sicurezza', () => {
+  it('una fonte che perde di colpo più di metà dei percorsi non ne segna nessuno come sparito', () => {
+    const percorsi = Array.from({ length: 6 }, (_, i) => ({ id: `m${i}`, nome: `M${i}`, attivo: true, verifica: { stato: 'da_verificare' }, importazione: { fonte: 'osm-mtb:pnalm', chiave: `k${i}`, creato: true } }));
+    const { archivio, resoconto } = unisciImportazione({ percorsi }, [{ fonte: 'osm-mtb:pnalm', ok: true, candidati: [] }], OGGI);
+    expect(archivio.percorsi.every((p) => p.attivo && p.verifica.stato === 'da_verificare')).toBe(true);
+    expect(resoconto.fontiSospette).toEqual(['osm-mtb:pnalm']);
+    expect(resoconto.nonPiuVerificabili).toEqual([]);
+  });
+});
