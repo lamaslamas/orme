@@ -569,3 +569,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 #mappaAvv { position: absolute; inset: 0; }
 .backup-opzione { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; }
 .backup-opzione input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--verde); }
+.traccia-stato { border-left: 5px solid var(--accento); }
+.traccia-parziale { border-left-color: #d97706; }
+.traccia-nessuna { border-left-color: var(--bordo); }
+.avviso-parziale { font-weight: 800; color: #b45309; }

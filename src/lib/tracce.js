@@ -186,3 +186,34 @@ function puntoAllaDistanza({ linea, prog }, d) {
 export function invertiGeojson(geojson) {
   return { ...geojson, coordinates: [...geojson.coordinates].reverse().map(inverti) };
 }
+
+// Stato della traccia di un sentiero, per la scheda:
+// - "nessuna": nessuna traccia; serve un GPX se il sentiero non ha codici da cercare su OSM
+// - "parziale": da OSM ma mancano alcuni codici (es. B5 non mappato) → GPX per quelli
+// - "completa": GPX mio, oppure OSM con tutti i codici
+export function statoTraccia(sentiero, traccia) {
+  const codici = (sentiero.codici ?? []).map((c) => c.toUpperCase());
+  if (!traccia?.geojson?.coordinates?.length) {
+    return { tipo: 'nessuna', mancanti: codici, serveGpx: codici.length === 0 };
+  }
+  if (traccia.origine !== 'osm') return { tipo: 'completa', mancanti: [], serveGpx: false };
+  const trovati = new Set((traccia.dettagli?.codici ?? []).map((c) => c.toUpperCase()));
+  const mancanti = traccia.dettagli?.mancanti ?? (trovati.size ? codici.filter((c) => !trovati.has(c)) : []);
+  return mancanti.length
+    ? { tipo: 'parziale', mancanti, serveGpx: true }
+    : { tipo: 'completa', mancanti: [], serveGpx: false };
+}
+
+// Dalla ricerca OSM: scelta automatica solo se ogni codice trovato ha un solo risultato
+export function sceltaAutomatica(codici, gruppi) {
+  const scelti = [];
+  const mancanti = [];
+  const ambigui = [];
+  for (const c of codici) {
+    const g = gruppi[c] ?? [];
+    if (g.length === 1) scelti.push(g[0]);
+    else if (g.length === 0) mancanti.push(c);
+    else ambigui.push(c);
+  }
+  return { scelti, mancanti, ambigui };
+}

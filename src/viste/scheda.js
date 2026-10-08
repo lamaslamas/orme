@@ -1,4 +1,4 @@
-import { leggiSentiero, salvaSentiero, leggiTraccia, tuttiIGiri } from '../db.js';
+import { leggiSentiero, salvaSentiero, leggiTraccia, salvaTraccia, tuttiIGiri } from '../db.js';
 import { giriConSentiero } from '../lib/giro.js';
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA } from '../lib/costanti.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
@@ -6,7 +6,33 @@ import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../li
 import { bollinoBici, bollinoDifficolta } from './lista.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { profiloAltimetrico, percorsoProfiloSvg } from '../lib/profilo.js';
-import { percorsoSentiero } from '../lib/tracce.js';
+import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
+import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
+import { leggiGpx } from '../lib/gpx.js';
+
+// Testo del riquadro "Traccia"
+function descriviStatoTraccia(stato, traccia) {
+  const elenco = (codici) => codici.map((c) => `<b>${escapeHtml(c)}</b>`).join(', ');
+  if (stato.tipo === 'nessuna') {
+    return stato.serveGpx
+      ? 'Serve un GPX: questo sentiero non ha un codice da cercare su OpenStreetMap.'
+      : 'Nessuna traccia salvata.';
+  }
+  const fonte =
+    traccia.origine === 'gpx'
+      ? `Dal tuo file GPX${traccia.dettagli?.nomeFile ? ` “${escapeHtml(traccia.dettagli.nomeFile)}”` : ''}.`
+      : traccia.dettagli?.iniziale
+        ? 'Da OpenStreetMap, inclusa nell’app: da verificare.'
+        : traccia.dettagli?.automatica
+          ? 'Scaricata in automatico da OpenStreetMap: da verificare.'
+          : 'Da OpenStreetMap.';
+  if (stato.tipo === 'parziale') {
+    return `<span class="avviso-parziale">Traccia parziale:</span> ${elenco(stato.mancanti)} ${
+      stato.mancanti.length === 1 ? 'non è' : 'non sono'
+    } su OpenStreetMap. Per il percorso completo serve un GPX. <span class="tenue">${fonte}</span>`;
+  }
+  return fonte;
+}
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
@@ -117,6 +143,7 @@ export async function vistaScheda(app, id) {
   const misure = misureSentiero(s, traccia);
   const profilo = traccia ? profiloAltimetrico(percorsoSentiero(traccia.geojson).pezzi) : null;
   const idUrl = encodeURIComponent(s.id);
+  const statoT = statoTraccia(s, traccia);
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Esplora</a>
@@ -139,6 +166,15 @@ export async function vistaScheda(app, id) {
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
       ${numeriGrandi(misure)}
+
+      <section class="riquadro traccia-stato traccia-${statoT.tipo}">
+        <h2>Traccia</h2>
+        <p id="testoTraccia">${descriviStatoTraccia(statoT, traccia)}</p>
+        <div class="azioni-mappa">
+          <button type="button" class="bottone" id="caricaGpx">Carica il mio GPX</button>
+        </div>
+        <input type="file" id="fileGpxScheda" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
+      </section>
       ${s.descrizione ? `<p class="descrizione">${escapeHtml(s.descrizione)}</p>` : ''}
 
       <div class="barra-azioni">
@@ -161,7 +197,6 @@ export async function vistaScheda(app, id) {
         <dl>
           ${riga('Difficoltà', s.difficolta ? escapeHtml(DIFFICOLTA[s.difficolta]) : '')}
           ${riga('Partenza', partenza)}
-          ${riga('Traccia', traccia ? (traccia.origine === 'osm' ? 'Salvata (da OpenStreetMap)' : 'Salvata (da file GPX)') : 'Non ancora salvata')}
         </dl>
         ${
           haCoordinate
@@ -239,6 +274,66 @@ export async function vistaScheda(app, id) {
     }
   });
   campoData.addEventListener('change', () => salva({ dataPercorso: campoData.value || null }));
+
+  // --- il mio GPX: ha sempre la precedenza sulle tracce di OpenStreetMap ---
+  const fileGpx = app.querySelector('#fileGpxScheda');
+  const testoTraccia = app.querySelector('#testoTraccia');
+  app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
+  fileGpx.addEventListener('change', async () => {
+    const file = fileGpx.files?.[0];
+    fileGpx.value = '';
+    if (!file) return;
+    if (traccia && !confirm('Sostituire la traccia attuale con il tuo GPX?')) return;
+    try {
+      const { geojson } = leggiGpx(await file.text());
+      await salvaTraccia({ sentieroId: s.id, origine: 'gpx', geojson, dettagli: { nomeFile: file.name } });
+      vistaScheda(app, id);
+    } catch (e) {
+      testoTraccia.innerHTML = `<span class="errore">${escapeHtml(e.message)}</span>`;
+    }
+  });
+
+  // --- traccia mancante: provo a scaricarla da OSM in automatico (una volta per sessione) ---
+  const chiaveTentativo = `orme.cercata.${s.id}`;
+  let giaTentato = false;
+  try {
+    giaTentato = sessionStorage.getItem(chiaveTentativo) === '1';
+  } catch {
+    // niente memoria di sessione: si riprova
+  }
+  if (!traccia && s.codici?.length && !giaTentato) {
+    if (!navigator.onLine) {
+      testoTraccia.textContent = 'Nessuna traccia salvata. Senza rete: la cercherò su OpenStreetMap quando sarai online, oppure carica un GPX.';
+    } else {
+      try {
+        sessionStorage.setItem(chiaveTentativo, '1');
+      } catch {
+        // pazienza
+      }
+      testoTraccia.textContent = 'Cerco la traccia su OpenStreetMap…';
+      const elenco = s.codici.map((c) => c.toUpperCase());
+      cercaSuOsm(elenco, { parco: s.parco })
+        .then(async (gruppi) => {
+          const { scelti, mancanti, ambigui } = sceltaAutomatica(elenco, gruppi);
+          if (!scelti.length) {
+            testoTraccia.innerHTML = ambigui.length
+              ? `Su OpenStreetMap ci sono più sentieri ${ambigui.map(escapeHtml).join(', ')}: scegli quello giusto dalla <a href="#/sentiero/${idUrl}/mappa">mappa</a>.`
+              : `${elenco.map(escapeHtml).join(', ')} non ${elenco.length === 1 ? 'è' : 'sono'} su OpenStreetMap: per la traccia serve un GPX.`;
+            return;
+          }
+          const nuova = combinaTraccia(scelti);
+          await salvaTraccia({
+            sentieroId: s.id,
+            ...nuova,
+            dettagli: { ...nuova.dettagli, mancanti: [...mancanti, ...ambigui], automatica: true },
+          });
+          if (location.hash === `#/sentiero/${idUrl}`) vistaScheda(app, id);
+        })
+        .catch(() => {
+          testoTraccia.innerHTML = `Non sono riuscito a scaricare la traccia da OpenStreetMap. Riprova dalla <a href="#/sentiero/${idUrl}/mappa">mappa</a> o carica un GPX.`;
+        });
+    }
+  }
 
   // anteprima della mappa: ferma, si tocca per aprire la mappa completa
   const contenitoreMini = app.querySelector('#miniMappa');

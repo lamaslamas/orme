@@ -315,6 +315,8 @@ const LUCANO = [
   }),
 ];
 
-export const VERSIONE_DATI_INIZIALI = 2;
+// 1: sentieri PNALM; 2: nuovi parchi; 3: tracce OSM dei sentieri PNALM (src/tracceIniziali.json)
+export const VERSIONE_DATI_INIZIALI = 3;
+export const VERSIONE_TRACCE_INIZIALI = 3;
 
 export const DATI_INIZIALI = [...PNALM, ...CASENTINESI, ...LUCANO];

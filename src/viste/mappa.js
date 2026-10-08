@@ -237,7 +237,10 @@ export async function vistaMappa(app, id) {
       pannello.querySelector('.messaggio').innerHTML = '<span class="errore">Seleziona almeno un sentiero.</span>';
       return;
     }
-    traccia = await salvaTraccia({ sentieroId: id, ...combinaTraccia(selezione) });
+    const nuova = combinaTraccia(selezione);
+    const presi = new Set(selezione.map((c) => c.codice));
+    const mancanti = (sentiero.codici ?? []).map((c) => c.toUpperCase()).filter((c) => !presi.has(c));
+    traccia = await salvaTraccia({ sentieroId: id, ...nuova, dettagli: { ...nuova.dettagli, mancanti } });
     mostraTracciaSalvata();
     pannelloBase(
       haInformazioniBici(traccia.dettagli.suggerimentoBici)

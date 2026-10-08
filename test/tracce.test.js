@@ -197,3 +197,30 @@ describe('frecce sui tornanti', () => {
     }
   });
 });
+
+import { statoTraccia, sceltaAutomatica } from '../src/lib/tracce.js';
+
+describe('stato della traccia', () => {
+  const linea = { type: 'MultiLineString', coordinates: [[[13.8, 41.7], [13.8, 41.71]]] };
+  it('senza traccia: serve un GPX solo se non ci sono codici da cercare', () => {
+    expect(statoTraccia({ codici: ['F2'] }, null)).toMatchObject({ tipo: 'nessuna', serveGpx: false });
+    expect(statoTraccia({ codici: [] }, null)).toMatchObject({ tipo: 'nessuna', serveGpx: true });
+  });
+  it('parziale se su OSM mancano dei codici', () => {
+    const t = { origine: 'osm', geojson: linea, dettagli: { codici: ['B4'], mancanti: ['B5'] } };
+    expect(statoTraccia({ codici: ['B5', 'B4'] }, t)).toEqual({ tipo: 'parziale', mancanti: ['B5'], serveGpx: true });
+    // tracce vecchie senza "mancanti": si deduce dai codici trovati
+    const vecchia = { origine: 'osm', geojson: linea, dettagli: { codici: ['T2'] } };
+    expect(statoTraccia({ codici: ['T2', 'U1'] }, vecchia).mancanti).toEqual(['U1']);
+  });
+  it('completa con un GPX mio o con tutti i codici', () => {
+    expect(statoTraccia({ codici: ['B5', 'B4'] }, { origine: 'gpx', geojson: linea }).tipo).toBe('completa');
+    expect(statoTraccia({ codici: ['F2'] }, { origine: 'osm', geojson: linea, dettagli: { codici: ['F2'], mancanti: [] } }).tipo).toBe('completa');
+  });
+  it('sceglie in automatico solo i codici senza ambiguità', () => {
+    const r = sceltaAutomatica(['A', 'B', 'C'], { A: [{ id: 1 }], B: [], C: [{ id: 2 }, { id: 3 }] });
+    expect(r.scelti).toEqual([{ id: 1 }]);
+    expect(r.mancanti).toEqual(['B']);
+    expect(r.ambigui).toEqual(['C']);
+  });
+});

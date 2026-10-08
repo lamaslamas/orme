@@ -170,3 +170,23 @@ describe('avvistamenti nel backup', () => {
     expect((await db.leggiAvvistamento('a1')).animale).toBe('cervo');
   });
 });
+
+describe('tracce iniziali', () => {
+  it('arrivano con i dati iniziali, con i sentieri mancanti segnalati', async () => {
+    await db.caricaDatiIniziali();
+    const f10 = await db.leggiTraccia('f10-pianezza');
+    expect(f10.dettagli.iniziale).toBe(true);
+    expect(f10.geojson.coordinates.length).toBeGreaterThan(0);
+    expect((await db.leggiTraccia('b5-b4-monte-tranquillo')).dettagli.mancanti).toEqual(['B5']);
+    expect(await db.leggiTraccia('cicerana')).toBeUndefined();
+  });
+
+  it('non sovrascrivono una traccia che ho già salvato', async () => {
+    // telefono con i dati della versione 2 e un mio GPX su F2
+    await db.caricaDatiIniziali();
+    await db.salvaTraccia({ sentieroId: 'f2-val-fondillo', origine: 'gpx', geojson: { type: 'MultiLineString', coordinates: [[[13.8, 41.7], [13.81, 41.71]]] } });
+    await db.importa({ ...(await db.esporta()), versioneDatiIniziali: 2 }, 'unisci');
+    await db.caricaDatiIniziali();
+    expect((await db.leggiTraccia('f2-val-fondillo')).origine).toBe('gpx');
+  });
+});
