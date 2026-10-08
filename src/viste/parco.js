@@ -8,6 +8,10 @@ import { ottieniConfine, disegnaConfine } from './confine.js';
 import { montaElenco } from './lista.js';
 import { impostaBanner } from './banner.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
+import { aggiungiHeatmap } from './heatmap.js';
+import { aggiungiGps } from './gps.js';
+import { stato } from '../stato.js';
+import { ANIMALI } from '../lib/costanti.js';
 
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
@@ -25,6 +29,11 @@ export async function vistaParco(app, id) {
     <a class="indietro" href="#/">‹ Parchi</a>
     <article class="pagina-parco">
       <div class="anteprima-mappa parco-mappa"><div id="mappaParco"></div><p class="avviso-mappa" id="statoConfine">Carico il confine del parco…</p></div>
+      <div class="animali-parco" role="group" aria-label="Animali del parco">
+        ${parco.animali
+          .map((a) => `<button type="button" class="pillola ${stato.leggi().specie === a ? 'attiva' : ''}" data-animale="${a}">${ANIMALI[a]}</button>`)
+          .join('')}
+      </div>
       <p class="zona">${escapeHtml(parco.regioni.join(' · '))}</p>
       <h1>${escapeHtml(parco.nomeBreve)}</h1>
       <p class="tenue nome-esteso">${escapeHtml(parco.nome)}</p>
@@ -54,7 +63,7 @@ export async function vistaParco(app, id) {
 
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { parcoFisso: parco.id });
 
-  const mappa = creaMappa(app.querySelector('#mappaParco'));
+  const mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'percorsi', 'confini', 'gps'] });
   // centratura immediata sul riquadro del parco; il confine, quando arriva, la affina
   mappa.fitBounds(
     [
@@ -64,12 +73,28 @@ export async function vistaParco(app, id) {
     { padding: [10, 10] },
   );
   mappa.attenuaSentieri(true);
-  aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
+  const fermaGps = aggiungiGps(mappa, () => null);
+  const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
+  const percorsi = L.layerGroup();
   for (const s of conTraccia) {
     disegnaTraccia(tracce.get(s.id).geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 4 })
       .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
-      .addTo(mappa);
+      .addTo(percorsi);
   }
+  mappa.suLivello('percorsi', (acceso) => (acceso ? percorsi.addTo(mappa) : percorsi.remove()));
+
+  // selettore degli animali: è la stessa scelta di heatmap e filtri
+  const selettore = app.querySelector('.animali-parco');
+  selettore.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-animale]')?.dataset.animale;
+    if (!a) return;
+    const nuovo = stato.leggi().specie === a ? '' : a;
+    stato.imposta({ specie: nuovo, ...(nuovo ? { livelli: { heatmap: true } } : {}) });
+  });
+  const scollegaAnimali = stato.ascolta((s) => {
+    for (const b of selettore.querySelectorAll('[data-animale]')) b.classList.toggle('attiva', b.dataset.animale === s.specie);
+  });
   requestAnimationFrame(() => {
     mappa.invalidateSize();
     mappa.fitBounds(
@@ -81,23 +106,27 @@ export async function vistaParco(app, id) {
     );
   });
 
-  const stato = app.querySelector('#statoConfine');
+  const avvisoConfine = app.querySelector('#statoConfine');
   let chiusa = false;
   ottieniConfine(parco)
     .then((confine) => {
       if (chiusa) return;
-      const poligono = disegnaConfine(confine).addTo(mappa);
+      const poligono = disegnaConfine(confine);
+      mappa.suLivello('confini', (acceso) => (acceso ? poligono.addTo(mappa) : poligono.remove()));
       mappa.fitBounds(poligono.getBounds(), { padding: [12, 12] });
-      stato.hidden = true;
+      avvisoConfine.hidden = true;
     })
     .catch((e) => {
       if (chiusa) return;
-      stato.textContent = `Confine non disponibile: ${e.message}`;
+      avvisoConfine.textContent = `Confine non disponibile: ${e.message}`;
     });
 
   return () => {
     chiusa = true;
     elenco.scollega();
+    scollegaAnimali();
+    fermaGps();
+    heat.rimuovi();
     mappa.remove();
   };
 }

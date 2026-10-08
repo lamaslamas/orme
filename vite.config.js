@@ -53,6 +53,7 @@ export default defineConfig({
           cacheMappa('mappa-osm', /^https:\/\/tile\.openstreetmap\.org\//),
           cacheMappa('mappa-topo', /^https:\/\/[abc]\.tile\.opentopomap\.org\//),
           cacheMappa('mappa-sentieri', /^https:\/\/tile\.waymarkedtrails\.org\//),
+          cacheMappa('mappa-satellite', /^https:\/\/server\.arcgisonline\.com\//),
           // heatmap iNaturalist: si aggiorna spesso, la teniamo solo un giorno
           {
             urlPattern: /^https:\/\/api\.inaturalist\.org\/v1\/heatmap\//,

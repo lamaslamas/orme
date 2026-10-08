@@ -6,6 +6,7 @@ import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
+import { aggiungiHeatmap } from './heatmap.js';
 import { freccia, marcatoreEstremo } from './disegnoTraccia.js';
 import { frecceLungoPercorso, SOGLIA_ANELLO_M } from '../lib/tracce.js';
 import { distanzaKm } from '../lib/geo.js';
@@ -45,7 +46,7 @@ export async function vistaMappaGiro(app, id) {
     </section>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'));
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'gps'] });
   const limiti = L.latLngBounds([]);
   const giaNumerate = new Set();
 
@@ -88,12 +89,14 @@ export async function vistaMappaGiro(app, id) {
   mappa.attenuaSentieri(calcolo.pezzi.length > 0);
   if (limiti.isValid()) mappa.fitBounds(limiti, { padding: [36, 36] });
   const fermaGps = aggiungiGps(mappa, () => (calcolo.pezzi.length ? { geojson: calcolo.geojson } : null));
-  aggiungiMisura(mappa, () => (calcolo.pezzi.length ? [calcolo.geojson] : []));
-  aggiungiAvvistamenti(mappa);
+  const misura = aggiungiMisura(mappa, () => (calcolo.pezzi.length ? [calcolo.geojson] : []));
+  const avv = aggiungiAvvistamenti(mappa);
+  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
   requestAnimationFrame(() => mappa.invalidateSize());
 
   return () => {
     fermaGps();
+    heat.rimuovi();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

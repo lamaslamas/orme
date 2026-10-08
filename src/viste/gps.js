@@ -155,5 +155,7 @@ export function aggiungiGps(mappa, leggiTraccia) {
     }
   });
 
+  // il pannello dei livelli può accendere e spegnere il GPS
+  mappa.gps = { avvia, ferma, attivo: () => idWatch !== null };
   return ferma;
 }

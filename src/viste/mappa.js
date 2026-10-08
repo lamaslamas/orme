@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { creaMappa } from './cartografia.js';
 import { leggiSentiero, leggiTraccia, salvaTraccia, eliminaTraccia } from '../db.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
@@ -10,47 +10,18 @@ import { aggiungiQuote } from '../lib/openMeteo.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
+import { aggiungiHeatmap } from './heatmap.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 
-const CENTRO_PNALM = [41.79, 13.85];
-
 const COLORE_TRACCIA = '#c2410c';
 const COLORE_ANTEPRIMA = '#2563eb';
 
-// con anteprima: true la mappa è ferma (niente comandi, trascinamento o zoom)
-export function creaMappa(contenitore, { anteprima = false } = {}) {
-  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  });
-  const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-    maxZoom: 17,
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
-  });
-  const sentieri = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-    opacity: 0.8,
-    attribution: '&copy; <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a> (CC-BY-SA)',
-  });
-
-  const ferma = anteprima
-    ? { zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: true }
-    : { zoomControl: true };
-  const mappa = L.map(contenitore, { layers: [osm, sentieri], ...ferma }).setView(CENTRO_PNALM, 11);
-  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.45 : 0.8);
-  if (anteprima) return mappa;
-  L.control
-    .layers({ OpenStreetMap: osm, 'OpenTopoMap (curve di livello)': topo }, { 'Sentieri escursionistici': sentieri })
-    .addTo(mappa);
-  L.control.scale({ imperial: false }).addTo(mappa);
-  // i sentieri di Waymarked si attenuano quando si vuole far risaltare una traccia
-  return mappa;
-}
+// la cartografia è unica per tutta l'app (src/viste/cartografia.js)
+export { creaMappa } from './cartografia.js';
 
 // GeoJSON usa [lon, lat], Leaflet [lat, lon]
 export function disegnaTraccia(geojson, stile) {
@@ -80,7 +51,7 @@ export async function vistaMappa(app, id) {
     <input type="file" id="fileGpx" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'));
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'gps'] });
   if (parco) mappa.setView(parco.centro, 11);
   const pannello = app.querySelector('#pannello');
   const avviso = L.DomUtil.create('div', 'avviso-mappa', app.querySelector('#mappa'));
@@ -89,8 +60,9 @@ export async function vistaMappa(app, id) {
   const livelloAnteprima = L.layerGroup().addTo(mappa);
   let risultati = null; // risultati della ricerca OSM in corso di scelta
   const fermaGps = aggiungiGps(mappa, () => traccia);
-  aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
-  aggiungiAvvistamenti(mappa);
+  const misura = aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
+  const avv = aggiungiAvvistamenti(mappa);
+  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
@@ -315,6 +287,7 @@ export async function vistaMappa(app, id) {
 
   return () => {
     fermaGps();
+    heat.rimuovi();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

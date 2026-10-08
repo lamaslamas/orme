@@ -607,3 +607,18 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .mtb summary { font-weight: 700; }
 .vista-iniziale { display: grid !important; place-items: center; color: #333; }
 .avviso-vuoto { margin: 6px 2px 0; font-size: 0.85rem; color: #8a2f0f; }
+
+/* --- Pannello dei livelli (uguale in tutte le mappe) --- */
+.livelli-bottone { display: grid !important; place-items: center; color: #333; }
+.pannello-livelli {
+  position: absolute; top: 56px; right: 10px; z-index: 900; width: min(270px, calc(100% - 70px));
+  max-height: calc(100% - 70px); overflow: auto;
+  background: rgba(255, 255, 255, 0.98); border-radius: 12px; padding: 6px 12px 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3); font-size: 0.88rem;
+}
+.pannello-livelli fieldset { border: none; padding: 0; margin: 6px 0 0; }
+.pannello-livelli legend { font-weight: 800; font-size: 0.8rem; color: var(--testo-tenue); padding: 0; margin-bottom: 2px; }
+.pannello-livelli .scelta { min-height: 34px; gap: 8px; }
+.pannello-livelli input { width: 18px; height: 18px; accent-color: var(--verde); }
+.animali-parco { display: flex; gap: 6px; overflow-x: auto; margin: -4px -16px 8px; padding: 0 16px 4px; scrollbar-width: none; }
+.animali-parco .pillola { min-height: 32px; font-size: 0.82rem; }

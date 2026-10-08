@@ -110,16 +110,16 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
 
   async function disegnaGriglia() {
     const mia = ++richiestaGriglia;
-    const stato = () => pannello.querySelector('#statoGriglia');
+    const testoGriglia = () => pannello.querySelector('#statoGriglia');
     const z = Math.min(12, Math.max(7, Math.round(mappa.getZoom())));
     const b = mappa.getBounds();
     const tile = tilePerRiquadro([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], z);
     if (tile.length > MASSIMO_TILE) {
       griglia?.clearLayers();
-      if (stato()) stato().textContent = 'Avvicina la mappa per calcolare la correzione.';
+      if (testoGriglia()) testoGriglia().textContent = 'Avvicina la mappa per calcolare la correzione.';
       return;
     }
-    if (stato()) stato().textContent = 'Calcolo il rapporto per cella…';
+    if (testoGriglia()) testoGriglia().textContent = 'Calcolo il rapporto per cella…';
     const prendi = async (url) => {
       const risposta = await fetch(url);
       if (!risposta.ok) throw new Error(`iNaturalist ha risposto ${risposta.status}`);
@@ -139,7 +139,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       );
       celle = classifica(parti.flat());
     } catch (e) {
-      if (mia === richiestaGriglia && stato()) stato().textContent = `Correzione non disponibile (${e.message}).`;
+      if (mia === richiestaGriglia && testoGriglia()) testoGriglia().textContent = `Correzione non disponibile (${e.message}).`;
       return;
     }
     if (mia !== richiestaGriglia || !attiva || !filtri.correggiSforzo) return;
@@ -158,7 +158,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       ).addTo(griglia);
     }
     const valide = celle.filter((c) => c.classe != null).length;
-    if (stato()) stato().textContent = `${valide} celle con dati sufficienti, ${celle.length - valide} con dati scarsi.`;
+    if (testoGriglia()) testoGriglia().textContent = `${valide} celle con dati sufficienti, ${celle.length - valide} con dati scarsi.`;
   }
 
   let attesa = null;

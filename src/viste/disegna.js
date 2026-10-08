@@ -30,7 +30,8 @@ export async function vistaDisegna(app, id = null) {
     </section>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'));
+  // nel disegno i tocchi servono ai punti: niente heatmap, solo il GPS
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['gps'] });
   const fermaGps = aggiungiGps(mappa, () => null);
   const livelloPercorso = L.layerGroup().addTo(mappa);
   const livelloPunti = L.layerGroup().addTo(mappa);

@@ -8,8 +8,8 @@ export const STATO_INIZIALE = {
   filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '' },
   // insieme: specie mostrate quando non è scelto un animale ('rare' o 'minacciate')
   heatmap: { insieme: 'rare', stagione: 'tutto', anni: 0, soloVerificate: true, correggiSforzo: false },
-  livelli: { heatmap: false, percorsi: true, confini: true },
-  base: 'topo', // topo | satellite
+  livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true },
+  base: 'topo', // topo | curve | satellite
 };
 
 function unisci(base, modifica) {

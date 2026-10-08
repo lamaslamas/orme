@@ -61,10 +61,13 @@ export async function vistaMappaGenerale(app) {
     </section>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'));
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'percorsi', 'confini', 'gps'] });
   // confini dei parchi già scaricati (si scaricano aprendo la pagina del parco)
-  for (const confine of await tuttiIConfini()) disegnaConfine(confine).addTo(mappa);
-  const livello = L.layerGroup().addTo(mappa);
+  const confini = L.layerGroup();
+  for (const confine of await tuttiIConfini()) disegnaConfine(confine).addTo(confini);
+  mappa.suLivello('confini', (acceso) => (acceso ? confini.addTo(mappa) : confini.remove()));
+  const livello = L.layerGroup();
+  mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));
   const selezione = L.layerGroup().addTo(mappa);
   let visibili = [];
   let primaVolta = true;
