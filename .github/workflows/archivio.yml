@@ -1,0 +1,69 @@
+# Ogni giorno GitHub legge le fonti (Ecotur, calendario Wolf Howling del Parco,
+# itinerari MTB su OpenStreetMap) e aggiorna public/dati/archivio.json.
+# Se l'archivio cambia: salva la modifica nel repository e ripubblica l'app.
+# (Una modifica salvata da questo workflow non avvia "Pubblica su GitHub Pages",
+# per questo la pubblicazione è fatta qui.)
+name: Aggiorna l'archivio dei percorsi
+
+on:
+  schedule:
+    - cron: '17 4 * * *' # ogni giorno alle 4:17 UTC
+  workflow_dispatch: # e a mano, dal pulsante "Run workflow"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  importa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      cambiato: ${{ steps.salva.outputs.cambiato }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Leggi le fonti
+        run: node scripts/importa-archivio.mjs
+      - name: Salva l'archivio se è cambiato
+        id: salva
+        run: |
+          if git diff --quiet -- public/dati/archivio.json; then
+            echo "Archivio invariato."
+            echo "cambiato=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/dati/archivio.json
+          git commit -m "Archivio: aggiornamento automatico dei percorsi"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "cambiato=true" >> "$GITHUB_OUTPUT"
+      - if: steps.salva.outputs.cambiato == 'true'
+        run: npm test
+      - if: steps.salva.outputs.cambiato == 'true'
+        run: npm run build
+      - if: steps.salva.outputs.cambiato == 'true'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  pubblica:
+    needs: importa
+    if: needs.importa.outputs.cambiato == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

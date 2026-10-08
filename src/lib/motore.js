@@ -34,7 +34,9 @@ export function filtraPercorsi(preparati, filtri, attivita = 'trekking') {
       nelIntervallo(p.misure.km, filtri.distanza) &&
       nelIntervallo(p.misure.salita, filtri.dislivello) &&
       nelIntervallo(p.misure.durataMin, filtri.durata) &&
-      visibileInModalita(p.compat, attivita, { soloPercorribili: attivita !== 'trekking' && filtri.soloBici === 'si' }),
+      visibileInModalita(p.compat, attivita, { soloPercorribili: attivita !== 'trekking' && filtri.soloBici === 'si' }) &&
+      // gli itinerari per bici compaiono solo nelle modalità MTB ed e-MTB
+      !(attivita === 'trekking' && p.sentiero.tipoPercorso === 'itinerario_mtb'),
   );
   const ordine = new Map(ordinaSentieri(risultato.map((p) => p.sentiero)).map((s, i) => [s.id, i]));
   return risultato.sort((a, b) => ordine.get(a.sentiero.id) - ordine.get(b.sentiero.id));

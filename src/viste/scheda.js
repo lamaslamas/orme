@@ -262,6 +262,13 @@ export async function vistaScheda(app, id) {
                 ${riga('Associazione', escapeHtml(e.associazione))}
                 ${riga('Uscita', escapeHtml(e.nomeUscita))}
                 ${riga('Periodo', escapeHtml(e.periodo))}
+                ${riga(
+                  'Date in calendario',
+                  (e.date ?? [])
+                    .map((d) => new Date(`${d}T12:00:00`).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }))
+                    .map(escapeHtml)
+                    .join(', '),
+                )}
                 ${riga('Fonte', linkSicuro(e.url) ? `<a href="${escapeHtml(linkSicuro(e.url))}" target="_blank" rel="noopener">${escapeHtml(e.fonte || 'pagina')} ↗</a>` : escapeHtml(e.fonte ?? ''))}
               </dl>
             </section>`

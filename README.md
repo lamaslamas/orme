@@ -27,6 +27,26 @@ npm run build   # crea la versione da pubblicare in dist/
 Ogni push su `main` viene pubblicato automaticamente su GitHub Pages
 (`.github/workflows/pubblica.yml`).
 
+## Archivio automatico dei percorsi
+
+`public/dati/archivio.json` è l'archivio pubblico dei percorsi: l'app lo scarica e lo
+unisce ai dati del telefono senza toccare note, stato e GPX personali.
+Ogni giorno `.github/workflows/archivio.yml` esegue `scripts/importa-archivio.mjs`, che legge:
+
+- **Ecotur** (escursioni di un giorno nel PNALM), rispettando il `Crawl-delay` di robots.txt;
+- **calendario Wolf Howling** del Parco Nazionale delle Foreste Casentinesi (PDF);
+- **itinerari MTB** segnati su OpenStreetMap dentro ciascun parco (ODbL).
+
+Le uscite delle associazioni diventano percorsi "solo con guida", senza traccia
+(nessuna traccia inventata). Non vengono salvati nomi di guide, email o telefoni.
+Se una fonte non risponde l'archivio resta com'è; se risponde e un percorso è sparito,
+viene segnato "non più verificabile". Per provarlo in locale:
+
+```bash
+node scripts/importa-archivio.mjs              # tutte le fonti
+node scripts/importa-archivio.mjs ecotur       # una sola: ecotur, wolf-howling, osm-mtb
+```
+
 Icone: `scripts/icona.svg` → `npm install --no-save sharp && node scripts/genera-icone.mjs`.
 
 ## Struttura
