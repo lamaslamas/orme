@@ -7,6 +7,7 @@ import { COLORI_STATO } from './mappaGenerale.js';
 import { ottieniConfine, disegnaConfine } from './confine.js';
 import { montaElenco } from './lista.js';
 import { impostaBanner } from './banner.js';
+import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
@@ -56,6 +57,7 @@ export async function vistaParco(app, id) {
   const mappa = creaMappa(app.querySelector('#mappaParco'));
   mappa.setView([parco.centro[0], parco.centro[1]], 10);
   mappa.attenuaSentieri(true);
+  aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
   for (const s of conTraccia) {
     disegnaTraccia(tracce.get(s.id).geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 4 })
       .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)

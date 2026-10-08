@@ -9,6 +9,7 @@ import { percorsoSentiero, invertiGeojson } from '../lib/tracce.js';
 import { aggiungiQuote } from '../lib/openMeteo.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
+import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
@@ -89,6 +90,7 @@ export async function vistaMappa(app, id) {
   let risultati = null; // risultati della ricerca OSM in corso di scelta
   const fermaGps = aggiungiGps(mappa, () => traccia);
   aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
+  aggiungiAvvistamenti(mappa);
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {

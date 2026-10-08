@@ -129,7 +129,7 @@ describe('giri', () => {
   it('il backup include i giri e accetta backup vecchi senza giri', async () => {
     await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [] });
     const backup = JSON.parse(JSON.stringify(await db.esporta()));
-    expect(backup.versione).toBe(2);
+    expect(backup.versione).toBe(3);
     expect(backup.giri).toHaveLength(1);
 
     await db.importa({ app: 'orme', versione: 1, sentieri: [], tracce: [] }, 'sostituisci');
@@ -138,5 +138,35 @@ describe('giri', () => {
     expect(n.giri).toBe(1);
     expect(await db.leggiGiro('g1')).toBeTruthy();
     await expect(db.importa({ ...backup, giri: [{ nome: 'senza id' }] })).rejects.toThrow('giro non valido');
+  });
+});
+
+describe('avvistamenti nel backup', () => {
+  // punti inventati per i test: mai dati reali nel codice
+  const avv = { id: 'a1', animale: 'cervo', dataOra: '2026-01-01T10:00', punto: { lat: 1, lon: 1 } };
+
+  it('per impostazione predefinita il backup esclude gli avvistamenti', async () => {
+    await db.salvaAvvistamento(avv);
+    const b = await db.esporta();
+    expect(b.avvistamenti).toBeUndefined();
+    expect(b.avvistamentiEsclusi).toBe(true);
+    const completo = await db.esporta({ escludiAvvistamenti: false });
+    expect(completo.avvistamenti).toHaveLength(1);
+  });
+
+  it('"sostituisci" con un backup senza avvistamenti non cancella i miei', async () => {
+    await db.salvaAvvistamento(avv);
+    const senza = JSON.parse(JSON.stringify(await db.esporta()));
+    await db.importa(senza, 'sostituisci');
+    expect(await db.tuttiGliAvvistamenti()).toHaveLength(1);
+  });
+
+  it('un backup completo li ripristina', async () => {
+    await db.salvaAvvistamento(avv);
+    const completo = JSON.parse(JSON.stringify(await db.esporta({ escludiAvvistamenti: false })));
+    await db.eliminaAvvistamento('a1');
+    const n = await db.importa(completo, 'sostituisci');
+    expect(n.avvistamenti).toBe(1);
+    expect((await db.leggiAvvistamento('a1')).animale).toBe('cervo');
   });
 });

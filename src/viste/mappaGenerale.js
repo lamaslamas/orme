@@ -5,6 +5,7 @@ import { escapeHtml, codici } from '../lib/formato.js';
 import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
+import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { tuttiIConfini } from '../db.js';
 import { disegnaConfine } from './confine.js';
@@ -63,6 +64,7 @@ export async function vistaMappaGenerale(app) {
 
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
   const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
+  const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
 
   function disegna() {
     const filtrati = ordinaSentieri(filtraSentieri(sentieri, filtri));
@@ -83,7 +85,7 @@ export async function vistaMappaGenerale(app) {
       // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
       // così durante la misura il tocco arriva allo strumento di misura
       area.on('click', () => {
-        if (misura.attiva()) return;
+        if (misura.attiva() || avv.attiva()) return;
         // la traccia scelta si evidenzia con partenza, arrivo e verso di percorrenza
         // e viene inquadrata, lasciando in alto lo spazio per il riquadro
         selezione.clearLayers();

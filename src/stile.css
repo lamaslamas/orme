@@ -560,3 +560,12 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .elenco-import .scelta { align-items: flex-start; padding: 6px 0; }
 .elenco-import .scelta input { margin-top: 2px; flex: none; }
 #contenuto .ricerca { margin: 12px 0 0; }
+
+/* --- Avvistamenti --- */
+.avv-bottone { display: grid !important; place-items: center; color: #333; }
+.avv-bottone.attivo { background: #ede9fe !important; color: #5b21b6; }
+.pallino { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--bordo); }
+.segno-avv span { display: block; width: 22px; height: 22px; border-radius: 50%; background: #7c3aed; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
+#mappaAvv { position: absolute; inset: 0; }
+.backup-opzione { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; }
+.backup-opzione input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--verde); }

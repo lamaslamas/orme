@@ -2,6 +2,6 @@
 export function sezioneDi(percorso) {
   if (/^\/mappa(\/|$)/.test(percorso)) return 'mappa';
   if (/^\/(giri|giro-nuovo|giro\/)/.test(percorso)) return 'giri';
-  if (/^\/(altro|backup)(\/|$)/.test(percorso)) return 'altro';
+  if (/^\/(altro|backup|avvistament[oi])(\/|$)/.test(percorso)) return 'altro';
   return 'esplora';
 }

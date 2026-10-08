@@ -9,6 +9,7 @@
 import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI } from './datiIniziali.js';
 import { completaSentiero } from './lib/sentiero.js';
 import { completaGiro } from './lib/giro.js';
+import { completaAvvistamento } from './lib/avvistamenti.js';
 
 const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
@@ -16,8 +17,8 @@ const NOME_DB = 'orme';
 // 3: aggiunto l'archivio "giri"
 // 4: parchi (campo "parco" nei sentieri), avvistamenti, confini, osservazioni
 const VERSIONE_DB = 4;
-// backup 1: sentieri e tracce; 2: anche i giri
-export const VERSIONE_BACKUP = 2;
+// backup 1: sentieri e tracce; 2: anche i giri; 3: anche gli avvistamenti (facoltativi)
+export const VERSIONE_BACKUP = 3;
 
 let promessaDb = null;
 
@@ -161,6 +162,27 @@ export async function eliminaGiro(id) {
   await fine(tx);
 }
 
+// --- Avvistamenti (solo sul dispositivo) ---
+
+export const tuttiGliAvvistamenti = async () => (await tuttiDa('avvistamenti')).map(completaAvvistamento);
+
+export async function leggiAvvistamento(id) {
+  const a = await leggiDa('avvistamenti', id);
+  return a && completaAvvistamento(a);
+}
+
+export function salvaAvvistamento(a) {
+  const adesso = new Date().toISOString();
+  return scriviIn('avvistamenti', completaAvvistamento({ ...a, creato: a.creato ?? adesso, modificato: adesso }));
+}
+
+export async function eliminaAvvistamento(id) {
+  const db = await apriDb();
+  const tx = db.transaction('avvistamenti', 'readwrite');
+  tx.objectStore('avvistamenti').delete(id);
+  await fine(tx);
+}
+
 // --- Confini dei parchi ---
 
 export const leggiConfine = (parco) => leggiDa('confini', parco);
@@ -192,14 +214,18 @@ export async function caricaDatiIniziali() {
 
 // --- Backup ---
 
-export async function esporta() {
+// Per i file da condividere gli avvistamenti si escludono (è la scelta predefinita)
+export async function esporta({ escludiAvvistamenti = true } = {}) {
+  const meta = await leggiDa('meta', 'datiIniziali');
   return {
     app: 'orme',
     versione: VERSIONE_BACKUP,
     esportato: new Date().toISOString(),
+    versioneDatiIniziali: meta?.versione ?? 1,
     sentieri: await tuttiISentieri(),
     tracce: await tuttiDa('tracce'),
     giri: await tuttiIGiri(),
+    ...(escludiAvvistamenti ? { avvistamentiEsclusi: true } : { avvistamenti: await tuttiGliAvvistamenti() }),
   };
 }
 
@@ -225,6 +251,10 @@ export function controllaBackup(dati) {
       throw new Error('Nel backup c’è un giro non valido.');
     }
   }
+  if (dati.avvistamenti != null && !Array.isArray(dati.avvistamenti)) throw new Error('Nel backup gli avvistamenti non sono validi.');
+  for (const a of dati.avvistamenti ?? []) {
+    if (!a || typeof a.id !== 'string' || !a.id) throw new Error('Nel backup c’è un avvistamento non valido.');
+  }
 }
 
 // modo "sostituisci": cancella tutto e carica il backup
@@ -232,20 +262,34 @@ export function controllaBackup(dati) {
 export async function importa(dati, modo = 'unisci') {
   controllaBackup(dati);
   const db = await apriDb();
-  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'meta'], 'readwrite');
+  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'avvistamenti', 'meta'], 'readwrite');
   const sentieri = tx.objectStore('sentieri');
   const tracce = tx.objectStore('tracce');
   const giri = tx.objectStore('giri');
+  const avvistamenti = tx.objectStore('avvistamenti');
+  const conAvvistamenti = Array.isArray(dati.avvistamenti);
   if (modo === 'sostituisci') {
     sentieri.clear();
     tracce.clear();
     giri.clear();
+    // un backup senza avvistamenti non cancella quelli che ho sul telefono
+    if (conAvvistamenti) avvistamenti.clear();
   }
+  for (const a of dati.avvistamenti ?? []) avvistamenti.put(completaAvvistamento(a));
   for (const s of dati.sentieri) sentieri.put(completaSentiero(s));
   for (const t of dati.tracce) tracce.put(t);
   for (const g of dati.giri ?? []) giri.put(completaGiro(g));
-  // dopo un import i dati iniziali non vanno ricaricati
-  tx.objectStore('meta').put({ chiave: 'datiIniziali', caricati: new Date().toISOString() });
+  // dopo un import i dati iniziali del backup non vanno ricaricati
+  tx.objectStore('meta').put({
+    chiave: 'datiIniziali',
+    caricati: new Date().toISOString(),
+    versione: dati.versioneDatiIniziali ?? 1,
+  });
   await fine(tx);
-  return { sentieri: dati.sentieri.length, tracce: dati.tracce.length, giri: dati.giri?.length ?? 0 };
+  return {
+    sentieri: dati.sentieri.length,
+    tracce: dati.tracce.length,
+    giri: dati.giri?.length ?? 0,
+    avvistamenti: dati.avvistamenti?.length ?? 0,
+  };
 }
