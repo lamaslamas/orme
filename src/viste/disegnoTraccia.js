@@ -5,20 +5,23 @@ import { percorsoSentiero, estremiTraccia, frecceLungoPercorso } from '../lib/tr
 
 const latlng = (p) => [p[1], p[0]];
 
-export function etichetta(testo, classe) {
+// Pin a goccia: verde la partenza, nero l'arrivo; per un anello verde con il centro nero
+const COLORI_PIN = { partenza: ['#16a34a', '#ffffff'], arrivo: ['#111827', '#ffffff'], anello: ['#16a34a', '#111827'] };
+
+export function pin(tipo) {
+  const [fondo, centro] = COLORI_PIN[tipo] ?? COLORI_PIN.partenza;
   return L.divIcon({
-    className: `estremo ${classe}`,
-    html: `<span>${testo}</span>`,
-    iconSize: null,
-    iconAnchor: [0, 0],
+    className: 'pin-traccia',
+    html: `<svg viewBox="0 0 24 32" width="26" height="34" aria-hidden="true"><path d="M12 1C5.9 1 1 5.8 1 11.8 1 20 12 31 12 31s11-11 11-19.2C23 5.8 18.1 1 12 1z" fill="${fondo}" stroke="#fff" stroke-width="2"/><circle cx="12" cy="11.5" r="4.2" fill="${centro}"/></svg>`,
+    iconSize: [26, 34],
+    iconAnchor: [13, 33],
   });
 }
 
-export function marcatoreEstremo(punto, testo, classe) {
-  return L.featureGroup([
-    L.circleMarker(latlng(punto), { radius: 7, color: '#fff', weight: 3, fillColor: classe === 'arrivo' ? '#111827' : '#16a34a', fillOpacity: 1 }),
-    L.marker(latlng(punto), { icon: etichetta(testo, classe), keyboard: false, interactive: false }),
-  ]);
+const TITOLI_PIN = { partenza: 'Partenza', arrivo: 'Arrivo', anello: 'Partenza e arrivo' };
+
+export function marcatoreEstremo(punto, tipo) {
+  return L.marker(latlng(punto), { icon: pin(tipo), keyboard: false, interactive: false, alt: TITOLI_PIN[tipo], title: TITOLI_PIN[tipo] });
 }
 
 export function freccia(punto, direzione, colore) {
@@ -46,10 +49,10 @@ export function disegnaPercorso(geojson, { colore = '#c2410c', spessore = 5, tra
   }
   if (estremi) {
     const e = estremiTraccia(geojson);
-    if (e?.anello) marcatoreEstremo(e.inizio, 'Partenza e arrivo', 'partenza').addTo(gruppo);
+    if (e?.anello) marcatoreEstremo(e.inizio, 'anello').addTo(gruppo);
     else if (e) {
-      marcatoreEstremo(e.fine, 'Arrivo', 'arrivo').addTo(gruppo);
-      marcatoreEstremo(e.inizio, 'Partenza', 'partenza').addTo(gruppo);
+      marcatoreEstremo(e.fine, 'arrivo').addTo(gruppo);
+      marcatoreEstremo(e.inizio, 'partenza').addTo(gruppo);
     }
   }
   return gruppo;

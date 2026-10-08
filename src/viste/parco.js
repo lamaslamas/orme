@@ -12,7 +12,7 @@ import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
   if (!parco) {
-    app.innerHTML = '<p class="vuoto">Parco non trovato. <a href="#/">Torna a Esplora</a></p>';
+    app.innerHTML = '<p class="vuoto">Parco non trovato. <a href="#/">Torna ai parchi</a></p>';
     return;
   }
   impostaBanner(parco.id);
@@ -22,7 +22,7 @@ export async function vistaParco(app, id) {
   const fatti = sentieri.filter((s) => s.stato === 'fatto').length;
 
   app.innerHTML = `
-    <a class="indietro" href="#/">‹ Esplora</a>
+    <a class="indietro" href="#/">‹ Parchi</a>
     <article class="pagina-parco">
       <div class="anteprima-mappa parco-mappa"><div id="mappaParco"></div><p class="avviso-mappa" id="statoConfine">Carico il confine del parco…</p></div>
       <p class="zona">${escapeHtml(parco.regioni.join(' · '))}</p>

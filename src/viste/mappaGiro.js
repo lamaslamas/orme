@@ -83,7 +83,7 @@ export async function vistaMappaGiro(app, id) {
     const ultima = calcolo.pezzi[calcolo.pezzi.length - 1].linea;
     const fine = ultima[ultima.length - 1];
     const anello = distanzaKm(inizio, fine) * 1000 <= SOGLIA_ANELLO_M;
-    marcatoreEstremo(anello ? inizio : fine, anello ? 'Partenza e arrivo' : 'Arrivo', anello ? 'partenza' : 'arrivo').addTo(mappa);
+    marcatoreEstremo(anello ? inizio : fine, anello ? 'anello' : 'arrivo').addTo(mappa);
   }
   mappa.attenuaSentieri(calcolo.pezzi.length > 0);
   if (limiti.isValid()) mappa.fitBounds(limiti, { padding: [36, 36] });

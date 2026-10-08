@@ -2,7 +2,6 @@ export function vistaAltro(app) {
   app.innerHTML = `
     <h1 class="titolo-pagina">Altro</h1>
     <ul class="menu-altro">
-      <li><a href="#/avvistamenti"><b>I miei avvistamenti</b><span>Restano solo su questo telefono</span></a></li>
       <li><a href="#/backup"><b>Backup</b><span>Esporta e importa sentieri, tracce e giri</span></a></li>
       <li><a href="#/nuovo"><b>Aggiungi un sentiero</b><span>Inserisci a mano un nuovo sentiero</span></a></li>
       <li><a href="#/giro-nuovo"><b>Nuovo giro</b><span>Combina più sentieri in un unico percorso</span></a></li>

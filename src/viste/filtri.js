@@ -1,4 +1,4 @@
-// Filtri condivisi tra Esplora e Mappa: barra di ricerca e pillole che aprono
+// Filtri condivisi tra Parchi e Mappa: barra di ricerca e pillole che aprono
 // un pannello dal basso. I filtri scelti valgono per entrambe le schermate.
 import { ANIMALI, STATI, ACCESSI, DIFFICOLTA } from '../lib/costanti.js';
 import { FILTRI_VUOTI, paesiDiPartenza } from '../lib/filtri.js';
@@ -7,7 +7,7 @@ import { PARCHI, parcoDa } from '../datiParchi.js';
 
 const CHIAVE_FILTRI = 'orme.filtri';
 
-// Ogni pagina di parco ricorda i suoi filtri; Esplora e Mappa condividono i loro
+// Ogni pagina di parco ricorda i suoi filtri; Parchi e Mappa condividono i loro
 export function leggiFiltri(parcoFisso = null) {
   try {
     const salvati = JSON.parse(sessionStorage.getItem(chiaveFiltri(parcoFisso)) ?? '{}');

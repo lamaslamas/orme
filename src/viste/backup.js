@@ -127,7 +127,7 @@ export async function vistaBackup(app) {
       try {
         const n = await importa(dati, modo);
         anteprima.innerHTML = '';
-        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce, ${n.giri} giri e ${n.avvistamenti} avvistamenti. <a href="#/">Vai a Esplora</a>`);
+        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce, ${n.giri} giri e ${n.avvistamenti} avvistamenti. <a href="#/">Vai ai parchi</a>`);
       } catch (e) {
         mostraEsito(escapeHtml(e.message), true);
       }

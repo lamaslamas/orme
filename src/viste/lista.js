@@ -72,7 +72,7 @@ export function schedaInLista(s, traccia, mostraParco = true) {
     </li>`;
 }
 
-// Elenco dei sentieri con ricerca e filtri, usato da Esplora e dalla pagina del parco
+// Elenco dei sentieri con ricerca e filtri, usato dalla pagina Parchi e da quella di ogni parco
 export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
@@ -118,8 +118,11 @@ export async function vistaLista(app) {
   const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
 
   app.innerHTML = `
-    <h1 class="titolo-pagina">Esplora</h1>
-    <h2 class="titolo-sezione">Parchi</h2>
+    <h1 class="titolo-pagina">Parchi</h1>
+    <div class="scorciatoie">
+      <a class="pillola" href="#/giri">I miei giri</a>
+      <a class="pillola" href="#/avvistamenti">I miei avvistamenti</a>
+    </div>
     <ul class="parchi">${PARCHI.map((p) => schedaParco(p, sentieri)).join('')}</ul>
     <h2 class="titolo-sezione">Tutti i sentieri</h2>
     <div id="elenco"></div>

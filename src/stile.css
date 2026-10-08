@@ -367,13 +367,7 @@ body.con-mappa main { max-width: none; padding: 0; }
 .misurando .legenda { display: none; }
 
 /* --- Partenza, arrivo, verso --- */
-.estremo span {
-  position: absolute; left: 10px; top: -11px; white-space: nowrap;
-  padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700;
-  color: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); border: 2px solid #fff;
-}
-.estremo.partenza span { background: #16a34a; }
-.estremo.arrivo span { background: #111827; }
+.pin-traccia { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
 .freccia-verso { pointer-events: none; }
 .avviso-mappa {
   position: absolute; z-index: 800; left: 50%; top: 12px; transform: translateX(-50%);
@@ -437,7 +431,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 }
 .menu-altro span { color: var(--testo-tenue); font-size: 0.88rem; }
 
-/* ============ Esplora: ricerca, pillole, schede ============ */
+/* ============ Parchi: ricerca, pillole, schede ============ */
 .filtri { display: block; }
 .ricerca {
   display: flex; align-items: center; gap: 10px;
@@ -573,3 +567,5 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .traccia-parziale { border-left-color: #d97706; }
 .traccia-nessuna { border-left-color: var(--bordo); }
 .avviso-parziale { font-weight: 800; color: #b45309; }
+.scorciatoie { display: flex; gap: 8px; flex-wrap: wrap; margin: -4px 0 14px; }
+.scorciatoie .pillola { text-decoration: none; }

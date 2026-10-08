@@ -168,7 +168,7 @@ export async function vistaScheda(app, id) {
   const statoT = statoTraccia(s, traccia);
 
   app.innerHTML = `
-    <a class="indietro" href="#/">‹ Esplora</a>
+    <a class="indietro" href="#/">‹ Parchi</a>
     <article class="scheda">
       ${
         traccia

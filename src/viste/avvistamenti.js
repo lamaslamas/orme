@@ -48,7 +48,7 @@ export async function vistaElencoAvvistamenti(app) {
   const [avvistamenti, sentieri] = await Promise.all([tuttiGliAvvistamenti(), tuttiISentieri()]);
   const nomi = new Map(sentieri.map((s) => [s.id, s]));
   app.innerHTML = `
-    <a class="indietro" href="#/altro">‹ Altro</a>
+    <a class="indietro" href="#/">‹ Parchi</a>
     <h1 class="titolo-pagina">I miei avvistamenti</h1>
     <p class="tenue">Restano solo su questo telefono. Per aggiungerne uno usa il pulsante con l'occhio in una mappa.</p>
     <div class="due">
