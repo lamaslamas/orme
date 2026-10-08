@@ -4,27 +4,19 @@ import { ANIMALI, STATI, ACCESSI, DIFFICOLTA } from '../lib/costanti.js';
 import { FILTRI_VUOTI, paesiDiPartenza } from '../lib/filtri.js';
 import { escapeHtml } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
+import { stato } from '../stato.js';
 
-const CHIAVE_FILTRI = 'orme.filtri';
-
-// Ogni pagina di parco ricorda i suoi filtri; Parchi e Mappa condividono i loro
+// I filtri vivono nello stato condiviso: parco e animale sono gli stessi della
+// heatmap e restano scelti passando da una sezione all'altra.
 export function leggiFiltri(parcoFisso = null) {
-  try {
-    const salvati = JSON.parse(sessionStorage.getItem(chiaveFiltri(parcoFisso)) ?? '{}');
-    return { ...FILTRI_VUOTI, ...salvati, ...(parcoFisso ? { parco: parcoFisso } : {}) };
-  } catch {
-    return { ...FILTRI_VUOTI, ...(parcoFisso ? { parco: parcoFisso } : {}) };
-  }
+  const st = stato.leggi();
+  return { ...FILTRI_VUOTI, ...st.filtri, parco: parcoFisso ?? st.parco, animale: st.specie };
 }
 
-const chiaveFiltri = (parcoFisso) => (parcoFisso ? `${CHIAVE_FILTRI}.${parcoFisso}` : CHIAVE_FILTRI);
-
-function salvaFiltri(filtri, parcoFisso) {
-  try {
-    sessionStorage.setItem(chiaveFiltri(parcoFisso), JSON.stringify(filtri));
-  } catch {
-    // non importa: i filtri semplicemente non vengono ricordati
-  }
+function salvaFiltri(filtri) {
+  const { parco, animale, ...altri } = filtri;
+  const voci = Object.fromEntries(Object.keys(stato.leggi().filtri).map((k) => [k, altri[k] ?? '']));
+  stato.imposta({ parco: parco ?? '', specie: animale ?? '', filtri: voci });
 }
 
 // Animali da proporre: quelli del parco scelto, oppure di tutti i parchi
@@ -115,10 +107,20 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
   }
 
   function aggiorna() {
-    salvaFiltri(filtri, parcoFisso);
+    salvaFiltri(filtri);
     disegnaPillole();
     alAggiornamento(filtri);
   }
+
+  // una scelta fatta altrove (es. l'animale della heatmap) aggiorna anche questi filtri
+  const scollega = stato.ascolta(() => {
+    const nuovi = leggiFiltri(parcoFisso);
+    if (JSON.stringify(nuovi) === JSON.stringify(filtri)) return;
+    Object.assign(filtri, nuovi);
+    if (ricerca.value !== filtri.testo) ricerca.value = filtri.testo;
+    disegnaPillole();
+    alAggiornamento(filtri);
+  });
 
   function apriFoglio(d) {
     foglio.querySelector('.foglio-titolo').textContent = d.titolo;
@@ -139,6 +141,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
     if (!bottone) return;
     if (bottone.dataset.azione === 'azzera') {
       for (const d of defs) filtri[d.chiave] = '';
+      if (parcoFisso) filtri.parco = parcoFisso;
       aggiorna();
       return;
     }
@@ -164,10 +167,11 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
   aggiorna();
   return {
     azzera() {
-      Object.assign(filtri, FILTRI_VUOTI);
+      Object.assign(filtri, FILTRI_VUOTI, parcoFisso ? { parco: parcoFisso } : {});
       ricerca.value = '';
       aggiorna();
     },
+    scollega,
   };
 }
 

@@ -2,7 +2,8 @@
 // iNaturalist (tile già filtrate) ed elenco delle osservazioni toccando una zona.
 // Non usa mai i miei avvistamenti personali.
 import L from 'leaflet';
-import { ANIMALI } from '../lib/costanti.js';
+import { ANIMALI, TAXON_INATURALIST } from '../lib/costanti.js';
+import { stato } from '../stato.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
   STAGIONI,
@@ -34,20 +35,18 @@ export const SPIEGAZIONE_HEATMAP = `
   <p><b>Solo verificate.</b> Con "solo research grade" restano le osservazioni con data, luogo e foto la cui specie è stata confermata da altri utenti.</p>
   <p class="tenue">Dati e foto © degli autori su iNaturalist, con licenze Creative Commons indicate su ogni osservazione. I tuoi avvistamenti personali non sono mai inclusi.</p>`;
 
-function leggiFiltri() {
-  try {
-    return { ...FILTRI_INAT_PREDEFINITI, ...JSON.parse(sessionStorage.getItem(CHIAVE) ?? '{}') };
-  } catch {
-    return { ...FILTRI_INAT_PREDEFINITI };
-  }
-}
-
-function salvaFiltri(f) {
-  try {
-    sessionStorage.setItem(CHIAVE, JSON.stringify(f));
-  } catch {
-    // pazienza
-  }
+// Filtri della heatmap dallo stato condiviso: l'animale è lo stesso scelto nei filtri dei sentieri
+export function filtriHeatmap(st = stato.leggi()) {
+  const h = st.heatmap ?? {};
+  const specie = st.specie && TAXON_INATURALIST[st.specie] ? st.specie : h.insieme === 'minacciate' ? 'minacciate' : 'rare';
+  // solo i campi noti: valori estranei rimasti in memoria non devono cambiare la ricerca
+  return {
+    specie,
+    stagione: h.stagione ?? FILTRI_INAT_PREDEFINITI.stagione,
+    anni: Number(h.anni) || 0,
+    soloVerificate: h.soloVerificate ?? true,
+    correggiSforzo: Boolean(h.correggiSforzo),
+  };
 }
 
 function opzioniSpecie(scelta) {
@@ -61,7 +60,8 @@ function opzioniSpecie(scelta) {
 
 // occupata() dice se un altro strumento (misura, nuovo avvistamento) sta usando i tocchi
 export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
-  const filtri = leggiFiltri();
+  let filtri = filtriHeatmap();
+  let richiestaZona = 0;
   let livello = null;
   let attiva = false;
 
@@ -97,14 +97,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       L.DomEvent.disableClickPropagation(div);
       L.DomEvent.on(b, 'click', (e) => {
         L.DomEvent.preventDefault(e);
-        attiva ? spegni() : accendi();
-        b.classList.toggle('attivo', attiva);
-        b.setAttribute('aria-pressed', String(attiva));
+        stato.imposta({ livelli: { heatmap: !attiva } });
       });
+      this.bottone = b;
       return div;
     },
   });
-  new Controllo().addTo(mappa);
+  const controllo = new Controllo().addTo(mappa);
 
   let griglia = null;
   let richiestaGriglia = 0;
@@ -222,9 +221,29 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   pannello.addEventListener('change', (e) => {
     const { name } = e.target;
     if (!name) return;
-    filtri[name] = e.target.type === 'checkbox' ? e.target.checked : name === 'anni' ? Number(e.target.value) : e.target.value;
-    salvaFiltri(filtri);
-    if (name === 'correggiSforzo') disegnaPannello();
+    if (name === 'specie') {
+      // un animale diventa la scelta di tutta l'app; "rare"/"minacciate" restano della heatmap
+      const v = e.target.value;
+      if (TAXON_INATURALIST[v]) stato.imposta({ specie: v });
+      else stato.imposta({ specie: '', heatmap: { insieme: v } });
+      return;
+    }
+    const valore = e.target.type === 'checkbox' ? e.target.checked : name === 'anni' ? Number(e.target.value) : e.target.value;
+    stato.imposta({ heatmap: { [name]: valore } });
+  });
+
+  // ogni cambio di animale o di filtri sostituisce subito la heatmap precedente
+  const scollega = stato.ascolta((nuovo) => {
+    const prossimi = filtriHeatmap(nuovo);
+    const cambiati = JSON.stringify(prossimi) !== JSON.stringify(filtri);
+    if (nuovo.livelli.heatmap !== attiva) nuovo.livelli.heatmap ? accendi() : spegni();
+    if (!cambiati) return;
+    const cambiaVista = prossimi.correggiSforzo !== filtri.correggiSforzo;
+    filtri = prossimi;
+    if (!attiva) return;
+    richiestaZona++;
+    if (foglio.open) foglio.close();
+    if (cambiaVista || pannello.querySelector('[name=specie]')?.value !== filtri.specie) disegnaPannello();
     disegnaLivello();
   });
 
@@ -240,6 +259,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
 
   function accendi() {
     attiva = true;
+    controllo.bottone?.classList.add('attivo');
+    controllo.bottone?.setAttribute('aria-pressed', 'true');
     mappa.getContainer().classList.add('con-heatmap');
     disegnaLivello();
     disegnaPannello();
@@ -247,6 +268,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
 
   function spegni() {
     attiva = false;
+    controllo.bottone?.classList.remove('attivo');
+    controllo.bottone?.setAttribute('aria-pressed', 'false');
     mappa.getContainer().classList.remove('con-heatmap');
     livello?.remove();
     livello = null;
@@ -255,6 +278,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   }
 
   async function mostraZona(e) {
+    const mia = ++richiestaZona;
     const centro = mappa.latLngToContainerPoint(e.latlng);
     const no = mappa.containerPointToLatLng(centro.subtract([RAGGIO_TOCCO_PX, RAGGIO_TOCCO_PX]));
     const se = mappa.containerPointToLatLng(centro.add([RAGGIO_TOCCO_PX, RAGGIO_TOCCO_PX]));
@@ -270,7 +294,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       foglio.querySelector('.messaggio').innerHTML = `<span class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}).</span>`;
       return;
     }
-    if (!foglio.open) return;
+    // una risposta arrivata dopo un cambio di animale non deve sovrascrivere quella nuova
+    if (!foglio.open || mia !== richiestaZona) return;
     foglio.innerHTML = `
       <div class="foglio-maniglia"></div>
       <h2 class="foglio-titolo">Osservazioni in questa zona</h2>
@@ -306,9 +331,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     mostraZona(e);
   });
 
+  // se la heatmap era accesa nella schermata precedente, resta accesa
+  if (stato.leggi().livelli.heatmap) accendi();
+
   return {
     attiva: () => attiva,
     rimuovi() {
+      scollega();
       foglio.remove();
     },
   };

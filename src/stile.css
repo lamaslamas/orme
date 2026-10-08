@@ -605,3 +605,5 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .pillole-terreno { margin: 0 -14px; padding: 4px 14px 0; }
 .quadretto { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 .mtb summary { font-weight: 700; }
+.vista-iniziale { display: grid !important; place-items: center; color: #333; }
+.avviso-vuoto { margin: 6px 2px 0; font-size: 0.85rem; color: #8a2f0f; }

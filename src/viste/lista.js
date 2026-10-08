@@ -82,7 +82,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null }
   `;
   const lista = contenitore.querySelector('.lista');
   const conteggio = contenitore.querySelector('.conteggio');
-  collegaFiltri(
+  return collegaFiltri(
     contenitore.querySelector('.filtri'),
     sentieri,
     filtri,
@@ -128,5 +128,6 @@ export async function vistaLista(app) {
     <div id="elenco"></div>
     <a class="fab" href="#/nuovo" aria-label="Aggiungi sentiero">+</a>
   `;
-  montaElenco(app.querySelector('#elenco'), sentieri, tracce);
+  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce);
+  return () => elenco.scollega();
 }

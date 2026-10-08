@@ -11,6 +11,19 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { tuttiIConfini } from '../db.js';
 import { disegnaConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
+import { stato } from '../stato.js';
+import { parcoDa, PARCHI } from '../datiParchi.js';
+
+// Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
+const STILE_DISCRETO = { color: '#475569', weight: 2, opacity: 0.45 };
+
+// Riquadro di un parco, o di tutti i parchi
+export function limitiParco(idParco) {
+  const parchi = idParco ? [parcoDa(idParco)].filter(Boolean) : PARCHI;
+  const b = L.latLngBounds([]);
+  for (const p of parchi) b.extend([[p.bbox[0], p.bbox[1]], [p.bbox[2], p.bbox[3]]]);
+  return b;
+}
 
 export const COLORI_STATO = {
   da_fare: '#c2410c',
@@ -38,6 +51,8 @@ export async function vistaMappaGenerale(app) {
     <div class="mappa-barra">
       ${htmlFiltri(sentieri, filtri)}
       <div class="riassunto-mappa" id="riassuntoFiltri"></div>
+      <p class="avviso-vuoto" id="nessunRisultato" hidden>Nessun percorso con traccia corrisponde ai filtri.
+        <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></p>
     </div>
     <div id="mappa" class="mappa"></div>
     <section class="pannello">
@@ -53,6 +68,31 @@ export async function vistaMappaGenerale(app) {
   const selezione = L.layerGroup().addTo(mappa);
   let visibili = [];
   let primaVolta = true;
+  let ultimiFiltri = '';
+
+  // "Vista iniziale": niente filtri, niente parco, tutti i parchi inquadrati
+  const VistaIniziale = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd() {
+      const div = L.DomUtil.create('div', 'leaflet-bar');
+      const b = L.DomUtil.create('a', 'vista-iniziale', div);
+      b.href = '#';
+      b.title = 'Vista iniziale';
+      b.setAttribute('role', 'button');
+      b.setAttribute('aria-label', 'Torna alla vista iniziale');
+      b.innerHTML =
+        '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 11 12 4l9 7M6 9.5V20h12V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.on(b, 'click', (e) => {
+        L.DomEvent.preventDefault(e);
+        controlli.azzera();
+        stato.imposta({ parco: '' });
+        primaVolta = true;
+      });
+      return div;
+    },
+  });
+  new VistaIniziale().addTo(mappa);
 
   const Legenda = L.Control.extend({
     options: { position: 'bottomright' },
@@ -76,12 +116,14 @@ export async function vistaMappaGenerale(app) {
     livello.clearLayers();
     selezione.clearLayers();
     mappa.closePopup();
-    mappa.attenuaSentieri(conTraccia.length > 0);
+    // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
+    const ricerca = filtriAttivi(filtri) > 0;
+    mappa.attenuaSentieri(ricerca && conTraccia.length > 0);
     const limiti = L.latLngBounds([]);
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
     for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
       const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
-      const linea = disegnaTraccia(traccia.geojson, { color: colore, weight: 4 }).addTo(livello);
+      const linea = disegnaTraccia(traccia.geojson, ricerca ? { color: colore, weight: 4 } : STILE_DISCRETO).addTo(livello);
       // linea invisibile più larga: più facile da toccare con il dito
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0 }).addTo(livello);
       // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
@@ -107,13 +149,22 @@ export async function vistaMappaGenerale(app) {
       });
       limiti.extend(linea.getBounds());
     }
-    if (primaVolta && limiti.isValid()) mappa.fitBounds(limiti, { padding: [24, 24], maxZoom: 14 });
+    // a ogni cambio di filtri la mappa si sposta sui risultati (o sul parco scelto)
+    const chiave = JSON.stringify(filtri);
+    if (primaVolta || chiave !== ultimiFiltri) {
+      if (ricerca && limiti.isValid()) mappa.fitBounds(limiti, { padding: [30, 30], maxZoom: 14 });
+      else mappa.fitBounds(limitiParco(filtri.parco), { padding: [20, 20] });
+    }
     primaVolta = false;
+    ultimiFiltri = chiave;
+    app.querySelector('#nessunRisultato').hidden = !(ricerca && conTraccia.length === 0);
 
-    const conta = (stato) => conTraccia.filter((x) => x.sentiero.stato === stato).length;
-    legenda.div.innerHTML = `
-      <div><span class="segno" style="background:${COLORI_STATO.da_fare}"></span>Da fare (${conta('da_fare')})</div>
-      <div><span class="segno" style="background:${COLORI_STATO.fatto}"></span>Fatto (${conta('fatto')})</div>`;
+    const conta = (s) => conTraccia.filter((x) => x.sentiero.stato === s).length;
+    legenda.div.innerHTML = ricerca
+      ? `<div><span class="segno" style="background:${COLORI_STATO.da_fare}"></span>Da fare (${conta('da_fare')})</div>
+         <div><span class="segno" style="background:${COLORI_STATO.fatto}"></span>Fatto (${conta('fatto')})</div>`
+      : `<div><span class="segno" style="background:${STILE_DISCRETO.color};opacity:.6"></span>Tracce in archivio (${conTraccia.length})</div>
+         <div class="tenue">Cerca o filtra per evidenziarle</div>`;
 
     app.querySelector('#riassuntoFiltri').textContent =
       `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ` +
@@ -132,12 +183,16 @@ export async function vistaMappaGenerale(app) {
       .join('');
   }
 
-  collegaFiltri(app.querySelector('.filtri'), sentieri, filtri, disegna);
+  const controlli = collegaFiltri(app.querySelector('.filtri'), sentieri, filtri, disegna);
+  app.querySelector('#nessunRisultato').addEventListener('click', (e) => {
+    if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
+  });
   requestAnimationFrame(() => mappa.invalidateSize());
 
   return () => {
     fermaGps();
     heat.rimuovi();
+    controlli.scollega();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

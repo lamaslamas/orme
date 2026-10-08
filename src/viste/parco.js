@@ -52,10 +52,17 @@ export async function vistaParco(app, id) {
     </article>
   `;
 
-  montaElenco(app.querySelector('#elenco'), sentieri, tracce, { parcoFisso: parco.id });
+  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { parcoFisso: parco.id });
 
   const mappa = creaMappa(app.querySelector('#mappaParco'));
-  mappa.setView([parco.centro[0], parco.centro[1]], 10);
+  // centratura immediata sul riquadro del parco; il confine, quando arriva, la affina
+  mappa.fitBounds(
+    [
+      [parco.bbox[0], parco.bbox[1]],
+      [parco.bbox[2], parco.bbox[3]],
+    ],
+    { padding: [10, 10] },
+  );
   mappa.attenuaSentieri(true);
   aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
   for (const s of conTraccia) {
@@ -63,7 +70,16 @@ export async function vistaParco(app, id) {
       .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
       .addTo(mappa);
   }
-  requestAnimationFrame(() => mappa.invalidateSize());
+  requestAnimationFrame(() => {
+    mappa.invalidateSize();
+    mappa.fitBounds(
+      [
+        [parco.bbox[0], parco.bbox[1]],
+        [parco.bbox[2], parco.bbox[3]],
+      ],
+      { padding: [10, 10] },
+    );
+  });
 
   const stato = app.querySelector('#statoConfine');
   let chiusa = false;
@@ -81,6 +97,7 @@ export async function vistaParco(app, id) {
 
   return () => {
     chiusa = true;
+    elenco.scollega();
     mappa.remove();
   };
 }
