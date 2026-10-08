@@ -86,3 +86,11 @@ describe('suggerimento bici da OpenStreetMap', () => {
     expect(unisciRiassunti([])).toBeNull();
   });
 });
+
+describe('difficoltà CAI', () => {
+  it('è vuota per i sentieri vecchi e accetta solo T, E, EE, EEA', () => {
+    expect(completaSentiero({ id: 'x' }).difficolta).toBeNull();
+    expect(completaSentiero({ difficolta: 'EE' }).difficolta).toBe('EE');
+    expect(completaSentiero({ difficolta: 'X' }).difficolta).toBeNull();
+  });
+});

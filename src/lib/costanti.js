@@ -38,3 +38,11 @@ export const PEDALABILITA = {
 };
 
 export const SCALE_MTB = ['S0', 'S1', 'S2', 'S3', 'S4', 'S5'];
+
+// Scala di difficoltà escursionistica del CAI
+export const DIFFICOLTA = {
+  T: 'T – turistico',
+  E: 'E – escursionistico',
+  EE: 'EE – per escursionisti esperti',
+  EEA: 'EEA – esperti con attrezzatura',
+};

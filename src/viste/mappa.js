@@ -82,7 +82,7 @@ export async function vistaMappa(app, id) {
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
-    L.circleMarker([p.lat, p.lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#3d5a3a', fillOpacity: 1 })
+    L.circleMarker([p.lat, p.lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#326752', fillOpacity: 1 })
       .bindTooltip('Partenza')
       .addTo(mappa);
     if (!traccia) mappa.setView([p.lat, p.lon], 14);

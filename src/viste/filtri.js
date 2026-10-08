@@ -1,6 +1,6 @@
-// Modulo dei filtri condiviso tra la lista e la mappa generale.
-// I filtri scelti valgono per entrambe le schermate (finché l'app resta aperta).
-import { ANIMALI, STATI, ACCESSI } from '../lib/costanti.js';
+// Filtri condivisi tra Esplora e Mappa: barra di ricerca e pillole che aprono
+// un pannello dal basso. I filtri scelti valgono per entrambe le schermate.
+import { ANIMALI, STATI, ACCESSI, DIFFICOLTA } from '../lib/costanti.js';
 import { FILTRI_VUOTI, paesiDiPartenza } from '../lib/filtri.js';
 import { escapeHtml } from '../lib/formato.js';
 
@@ -22,46 +22,136 @@ function salvaFiltri(filtri) {
   }
 }
 
-function opzioni(voci, selezionato, etichettaTutti) {
-  const righe = [`<option value="">${etichettaTutti}</option>`];
-  for (const [valore, etichetta] of voci) {
-    const sel = valore === selezionato ? ' selected' : '';
-    righe.push(`<option value="${escapeHtml(valore)}"${sel}>${escapeHtml(etichetta)}</option>`);
-  }
-  return righe.join('');
+function definizioni(sentieri) {
+  return [
+    { chiave: 'animale', titolo: 'Animale', voci: Object.entries(ANIMALI) },
+    { chiave: 'stato', titolo: 'Stato', voci: Object.entries(STATI) },
+    {
+      chiave: 'difficolta',
+      titolo: 'Difficoltà',
+      voci: [...Object.entries(DIFFICOLTA), ['nessuna', 'Non indicata']],
+      breve: (v) => (v === 'nessuna' ? 'Non indicata' : v),
+    },
+    { chiave: 'accesso', titolo: 'Accesso', voci: Object.entries(ACCESSI) },
+    { chiave: 'paese', titolo: 'Paese', voci: paesiDiPartenza(sentieri).map((p) => [p, p]) },
+    {
+      chiave: 'bici',
+      titolo: 'Bici',
+      voci: [
+        ['si', 'Consentita'],
+        ['no', 'Vietata'],
+        ['da_verificare', 'Da verificare'],
+      ],
+      breve: (v, et) => `Bici: ${et.toLowerCase()}`,
+    },
+  ];
 }
+
+const freccina =
+  '<svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2 4l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 
 export function htmlFiltri(sentieri, filtri) {
-  const paesi = paesiDiPartenza(sentieri);
-  if (filtri.paese && !paesi.includes(filtri.paese)) filtri.paese = '';
   return `
-    <form class="filtri" autocomplete="off">
-      <input type="search" name="testo" placeholder="Cerca per nome, codice, zona…" value="${escapeHtml(filtri.testo)}" aria-label="Cerca" />
-      <select name="animale" aria-label="Animale">${opzioni(Object.entries(ANIMALI), filtri.animale, 'Tutti gli animali')}</select>
-      <select name="stato" aria-label="Stato">${opzioni(Object.entries(STATI), filtri.stato, 'Tutti gli stati')}</select>
-      <select name="accesso" aria-label="Tipo di accesso">${opzioni(Object.entries(ACCESSI), filtri.accesso, 'Ogni accesso')}</select>
-      <select name="paese" aria-label="Paese di partenza">${opzioni(paesi.map((p) => [p, p]), filtri.paese, 'Ogni paese')}</select>
-      <select name="bici" class="intera" aria-label="Bici">${opzioni(
-        [['si', 'Bici consentita'], ['no', 'Bici vietata'], ['da_verificare', 'Bici da verificare']],
-        filtri.bici,
-        'Bici: tutte',
-      )}</select>
-    </form>`;
+    <div class="filtri">
+      <label class="ricerca">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" name="testo" placeholder="Cerca sentiero, codice, zona…" value="${escapeHtml(filtri.testo)}" aria-label="Cerca" autocomplete="off" />
+      </label>
+      <div class="pillole" role="group" aria-label="Filtri"></div>
+      <dialog class="foglio" aria-label="Scegli un filtro">
+        <form method="dialog">
+          <div class="foglio-maniglia" aria-hidden="true"></div>
+          <h2 class="foglio-titolo"></h2>
+          <div class="foglio-voci"></div>
+          <button class="bottone pieno-largo" value="chiudi">Chiudi</button>
+        </form>
+      </dialog>
+    </div>`;
 }
 
-// Collega il modulo: alAggiornamento(filtri) viene chiamata a ogni modifica
-export function collegaFiltri(form, filtri, alAggiornamento) {
+// Collega i filtri: alAggiornamento(filtri) viene chiamata a ogni modifica
+export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento) {
+  const defs = definizioni(sentieri);
+  const pillole = contenitore.querySelector('.pillole');
+  const ricerca = contenitore.querySelector('input[name=testo]');
+  const foglio = contenitore.querySelector('.foglio');
+  // un paese salvato che non esiste più viene ignorato
+  if (filtri.paese && !defs.find((d) => d.chiave === 'paese').voci.some(([v]) => v === filtri.paese)) filtri.paese = '';
+
+  function etichettaPillola(d) {
+    const valore = filtri[d.chiave];
+    if (!valore) return d.titolo;
+    const et = d.voci.find(([v]) => v === valore)?.[1] ?? valore;
+    return d.breve ? d.breve(valore, et) : et;
+  }
+
+  function disegnaPillole() {
+    const attivi = filtriAttivi(filtri) - (filtri.testo ? 1 : 0);
+    pillole.innerHTML =
+      (attivi
+        ? `<button type="button" class="pillola azzera" data-azione="azzera" aria-label="Azzera filtri">✕ Azzera</button>`
+        : '') +
+      defs
+        .filter((d) => d.voci.length)
+        .map(
+          (d) => `<button type="button" class="pillola ${filtri[d.chiave] ? 'attiva' : ''}" data-chiave="${d.chiave}">
+            ${escapeHtml(etichettaPillola(d))} ${freccina}</button>`,
+        )
+        .join('');
+  }
+
   function aggiorna() {
-    for (const chiave of Object.keys(FILTRI_VUOTI)) filtri[chiave] = form.elements[chiave].value;
     salvaFiltri(filtri);
+    disegnaPillole();
     alAggiornamento(filtri);
   }
-  form.addEventListener('input', aggiorna);
-  form.addEventListener('submit', (e) => e.preventDefault());
+
+  function apriFoglio(d) {
+    foglio.querySelector('.foglio-titolo').textContent = d.titolo;
+    foglio.querySelector('.foglio-voci').innerHTML = [['', 'Tutti'], ...d.voci]
+      .map(
+        ([v, et]) => `<label class="voce">
+          <input type="radio" name="voce" value="${escapeHtml(v)}" ${filtri[d.chiave] === v ? 'checked' : ''} />
+          <span>${escapeHtml(et)}</span>
+        </label>`,
+      )
+      .join('');
+    foglio.dataset.chiave = d.chiave;
+    foglio.showModal();
+  }
+
+  pillole.addEventListener('click', (e) => {
+    const bottone = e.target.closest('button');
+    if (!bottone) return;
+    if (bottone.dataset.azione === 'azzera') {
+      for (const d of defs) filtri[d.chiave] = '';
+      aggiorna();
+      return;
+    }
+    apriFoglio(defs.find((d) => d.chiave === bottone.dataset.chiave));
+  });
+
+  foglio.addEventListener('change', (e) => {
+    if (e.target.name !== 'voce') return;
+    filtri[foglio.dataset.chiave] = e.target.value;
+    foglio.close();
+    aggiorna();
+  });
+  // tocco fuori dal pannello: si chiude
+  foglio.addEventListener('click', (e) => {
+    if (e.target === foglio) foglio.close();
+  });
+
+  ricerca.addEventListener('input', () => {
+    filtri.testo = ricerca.value;
+    aggiorna();
+  });
+
   aggiorna();
   return {
     azzera() {
-      for (const chiave of Object.keys(FILTRI_VUOTI)) form.elements[chiave].value = '';
+      Object.assign(filtri, FILTRI_VUOTI);
+      ricerca.value = '';
       aggiorna();
     },
   };

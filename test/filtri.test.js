@@ -90,3 +90,11 @@ describe('mappa generale', () => {
     expect(u.coordinates).toHaveLength(2);
   });
 });
+
+describe('filtro difficoltà', () => {
+  it('filtra per scala CAI, con "nessuna" per i sentieri senza', () => {
+    const dati = [{ id: 'a', difficolta: 'E' }, { id: 'b', difficolta: 'EE' }, { id: 'c' }];
+    expect(ids(filtraSentieri(dati, f({ difficolta: 'EE' })))).toEqual(['b']);
+    expect(ids(filtraSentieri(dati, f({ difficolta: 'nessuna' })))).toEqual(['c']);
+  });
+});

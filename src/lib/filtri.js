@@ -1,4 +1,4 @@
-export const FILTRI_VUOTI = { animale: '', stato: '', accesso: '', paese: '', bici: '', testo: '' };
+export const FILTRI_VUOTI = { animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '' };
 
 function normalizza(s) {
   return String(s ?? '')
@@ -14,6 +14,7 @@ export function filtraSentieri(sentieri, filtri) {
     if (filtri.animale && !(s.animali ?? []).includes(filtri.animale)) return false;
     if (filtri.stato && s.stato !== filtri.stato) return false;
     if (filtri.accesso && (s.accesso?.tipo || 'nessuno') !== filtri.accesso) return false;
+    if (filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
     if (filtri.bici && (s.bici?.consentita || 'da_verificare') !== filtri.bici) return false;
     if (filtri.paese && normalizza(s.partenza?.paese) !== normalizza(filtri.paese)) return false;
     if (testo) {

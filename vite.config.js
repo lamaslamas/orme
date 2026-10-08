@@ -24,7 +24,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icone/icona.svg', 'icone/apple-touch-icon.png'],
+      includeAssets: ['icone/icona.svg', 'icone/apple-touch-icon.png', 'logo.svg'],
       manifest: {
         name: 'Orme',
         short_name: 'Orme',
@@ -34,8 +34,8 @@ export default defineConfig({
         scope: BASE,
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#f4f5f2',
-        theme_color: '#1d3b1f',
+        background_color: '#f5f8f6',
+        theme_color: '#326752',
         icons: [
           { src: 'icone/icona-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icone/icona-512.png', sizes: '512x512', type: 'image/png' },

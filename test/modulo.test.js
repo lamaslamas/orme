@@ -67,3 +67,10 @@ describe('modulo: bici', () => {
     });
   });
 });
+
+describe('modulo: difficoltà', () => {
+  it('salva la difficoltà se valida', () => {
+    expect(sentieroDaModulo({ nome: 'X', difficolta: 'E' }).difficolta).toBe('E');
+    expect(sentieroDaModulo({ nome: 'X', difficolta: '' }).difficolta).toBeNull();
+  });
+});

@@ -1,4 +1,4 @@
-import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB } from './costanti.js';
+import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from './costanti.js';
 
 // "F10, b4 + U1" -> ["F10", "B4", "U1"]
 export function leggiCodici(testo) {
@@ -49,6 +49,7 @@ export function sentieroDaModulo(v, precedente = {}) {
       nomeUscita: (v.nomeUscita ?? '').trim(),
       periodo: (v.periodo ?? '').trim(),
     },
+    difficolta: Object.hasOwn(DIFFICOLTA, v.difficolta ?? '') ? v.difficolta : null,
     lunghezzaKm: numero(v.lunghezzaKm, { min: 0, max: 200, etichetta: 'Lunghezza' }),
     dislivelloM: numero(v.dislivelloM, { min: 0, max: 5000, etichetta: 'Dislivello' }),
     durataMin,

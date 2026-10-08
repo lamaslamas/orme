@@ -1,4 +1,4 @@
-import { LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB } from './costanti.js';
+import { LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from './costanti.js';
 
 export function biciPredefinita() {
   return { consentita: 'da_verificare', nota: '', link: LINK_PARCO, pedalabilita: null, scalaMtb: null };
@@ -15,5 +15,6 @@ export function completaSentiero(s) {
     bici.pedalabilita = null;
     bici.scalaMtb = null;
   }
-  return { ...s, bici };
+  const difficolta = Object.hasOwn(DIFFICOLTA, s.difficolta ?? '') ? s.difficolta : null;
+  return { ...s, bici, difficolta };
 }

@@ -10,7 +10,7 @@ import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.j
 
 export const COLORI_STATO = {
   da_fare: '#c2410c',
-  fatto: '#15803d',
+  fatto: '#2f9e6b',
 };
 
 function riquadroSentiero(s) {
@@ -32,11 +32,8 @@ export async function vistaMappaGenerale(app) {
   document.body.classList.add('con-mappa');
   app.innerHTML = `
     <div class="mappa-barra">
-      <details class="filtri-mappa">
-        <summary id="riassuntoFiltri">Filtri</summary>
-        ${htmlFiltri(sentieri, filtri)}
-        <button type="button" class="link" id="azzera">Azzera filtri</button>
-      </details>
+      ${htmlFiltri(sentieri, filtri)}
+      <div class="riassunto-mappa" id="riassuntoFiltri"></div>
     </div>
     <div id="mappa" class="mappa"></div>
     <section class="pannello">
@@ -110,11 +107,9 @@ export async function vistaMappaGenerale(app) {
       <div><span class="segno" style="background:${COLORI_STATO.da_fare}"></span>Da fare (${conta('da_fare')})</div>
       <div><span class="segno" style="background:${COLORI_STATO.fatto}"></span>Fatto (${conta('fatto')})</div>`;
 
-    const n = filtriAttivi(filtri);
     app.querySelector('#riassuntoFiltri').textContent =
-      `Filtri${n ? ` (${n} ${n === 1 ? 'attivo' : 'attivi'})` : ''} · ` +
-      `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ${filtrati.length} ${filtrati.length === 1 ? 'sentiero' : 'sentieri'}`;
-    app.querySelector('#azzera').hidden = !n;
+      `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ` +
+      `${filtrati.length} ${filtrati.length === 1 ? 'sentiero' : 'sentieri'}${filtriAttivi(filtri) ? ' filtrati' : ''}`;
 
     app.querySelector('#titoloSenza').textContent = senzaTraccia.length
       ? `Sentieri senza traccia (${senzaTraccia.length})`
@@ -129,8 +124,7 @@ export async function vistaMappaGenerale(app) {
       .join('');
   }
 
-  const controlli = collegaFiltri(app.querySelector('.filtri'), filtri, disegna);
-  app.querySelector('#azzera').addEventListener('click', () => controlli.azzera());
+  collegaFiltri(app.querySelector('.filtri'), sentieri, filtri, disegna);
   requestAnimationFrame(() => mappa.invalidateSize());
 
   return () => {

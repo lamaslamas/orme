@@ -1,5 +1,5 @@
 import { leggiSentiero, salvaSentiero, eliminaSentiero, tuttiISentieri } from '../db.js';
-import { ANIMALI, ACCESSI, STATI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB } from '../lib/costanti.js';
+import { ANIMALI, ACCESSI, STATI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, SCALE_MTB, DIFFICOLTA } from '../lib/costanti.js';
 import { completaSentiero } from '../lib/sentiero.js';
 import { paesiDiPartenza } from '../lib/filtri.js';
 import { sentieroDaModulo } from '../lib/modulo.js';
@@ -54,6 +54,12 @@ export async function vistaModifica(app, id) {
         </div>
         ${campo('Nome *', `<input name="nome" value="${v(s.nome)}" required />`)}
         ${campo('Descrizione del percorso', `<textarea name="descrizione" rows="2">${v(s.descrizione)}</textarea>`)}
+        ${campo(
+          'Difficoltà (scala CAI)',
+          `<select name="difficolta"><option value="">Non indicata</option>${Object.entries(DIFFICOLTA)
+            .map(([k, et]) => `<option value="${k}" ${s.difficolta === k ? 'selected' : ''}>${et}</option>`)
+            .join('')}</select>`,
+        )}
         <div class="campo"><span>Animali di riferimento</span>
           <div class="scelte">
             ${Object.entries(ANIMALI)

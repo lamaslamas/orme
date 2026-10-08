@@ -1,15 +1,16 @@
 :root {
-  /* tema: verde bosco scuro con un verde acceso, schede bianche arrotondate */
-  --verde: #1d3b1f;
-  --accento: #3c9a3f;
-  --accento-vivo: #5fc35c;
-  --verde-chiaro: #e8f3e5;
+  /* tema fresco dal logo: verde salvia, menta, fondo grigio-verde chiarissimo */
+  --verde: #326752;
+  --verde-scuro: #1f4536;
+  --accento: #2f9e6b;
+  --accento-vivo: #8fdcae;
+  --verde-chiaro: #e4f3ea;
   --terra: #8a5a2b;
-  --testo: #18201a;
-  --testo-tenue: #5f6b62;
-  --sfondo: #f4f5f2;
+  --testo: #13241d;
+  --testo-tenue: #5a6b63;
+  --sfondo: #f5f8f6;
   --scheda: #ffffff;
-  --bordo: #e2e5df;
+  --bordo: #dde7e1;
   --avviso: #fff6dc;
   --avviso-bordo: #ecd27c;
   --raggio: 16px;
@@ -45,8 +46,8 @@ body {
   border-bottom: 1px solid var(--bordo);
 }
 .testata a { text-decoration: none; }
-.logo { display: flex; align-items: center; gap: 8px; color: var(--verde); font-weight: 800; font-size: 1.3rem; letter-spacing: -0.01em; }
-.logo svg { width: 28px; height: 28px; }
+.logo { display: flex; align-items: center; color: var(--verde); }
+.logo svg { height: 30px; width: auto; }
 
 .banner {
   display: flex; gap: 8px; align-items: flex-start;
@@ -278,7 +279,7 @@ body.con-mappa main { max-width: none; padding: 0; }
   background: rgba(255, 255, 255, 0.95); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
   font-size: 0.85rem; text-align: center;
 }
-.gps-stato.sulla { border: 2px solid #3d5a3a; }
+.gps-stato.sulla { border: 2px solid #326752; }
 .gps-stato.fuori { border: 2px solid #c2410c; color: #8a2f0f; }
 
 /* --- Bici --- */
@@ -384,7 +385,7 @@ body.con-mappa main { max-width: none; padding: 0; }
 /* ============ Tema: schede, pulsanti, pillole ============ */
 h1, h2, .titolo-pagina { letter-spacing: -0.015em; }
 .titolo-pagina { font-size: 1.6rem; font-weight: 800; margin: 4px 0 12px; }
-a { color: var(--accento); }
+a { color: var(--verde); }
 
 .carta, .riquadro, .modulo fieldset {
   background: var(--scheda);
@@ -410,7 +411,7 @@ a { color: var(--accento); }
 }
 .bottone.primario { background: var(--verde); border-color: var(--verde); color: #fff; }
 .bottone.pericolo { border-color: #b42318; color: #b42318; }
-button.link { color: var(--accento); }
+button.link { color: var(--verde); }
 
 .filtri input, .filtri select,
 .modulo input:not([type='checkbox']), .modulo select, .modulo textarea {
@@ -435,3 +436,76 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
   color: var(--testo); text-decoration: none;
 }
 .menu-altro span { color: var(--testo-tenue); font-size: 0.88rem; }
+
+/* ============ Esplora: ricerca, pillole, schede ============ */
+.filtri { display: block; }
+.ricerca {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 52px; padding: 0 18px; border-radius: 999px;
+  background: var(--scheda); box-shadow: var(--ombra); color: var(--testo-tenue);
+}
+.ricerca input {
+  flex: 1; border: none !important; outline: none; background: transparent !important;
+  min-height: 48px; padding: 0 !important; font: inherit; font-size: 16px; color: var(--testo);
+  box-shadow: none !important;
+}
+.pillole {
+  display: flex; gap: 8px; overflow-x: auto; padding: 12px 2px 4px; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
+  scrollbar-width: none;
+}
+.pillole::-webkit-scrollbar { display: none; }
+.pillola {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 14px; border-radius: 999px;
+  border: 1.5px solid var(--bordo); background: var(--scheda); color: var(--testo);
+  font-weight: 700; font-size: 0.88rem; cursor: pointer; white-space: nowrap;
+}
+.pillola.attiva { background: var(--verde); border-color: var(--verde); color: #fff; }
+.pillola.azzera { border-style: dashed; color: var(--testo-tenue); }
+
+.foglio {
+  margin: auto 0 0; width: 100%; max-width: none; max-height: 80vh;
+  border: none; border-radius: 22px 22px 0 0; padding: 8px 18px calc(18px + env(safe-area-inset-bottom));
+  background: var(--scheda); color: var(--testo);
+}
+.foglio::backdrop { background: rgba(10, 20, 10, 0.4); }
+.foglio-maniglia { width: 44px; height: 5px; border-radius: 3px; background: var(--bordo); margin: 4px auto 8px; }
+.foglio-titolo { font-size: 1.1rem; font-weight: 800; margin: 4px 0 8px; }
+.foglio-voci { display: grid; margin-bottom: 12px; }
+.voce { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--bordo); font-weight: 600; }
+.voce input { width: 20px; height: 20px; accent-color: var(--verde); }
+.pieno-largo { width: 100%; }
+
+.lista { gap: 12px; }
+.carta-sentiero { display: flex; gap: 14px; align-items: flex-start; }
+.miniatura {
+  flex: none; width: 88px; height: 88px; border-radius: 12px;
+  background: linear-gradient(160deg, #e9f5ee, #d4eadd);
+}
+.miniatura.vuota {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  color: #8fb7a2; font-size: 0.62rem; font-weight: 700; text-align: center;
+}
+.miniatura.vuota svg { width: 36px; height: 36px; }
+.carta-corpo { flex: 1; min-width: 0; }
+.carta-titolo { gap: 6px; align-items: center; }
+.carta-sentiero .nome { margin-top: 4px; line-height: 1.25; }
+.carta-sentiero .carta-dati { margin-top: 2px; }
+.numeri { margin-top: 6px; font-size: 0.9rem; color: var(--testo); }
+.numeri .sep { margin: 0 6px; color: var(--testo-tenue); }
+.carta-sentiero .chips { margin-top: 8px; }
+.spunta { font-size: 0.75rem; font-weight: 800; color: var(--accento); }
+
+.difficolta {
+  display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 6px;
+  border-radius: 6px; font-size: 0.75rem; font-weight: 800; color: #fff;
+}
+.difficolta-T { background: #2f9e6b; }
+.difficolta-E { background: #2563eb; }
+.difficolta-EE { background: #c2410c; }
+.difficolta-EEA { background: #111827; }
+
+.riassunto-mappa { font-size: 0.8rem; color: var(--testo-tenue); padding: 2px 2px 0; }
+.mappa-barra .ricerca { min-height: 44px; box-shadow: none; background: var(--sfondo); }
+.mappa-barra .ricerca input { min-height: 42px; }
+.mappa-barra .pillole { padding-top: 8px; padding-bottom: 2px; }
