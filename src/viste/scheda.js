@@ -9,6 +9,7 @@ import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
+import { htmlPanorama, collegaPanorama } from './panorama.js';
 
 const STATI_VERIFICA = {
   verificato: 'Verificato',
@@ -237,6 +238,8 @@ export async function vistaScheda(app, id) {
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
 
+      ${htmlPanorama(s, traccia, idUrl)}
+
       ${htmlCompatibilita(s, traccia)}
 
       ${riquadroBici(s, traccia)}
@@ -339,6 +342,7 @@ export async function vistaScheda(app, id) {
   // --- il mio GPX: ha sempre la precedenza sulle tracce di OpenStreetMap ---
   const fileGpx = app.querySelector('#fileGpxScheda');
   const testoTraccia = app.querySelector('#testoTraccia');
+  collegaPanorama(app);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {
     const file = fileGpx.files?.[0];

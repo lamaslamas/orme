@@ -35,6 +35,16 @@ function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
     { chiave: 'animale', titolo: 'Animale', voci: vociAnimali(parcoFisso) },
     ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['si', 'Solo percorribili in bici']], breve: () => 'Solo percorribili' }] : []),
     ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),
+    {
+      chiave: 'panorama',
+      titolo: 'Valore panoramico',
+      voci: [
+        ['70', 'Molto panoramici (70+)'],
+        ['50', 'Panoramici (50+)'],
+        ['30', 'Almeno un po\' (30+)'],
+      ],
+      breve: (v) => `Panorama ${v}+`,
+    },
     { chiave: 'stato', titolo: 'Stato', voci: Object.entries(STATI) },
     {
       chiave: 'difficolta',

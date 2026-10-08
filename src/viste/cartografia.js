@@ -41,6 +41,7 @@ export const NOMI_LIVELLI = {
   osservazione: 'Percorsi di osservazione',
   confini: 'Confini dei parchi',
   distribuzione: 'Distribuzione ufficiale (EEA)',
+  panoramicita: 'Panoramicità del percorso',
   sentieriOsm: 'Sentieri escursionistici (Waymarked)',
   gps: 'Posizione GPS',
 };

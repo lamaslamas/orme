@@ -1,7 +1,7 @@
 import { ANIMALI } from './costanti.js';
 import { PARCHI } from '../datiParchi.js';
 
-export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '' };
 
 export function normalizza(s) {
   return String(s ?? '')
@@ -21,6 +21,8 @@ export function filtraSentieri(sentieri, filtri) {
     if (filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
     if (filtri.bici && (s.bici?.consentita || 'da_verificare') !== filtri.bici) return false;
     if (filtri.paese && normalizza(s.partenza?.paese) !== normalizza(filtri.paese)) return false;
+    // indice panoramico minimo: i percorsi senza indice restano fuori
+    if (filtri.panorama && !((s.panorama?.punteggio ?? -1) >= Number(filtri.panorama))) return false;
     if (testo && !testoNelSentiero(s, testo)) return false;
     return true;
   });

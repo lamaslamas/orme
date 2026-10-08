@@ -41,3 +41,15 @@ describe('osservazione', () => {
     expect(osservazionePerParco(sentieri).find((g) => g.parco === 'pnalm').percorsi.map((s) => s.id)).toEqual(['a', 'd']);
   });
 });
+
+describe('filtro valore panoramico', () => {
+  it('tiene solo i percorsi con indice almeno uguale alla soglia', () => {
+    const lista = [
+      { id: 'a', nome: 'A', panorama: { punteggio: 80 } },
+      { id: 'b', nome: 'B', panorama: { punteggio: 45 } },
+      { id: 'c', nome: 'C' },
+    ];
+    expect(filtraSentieri(lista, { ...FILTRI_VUOTI, panorama: '50' }).map((s) => s.id)).toEqual(['a']);
+    expect(filtraSentieri(lista, { ...FILTRI_VUOTI, panorama: '' }).map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  });
+});

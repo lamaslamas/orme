@@ -30,6 +30,10 @@ jobs:
       - run: npm ci
       - name: Leggi le fonti
         run: node scripts/importa-archivio.mjs
+      # indice panoramico: solo per i percorsi nuovi o con la traccia cambiata
+      - name: Calcola l'indice panoramico
+        run: node scripts/calcola-panorama.mjs
+        continue-on-error: true
       - name: Salva l'archivio se è cambiato
         id: salva
         run: |

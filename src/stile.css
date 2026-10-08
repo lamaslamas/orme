@@ -707,3 +707,25 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .legenda-stati .campione { margin-right: 0; }
 .campione.tratteggio { background: color-mix(in srgb, var(--colore) 22%, transparent); border: 1.5px dashed var(--colore); }
 .campione.sfumato { background: linear-gradient(90deg, #f0abfc, #a855f7, #22c55e, #eab308); }
+
+/* indice panoramico */
+.panorama-testa { display: flex; align-items: center; gap: 14px; margin: 4px 0 12px; }
+.panorama-punteggio {
+  flex: none; width: 76px; height: 76px; border-radius: 50%; display: grid; place-content: center; text-align: center;
+  background: conic-gradient(#e0811a calc(var(--valore) * 1%), #ece6da 0);
+  position: relative;
+}
+.panorama-punteggio::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: var(--scheda); }
+.panorama-punteggio b, .panorama-punteggio span { position: relative; line-height: 1; }
+.panorama-punteggio b { font-size: 1.6rem; font-weight: 800; }
+.panorama-punteggio span { font-size: 0.7rem; color: var(--testo-tenue); }
+.panorama-etichetta { font-weight: 800; font-size: 1.05rem; }
+.panorama-numeri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.panorama-numeri div { background: #f6f1e7; border-radius: 12px; padding: 8px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
+.panorama-numeri b { font-size: 1rem; }
+.panorama-numeri span { font-size: 0.72rem; color: var(--testo-tenue); }
+.panorama-criteri { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; font-size: 0.82rem; }
+.panorama-criteri li { display: grid; grid-template-columns: 1fr 70px 28px; gap: 8px; align-items: center; }
+.panorama-criteri b { text-align: right; }
+.barra-criterio { height: 6px; background: #ece6da; border-radius: 3px; overflow: hidden; }
+.barra-criterio i { display: block; height: 100%; background: #e0811a; border-radius: 3px; }

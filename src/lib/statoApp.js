@@ -5,10 +5,10 @@ export const STATO_INIZIALE = {
   attivita: 'trekking', // trekking | mtb | emtb
   parco: '',
   specie: '', // chiave dell'animale ('' = nessuno)
-  filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '' },
+  filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '' },
   // insieme: specie mostrate quando non è scelto un animale ('rare' o 'minacciate')
   heatmap: { insieme: 'rare', stagione: 'tutto', anni: 0, soloVerificate: true, correggiSforzo: false },
-  livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true, distribuzione: true },
+  livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true, distribuzione: true, panoramicita: false },
   base: 'topo', // topo | curve | satellite
 };
 

@@ -12,6 +12,8 @@ import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
+import { aggiungiLivelloPanorama } from './panorama.js';
+import { stato } from '../stato.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
@@ -51,7 +53,8 @@ export async function vistaMappa(app, id) {
     <input type="file" id="fileGpx" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'gps'] });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['panoramicita', 'heatmap', 'gps'] });
+  let panorama = null;
   if (parco) mappa.setView(parco.centro, 11);
   const pannello = app.querySelector('#pannello');
   const avviso = L.DomUtil.create('div', 'avviso-mappa', app.querySelector('#mappa'));
@@ -63,6 +66,13 @@ export async function vistaMappa(app, id) {
   const misura = aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
   const avv = aggiungiAvvistamenti(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
+  panorama = aggiungiLivelloPanorama(mappa, sentiero, () => traccia);
+  // con la panoramicità accesa la linea della traccia si attenua (restano pin e frecce)
+  function attenuaTraccia() {
+    const acceso = Boolean(stato.leggi().livelli.panoramicita);
+    livelloTraccia.eachLayer((g) => g.eachLayer?.((l) => l instanceof L.Polyline && l.setStyle({ opacity: acceso ? 0.15 : 1 })));
+  }
+  mappa.suLivello('panoramicita', attenuaTraccia);
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
@@ -80,6 +90,9 @@ export async function vistaMappa(app, id) {
     if (!traccia) return;
     const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORE_TRACCIA }).addTo(livelloTraccia);
     if (inquadra) mappa.fitBounds(gruppo.getBounds(), { padding: [36, 36] });
+    // il livello panoramicità segue la traccia attuale
+    if (stato.leggi().livelli.panoramicita) panorama?.ridisegna();
+    attenuaTraccia();
   }
 
   function dislivelloTraccia() {
