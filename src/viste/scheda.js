@@ -1,9 +1,43 @@
 import { leggiSentiero, salvaSentiero, leggiTraccia, tuttiIGiri } from '../db.js';
 import { giriConSentiero } from '../lib/giro.js';
-import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA } from '../lib/costanti.js';
-import { escapeHtml, codici, durata, km } from '../lib/formato.js';
+import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA } from '../lib/costanti.js';
+import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
-import { bollinoBici } from './lista.js';
+import { bollinoBici, bollinoDifficolta } from './lista.js';
+import { misureSentiero } from '../lib/riassunto.js';
+import { profiloAltimetrico, percorsoProfiloSvg } from '../lib/profilo.js';
+import { percorsoSentiero } from '../lib/tracce.js';
+import { creaMappa } from './mappa.js';
+import { disegnaPercorso } from './disegnoTraccia.js';
+
+// Riga di numeri grandi: lunghezza, dislivello, durata
+function numeriGrandi(m) {
+  const casella = (valore, etichetta, nota = '') =>
+    `<div class="numero"><b>${valore ?? '–'}</b><span>${etichetta}${nota}</span></div>`;
+  return `<div class="numeri-grandi">
+    ${casella(m.km != null ? `${m.km.toFixed(1).replace('.', ',')} km` : null, 'Lunghezza', m.kmCalcolati ? ' (traccia)' : '')}
+    ${casella(m.salita != null ? `+${m.salita} m` : null, 'Dislivello')}
+    ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.durataStimata ? ' (stima)' : '')}
+  </div>`;
+}
+
+// Grafico del profilo altimetrico in SVG
+function graficoProfilo(profilo) {
+  if (!profilo) return '';
+  const L = 320;
+  const A = 110;
+  const { linea, area } = percorsoProfiloSvg(profilo, L, A);
+  const kmTot = profilo.totaleKm.toFixed(1).replace('.', ',');
+  return `<section class="riquadro">
+    <h2>Profilo altimetrico</h2>
+    <svg class="profilo" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img"
+      aria-label="Profilo altimetrico: da ${Math.round(profilo.minimo)} a ${Math.round(profilo.massimo)} metri su ${kmTot} km">
+      <path d="${area}" fill="var(--verde-chiaro)"/>
+      <path d="${linea}" fill="none" stroke="var(--verde)" stroke-width="2" vector-effect="non-scaling-stroke"/>
+    </svg>
+    <div class="profilo-assi"><span>0 km</span><span>min ${Math.round(profilo.minimo)} m · max ${Math.round(profilo.massimo)} m</span><span>${kmTot} km</span></div>
+  </section>`;
+}
 
 function riga(etichetta, valore) {
   if (valore == null || valore === '') return '';
@@ -76,27 +110,35 @@ export async function vistaScheda(app, id) {
   const partenza = [p.paese, p.descrizione].filter(Boolean).map(escapeHtml).join(' – ');
   const e = s.escursione ?? {};
   const haEscursione = e.associazione || e.nomeUscita || e.periodo;
+  const misure = misureSentiero(s, traccia);
+  const profilo = traccia ? profiloAltimetrico(percorsoSentiero(traccia.geojson).pezzi) : null;
+  const idUrl = encodeURIComponent(s.id);
 
   app.innerHTML = `
-    <a class="indietro" href="#/">‹ Tutti i sentieri</a>
+    <a class="indietro" href="#/">‹ Esplora</a>
     <article class="scheda">
-      <h1>
+      ${
+        traccia
+          ? `<a class="anteprima-mappa" href="#/sentiero/${idUrl}/mappa" aria-label="Apri la mappa del sentiero"><div id="miniMappa"></div></a>`
+          : `<a class="anteprima-mappa vuota" href="#/sentiero/${idUrl}/mappa"><span>Nessuna traccia salvata</span><b>Recupera la traccia ›</b></a>`
+      }
+      <div class="carta-titolo intestazione">
+        ${bollinoDifficolta(s)}
         ${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span>` : ''}
-        ${escapeHtml(s.nome)}
-      </h1>
+      </div>
+      <h1>${escapeHtml(s.nome)}</h1>
       ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
       <div class="chips">
         ${(s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('')}
         ${bollinoBici(s)}
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
+      ${numeriGrandi(misure)}
       ${s.descrizione ? `<p class="descrizione">${escapeHtml(s.descrizione)}</p>` : ''}
 
-      <div class="azioni">
-        <a class="bottone primario" href="#/sentiero/${encodeURIComponent(s.id)}/mappa">
-          ${traccia ? 'Apri la mappa' : 'Mappa e traccia'}
-        </a>
-        <a class="bottone" href="#/sentiero/${encodeURIComponent(s.id)}/modifica">Modifica</a>
+      <div class="barra-azioni">
+        <a class="bottone primario" href="#/sentiero/${idUrl}/mappa">${traccia ? 'Apri la mappa' : 'Mappa e traccia'}</a>
+        <a class="bottone" href="#/sentiero/${idUrl}/modifica">Modifica</a>
       </div>
 
       <section class="riquadro accesso accesso-${tipo}">
@@ -107,12 +149,12 @@ export async function vistaScheda(app, id) {
 
       ${riquadroBici(s, traccia)}
 
+      ${graficoProfilo(profilo)}
+
       <section class="riquadro">
         <h2>Percorso</h2>
         <dl>
-          ${riga('Lunghezza', escapeHtml(km(s.lunghezzaKm)))}
-          ${riga('Dislivello', s.dislivelloM != null ? `${escapeHtml(s.dislivelloM)} m` : '')}
-          ${riga('Durata', escapeHtml(durata(s.durataMin)))}
+          ${riga('Difficoltà', s.difficolta ? escapeHtml(DIFFICOLTA[s.difficolta]) : '')}
           ${riga('Partenza', partenza)}
           ${riga('Traccia', traccia ? (traccia.origine === 'osm' ? 'Salvata (da OpenStreetMap)' : 'Salvata (da file GPX)') : 'Non ancora salvata')}
         </dl>
@@ -192,4 +234,16 @@ export async function vistaScheda(app, id) {
     }
   });
   campoData.addEventListener('change', () => salva({ dataPercorso: campoData.value || null }));
+
+  // anteprima della mappa: ferma, si tocca per aprire la mappa completa
+  const contenitoreMini = app.querySelector('#miniMappa');
+  if (!contenitoreMini) return;
+  const mini = creaMappa(contenitoreMini, { anteprima: true });
+  const gruppo = disegnaPercorso(traccia.geojson, { colore: '#c2410c', frecce: false }).addTo(mini);
+  mini.attenuaSentieri(true);
+  requestAnimationFrame(() => {
+    mini.invalidateSize();
+    mini.fitBounds(gruppo.getBounds(), { padding: [28, 28] });
+  });
+  return () => mini.remove();
 }

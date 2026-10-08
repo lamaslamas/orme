@@ -18,7 +18,8 @@ const CENTRO_PNALM = [41.79, 13.85];
 const COLORE_TRACCIA = '#c2410c';
 const COLORE_ANTEPRIMA = '#2563eb';
 
-export function creaMappa(contenitore) {
+// con anteprima: true la mappa è ferma (niente comandi, trascinamento o zoom)
+export function creaMappa(contenitore, { anteprima = false } = {}) {
   const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -34,13 +35,17 @@ export function creaMappa(contenitore) {
     attribution: '&copy; <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a> (CC-BY-SA)',
   });
 
-  const mappa = L.map(contenitore, { layers: [osm, sentieri], zoomControl: true }).setView(CENTRO_PNALM, 11);
+  const ferma = anteprima
+    ? { zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: true }
+    : { zoomControl: true };
+  const mappa = L.map(contenitore, { layers: [osm, sentieri], ...ferma }).setView(CENTRO_PNALM, 11);
+  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.45 : 0.8);
+  if (anteprima) return mappa;
   L.control
     .layers({ OpenStreetMap: osm, 'OpenTopoMap (curve di livello)': topo }, { 'Sentieri escursionistici': sentieri })
     .addTo(mappa);
   L.control.scale({ imperial: false }).addTo(mappa);
   // i sentieri di Waymarked si attenuano quando si vuole far risaltare una traccia
-  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.45 : 0.8);
   return mappa;
 }
 

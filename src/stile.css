@@ -509,3 +509,31 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .mappa-barra .ricerca { min-height: 44px; box-shadow: none; background: var(--sfondo); }
 .mappa-barra .ricerca input { min-height: 42px; }
 .mappa-barra .pillole { padding-top: 8px; padding-bottom: 2px; }
+
+/* ============ Pagina del sentiero ============ */
+.anteprima-mappa {
+  display: block; position: relative; height: 210px; margin: 0 -16px 14px; overflow: hidden;
+  background: linear-gradient(160deg, #e9f5ee, #d4eadd); text-decoration: none;
+}
+.anteprima-mappa #miniMappa { position: absolute; inset: 0; pointer-events: none; }
+.anteprima-mappa.vuota { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--testo-tenue); }
+.anteprima-mappa.vuota b { color: var(--verde); }
+.intestazione { margin-bottom: 4px; }
+.scheda h1 { font-size: 1.55rem; font-weight: 800; line-height: 1.2; }
+.numeri-grandi {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 14px 0;
+  background: var(--bordo); border-radius: var(--raggio); overflow: hidden; box-shadow: var(--ombra);
+}
+.numero { background: var(--scheda); padding: 10px 8px; text-align: center; }
+.numero b { display: block; font-size: 1.15rem; font-weight: 800; }
+.numero span { font-size: 0.72rem; color: var(--testo-tenue); }
+.barra-azioni {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); z-index: 900;
+  display: flex; gap: 10px; padding: 10px 16px; max-width: 720px; margin: 0 auto;
+  background: rgba(245, 248, 246, 0.94); backdrop-filter: blur(6px);
+  border-top: 1px solid var(--bordo);
+}
+.scheda { padding-bottom: 72px; }
+.barra-azioni .bottone { flex: 1; }
+.profilo { display: block; width: 100%; height: 110px; }
+.profilo-assi { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--testo-tenue); margin-top: 4px; }

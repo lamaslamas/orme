@@ -50,3 +50,30 @@ describe('sagoma della traccia', () => {
     expect(sagomaSvg(null)).toBe('');
   });
 });
+
+import { profiloAltimetrico, percorsoProfiloSvg } from '../src/lib/profilo.js';
+
+describe('profilo altimetrico', () => {
+  const linea = Array.from({ length: 500 }, (_, i) => [13.8, 41.7 + i * 0.0001, 1000 + i]);
+
+  it('calcola distanze, quota minima e massima', () => {
+    const pr = profiloAltimetrico([linea], 50);
+    expect(pr.minimo).toBe(1000);
+    expect(pr.massimo).toBe(1499);
+    expect(pr.totaleKm).toBeCloseTo(5.55, 1);
+    expect(pr.punti.length).toBeLessThanOrEqual(51);
+    expect(pr.punti[0]).toEqual([0, 1000]);
+    expect(pr.punti[pr.punti.length - 1][1]).toBe(1499);
+  });
+
+  it('è null senza quote', () => {
+    expect(profiloAltimetrico([[[13.8, 41.7], [13.8, 41.71]]])).toBeNull();
+  });
+
+  it('il disegno sale verso destra quando la quota cresce', () => {
+    const { linea: d, area } = percorsoProfiloSvg(profiloAltimetrico([linea], 20), 300, 100);
+    const ys = d.match(/[ML][\d.]+ ([\d.]+)/g).map((t) => Number(t.split(' ')[1]));
+    expect(ys[0]).toBeGreaterThan(ys[ys.length - 1]);
+    expect(area.endsWith('Z')).toBe(true);
+  });
+});
