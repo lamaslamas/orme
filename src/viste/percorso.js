@@ -4,12 +4,12 @@ import { percorsoSentiero, estremiTraccia } from '../lib/tracce.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello } from '../lib/quote.js';
 import { stimaDurataMin } from '../lib/durata.js';
-import { profiloAltimetrico } from '../lib/profilo.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
-import { numeriGrandi, graficoProfilo, htmlPortamiAllaPartenza } from './scheda.js';
+import { numeriGrandi, htmlPortamiAllaPartenza } from './scheda.js';
+import { htmlProfiloPendenze } from './profilo.js';
 
 export async function vistaPercorso(app, id) {
   const p = await leggiPercorso(id);
@@ -21,7 +21,6 @@ export async function vistaPercorso(app, id) {
   const km = lunghezzaKm({ coordinates: pezzi });
   const disl = dislivello(pezzi);
   const misure = { km, salita: disl?.salita ?? null, durataMin: stimaDurataMin(km, disl), durataStimata: true };
-  const profilo = profiloAltimetrico(pezzi);
   const e = estremiTraccia(p.geojson);
   const idUrl = encodeURIComponent(p.id);
 
@@ -33,7 +32,7 @@ export async function vistaPercorso(app, id) {
       <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : 'Da file GPX'}</p>
       ${numeriGrandi(misure)}
       ${disl ? '' : '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'}
-      ${graficoProfilo(profilo)}
+      ${htmlProfiloPendenze(pezzi)}
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
       <section class="riquadro">
         <h2>Note</h2>

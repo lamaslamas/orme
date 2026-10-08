@@ -5,7 +5,6 @@ import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
 import { bollinoBici, bollinoDifficolta } from './lista.js';
 import { misureSentiero } from '../lib/riassunto.js';
-import { profiloAltimetrico, percorsoProfiloSvg } from '../lib/profilo.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
@@ -57,6 +56,7 @@ function descriviStatoTraccia(stato, traccia) {
   return fonte + ricostruita;
 }
 import { creaMappa } from './mappa.js';
+import { htmlProfiloPendenze } from './profilo.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
@@ -72,23 +72,6 @@ export function numeriGrandi(m) {
   </div>`;
 }
 
-// Grafico del profilo altimetrico in SVG
-export function graficoProfilo(profilo) {
-  if (!profilo) return '';
-  const L = 320;
-  const A = 110;
-  const { linea, area } = percorsoProfiloSvg(profilo, L, A);
-  const kmTot = profilo.totaleKm.toFixed(1).replace('.', ',');
-  return `<section class="riquadro">
-    <h2>Profilo altimetrico</h2>
-    <svg class="profilo" viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img"
-      aria-label="Profilo altimetrico: da ${Math.round(profilo.minimo)} a ${Math.round(profilo.massimo)} metri su ${kmTot} km">
-      <path d="${area}" fill="var(--verde-chiaro)"/>
-      <path d="${linea}" fill="none" stroke="var(--verde)" stroke-width="2" vector-effect="non-scaling-stroke"/>
-    </svg>
-    <div class="profilo-assi"><span>0 km</span><span>min ${Math.round(profilo.minimo)} m · max ${Math.round(profilo.massimo)} m</span><span>${kmTot} km</span></div>
-  </section>`;
-}
 
 function riga(etichetta, valore) {
   if (valore == null || valore === '') return '';
@@ -163,7 +146,6 @@ export async function vistaScheda(app, id) {
   const e = s.escursione ?? {};
   const haEscursione = e.associazione || e.nomeUscita || e.periodo || e.fonte;
   const misure = misureSentiero(s, traccia);
-  const profilo = traccia ? profiloAltimetrico(percorsoSentiero(traccia.geojson).pezzi) : null;
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
 
@@ -212,7 +194,7 @@ export async function vistaScheda(app, id) {
 
       ${riquadroBici(s, traccia)}
 
-      ${graficoProfilo(profilo)}
+      ${traccia ? htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi) : ''}
 
       <section class="riquadro">
         <h2>Percorso</h2>
