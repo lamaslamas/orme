@@ -6,6 +6,8 @@
 // - confini:  confini dei parchi scaricati da OpenStreetMap (chiave: parco)
 // - osservazioni: osservazioni iNaturalist in memoria (chiave: id)
 // - percorsi: i miei percorsi della sezione Pianifica (chiave: id)
+// - archivio: copia dell'ultima versione dell'archivio pubblico ricevuta (chiave: id),
+//             serve a capire quali campi ho modificato io
 // - meta:     informazioni interne (es. dati iniziali già caricati)
 import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI, VERSIONE_TRACCE_INIZIALI, AGGIORNAMENTI } from './datiIniziali.js';
 import { applicaAggiornamento, tracciaDaAggiornare } from './lib/aggiornamenti.js';
@@ -13,6 +15,7 @@ import { completaSentiero } from './lib/sentiero.js';
 import { completaGiro } from './lib/giro.js';
 import { completaAvvistamento } from './lib/avvistamenti.js';
 import { completaPercorso } from './lib/percorso.js';
+import { pianoSincronizzazione, controllaArchivio } from './lib/archivio.js';
 
 const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
@@ -20,7 +23,8 @@ const NOME_DB = 'orme';
 // 3: aggiunto l'archivio "giri"
 // 4: parchi (campo "parco" nei sentieri), avvistamenti, confini, osservazioni
 // 5: percorsi della sezione Pianifica
-const VERSIONE_DB = 5;
+// 6: copia dell'archivio pubblico per l'unione con i miei dati
+const VERSIONE_DB = 6;
 // backup 1: sentieri e tracce; 2: anche i giri; 3: anche gli avvistamenti (facoltativi); 4: anche i percorsi
 export const VERSIONE_BACKUP = 4;
 
@@ -68,6 +72,7 @@ export function apriDb() {
         db.createObjectStore('osservazioni', { keyPath: 'id' }).createIndex('parco', 'parco');
       }
       if (!db.objectStoreNames.contains('percorsi')) db.createObjectStore('percorsi', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('archivio')) db.createObjectStore('archivio', { keyPath: 'id' });
       if (evento.oldVersion >= 1 && evento.oldVersion < 4) {
         // Aggiunge i campi nuovi (bici, parco) solo dove mancano, senza toccare il resto
         const cursore = req.transaction.objectStore('sentieri').openCursor();
@@ -236,6 +241,30 @@ export async function eliminaPercorso(id) {
   tx.objectStore('percorsi').delete(id);
   await fine(tx);
 }
+
+// --- Archivio pubblico ---
+
+// Unisce l'archivio scaricato con i miei dati: solo i campi che non ho modificato
+export async function sincronizzaArchivio(archivio) {
+  controllaArchivio(archivio);
+  const [miei, basi, tracce] = await Promise.all([tuttiDa('sentieri'), tuttiDa('archivio'), tuttiDa('tracce')]);
+  const piano = pianoSincronizzazione(archivio, {
+    miei: new Map(miei.map((s) => [s.id, s])),
+    basi: new Map(basi.map((b) => [b.id, b])),
+    tracce: new Map(tracce.map((t) => [t.sentieroId, t])),
+  });
+  const db = await apriDb();
+  const tx = db.transaction(['sentieri', 'tracce', 'archivio', 'meta'], 'readwrite');
+  const adesso = new Date().toISOString();
+  for (const s of piano.sentieri) tx.objectStore('sentieri').put(completaSentiero({ ...s, creato: s.creato ?? adesso, modificato: adesso }));
+  for (const t of piano.tracce) tx.objectStore('tracce').put({ ...t, salvata: adesso });
+  for (const b of piano.basi) tx.objectStore('archivio').put(b);
+  tx.objectStore('meta').put({ chiave: 'archivio', aggiornato: archivio.aggiornato, sincronizzato: adesso });
+  await fine(tx);
+  return { sentieri: piano.sentieri.length, tracce: piano.tracce.length };
+}
+
+export const infoArchivio = () => leggiDa('meta', 'archivio');
 
 // --- Confini dei parchi ---
 

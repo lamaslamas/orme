@@ -19,5 +19,7 @@ export function completaSentiero(s) {
   const difficolta = Object.hasOwn(DIFFICOLTA, s.difficolta ?? '') ? s.difficolta : null;
   // i sentieri creati prima dei parchi erano tutti del PNALM
   const parco = typeof s.parco === 'string' && s.parco ? s.parco : PARCO_PREDEFINITO;
-  return { ...s, bici, difficolta, parco };
+  // un percorso può appartenere a più parchi; "parco" resta il principale
+  const parchi = Array.isArray(s.parchi) && s.parchi.length ? s.parchi : [parco];
+  return { ...s, bici, difficolta, parco, parchi };
 }

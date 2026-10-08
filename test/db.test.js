@@ -243,3 +243,37 @@ describe('più finestre aperte', () => {
     if (globalThis.addEventListener) expect(avvisata).toBe(true);
   });
 });
+
+describe('sincronizzazione con l\'archivio pubblico', () => {
+  it('aggiunge i campi nuovi, rispetta le mie modifiche e i miei GPX', async () => {
+    const { readFileSync } = await import('node:fs');
+    const archivio = JSON.parse(readFileSync(new URL('../public/dati/archivio.json', import.meta.url)));
+    await db.caricaDatiIniziali();
+    const f1 = await db.leggiSentiero('f1-monte-amaro');
+    await db.salvaSentiero({ ...f1, accesso: { ...f1.accesso, nota: 'mia nota' }, stato: 'fatto', notePersonali: 'bello' });
+    await db.salvaTraccia({ sentieroId: 'f2-val-fondillo', origine: 'gpx', geojson: { type: 'MultiLineString', coordinates: [[[13.8, 41.7], [13.81, 41.71]]] } });
+
+    await db.sincronizzaArchivio(archivio);
+    const dopo = await db.leggiSentiero('f1-monte-amaro');
+    expect(dopo.accesso.nota).toBe('mia nota');
+    expect(dopo.stato).toBe('fatto');
+    expect(dopo.notePersonali).toBe('bello');
+    expect(dopo.attivita.trekking.stato).toBe('con_limitazioni');
+    expect(dopo.parchi).toEqual(['pnalm']);
+    expect((await db.leggiTraccia('f2-val-fondillo')).origine).toBe('gpx');
+    expect((await db.leggiTraccia('cicerana')).dettagli.archivio).toBe(true);
+
+    // una seconda sincronizzazione uguale non cambia nulla
+    expect(await db.sincronizzaArchivio(archivio)).toEqual({ sentieri: 0, tracce: 0 });
+
+    // l'archivio cambia la nota: la mia resta, un campo non toccato si aggiorna
+    const cambiato = structuredClone(archivio);
+    const p = cambiato.percorsi.find((x) => x.id === 'f1-monte-amaro');
+    p.accesso.nota = 'nota nuova del parco';
+    p.zona = 'Monte Amaro di Opi';
+    await db.sincronizzaArchivio(cambiato);
+    const ancora = await db.leggiSentiero('f1-monte-amaro');
+    expect(ancora.accesso.nota).toBe('mia nota');
+    expect(ancora.zona).toBe('Monte Amaro di Opi');
+  });
+});

@@ -11,7 +11,7 @@ function normalizza(s) {
 export function filtraSentieri(sentieri, filtri) {
   const testo = normalizza(filtri.testo);
   return sentieri.filter((s) => {
-    if (filtri.parco && (s.parco || 'pnalm') !== filtri.parco) return false;
+    if (filtri.parco && !(s.parchi ?? [s.parco || 'pnalm']).includes(filtri.parco)) return false;
     if (filtri.animale && !(s.animali ?? []).includes(filtri.animale)) return false;
     if (filtri.stato && s.stato !== filtri.stato) return false;
     if (filtri.accesso && (s.accesso?.tipo || 'nessuno') !== filtri.accesso) return false;

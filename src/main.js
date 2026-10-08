@@ -1,6 +1,6 @@
 import '@fontsource-variable/manrope';
 import './stile.css';
-import { caricaDatiIniziali } from './db.js';
+import { caricaDatiIniziali, sincronizzaArchivio } from './db.js';
 import { vistaLista } from './viste/lista.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
@@ -109,9 +109,35 @@ window.addEventListener('orme-aggiornata-altrove', () => {
   </section>`;
 });
 
+// Archivio pubblico: si scarica all'avvio (se non c'è rete si usa la copia salvata).
+// Se arriva tardi, la schermata viene ridisegnata con i dati aggiornati.
+async function aggiornaArchivio() {
+  const controllo = new AbortController();
+  const limite = setTimeout(() => controllo.abort(), 6000);
+  try {
+    const risposta = await fetch(`${import.meta.env.BASE_URL}dati/archivio.json`, { signal: controllo.signal });
+    if (!risposta.ok) return false;
+    const esito = await sincronizzaArchivio(await risposta.json());
+    return esito.sentieri + esito.tracce > 0;
+  } catch (e) {
+    console.warn('Archivio non aggiornato', e);
+    return false;
+  } finally {
+    clearTimeout(limite);
+  }
+}
+
 globalThis.__ormeFase = 'avvio';
 caricaDatiIniziali()
   .then(() => {
+    globalThis.__ormeFase = 'archivio';
+    const download = aggiornaArchivio();
+    // al massimo 2,5 secondi di attesa; poi si mostra la pagina e si aggiorna quando arriva
+    // (il download va incartato in un oggetto, altrimenti la gara lo aspetterebbe comunque)
+    return Promise.race([download.then(() => 'fatto'), new Promise((r) => setTimeout(() => r({ download }), 2500))]);
+  })
+  .then((archivio) => {
+    if (archivio !== 'fatto') archivio.download.then((cambiato) => cambiato && mostra());
     globalThis.__ormeFase = 'dati pronti';
     return mostra();
   })

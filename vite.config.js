@@ -44,6 +44,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globIgnores: ['dati/**'],
         // la nuova versione prende subito il posto della vecchia e ne cancella i file
         cleanupOutdatedCaches: true,
         clientsClaim: true,
@@ -54,6 +55,12 @@ export default defineConfig({
           cacheMappa('mappa-topo', /^https:\/\/[abc]\.tile\.opentopomap\.org\//),
           cacheMappa('mappa-sentieri', /^https:\/\/tile\.waymarkedtrails\.org\//),
           cacheMappa('mappa-satellite', /^https:\/\/server\.arcgisonline\.com\//),
+          // archivio pubblico: prima la rete, la copia salvata solo offline
+          {
+            urlPattern: /\/dati\/.*\.json$/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'orme-archivio', networkTimeoutSeconds: 5, expiration: { maxEntries: 20 } },
+          },
           // heatmap iNaturalist: si aggiorna spesso, la teniamo solo un giorno
           {
             urlPattern: /^https:\/\/api\.inaturalist\.org\/v1\/heatmap\//,

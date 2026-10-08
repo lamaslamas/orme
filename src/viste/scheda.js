@@ -10,6 +10,30 @@ import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
 
+const STATI_VERIFICA = {
+  verificato: 'Verificato',
+  da_verificare: 'Da verificare',
+  non_piu_verificabile: 'Fonte non più raggiungibile',
+};
+
+// Fonti, organizzatori e stato di verifica (solo informativo) dell'archivio
+function htmlFontiVerifica(s) {
+  const fonti = (s.fonti ?? []).filter((f) => linkSicuro(f.url));
+  if (!fonti.length && !s.verifica && !(s.organizzatori ?? []).length) return '';
+  return `<section class="riquadro">
+    <h2>Fonti e verifica</h2>
+    ${(s.organizzatori ?? []).length ? `<p>Organizzato da <b>${s.organizzatori.map(escapeHtml).join(', ')}</b></p>` : ''}
+    ${
+      fonti.length
+        ? `<ul class="elenco-link">${fonti
+            .map((f) => `<li><a href="${escapeHtml(linkSicuro(f.url))}" target="_blank" rel="noopener">${escapeHtml(f.titolo || 'Fonte')} ↗</a>${f.visto ? ` <span class="tenue">· controllata il ${escapeHtml(new Date(f.visto).toLocaleDateString('it-IT'))}</span>` : ''}</li>`)
+            .join('')}</ul>`
+        : ''
+    }
+    ${s.verifica ? `<p class="tenue piccolo">Stato: ${STATI_VERIFICA[s.verifica.stato] ?? escapeHtml(s.verifica.stato)} (informativo, dall'archivio di Orme).</p>` : ''}
+  </section>`;
+}
+
 // Pulsanti per raggiungere la partenza con un'app esterna, partendo da dove mi trovo
 export function htmlPortamiAllaPartenza(punto) {
   if (!punto) return '';
@@ -221,6 +245,8 @@ export async function vistaScheda(app, id) {
             </section>`
           : ''
       }
+
+      ${htmlFontiVerifica(s)}
 
       ${(() => {
         const suoi = giriConSentiero(giri, s.id);

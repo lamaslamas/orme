@@ -1,4 +1,7 @@
-export function vistaAltro(app) {
+import { infoArchivio } from '../db.js';
+
+export async function vistaAltro(app) {
+  const archivio = await infoArchivio();
   app.innerHTML = `
     <h1 class="titolo-pagina">Altro</h1>
     <ul class="menu-altro">
@@ -12,6 +15,12 @@ export function vistaAltro(app) {
       <p>Nel Parco è vietato uscire dai sentieri. Alcuni sentieri hanno accesso solo con guida, a numero chiuso o con chiusure periodiche, che cambiano ogni anno: verifica sempre sul sito del Parco prima di partire.</p>
       <p>I tuoi avvistamenti restano solo su questo telefono: non sono mai nel codice dell'app e sono esclusi dai backup da condividere.</p>
       <a href="https://www.parcoabruzzo.it/" target="_blank" rel="noopener">Sito del Parco ↗</a>
+    </section>
+
+    <section class="riquadro">
+      <h2>Archivio dei percorsi</h2>
+      <p>I percorsi arrivano da un archivio pubblico aggiornato automaticamente (sentieri ufficiali e uscite di associazioni ed enti parco, con le fonti). Le tue modifiche, note e tracce restano tue: l'archivio aggiorna solo i campi che non hai cambiato.</p>
+      <p class="tenue piccolo">${archivio ? `Archivio del ${new Date(archivio.aggiornato).toLocaleString('it-IT')}, ricevuto il ${new Date(archivio.sincronizzato).toLocaleString('it-IT')}.` : 'Archivio non ancora ricevuto.'}</p>
     </section>
 
     <section class="riquadro">
