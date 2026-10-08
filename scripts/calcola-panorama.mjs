@@ -284,3 +284,6 @@ for (const p of archivio.percorsi) {
 
 if (calcolati || terreni || faune) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
 console.log(`\nFauna iNaturalist: ${faune} percorsi. Terreno: ${terreni} percorsi aggiornati. Indice panoramico: ${calcolati} calcolati, ${saltati} già aggiornati.`);
+
+// eventuali richieste di rete rimaste appese non devono tenere aperto il processo
+process.exit(0);

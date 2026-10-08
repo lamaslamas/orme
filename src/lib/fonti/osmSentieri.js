@@ -1,12 +1,12 @@
 // Sentieri escursionistici segnati su OpenStreetMap (route=hiking: CAI, Parco, Sentiero Italia)
-// dentro un parco. Per ora solo per il Pollino, che non ha uscite di associazioni leggibili.
+// dentro un parco: danno a ogni parco percorsi di trekking con traccia.
 // Dati © OpenStreetMap, licenza ODbL: la geometria si può salvare citando la fonte.
 import { dentroIlParco, interpretaRisposta, combinaTraccia } from '../overpass.js';
 import { lunghezzaKm } from '../geo.js';
 import { parcoDa } from '../../datiParchi.js';
 import { ritagliaESemplifica } from './osmMtb.js';
 
-export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino'] };
+export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm'] };
 
 export function querySentieriParco(idParco) {
   const { prima, filtro } = dentroIlParco(parcoDa(idParco));
@@ -47,6 +47,7 @@ export function candidatiSentieri(json, idParco) {
       tipo: 'sentiero',
       chiave: `${idParco}:${c.idOsm}`,
       id: `osm-sentiero-${c.idOsm}`,
+      idOsm: c.idOsm,
       url,
       nome,
       zona,

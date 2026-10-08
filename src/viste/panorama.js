@@ -2,7 +2,7 @@
 // L'indice è calcolato in anticipo (scripts/calcola-panorama.mjs) e arriva con l'archivio.
 import L from 'leaflet';
 import { escapeHtml } from '../lib/formato.js';
-import { NOMI_CRITERI, PESI, campionaPercorso, improntaTraccia, riassuntoPanorama } from '../lib/panorama.js';
+import { NOMI_CRITERI, PESI, NOTE_METODO, campionaPercorso, improntaTraccia, riassuntoPanorama, etichettaIndice } from '../lib/panorama.js';
 import { stato } from '../stato.js';
 
 export const COLORI_PANORAMA = { limitata: '#8fa39a', intermedia: '#d8b26e', panoramica: '#e0811a' };
@@ -27,7 +27,7 @@ export function htmlPanorama(s, traccia, idUrl) {
     <div class="panorama-testa">
       <div class="panorama-punteggio" style="--valore:${p.punteggio}"><b>${p.punteggio}</b><span>/100</span></div>
       <div>
-        <div class="panorama-etichetta">${escapeHtml(p.etichetta)}</div>
+        <div class="panorama-etichetta">${escapeHtml(etichettaIndice(p.punteggio))}</div>
         <div class="tenue piccolo">${p.metodo === 'viewshed' ? 'Stima con analisi di visibilità' : 'Stima preliminare'} · affidabilità <b>${escapeHtml(p.affidabilita)}</b></div>
       </div>
     </div>
@@ -57,7 +57,7 @@ export function htmlPanorama(s, traccia, idUrl) {
       ]
         .filter(Boolean)
         .join(' ')}</p>
-      <p class="tenue piccolo">${p.motivi.map(escapeHtml).join('. ')}. È una stima algoritmica, non un giudizio sulla bellezza: quota alta e assenza di bosco da sole non garantiscono un bel panorama.</p>
+      <p class="tenue piccolo">${[NOTE_METODO[p.metodo] ?? '', ...p.motivi.filter((m) => !Object.values(NOTE_METODO).includes(m))].filter(Boolean).map(escapeHtml).join('. ')}. È una stima algoritmica, non un giudizio sulla bellezza: quota alta e assenza di bosco da sole non garantiscono un bel panorama.</p>
       ${p.metodo === 'viewshed' ? '<p class="tenue piccolo">Metodo: da un punto ogni 100 m si tracciano 72 direzioni fino a 8 km e si controlla quali zone del terreno si vedono davvero (curvatura terrestre inclusa); il bosco entro 1 km copre la vista come una chioma di 15 m. La visuale combina quanto territorio si vede e quanto è basso l\'orizzonte.</p>' : ''}
       <p class="tenue piccolo">Dati: quote Terrain Tiles (AWS Open Data), bosco © ESA WorldCover 2021 (CC BY 4.0), belvedere, vette e laghi © OpenStreetMap (ODbL). Calcolato il ${escapeHtml(new Date(p.calcolato).toLocaleDateString('it-IT'))}.</p>
     </details>

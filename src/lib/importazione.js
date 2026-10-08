@@ -173,7 +173,24 @@ function perNomeUscita(percorsi, c) {
   return nelLuogo.length === 1 ? nelLuogo[0][1] : -1;
 }
 
-function trova(percorsi, c, visti) {
+// Sentieri OSM già presenti come sentieri scritti a mano: stessa relazione OSM nella traccia,
+// oppure stesso codice nello stesso parco (solo se il codice è univoco tra i candidati)
+function perSentieroOsm(percorsi, c, codiciUnivoci) {
+  const perRelazione = percorsi.findIndex((p) => (p.traccia?.dettagli?.relazioniOsm ?? []).includes(c.idOsm));
+  if (perRelazione >= 0) return perRelazione;
+  const codice = c.codici?.[0]?.toUpperCase();
+  if (!codice || !codiciUnivoci?.has(codice)) return -1;
+  const simili = percorsi
+    .map((p, i) => [p, i])
+    .filter(([p]) => !p.importazione?.creato && (p.parchi ?? [p.parco]).includes(c.parco) && (p.codici ?? []).some((k) => k.toUpperCase() === codice));
+  return simili.length === 1 ? simili[0][1] : -1;
+}
+
+function trova(percorsi, c, visti, codiciUnivoci) {
+  if (c.fonte?.startsWith('osm-sentieri')) {
+    const j = perSentieroOsm(percorsi, c, codiciUnivoci);
+    if (j >= 0) return j;
+  }
   const i = percorsi.findIndex((p) => !visti.has(p.id) && corrisponde(p, c));
   if (i >= 0 || c.fonte !== 'wolf-howling') return i;
   // la stessa uscita in più luoghi o date può confluire nello stesso percorso scritto a mano
@@ -282,6 +299,9 @@ export function aggiornaRecord(record, c, oggi) {
     if (creato && primaria) Object.assign(e, { url: c.url, nomeUscita: c.nome });
     r.escursione = e;
   }
+  // un sentiero scritto a mano senza traccia riceve quella OSM (le tracce dell'utente restano prioritarie sul telefono)
+  if (!creato && !record.traccia && c.traccia) r.traccia = c.traccia;
+  if (!creato && !record.difficolta && c.difficolta) r.difficolta = c.difficolta;
   if (creato && primaria) {
     Object.assign(r, { nome: c.nome, descrizione: c.descrizione ?? r.descrizione, tipoPercorso: c.tipo });
     if (c.partenza) r.partenza = { ...r.partenza, descrizione: c.partenza };
@@ -310,8 +330,11 @@ export function unisciImportazione(archivio, risultati, oggi) {
     const sospetta = giaPresenti >= 4 && candidati.length < giaPresenti / 2;
     if (sospetta) resoconto.fontiSospette.push(fonte);
     const visti = new Set();
+    const conta = new Map();
+    for (const c of candidati) for (const k of c.codici ?? []) conta.set(k.toUpperCase(), (conta.get(k.toUpperCase()) ?? 0) + 1);
+    const codiciUnivoci = new Set([...conta].filter(([, n]) => n === 1).map(([k]) => k));
     for (const c of candidati) {
-      const i = trova(percorsi, c, visti);
+      const i = trova(percorsi, c, visti, codiciUnivoci);
       if (i >= 0) {
         percorsi[i] = aggiornaRecord(percorsi[i], c, oggi);
         visti.add(percorsi[i].id);

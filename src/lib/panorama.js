@@ -300,19 +300,14 @@ export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale =
   if (senzaBosco > punti.length * 0.2) problemi.push('Copertura del bosco non disponibile su parte del percorso');
   if (senzaQuota) problemi.push('Quote mancanti su parte del percorso');
   if (punti.length < 15) problemi.push('Percorso molto breve');
-  const motivi = [
-    viewshed
-      ? 'Visibilità calcolata sul modello del terreno (circa 30 m) e sul bosco: edifici, singoli alberi, foschia e meteo non sono considerati'
-      : 'Stima preliminare: visuale dedotta dalla forma del terreno, senza analisi di visibilità completa',
-    ...problemi,
-  ];
+  // solo i problemi: la frase sul metodo la scrive l'app (NOTE_METODO), per un archivio più leggero
+  const motivi = problemi;
   const affidabilita = viewshed ? ['alta', 'media'][problemi.length] ?? 'bassa' : problemi.length ? 'bassa' : 'media';
 
   return {
     versione: viewshed ? 2 : 1,
     metodo,
     punteggio,
-    etichetta: etichettaIndice(punteggio),
     affidabilita,
     motivi,
     criteri,
@@ -329,6 +324,11 @@ export function calcolaPanorama(geojson, { quota, bosco, luoghi = {}, parziale =
     calcolato: oggi,
   };
 }
+
+export const NOTE_METODO = {
+  viewshed: 'Visibilità calcolata sul modello del terreno (circa 30 m) e sul bosco: edifici, singoli alberi, foschia e meteo non sono considerati',
+  preliminare: 'Stima preliminare: visuale dedotta dalla forma del terreno, senza analisi di visibilità completa',
+};
 
 // Testi brevi per la scheda
 export function riassuntoPanorama(p) {

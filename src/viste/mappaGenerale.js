@@ -205,6 +205,7 @@ export async function vistaMappaGenerale(app) {
     // elenco dei risultati con traccia: un tocco evidenzia e inquadra il percorso sulla mappa
     app.querySelector('#titoloRisultati').textContent = conTraccia.length ? `Sulla mappa (${conTraccia.length})` : '';
     app.querySelector('#risultatiMappa').innerHTML = conTraccia
+      .slice(0, 60)
       .map(
         ({ sentiero: s }) => `<li><button type="button" class="risultato" data-id="${escapeHtml(s.id)}">
           <span class="pallino-stato" style="background:${COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare}"></span>
@@ -212,7 +213,7 @@ export async function vistaMappaGenerale(app) {
             ${s.panorama ? `<span class="tenue piccolo-inline">· panorama ${s.panorama.punteggio}</span>` : ''}</span>
         </button></li>`,
       )
-      .join('');
+      .join('') + (conTraccia.length > 60 ? `<li class="tenue piccolo">e altri ${conTraccia.length - 60}: usa i filtri o la ricerca per trovarli</li>` : '');
     app.querySelector('#titoloSenza').textContent = senzaTraccia.length
       ? `Non sulla mappa: senza traccia (${senzaTraccia.length})`
       : ''; // tutti i risultati sono già sulla mappa: niente da segnalare

@@ -62,7 +62,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
   const ferma = anteprima
     ? { zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false }
     : { zoomControl: true };
-  const mappa = L.map(contenitore, { ...ferma }).setView(CENTRO_PREDEFINITO, 11);
+  // canvas: molto più veloce con centinaia di tracce (i tocchi sulle linee funzionano lo stesso)
+  const mappa = L.map(contenitore, { ...ferma, preferCanvas: true }).setView(CENTRO_PREDEFINITO, 11);
 
   let baseAttuale = null;
   function applicaBase(chiave) {

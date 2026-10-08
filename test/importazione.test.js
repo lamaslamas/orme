@@ -432,3 +432,21 @@ describe('sentieri escursionistici OSM (Pollino)', () => {
     expect(r).toMatchObject({ difficolta: 'EE', tipoPercorso: 'sentiero', accesso: { tipo: 'nessuno' } });
   });
 });
+
+describe('sentieri OSM e sentieri scritti a mano', () => {
+  const traccia = { origine: 'osm', geojson: { type: 'MultiLineString', coordinates: [[[13.8, 41.8], [13.81, 41.81]]] }, dettagli: {} };
+  const cand = (idOsm, codice) => ({ fonte: 'osm-sentieri:pnalm', tipo: 'sentiero', parco: 'pnalm', chiave: `pnalm:${idOsm}`, id: `osm-sentiero-${idOsm}`, idOsm, url: `https://www.openstreetmap.org/relation/${idOsm}`, nome: `Sentiero ${codice}`, codici: [codice], difficolta: 'E', animali: [], traccia });
+
+  it('si riconoscono dalla relazione OSM (anche due relazioni per un sentiero) o dal codice univoco', () => {
+    const semi = [
+      { id: 'b5-b4', nome: 'Monte Tranquillo', parco: 'pnalm', codici: ['C5', 'B4'], traccia: { dettagli: { relazioniOsm: [10, 11] } } },
+      { id: 'f2', nome: 'Val Fondillo', parco: 'pnalm', codici: ['F2'] },
+    ];
+    const { archivio, resoconto } = unisciImportazione({ percorsi: semi }, [{ fonte: 'osm-sentieri:pnalm', ok: true, candidati: [cand(10, 'C5'), cand(11, 'B4'), cand(20, 'F2'), cand(30, 'Z9')] }], OGGI);
+    expect(resoconto.nuovi).toEqual(['osm-sentiero-30']);
+    const f2 = archivio.percorsi.find((p) => p.id === 'f2');
+    expect(f2.traccia).toBe(traccia); // il sentiero senza traccia la riceve
+    expect(f2.difficolta).toBe('E');
+    expect(archivio.percorsi.find((p) => p.id === 'b5-b4').traccia.dettagli.relazioniOsm).toEqual([10, 11]); // la sua resta
+  });
+});

@@ -150,7 +150,10 @@ const risultati = [];
 for (const f of FONTI.filter((f) => !scelte.length || scelte.includes(f.gruppo) || scelte.includes(f.fonte))) {
   console.log(`> ${f.fonte}`);
   try {
-    const { candidati, completo } = await f.esegui();
+    // una fonte appesa (rete che non risponde più) non deve bloccare le altre
+    let timer;
+    const limite = new Promise((_, no) => (timer = setTimeout(() => no(new Error('nessuna risposta in 15 minuti')), 15 * 60_000)));
+    const { candidati, completo } = await Promise.race([f.esegui(), limite]).finally(() => clearTimeout(timer));
     console.log(`  ${candidati.length} percorsi${completo ? '' : ' (lettura parziale)'}`);
     risultati.push({ fonte: f.fonte, ok: true, completo, candidati });
   } catch (e) {
@@ -173,3 +176,6 @@ console.log(
     `\nArchivio ${cambiato ? 'aggiornato' : 'invariato'}: ${archivio.percorsi.length} percorsi.`,
 );
 for (const id of resoconto.nuovi) console.log(`  + ${id}`);
+
+// eventuali richieste di rete rimaste appese non devono tenere aperto il processo
+process.exit(0);

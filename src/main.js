@@ -130,7 +130,8 @@ window.addEventListener('orme-aggiornata-altrove', () => {
 // Se arriva tardi, la schermata viene ridisegnata con i dati aggiornati.
 async function aggiornaArchivio() {
   const controllo = new AbortController();
-  const limite = setTimeout(() => controllo.abort(), 6000);
+  // l'archivio si scarica in background: anche su reti lente si aspetta fino a 30 secondi
+  const limite = setTimeout(() => controllo.abort(), 30000);
   try {
     const risposta = await fetch(`${import.meta.env.BASE_URL}dati/archivio.json`, { signal: controllo.signal });
     if (!risposta.ok) return false;

@@ -99,8 +99,24 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   const conteggio = contenitore.querySelector('.conteggio');
   const preparati = preparaPercorsi(sentieri, tracce);
   const contaCon = (f) => filtraPercorsi(preparati, f, stato.leggi().attivita).length;
+  // elenco a pagine: con centinaia di percorsi il telefono resta veloce
+  const PAGINA = 40;
+  let ultimoRisultato = [];
+  let quanti = PAGINA;
+  const htmlPagina = (da) => {
+    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat)).join('');
+    const resto = ultimoRisultato.length - quanti;
+    return pezzo + (resto > 0 ? `<li class="altri"><button type="button" class="bottone pieno-largo" data-azione="altri">Mostra altri ${Math.min(PAGINA, resto)} (ne restano ${resto})</button></li>` : '');
+  };
   lista.addEventListener('click', (e) => {
     if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
+    if (e.target.closest('[data-azione="altri"]')) {
+      const da = quanti;
+      quanti += PAGINA;
+      lista.querySelector('.altri')?.remove();
+      lista.insertAdjacentHTML('beforeend', htmlPagina(da));
+      return;
+    }
     const togli = e.target.closest('[data-togli]')?.dataset.togli;
     if (togli) controlli.togli(togli);
   });
@@ -127,8 +143,10 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
         attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''
       }`;
       alRisultato?.(risultato);
+      ultimoRisultato = risultato;
+      quanti = PAGINA;
       lista.innerHTML = risultato.length
-        ? risultato.map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat)).join('')
+        ? htmlPagina(0)
         : `<li class="vuoto">Nessun percorso corrisponde ai filtri${attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''}.
             <span class="suggerimenti-filtri">${suggerimenti()}</span>
             <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></li>`;

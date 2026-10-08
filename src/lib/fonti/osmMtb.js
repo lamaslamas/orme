@@ -21,8 +21,8 @@ way(r);
 out tags;`;
 }
 
-// Tolleranza della semplificazione (circa 4 m) e margine attorno al parco (circa 2 km)
-const TOLLERANZA = 0.00004;
+// Tolleranza della semplificazione (circa 8 m: per seguire un sentiero basta) e margine attorno al parco (circa 2 km)
+const TOLLERANZA = 0.00008;
 const MARGINE = 0.02;
 const MINIMO_KM = 1;
 
