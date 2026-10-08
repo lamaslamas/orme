@@ -413,3 +413,22 @@ describe('itinerari dentro il confine vero', () => {
     expect(r.map((x) => x.id)).toEqual(['dentro']);
   });
 });
+
+describe('sentieri escursionistici OSM (Pollino)', () => {
+  it('codice CAI, difficoltà, trekking percorribile e bici da valutare', async () => {
+    const { candidatiSentieri, querySentieriParco } = await import('../src/lib/fonti/osmSentieri.js');
+    expect(querySentieriParco('pollino')).toContain('rel["route"="hiking"](39.61,15.82,40.23,16.44)');
+    const geom = [{ lat: 39.9, lon: 16.1 }, { lat: 39.91, lon: 16.11 }];
+    const rel = (id, tags) => ({ type: 'relation', id, tags: { route: 'hiking', ...tags }, members: [{ type: 'way', ref: id, geometry: geom.map((p) => ({ lat: p.lat + id / 1000, lon: p.lon })) }] });
+    const c = candidatiSentieri(
+      { elements: [rel(1, { ref: '631', name: 'Sentiero del Caramolo', cai_scale: 'EE', operator: 'CAI' }), rel(2, { ref: 'SI', from: 'Piano di Lanzo', to: 'Piano Novacco' })] },
+      'pollino',
+    );
+    expect(c[0]).toMatchObject({ nome: 'Sentiero del Caramolo', codici: ['631'], difficolta: 'EE', tipo: 'sentiero', id: 'osm-sentiero-1' });
+    expect(c[0].attivita.trekking.stato).toBe('percorribile');
+    expect(c[0].attivita.mtb).toBeUndefined();
+    expect(c[1]).toMatchObject({ nome: 'Sentiero Italia CAI: Piano di Lanzo – Piano Novacco', codici: [] });
+    const r = unisciImportazione({ percorsi: [] }, [{ fonte: 'osm-sentieri:pollino', ok: true, candidati: c }], OGGI).archivio.percorsi[0];
+    expect(r).toMatchObject({ difficolta: 'EE', tipoPercorso: 'sentiero', accesso: { tipo: 'nessuno' } });
+  });
+});

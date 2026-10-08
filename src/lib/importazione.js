@@ -211,12 +211,12 @@ export function nuovoRecord(c, oggi) {
       ? { tipo: 'guida', nota: 'Uscita con guida: il percorso non è indicato come autonomo', link: c.url }
       : { tipo: 'nessuno', nota: '', link: c.url },
     daVerificare: true,
-    difficolta: null,
+    difficolta: c.difficolta ?? null,
   });
   return {
     ...r,
     attivita: c.attivita ?? (guidata ? attivitaUscitaGuidata(c) : undefined),
-    // uscita_guidata | itinerario_mtb
+    // uscita_guidata | itinerario_mtb | sentiero
     tipoPercorso: c.tipo,
     osservazione: (c.animali ?? []).length > 0,
     organizzatori: c.organizzatore ? [c.organizzatore] : [],
@@ -288,6 +288,7 @@ export function aggiornaRecord(record, c, oggi) {
     if (c.attivita) r.attivita = c.attivita;
     if (c.traccia) r.traccia = c.traccia;
     if (c.codici) r.codici = c.codici;
+    if (c.difficolta) r.difficolta = c.difficolta;
   }
   return r;
 }

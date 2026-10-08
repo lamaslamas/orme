@@ -8,6 +8,7 @@ import { unisciImportazione } from '../src/lib/importazione.js';
 import { ECOTUR, linkEscursioni, leggiPaginaEcotur } from '../src/lib/fonti/ecotur.js';
 import { WOLF_HOWLING, linkNotizieWolfHowling, linkPdfWolfHowling, righeTabella, candidatiWolfHowling } from '../src/lib/fonti/wolfHowling.js';
 import { OSM_MTB, queryMtbParco, candidatiMtb, soloDentroIlConfine } from '../src/lib/fonti/osmMtb.js';
+import { OSM_SENTIERI, querySentieriParco, candidatiSentieri } from '../src/lib/fonti/osmSentieri.js';
 import { queryConfine, anelliDaRelazione } from '../src/lib/confini.js';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { controllaArchivio } from '../src/lib/archivio.js';
@@ -108,13 +109,15 @@ async function importaWolfHowling() {
   return { candidati, completo: true };
 }
 
-async function importaMtb(parco) {
+// Relazioni OSM di un parco (itinerari MTB o sentieri), con il filtro sul confine vero
+// per i parchi cercati con il riquadro
+async function importaDaOsm(parco, query, leggiCandidati) {
   const fetchConAgente = (url, opzioni) => fetch(url, { ...opzioni, headers: { ...opzioni.headers, 'User-Agent': AGENTE } });
   let ultimo;
   for (let tentativo = 1; tentativo <= 3; tentativo++) {
     try {
-      const json = await interrogaOverpass(queryMtbParco(parco.id), { fetchFn: fetchConAgente, timeoutMs: 200_000 });
-      let candidati = candidatiMtb(json, parco.id);
+      const json = await interrogaOverpass(query(parco.id), { fetchFn: fetchConAgente, timeoutMs: 200_000 });
+      let candidati = leggiCandidati(json, parco.id);
       if (parco.osm.way) {
         // cercato con il riquadro: serve il confine vero per scartare i parchi vicini
         const anelli = anelliDaRelazione(await interrogaOverpass(queryConfine(parco.osm), { fetchFn: fetchConAgente, timeoutMs: 120_000 }));
@@ -124,7 +127,7 @@ async function importaMtb(parco) {
       return { candidati, completo: true };
     } catch (e) {
       ultimo = e;
-      console.warn(`  osm-mtb ${parco.id}: tentativo ${tentativo} fallito (${e.message})`);
+      console.warn(`  osm ${parco.id}: tentativo ${tentativo} fallito (${e.message})`);
       await attendi(30_000 * tentativo);
     }
   }
@@ -134,7 +137,12 @@ async function importaMtb(parco) {
 const FONTI = [
   { fonte: ECOTUR.fonte, gruppo: 'ecotur', esegui: importaEcotur },
   { fonte: WOLF_HOWLING.fonte, gruppo: 'wolf-howling', esegui: importaWolfHowling },
-  ...PARCHI.map((p) => ({ fonte: `${OSM_MTB.fonte}:${p.id}`, gruppo: 'osm-mtb', esegui: () => importaMtb(p) })),
+  ...PARCHI.map((p) => ({ fonte: `${OSM_MTB.fonte}:${p.id}`, gruppo: 'osm-mtb', esegui: () => importaDaOsm(p, queryMtbParco, candidatiMtb) })),
+  ...PARCHI.filter((p) => OSM_SENTIERI.parchi.includes(p.id)).map((p) => ({
+    fonte: `${OSM_SENTIERI.fonte}:${p.id}`,
+    gruppo: 'osm-sentieri',
+    esegui: () => importaDaOsm(p, querySentieriParco, candidatiSentieri),
+  })),
 ];
 
 const scelte = process.argv.slice(2);

@@ -35,7 +35,8 @@ Ogni giorno `.github/workflows/archivio.yml` esegue `scripts/importa-archivio.mj
 
 - **Ecotur** (escursioni di un giorno nel PNALM), rispettando il `Crawl-delay` di robots.txt;
 - **calendario Wolf Howling** del Parco Nazionale delle Foreste Casentinesi (PDF);
-- **itinerari MTB** segnati su OpenStreetMap dentro ciascun parco (ODbL).
+- **itinerari MTB** segnati su OpenStreetMap dentro ciascun parco (ODbL);
+- **sentieri escursionistici** segnati su OpenStreetMap (CAI, Sentiero Italia), per ora solo nel Pollino.
 
 Le uscite delle associazioni diventano percorsi "solo con guida", senza traccia
 (nessuna traccia inventata). Non vengono salvati nomi di guide, email o telefoni.
@@ -44,7 +45,7 @@ viene segnato "non più verificabile". Per provarlo in locale:
 
 ```bash
 node scripts/importa-archivio.mjs              # tutte le fonti
-node scripts/importa-archivio.mjs ecotur       # una sola: ecotur, wolf-howling, osm-mtb
+node scripts/importa-archivio.mjs ecotur       # una sola: ecotur, wolf-howling, osm-mtb, osm-sentieri
 ```
 
 ## Distribuzione ufficiale delle specie
