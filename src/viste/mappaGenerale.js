@@ -214,8 +214,8 @@ export async function vistaMappaGenerale(app) {
       )
       .join('');
     app.querySelector('#titoloSenza').textContent = senzaTraccia.length
-      ? `Sentieri senza traccia (${senzaTraccia.length})`
-      : 'Tutti i sentieri filtrati hanno una traccia.';
+      ? `Non sulla mappa: senza traccia (${senzaTraccia.length})`
+      : ''; // tutti i risultati sono già sulla mappa: niente da segnalare
     app.querySelector('#senzaTraccia').innerHTML = senzaTraccia
       .map(
         (s) => `<li>
