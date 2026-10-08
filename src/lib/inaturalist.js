@@ -16,7 +16,10 @@ export const STAGIONI = {
 // altrimenti la chiave di un animale
 export const SPECIE_RARE = ['orso', 'lupo', 'camoscio', 'lontra', 'gatto_selvatico', 'aquila_reale', 'cervo', 'cicogna_nera', 'nibbio_reale', 'gufo_reale'];
 
-export const FILTRI_INAT_PREDEFINITI = { specie: 'rare', stagione: 'tutto', anni: 0, soloVerificate: true };
+export const FILTRI_INAT_PREDEFINITI = { specie: 'rare', stagione: 'tutto', anni: 0, soloVerificate: true, correggiSforzo: false };
+
+// specie "tutte": nessun filtro di specie, per il riferimento della correzione dello sforzo
+export const TUTTE_LE_SPECIE = 'tutte';
 
 // Parametri comuni a tile e ricerche; "oggi" serve ai test
 export function parametriInat(filtri, oggi = new Date()) {

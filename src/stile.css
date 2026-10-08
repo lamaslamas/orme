@@ -592,3 +592,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .foglio p { line-height: 1.45; }
 .con-heatmap .legenda { display: none; }
 .pannello-heatmap.ridotto .heat-legenda { margin-top: 6px; }
+.heat-filtri .intera-riga { grid-column: 1 / -1; }
+.griglia-legenda b { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
+.griglia-legenda b.insufficiente { background: #9ca3af; opacity: 0.6; margin-left: 8px; }
+.pannello-heatmap { left: 54px; }

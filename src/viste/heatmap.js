@@ -12,7 +12,13 @@ import {
   urlOsservazioni,
   interpretaOsservazioni,
   riquadroAttorno,
+  urlTileGriglia,
+  TUTTE_LE_SPECIE,
 } from '../lib/inaturalist.js';
+import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
+
+const COLORI_CLASSI = { 0: '#f3f4f6', 1: '#c4b5fd', 2: '#7c6cf0', 3: '#3c9a2a', 4: '#e2d600' };
+const MASSIMO_TILE = 12;
 
 const CHIAVE = 'orme.heatmap';
 const RAGGIO_TOCCO_PX = 28;
@@ -24,6 +30,7 @@ export const SPIEGAZIONE_HEATMAP = `
   <p><b>Cosa mostra.</b> Le zone colorate indicano dove sono state registrate più osservazioni su iNaturalist (dal rosa: poche, al giallo: molte). È una densità relativa, non un conteggio, e la scala cambia con lo zoom.</p>
   <p><b>Posizioni sfumate.</b> Per le specie protette (orso, lupo, camoscio e altre) iNaturalist sposta di proposito ogni osservazione dentro un quadrato di circa 20 km. Per queste specie la heatmap indica solo la zona generale: a zoom alto non va letta come posizione reale.</p>
   <p><b>Dove passano più persone.</b> Le osservazioni si concentrano vicino a strade, paesi e sentieri frequentati: una zona vuota spesso significa solo che lì nessuno ha fotografato, non che l'animale manchi. Non è un censimento.</p>
+  <p><b>Correzione per lo sforzo.</b> Con questa opzione, invece della heatmap, ogni cella mostra quante osservazioni della specie ci sono rispetto a tutte le osservazioni verificate nella stessa cella e nello stesso periodo. Così una zona molto frequentata non risulta "ricca" solo perché ci passa tanta gente. Le celle grigie hanno troppo pochi dati (meno di ${MINIMO_RIFERIMENTO} osservazioni in tutto). La correzione non rimedia alle posizioni sfumate delle specie protette e funziona meglio a zoom medio (vista di un parco o di una valle).</p>
   <p><b>Solo verificate.</b> Con "solo research grade" restano le osservazioni con data, luogo e foto la cui specie è stata confermata da altri utenti.</p>
   <p class="tenue">Dati e foto © degli autori su iNaturalist, con licenze Creative Commons indicate su ogni osservazione. I tuoi avvistamenti personali non sono mai inclusi.</p>`;
 
@@ -99,8 +106,77 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   });
   new Controllo().addTo(mappa);
 
+  let griglia = null;
+  let richiestaGriglia = 0;
+
+  async function disegnaGriglia() {
+    const mia = ++richiestaGriglia;
+    const stato = () => pannello.querySelector('#statoGriglia');
+    const z = Math.min(12, Math.max(7, Math.round(mappa.getZoom())));
+    const b = mappa.getBounds();
+    const tile = tilePerRiquadro([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], z);
+    if (tile.length > MASSIMO_TILE) {
+      griglia?.clearLayers();
+      if (stato()) stato().textContent = 'Avvicina la mappa per calcolare la correzione.';
+      return;
+    }
+    if (stato()) stato().textContent = 'Calcolo il rapporto per cella…';
+    const prendi = async (url) => {
+      const risposta = await fetch(url);
+      if (!risposta.ok) throw new Error(`iNaturalist ha risposto ${risposta.status}`);
+      return risposta.json();
+    };
+    const sostituisci = (u, x, y) => u.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+    let celle;
+    try {
+      const parti = await Promise.all(
+        tile.map(async ([x, y]) => {
+          const [specie, tutte] = await Promise.all([
+            prendi(sostituisci(urlTileGriglia(filtri), x, y)),
+            prendi(sostituisci(urlTileGriglia({ ...filtri, specie: TUTTE_LE_SPECIE }), x, y)),
+          ]);
+          return rapportoSforzo(celleDaTile(z, x, y, specie), celleDaTile(z, x, y, tutte));
+        }),
+      );
+      celle = classifica(parti.flat());
+    } catch (e) {
+      if (mia === richiestaGriglia && stato()) stato().textContent = `Correzione non disponibile (${e.message}).`;
+      return;
+    }
+    if (mia !== richiestaGriglia || !attiva || !filtri.correggiSforzo) return;
+    griglia ??= L.layerGroup().addTo(mappa);
+    griglia.clearLayers();
+    for (const c of celle) {
+      const [s, o, n, e] = c.limiti;
+      L.rectangle(
+        [
+          [s, o],
+          [n, e],
+        ],
+        c.classe == null
+          ? { pane: 'heatmap', stroke: false, fillColor: '#9ca3af', fillOpacity: 0.25, interactive: false }
+          : { pane: 'heatmap', stroke: false, fillColor: COLORI_CLASSI[c.classe], fillOpacity: c.classe === 0 ? 0.35 : 0.6, interactive: false },
+      ).addTo(griglia);
+    }
+    const valide = celle.filter((c) => c.classe != null).length;
+    if (stato()) stato().textContent = `${valide} celle con dati sufficienti, ${celle.length - valide} con dati scarsi.`;
+  }
+
+  let attesa = null;
+  mappa.on('moveend', () => {
+    if (!attiva || !filtri.correggiSforzo) return;
+    clearTimeout(attesa);
+    attesa = setTimeout(disegnaGriglia, 600);
+  });
+
   function disegnaLivello() {
     livello?.remove();
+    livello = null;
+    griglia?.clearLayers();
+    if (filtri.correggiSforzo) {
+      disegnaGriglia();
+      return;
+    }
     livello = L.tileLayer(urlTileHeatmap(filtri), {
       pane: 'heatmap',
       opacity: 0.8,
@@ -129,8 +205,16 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
           .map(([v, et]) => `<option value="${v}" ${Number(filtri.anni) === v ? 'selected' : ''}>${et}</option>`)
           .join('')}</select>
         <label class="scelta"><input type="checkbox" name="soloVerificate" ${filtri.soloVerificate ? 'checked' : ''}/> Solo research grade</label>
+        <label class="scelta intera-riga"><input type="checkbox" name="correggiSforzo" ${filtri.correggiSforzo ? 'checked' : ''}/> Correggi per lo sforzo di osservazione</label>
       </div>
-      <div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div>
+      ${
+        filtri.correggiSforzo
+          ? `<div class="heat-legenda griglia-legenda"><span>rispetto a tutte: poche</span>${[1, 2, 3, 4]
+              .map((c) => `<b style="background:${COLORI_CLASSI[c]}"></b>`)
+              .join('')}<span>molte</span><b class="insufficiente"></b><span>dati scarsi</span></div>
+             <p class="misura-nota" id="statoGriglia"></p>`
+          : '<div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div>'
+      }
       <p class="misura-nota">Tocca una zona colorata per vedere le osservazioni. Dati © iNaturalist (CC).</p>`;
     pannello.hidden = false;
   }
@@ -140,6 +224,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     if (!name) return;
     filtri[name] = e.target.type === 'checkbox' ? e.target.checked : name === 'anni' ? Number(e.target.value) : e.target.value;
     salvaFiltri(filtri);
+    if (name === 'correggiSforzo') disegnaPannello();
     disegnaLivello();
   });
 
@@ -165,6 +250,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     mappa.getContainer().classList.remove('con-heatmap');
     livello?.remove();
     livello = null;
+    griglia?.clearLayers();
     pannello.hidden = true;
   }
 
