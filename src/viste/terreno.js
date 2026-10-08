@@ -23,7 +23,8 @@ function barra(segmenti, totaleM, colore) {
     .join('')}</svg>`;
 }
 
-export function htmlTerreno(percorso, pezzi, attributo = 'highway') {
+// aperto: valutazione MTB già aperta (modalità MTB ed e-MTB)
+export function htmlTerreno(percorso, pezzi, attributo = 'highway', { aperto = false } = {}) {
   const tratti = percorso.terreno ?? [];
   if (!tratti.length) {
     return `<section class="riquadro" id="terreno">
@@ -64,7 +65,7 @@ export function htmlTerreno(percorso, pezzi, attributo = 'highway') {
         ? 'Tag OSM dei tratti scelti da BRouter.'
         : 'Tag OSM della via più vicina ogni 25 m (entro 20 m): vicino agli incroci può sbagliare.'
     } Dato indicato su ${fmt(indicati)} km di ${fmt(totaleM / 1000)}: in Appennino molti sentieri non hanno questi tag.</p>
-    <details class="spiegazione mtb">
+    <details class="spiegazione mtb" ${aperto ? 'open' : ''}>
       <summary>Valutazione MTB (facoltativa)</summary>
       ${barra(mtb.tratti, totaleM, (s) => COLORI_MTB[s.classe])}
       <dl>${CLASSI_MTB.filter((c) => mtb.km[c] > 0.01)

@@ -1,5 +1,6 @@
 import { ANIMALI } from './costanti.js';
 import { PARCHI } from '../datiParchi.js';
+import { animaliPossibili } from './faunaPercorso.js';
 
 export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '' };
 
@@ -15,7 +16,8 @@ export function filtraSentieri(sentieri, filtri) {
   const testo = normalizza(filtri.testo);
   return sentieri.filter((s) => {
     if (filtri.parco && !(s.parchi ?? [s.parco || 'pnalm']).includes(filtri.parco)) return false;
-    if (filtri.animale && !(s.animali ?? []).includes(filtri.animale)) return false;
+    // animali delle associazioni e quelli osservati su iNaturalist lungo il percorso o nella zona
+    if (filtri.animale && !animaliPossibili(s).includes(filtri.animale)) return false;
     if (filtri.stato && s.stato !== filtri.stato) return false;
     if (filtri.accesso && (s.accesso?.tipo || 'nessuno') !== filtri.accesso) return false;
     if (filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
@@ -39,7 +41,7 @@ function testoNelSentiero(s, testo) {
       ...(s.codici ?? []),
       s.partenza?.paese,
       ...parchi.flatMap((p) => [p.nome, p.nomeBreve]),
-      ...(s.animali ?? []).map((a) => ANIMALI[a] ?? a),
+      ...animaliPossibili(s).map((a) => ANIMALI[a] ?? a),
       ...(s.organizzatori ?? []),
       s.escursione?.associazione,
       s.escursione?.nomeUscita,

@@ -48,6 +48,16 @@ node scripts/importa-archivio.mjs              # tutte le fonti
 node scripts/importa-archivio.mjs ecotur       # una sola: ecotur, wolf-howling, osm-mtb, osm-sentieri
 ```
 
+## Arricchimento giornaliero (scripts/calcola-panorama.mjs)
+
+Dopo l'importazione, per ogni percorso con traccia:
+- **animali da iNaturalist**: osservazioni verificate "lungo il percorso" (entro 500 m) o "nella zona"
+  (posizioni sfumate delle specie protette), solo conteggi, nessun dato sugli osservatori;
+- **indice panoramico** (analisi di visibilità sul terreno);
+- **terreno** (tag OSM delle vie), al massimo 20 minuti per giro: si completa nei giorni successivi.
+
+I confini dei parchi sono in `public/dati/confini.json` (`node scripts/scarica-confini.mjs`).
+
 ## Distribuzione ufficiale delle specie
 
 `public/dati/distribuzione.json` contiene le celle di 10 km della Direttiva Habitat

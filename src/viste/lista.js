@@ -5,7 +5,7 @@ import { stato } from '../stato.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
-import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
+import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi, definizioni } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
 import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
@@ -50,9 +50,14 @@ export function bollinoCompatibilita(compat, attivita) {
 export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
   const m = misureSentiero(s, traccia);
   const luogo = [s.zona, s.partenza?.paese && `da ${s.partenza.paese}`].filter(Boolean).map(escapeHtml).join(' · ');
-  const animali = (s.animali ?? [])
-    .map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`)
-    .join('');
+  const animali =
+    (s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('') +
+    // dagli avvistamenti verificati di iNaturalist (non già indicati dalle associazioni)
+    (s.faunaInat?.specie ?? [])
+      .filter((x) => !(s.animali ?? []).includes(x.animale))
+      .slice(0, 4)
+      .map((x) => `<span class="chip chip-inat" title="Osservato su iNaturalist ${x.livello === 'percorso' ? 'lungo il percorso' : 'nella zona'}">${ANIMALI[x.animale]}${x.livello === 'zona' ? ' · zona' : ''}</span>`)
+      .join('');
   const tipo = s.accesso?.tipo || 'nessuno';
   const numeri = rigaNumeri(m);
   return `
@@ -82,7 +87,8 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
 }
 
 // Elenco dei sentieri con ricerca e filtri, usato dalla pagina Parchi e da quella di ogni parco
-export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true } = {}) {
+// alRisultato(risultato): chiamata a ogni aggiornamento (es. per mostrare sulla mappa gli stessi percorsi)
+export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
     ${htmlFiltri(sentieri, filtri, { ricerca })}
@@ -92,9 +98,24 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   const lista = contenitore.querySelector('.lista');
   const conteggio = contenitore.querySelector('.conteggio');
   const preparati = preparaPercorsi(sentieri, tracce);
+  const contaCon = (f) => filtraPercorsi(preparati, f, stato.leggi().attivita).length;
   lista.addEventListener('click', (e) => {
     if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
+    const togli = e.target.closest('[data-togli]')?.dataset.togli;
+    if (togli) controlli.togli(togli);
   });
+  // risultato vuoto: quali filtri, tolti uno alla volta, darebbero dei percorsi
+  function suggerimenti() {
+    return definizioni(sentieri, parcoFisso, stato.leggi().attivita)
+      .filter((d) => filtri[d.chiave] && !(parcoFisso && d.chiave === 'parco'))
+      .map((d) => ({ d, n: contaCon({ ...filtri, [d.chiave]: '' }) }))
+      .filter((x) => x.n > 0)
+      .map(({ d, n }) => {
+        const et = d.voci.find(([v]) => v === filtri[d.chiave])?.[1] ?? filtri[d.chiave];
+        return `<button type="button" class="pillola" data-togli="${d.chiave}">Togli ${escapeHtml(d.breve ? d.breve(filtri[d.chiave], et) : et)} (${n})</button>`;
+      })
+      .join('');
+  }
   const controlli = collegaFiltri(
     contenitore.querySelector('.filtri'),
     sentieri,
@@ -102,13 +123,17 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
     () => {
       const attivita = stato.leggi().attivita;
       const risultato = filtraPercorsi(preparati, filtri, attivita);
-      const attivi = filtriAttivi(filtri) - (parcoFisso ? 1 : 0) || attivita !== 'trekking';
-      conteggio.textContent = attivi ? `${risultato.length} di ${sentieri.length} percorsi` : `${sentieri.length} percorsi`;
+      conteggio.textContent = `${risultato.length} ${risultato.length === 1 ? 'percorso' : 'percorsi'}${
+        attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''
+      }`;
+      alRisultato?.(risultato);
       lista.innerHTML = risultato.length
         ? risultato.map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat)).join('')
-        : `<li class="vuoto">Nessun percorso corrisponde ai filtri${attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''}. <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></li>`;
+        : `<li class="vuoto">Nessun percorso corrisponde ai filtri${attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''}.
+            <span class="suggerimenti-filtri">${suggerimenti()}</span>
+            <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></li>`;
     },
-    { parcoFisso },
+    { parcoFisso, conta: contaCon },
   );
   return controlli;
 }

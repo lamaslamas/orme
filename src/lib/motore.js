@@ -34,7 +34,13 @@ export function filtraPercorsi(preparati, filtri, attivita = 'trekking') {
       nelIntervallo(p.misure.km, filtri.distanza) &&
       nelIntervallo(p.misure.salita, filtri.dislivello) &&
       nelIntervallo(p.misure.durataMin, filtri.durata) &&
-      visibileInModalita(p.compat, attivita, { soloPercorribili: attivita !== 'trekking' && filtri.soloBici === 'si' }) &&
+      visibileInModalita(p.compat, attivita) &&
+      // in bici di base: itinerari per bici e percorsi percorribili; i sentieri a piedi
+      // "da verificare" solo se richiesto ("Anche i sentieri da verificare")
+      (attivita === 'trekking' ||
+        filtri.soloBici === 'tutti' ||
+        p.sentiero.tipoPercorso === 'itinerario_mtb' ||
+        ['percorribile', 'con_limitazioni'].includes(p.compat[attivita]?.stato)) &&
       // gli itinerari per bici compaiono solo nelle modalità MTB ed e-MTB
       !(attivita === 'trekking' && p.sentiero.tipoPercorso === 'itinerario_mtb'),
   );

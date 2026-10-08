@@ -65,7 +65,16 @@ export async function vistaParco(app, id) {
   `;
 
   const scollegaAttivita = collegaSelettoreAttivita(app);
-  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { parcoFisso: parco.id });
+  // la mappa mostra gli stessi percorsi dell'elenco (modalità e filtri scelti)
+  let ultimoRisultato = null;
+  let disegnaPercorsi = () => {};
+  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, {
+    parcoFisso: parco.id,
+    alRisultato: (risultato) => {
+      ultimoRisultato = risultato;
+      disegnaPercorsi();
+    },
+  });
 
   const mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
   // centratura immediata sul riquadro del parco; il confine, quando arriva, la affina
@@ -82,11 +91,16 @@ export async function vistaParco(app, id) {
   aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
   const percorsi = L.layerGroup();
-  for (const s of conTraccia) {
-    disegnaTraccia(tracce.get(s.id).geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 4 })
-      .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
-      .addTo(percorsi);
-  }
+  disegnaPercorsi = () => {
+    percorsi.clearLayers();
+    for (const { sentiero: s, traccia } of ultimoRisultato ?? conTraccia.map((x) => ({ sentiero: x, traccia: tracce.get(x.id) }))) {
+      if (!traccia?.geojson) continue;
+      disegnaTraccia(traccia.geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 4 })
+        .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
+        .addTo(percorsi);
+    }
+  };
+  disegnaPercorsi();
   mappa.suLivello('percorsi', (acceso) => (acceso ? percorsi.addTo(mappa) : percorsi.remove()));
 
   // selettore degli animali: è la stessa scelta di heatmap e filtri

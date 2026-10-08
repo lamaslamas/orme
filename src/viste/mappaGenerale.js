@@ -11,7 +11,6 @@ import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { aggiungiDistribuzione } from './distribuzione.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
-import { tuttiIConfini } from '../db.js';
 import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import { stato } from '../stato.js';
@@ -69,9 +68,9 @@ export async function vistaMappaGenerale(app) {
   `;
 
   const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
-  // confini dei parchi già scaricati (si scaricano aprendo la pagina del parco)
   const confini = L.layerGroup();
-  for (const confine of await tuttiIConfini()) disegnaConfine(confine).addTo(confini);
+  // confini di tutti i parchi (dal telefono o dal file dell'app, senza aspettare Overpass)
+  for (const parco of PARCHI) ottieniConfine(parco).then((c) => disegnaConfine(c).addTo(confini)).catch(() => {});
   mappa.suLivello('confini', (acceso) => (acceso ? confini.addTo(mappa) : confini.remove()));
   const livello = L.layerGroup();
   mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));

@@ -11,6 +11,9 @@ import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
 import { htmlPanorama, collegaPanorama } from './panorama.js';
 import { htmlFotoPersonali, collegaFotoPersonali } from './fotoPersonali.js';
+import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
+import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
+import { improntaTraccia } from '../lib/panorama.js';
 
 const STATI_VERIFICA = {
   verificato: 'Verificato',
@@ -52,6 +55,73 @@ function htmlFontiVerifica(s) {
     }
     ${s.verifica ? `<p class="tenue piccolo">Stato: ${STATI_VERIFICA[s.verifica.stato] ?? escapeHtml(s.verifica.stato)} (informativo, dall'archivio di Orme).</p>` : ''}
   </section>`;
+}
+
+// Animali che si possono incontrare: dalle uscite delle associazioni e da iNaturalist
+function htmlFauna(s) {
+  const associazioni = s.animali ?? [];
+  const inat = (s.faunaInat?.specie ?? []).filter((x) => !associazioni.includes(x.animale) || x.livello === 'percorso');
+  if (!associazioni.length && !inat.length) {
+    return s.faunaInat
+      ? `<section class="riquadro fauna"><h2>Animali che si possono incontrare</h2><p class="tenue">Su iNaturalist non ci sono abbastanza osservazioni verificate lungo questo percorso.</p></section>`
+      : '';
+  }
+  const riga = (nome, testo) => `<li><b>${escapeHtml(nome)}</b> <span class="tenue">${testo}</span></li>`;
+  return `<section class="riquadro fauna">
+    <h2>Animali che si possono incontrare</h2>
+    <ul class="elenco-fauna">
+      ${associazioni.map((a) => riga(ANIMALI[a] ?? a, '· indicato dalle uscite di osservazione')).join('')}
+      ${inat
+        .filter((x) => !associazioni.includes(x.animale))
+        .map((x) =>
+          riga(
+            ANIMALI[x.animale],
+            `· ${x.livello === 'percorso' ? 'osservato lungo il percorso' : 'osservato nella zona'} su iNaturalist (${x.osservazioni} osservazioni di ${x.persone} persone${x.mesi ? `, soprattutto ${x.mesi}` : ''})`,
+          ),
+        )
+        .join('')}
+    </ul>
+    <p class="tenue piccolo">Da osservazioni verificate (research grade) di iNaturalist${s.faunaInat?.calcolato ? `, aggiornate il ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''}. "Nella zona": per le specie protette iNaturalist sfuma la posizione di circa 10 km, quindi indica solo la presenza nei dintorni. Non è una garanzia di incontro: resta sui sentieri e osserva a distanza.</p>
+  </section>`;
+}
+
+// Terreno lungo la traccia (tag OSM), visibile in tutte le modalità; in MTB ed e-MTB
+// la valutazione per la bici è già aperta. Dato dall'archivio o letto qui da OSM.
+async function collegaTerreno(app, s, traccia) {
+  const box = app.querySelector('#contenitoreTerreno');
+  if (!box) return;
+  const pezzi = percorsoSentiero(traccia.geojson).pezzi;
+  const geometria = improntaTraccia(traccia.geojson).split('-')[1];
+  let tratti = traccia.dettagli?.terrenoImpronta === geometria ? traccia.dettagli.terreno : null;
+  if (!tratti) {
+    const locale = await leggiTerrenoSalvato(s.id);
+    if (locale?.impronta === geometria) tratti = locale.tratti;
+  }
+  let attributo = 'highway';
+  const disegna = () => {
+    box.innerHTML = htmlTerreno({ terreno: tratti ?? [] }, pezzi, attributo, { aperto: statoApp.leggi().attivita !== 'trekking' });
+  };
+  box.addEventListener('click', async (e) => {
+    const a = e.target.closest('[data-attributo]')?.dataset.attributo;
+    if (a) {
+      attributo = a;
+      disegna();
+    }
+    if (e.target.closest('[data-azione="leggi-terreno"]')) {
+      const stato = box.querySelector('#statoTerreno');
+      e.target.disabled = true;
+      stato.textContent = 'Leggo il terreno da OpenStreetMap…';
+      try {
+        tratti = await leggiTerrenoDaOsm(pezzi);
+        await salvaTerrenoSalvato(s.id, geometria, tratti);
+        disegna();
+      } catch (err) {
+        stato.textContent = `Non riuscito: ${err.message}`;
+        e.target.disabled = false;
+      }
+    }
+  });
+  disegna();
 }
 
 // Pulsanti per raggiungere la partenza con un'app esterna, partendo da dove mi trovo
@@ -247,11 +317,14 @@ export async function vistaScheda(app, id) {
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
 
+      ${htmlFauna(s)}
+
       ${htmlCompatibilita(s, traccia)}
 
       ${riquadroBici(s, traccia)}
 
       ${traccia ? htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi) : ''}
+      ${traccia ? '<div id="contenitoreTerreno"></div>' : ''}
       ${traccia ? htmlNaturaSentiero() : ''}
 
       <section class="riquadro">
@@ -351,6 +424,7 @@ export async function vistaScheda(app, id) {
   const fileGpx = app.querySelector('#fileGpxScheda');
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
+  if (traccia) collegaTerreno(app, s, traccia);
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {

@@ -10,6 +10,9 @@ import { PNG } from 'pngjs';
 import { calcolaPanorama, improntaTraccia } from '../src/lib/panorama.js';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { parcoDa } from '../src/datiParchi.js';
+import { percorsoSentiero } from '../src/lib/tracce.js';
+import { puntiOgni, abbinaTerreno, vieDaRisposta, queryVieVicine, queryTrattiRelazioni } from '../src/lib/terreno.js';
+import { faunaDalleOsservazioni, TAXA_FAUNA } from '../src/lib/faunaPercorso.js';
 
 const FILE = 'public/dati/archivio.json';
 const AGENTE = 'Orme/0.6 (archivio personale di sentieri; https://lamaslamas.github.io/orme/)';
@@ -157,9 +160,74 @@ function riquadro(geojson, margineGradi) {
   return [Math.min(...lon) - margineGradi, Math.min(...lat) - margineGradi, Math.max(...lon) + margineGradi, Math.max(...lat) + margineGradi];
 }
 
+// ---------- terreno (tag OSM delle vie lungo la traccia) ----------
+// Per le tracce prese da relazioni OSM si leggono i loro tratti; per le altre le vie vicine.
+async function terrenoDellaTraccia(traccia) {
+  const fetchFn = (url, opz) => fetch(url, { ...opz, headers: { ...opz.headers, 'User-Agent': AGENTE } });
+  const { pezzi } = percorsoSentiero(traccia.geojson);
+  const punti = puntiOgni(pezzi, 25);
+  const relazioni = traccia.dettagli?.relazioniOsm ?? [];
+  let query;
+  if (relazioni.length) query = queryTrattiRelazioni(relazioni);
+  else {
+    const passo = Math.max(2, Math.ceil(punti.length / 1500));
+    query = queryVieVicine(punti.filter((_, i) => i % passo === 0));
+  }
+  const vie = vieDaRisposta(await interrogaOverpass(query, { fetchFn, timeoutMs: 150_000 }));
+  if (!vie.length) throw new Error('nessuna via trovata');
+  return abbinaTerreno(punti, vie);
+}
+
 const archivio = JSON.parse(readFileSync(FILE, 'utf8'));
 let calcolati = 0;
 let saltati = 0;
+// ---------- fauna da iNaturalist (osservazioni verificate delle specie di Orme) ----------
+// Una volta per parco: tutte le osservazioni nel riquadro (più un margine), poi il confronto
+// con ogni percorso avviene qui. Si rispetta il limite di circa una richiesta al secondo.
+const osservazioniPerParco = new Map();
+async function osservazioniDelParco(idParco) {
+  if (osservazioniPerParco.has(idParco)) return osservazioniPerParco.get(idParco);
+  const [s, o, n, e] = parcoDa(idParco).bbox;
+  const m = 0.15;
+  const risultati = [];
+  let dopo = 0;
+  for (let pagina = 0; pagina < 60; pagina++) {
+    const url =
+      `https://api.inaturalist.org/v1/observations?taxon_id=${TAXA_FAUNA.join(',')}&quality_grade=research` +
+      `&swlat=${s - m}&swlng=${o - m}&nelat=${n + m}&nelng=${e + m}&per_page=200&order_by=id&order=asc&id_above=${dopo}`;
+    const r = await fetch(url, { headers: { 'User-Agent': AGENTE }, signal: AbortSignal.timeout(60_000) });
+    if (!r.ok) throw new Error(`iNaturalist: risposta ${r.status}`);
+    const json = await r.json();
+    // si tengono solo i campi necessari (niente nomi degli osservatori)
+    for (const x of json.results ?? []) {
+      risultati.push({ taxon: { id: x.taxon?.id, ancestor_ids: x.taxon?.ancestor_ids }, location: x.location, obscured: x.obscured, user: { id: x.user?.id }, observed_on: x.observed_on, quality_grade: x.quality_grade });
+    }
+    if ((json.results ?? []).length < 200) break;
+    dopo = json.results.at(-1).id;
+    await attendi(1100);
+  }
+  console.log(`  iNaturalist ${idParco}: ${risultati.length} osservazioni verificate`);
+  osservazioniPerParco.set(idParco, risultati);
+  return risultati;
+}
+
+let faune = 0;
+for (const p of archivio.percorsi) {
+  const g = p.traccia?.geojson;
+  if (!g?.coordinates?.length) continue;
+  const geometria = improntaTraccia(g).split('-')[1];
+  const f = p.faunaInat;
+  // si ricalcola se cambia la traccia o una volta al mese
+  if (!tutti && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
+  try {
+    const tutteLeOss = (await Promise.all((p.parchi ?? [p.parco]).map(osservazioniDelParco))).flat();
+    p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, impronta: geometria };
+    faune++;
+  } catch (e) {
+    console.warn(`  fauna ${p.id}: ${e.message}`);
+  }
+}
+
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
   if (!g?.coordinates?.length) continue;
@@ -186,5 +254,33 @@ for (const p of archivio.percorsi) {
     console.warn(`  ${p.id}: ${e.message}`);
   }
 }
-if (calcolati) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
-console.log(`\nIndice panoramico: ${calcolati} calcolati, ${saltati} già aggiornati.`);
+let terreni = 0;
+// Overpass è lento e spesso sovraccarico: al terreno si dedicano al massimo 20 minuti per giro,
+// salvando man mano; i percorsi rimasti si completano nei giorni successivi
+const FINE_TERRENO = Date.now() + 20 * 60_000;
+const salvaArchivio = () => writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+for (const p of archivio.percorsi) {
+  if (Date.now() > FINE_TERRENO) {
+    console.log('  terreno: tempo finito per oggi, si riprende al prossimo giro');
+    break;
+  }
+  const g = p.traccia?.geojson;
+  if (!g?.coordinates?.length) continue;
+  // impronta della sola geometria: il terreno non dipende dalla taratura dell'indice
+  const geometria = improntaTraccia(g).split('-')[1];
+  if (!tutti && p.traccia.dettagli?.terrenoImpronta === geometria) continue;
+  try {
+    const terreno = await terrenoDellaTraccia(p.traccia);
+    p.traccia.dettagli = { ...(p.traccia.dettagli ?? {}), terreno, terrenoImpronta: geometria };
+    terreni++;
+    if (terreni % 10 === 0) salvaArchivio();
+    console.log(`terreno  ${p.nome}: ${terreno.length} tratti`);
+    await attendi(1500); // con calma: Overpass è un servizio gratuito
+  } catch (e) {
+    console.warn(`  terreno ${p.id}: ${e.message}`);
+  }
+}
+
+
+if (calcolati || terreni || faune) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+console.log(`\nFauna iNaturalist: ${faune} percorsi. Terreno: ${terreni} percorsi aggiornati. Indice panoramico: ${calcolati} calcolati, ${saltati} già aggiornati.`);

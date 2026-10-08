@@ -85,6 +85,17 @@ export function puntiOgni(pezzi, passoM = PASSO_TERRENO_M) {
   return punti;
 }
 
+// Solo i tag che descrivono il terreno (nomi e altri dettagli non servono e pesano)
+export const TAG_TERRENO = ['highway', 'surface', 'sac_scale', 'trail_visibility', 'tracktype', 'smoothness', 'mtb:scale', 'bicycle'];
+export function tagTerreno(tag = {}) {
+  return Object.fromEntries(TAG_TERRENO.filter((k) => tag[k] != null).map((k) => [k, tag[k]]));
+}
+
+// Query dei tratti (way) delle relazioni OSM della traccia, con tag e geometria
+export function queryTrattiRelazioni(idRelazioni) {
+  return `[out:json][timeout:120];rel(id:${idRelazioni.map(Number).join(',')});way(r);out tags geom;`;
+}
+
 // Per ogni punto la via più vicina entro la distanza massima; tratti uguali uniti
 export function abbinaTerreno(punti, vie, distanzaMaxM = DISTANZA_MAX_M) {
   const tratti = [];
@@ -95,12 +106,12 @@ export function abbinaTerreno(punti, vie, distanzaMaxM = DISTANZA_MAX_M) {
       const s = puntoSullaLinea(via.linea, punti[i]);
       if (s.distanzaDallaLineaM <= distanzaMaxM && (!migliore || s.distanzaDallaLineaM < migliore.d)) migliore = { d: s.distanzaDallaLineaM, tag: via.tag };
     }
-    const tag = migliore?.tag ?? {};
+    const tag = tagTerreno(migliore?.tag);
     const precedente = tratti[tratti.length - 1];
     if (precedente && JSON.stringify(precedente.tag) === JSON.stringify(tag)) precedente.aM = punti[i + 1][2];
     else tratti.push({ daM: punti[i][2], aM: punti[i + 1][2], tag });
   }
-  return tratti;
+  return tratti.map((t) => ({ ...t, daM: Math.round(t.daM), aM: Math.round(t.aM) }));
 }
 
 // Km per categoria di un attributo, con "Non indicato" dove manca il tag

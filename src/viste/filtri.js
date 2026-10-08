@@ -26,14 +26,14 @@ function vociAnimali(idParco) {
   return Object.entries(ANIMALI).filter(([k]) => ammessi.has(k));
 }
 
-function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
+export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
   const inBici = attivita !== 'trekking';
   return [
     ...(parcoFisso
       ? []
       : [{ chiave: 'parco', titolo: 'Parco', voci: PARCHI.map((p) => [p.id, p.nomeBreve]) }]),
     { chiave: 'animale', titolo: 'Animale', voci: vociAnimali(parcoFisso) },
-    ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['si', 'Solo percorribili in bici']], breve: () => 'Solo percorribili' }] : []),
+    ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['tutti', 'Anche i sentieri da verificare']], breve: () => 'Anche da verificare' }] : []),
     ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),
     {
       chiave: 'panorama',
@@ -63,8 +63,6 @@ function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
       ],
       breve: (v, et) => `Bici: ${et.toLowerCase()}`,
     }]),
-    // filtro secondario: in fondo
-    { chiave: 'paese', titolo: 'Paese', voci: paesiDiPartenza(sentieri).map((p) => [p, p]) },
   ];
 }
 
@@ -96,14 +94,16 @@ export function htmlFiltri(sentieri, filtri, { ricerca = true } = {}) {
 }
 
 // Collega i filtri: alAggiornamento(filtri) viene chiamata a ogni modifica
-export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { parcoFisso = null } = {}) {
+// conta(filtri): quanti percorsi restano con quei filtri (per i numeri accanto a ogni scelta)
+export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { parcoFisso = null, conta = null } = {}) {
   let defs = definizioni(sentieri, parcoFisso, stato.leggi().attivita);
   let attivita = stato.leggi().attivita;
   const pillole = contenitore.querySelector('.pillole');
   const ricerca = contenitore.querySelector('input[name=testo]');
   const foglio = contenitore.querySelector('.foglio');
   // un paese salvato che non esiste più viene ignorato
-  if (filtri.paese && !defs.find((d) => d.chiave === 'paese').voci.some(([v]) => v === filtri.paese)) filtri.paese = '';
+  // il filtro per paese non c'è più: un valore rimasto in memoria non deve nascondere percorsi
+  filtri.paese = '';
 
   function etichettaPillola(d) {
     const valore = filtri[d.chiave];
@@ -151,12 +151,14 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
   function apriFoglio(d) {
     foglio.querySelector('.foglio-titolo').textContent = d.titolo;
     foglio.querySelector('.foglio-voci').innerHTML = [['', 'Tutti'], ...d.voci]
-      .map(
-        ([v, et]) => `<label class="voce">
+      .map(([v, et]) => {
+        // quanti percorsi restano scegliendo questa voce (con gli altri filtri attuali)
+        const n = conta ? conta({ ...filtri, [d.chiave]: v }) : null;
+        return `<label class="voce ${n === 0 ? 'voce-vuota' : ''}">
           <input type="radio" name="voce" value="${escapeHtml(v)}" ${filtri[d.chiave] === v ? 'checked' : ''} />
-          <span>${escapeHtml(et)}</span>
-        </label>`,
-      )
+          <span>${escapeHtml(et)}</span>${n != null ? `<span class="voce-conta">${n}</span>` : ''}
+        </label>`;
+      })
       .join('');
     foglio.dataset.chiave = d.chiave;
     foglio.showModal();
@@ -192,6 +194,10 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
 
   aggiorna();
   return {
+    togli(chiave) {
+      filtri[chiave] = '';
+      aggiorna();
+    },
     azzera() {
       Object.assign(filtri, FILTRI_VUOTI, parcoFisso ? { parco: parcoFisso } : {});
       if (ricerca) ricerca.value = '';

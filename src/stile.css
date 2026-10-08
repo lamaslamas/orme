@@ -1039,3 +1039,13 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .mia-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .visore-foto img { display: block; width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; background: #111; }
 .visore-foto .azioni { margin-bottom: 0; }
+
+/* filtri: quanti percorsi per ogni scelta, suggerimenti quando non resta nulla */
+.voce-conta { margin-left: auto; font-size: 0.8rem; font-weight: 700; color: var(--testo-tenue); background: rgba(155, 184, 165, 0.22); border-radius: 999px; padding: 1px 9px; }
+.voce-vuota { opacity: 0.5; }
+.suggerimenti-filtri { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px 0; }
+.suggerimenti-filtri:empty { display: none; }
+
+/* animali da iNaturalist */
+.chip-inat { background: rgba(191, 214, 227, 0.45); color: #33505e; border: 1px dashed rgba(51, 80, 94, 0.3); }
+.elenco-fauna { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; line-height: 1.4; }

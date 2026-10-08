@@ -26,13 +26,13 @@ describe('motore di filtraggio', () => {
     expect(ids(filtraPercorsi(p, f({ durata: '240-360' })))).toEqual(['b']);
   });
 
-  it('in modalità bici nasconde i non percorribili; "solo percorribili" toglie anche i da verificare', () => {
+  it('in modalità bici di base solo i percorribili; "anche da verificare" li aggiunge', () => {
     expect(ids(filtraPercorsi(p, f({}), 'trekking'))).toEqual(['a', 'b', 'c']);
-    expect(ids(filtraPercorsi(p, f({}), 'mtb'))).toEqual(['a', 'c']);
-    expect(ids(filtraPercorsi(p, f({ soloBici: 'si' }), 'mtb'))).toEqual(['a']);
+    expect(ids(filtraPercorsi(p, f({}), 'mtb'))).toEqual(['a']);
+    expect(ids(filtraPercorsi(p, f({ soloBici: 'tutti' }), 'mtb'))).toEqual(['a', 'c']);
   });
 
   it('combina con i filtri di sempre (animale)', () => {
-    expect(ids(filtraPercorsi(p, f({ animale: 'cervo' }), 'mtb'))).toEqual(['a', 'c']);
+    expect(ids(filtraPercorsi(p, f({ animale: 'cervo', soloBici: 'tutti' }), 'mtb'))).toEqual(['a', 'c']);
   });
 });

@@ -249,6 +249,11 @@ export async function eliminaPercorso(id) {
   await fine(tx);
 }
 
+// --- Terreno letto da OSM sul telefono (per le tracce senza il dato nell'archivio) ---
+export const leggiTerrenoSalvato = async (sentieroId) => (await leggiDa('meta', `terreno:${sentieroId}`)) ?? null;
+export const salvaTerrenoSalvato = (sentieroId, impronta, tratti) =>
+  scriviIn('meta', { chiave: `terreno:${sentieroId}`, impronta, tratti, letto: new Date().toISOString() });
+
 // --- Foto personali (solo sul dispositivo) ---
 // { id, sentieroId, immagine: ArrayBuffer, miniatura: ArrayBuffer, tipo, larghezza, altezza, scattata, aggiunta, nota }
 
