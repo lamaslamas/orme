@@ -1,22 +1,40 @@
 :root {
-  /* tema fresco dal logo: verde salvia, menta, fondo grigio-verde chiarissimo */
-  --verde: #326752;
-  --verde-scuro: #1f4536;
-  --accento: #2f9e6b;
-  --accento-vivo: #8fdcae;
-  --verde-chiaro: #e4f3ea;
-  --terra: #8a5a2b;
-  --testo: #13241d;
-  --testo-tenue: #5a6b63;
-  --sfondo: #f5f8f6;
-  --scheda: #ffffff;
-  --bordo: #dde7e1;
-  --avviso: #fff6dc;
-  --avviso-bordo: #ecd27c;
-  --raggio: 16px;
-  --ombra: 0 1px 2px rgba(16, 24, 16, 0.06), 0 4px 14px rgba(16, 24, 16, 0.07);
+  /* palette 2026: teal profondo, salvia, nebbia, sabbia su avorio caldo */
+  --teal: #2f6f6d;
+  --ardesia-verde: #3f5e5a;
+  --salvia: #9bb8a5;
+  --nebbia: #bfd6e3;
+  --sabbia: #d8c3a5;
+  --avorio: #f6f4ef;
+  --verde: var(--teal);
+  --verde-scuro: #234f4d;
+  --accento: #3f8a78;
+  --accento-vivo: #9bd3c0;
+  --verde-chiaro: #e6efe9;
+  --terra: #8a6a45;
+  --testo: #253238;
+  --testo-tenue: #5f6e75;
+  --sfondo: var(--avorio);
+  --scheda: rgba(255, 255, 255, 0.78);
+  --scheda-piena: #ffffff;
+  --bordo: rgba(63, 94, 90, 0.14);
+  --avviso: #f7efe0;
+  --avviso-bordo: #e2cfa8;
+  --raggio: 20px;
+  --raggio-grande: 26px;
+  --ombra: 0 1px 2px rgba(37, 50, 56, 0.04), 0 8px 24px rgba(37, 50, 56, 0.07);
+  --ombra-alta: 0 2px 6px rgba(37, 50, 56, 0.06), 0 18px 40px rgba(37, 50, 56, 0.12);
+  /* vetro: bianco semi-trasparente e sfocatura moderata */
+  --vetro: rgba(255, 255, 255, 0.62);
+  --vetro-forte: rgba(255, 255, 255, 0.82);
+  --bordo-vetro: 1px solid rgba(255, 255, 255, 0.55);
+  --sfocatura: blur(18px) saturate(1.4);
+  --veloce: 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  --morbido: 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
   --altezza-barra: 64px;
-  font-family: 'Manrope Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --altezza-cima: 92px;
+  --carattere-titoli: 'Manrope Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--testo);
   background: var(--sfondo);
   -webkit-tap-highlight-color: transparent;
@@ -729,3 +747,271 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .panorama-criteri b { text-align: right; }
 .barra-criterio { height: 6px; background: #ece6da; border-radius: 3px; overflow: hidden; }
 .barra-criterio i { display: block; height: 100%; background: #e0811a; border-radius: 3px; }
+
+/* ======================================================================
+   Stile 2026 — vetro moderno, palette naturale, movimenti morbidi
+   (calma, chiarezza, scoperta naturale; leggibilità prima di tutto)
+   ====================================================================== */
+
+body {
+  background:
+    radial-gradient(1200px 600px at 110% -10%, rgba(191, 214, 227, 0.55), transparent 60%),
+    radial-gradient(900px 500px at -10% 30%, rgba(155, 184, 165, 0.28), transparent 60%),
+    radial-gradient(800px 500px at 50% 110%, rgba(216, 195, 165, 0.25), transparent 60%),
+    var(--avorio);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, .titolo-pagina, .titolo-sezione, .nome, .foglio-titolo, .panorama-etichetta, .logo, .numero b {
+  font-family: var(--carattere-titoli);
+}
+h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
+
+/* --- superfici di vetro --- */
+.vetro,
+.testata, .barra-schede, .barra-azioni, .foglio, .pannello-livelli, .misura-barra, .legenda,
+.gps-stato, .avviso-mappa, .segmenti, .pillola, .ricerca, .carta-foto-testo {
+  -webkit-backdrop-filter: var(--sfocatura);
+  backdrop-filter: var(--sfocatura);
+}
+.testata { background: var(--vetro); border-bottom: 1px solid rgba(63, 94, 90, 0.08); }
+.banner { background: rgba(247, 239, 224, 0.82); border-bottom: 1px solid rgba(226, 207, 168, 0.6); color: #5b4a24; }
+.barra-schede {
+  background: var(--vetro); border-top: var(--bordo-vetro);
+  box-shadow: 0 -6px 24px rgba(37, 50, 56, 0.08);
+}
+.barra-schede a { transition: color var(--veloce); }
+.barra-schede a.attiva, .barra-schede a.attiva svg { color: var(--teal); }
+
+/* sopra la mappa il vetro è più pieno: il testo deve restare leggibile */
+.pannello-livelli, .misura-barra, .legenda, .gps-stato, .avviso-mappa {
+  background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra-alta);
+}
+.pannello-livelli { border-radius: 18px; padding: 8px 14px 12px; }
+.misura-barra { border-radius: 18px; }
+.legenda { border-radius: 12px; }
+
+/* --- schede e riquadri --- */
+.carta, .riquadro, .modulo fieldset, .menu-altro a, .numeri-grandi, .carta-specie-bottone, .elenco-import {
+  background: var(--scheda);
+  border: var(--bordo-vetro);
+  box-shadow: var(--ombra);
+}
+.riquadro, .carta { border-radius: var(--raggio); }
+.numero { background: transparent; }
+.numeri-grandi { gap: 0; }
+.numero + .numero { border-left: 1px solid var(--bordo); }
+.carta, .carta-foto-link, .carta-specie-bottone, .menu-altro a {
+  transition: transform var(--morbido), box-shadow var(--morbido), background var(--veloce);
+}
+@media (hover: hover) {
+  .carta:hover, .carta-foto-link:hover, .carta-specie-bottone:hover, .menu-altro a:hover {
+    transform: translateY(-2px); box-shadow: var(--ombra-alta);
+  }
+}
+.carta:active { background: rgba(230, 239, 233, 0.9); }
+.carta.fatto { box-shadow: var(--ombra), inset 4px 0 0 var(--salvia); }
+.codice { background: var(--ardesia-verde); }
+
+/* --- pulsanti: chiari ma non aggressivi --- */
+.bottone {
+  border: 1.5px solid rgba(47, 111, 109, 0.35); color: var(--teal); background: rgba(255, 255, 255, 0.7);
+  transition: background var(--veloce), border-color var(--veloce), transform var(--veloce), box-shadow var(--veloce);
+}
+.bottone:hover { border-color: var(--teal); }
+.bottone:active { transform: scale(0.98); }
+.bottone.primario {
+  background: linear-gradient(180deg, #357b78, var(--teal)); border-color: transparent; color: #fff;
+  box-shadow: 0 6px 16px rgba(47, 111, 109, 0.25);
+}
+.fab { background: linear-gradient(180deg, #357b78, var(--teal)); box-shadow: 0 10px 24px rgba(47, 111, 109, 0.32); }
+
+/* --- filtri: pillole di vetro, selezione teal morbida --- */
+.ricerca { background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra); }
+.pillola {
+  background: rgba(255, 255, 255, 0.66); border: 1px solid rgba(63, 94, 90, 0.16); color: var(--testo);
+  font-weight: 650; transition: background var(--veloce), color var(--veloce), border-color var(--veloce);
+}
+.pillola:hover { border-color: rgba(47, 111, 109, 0.45); }
+.pillola.attiva { background: rgba(47, 111, 109, 0.14); border-color: rgba(47, 111, 109, 0.55); color: var(--verde-scuro); }
+.segmenti { background: var(--vetro); border: var(--bordo-vetro); box-shadow: var(--ombra); border-radius: 18px; }
+.segmento { border-radius: 14px; transition: background var(--morbido), color var(--morbido); }
+.segmento.attivo { background: var(--teal); color: #fff; box-shadow: 0 4px 12px rgba(47, 111, 109, 0.28); }
+.mappa-barra { background: var(--vetro); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); }
+.mappa-barra .segmenti, .mappa-barra .ricerca { background: rgba(255, 255, 255, 0.7); }
+
+/* --- chip e tag --- */
+.chip { background: rgba(155, 184, 165, 0.22); color: var(--ardesia-verde); }
+.chip-fatto { background: var(--teal); color: #fff; }
+.chip-accesso { background: rgba(216, 195, 165, 0.45); color: #6b4f24; }
+.chip-verifica { background: rgba(247, 239, 224, 0.9); color: #6b5a2c; border-color: var(--avviso-bordo); }
+.chip-bici-da_verificare, .compat-da_verificare { background: rgba(191, 214, 227, 0.4); color: #3d5663; border-color: rgba(61, 86, 99, 0.25); }
+.compat-percorribile, .chip-bici-si { background: rgba(155, 184, 165, 0.35); color: #24524a; }
+.compat-con_limitazioni { background: rgba(216, 195, 165, 0.5); color: #6b4f24; }
+.compat-non_percorribile, .chip-bici-no { background: #f4dfd8; color: #8a3b26; }
+
+/* --- foglio dal basso (mobile) / finestra al centro (desktop) --- */
+.foglio { background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra-alta); }
+.foglio::backdrop { background: rgba(37, 50, 56, 0.28); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.foglio[open] { animation: sali var(--morbido); }
+.voce { border-bottom-color: var(--bordo); }
+
+/* --- card dei parchi e degli animali --- */
+.carta-foto-link { border-radius: var(--raggio-grande); }
+.carta-foto-testo { background: linear-gradient(transparent, rgba(20, 38, 40, 0.72)); }
+.carta-specie-bottone { border-radius: var(--raggio); }
+.carta-specie.scelta .carta-specie-bottone {
+  background: var(--scheda); color: var(--testo);
+  outline: 2px solid var(--teal); outline-offset: 0;
+  box-shadow: 0 0 0 6px rgba(47, 111, 109, 0.12), var(--ombra-alta);
+}
+.carta-specie.scelta .carta-dati { color: var(--testo-tenue); }
+.carta-foto.evidenziata .carta-foto-link, .carta-specie.evidenziata .carta-specie-bottone { outline-color: var(--sabbia); }
+.parco-badge { display: inline-flex; gap: 4px; margin-top: 4px; }
+.parco-badge span {
+  font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22); color: #fff; border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.specie-parco { font-size: 0.78rem; color: rgba(255, 255, 255, 0.9); }
+.habitat { font-size: 0.72rem; line-height: 1.3; color: var(--testo-tenue); padding: 0 10px; margin-top: 4px; }
+
+/* --- controlli della mappa --- */
+.leaflet-bar { border: none !important; border-radius: 14px !important; overflow: hidden; box-shadow: var(--ombra-alta) !important; }
+.leaflet-bar a {
+  background: var(--vetro-forte) !important; -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura);
+  color: var(--testo) !important; border-bottom-color: var(--bordo) !important; transition: background var(--veloce);
+}
+.leaflet-bar a:hover { background: #fff !important; }
+.heat-bottone { color: #5b4b9a !important; }
+.heat-bottone.attivo { background: var(--teal) !important; color: #fff !important; }
+.leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: var(--ombra-alta); }
+/* heatmap di iNaturalist più morbida: meno satura e un po' trasparente */
+.leaflet-heatmap-pane { opacity: 0.72; filter: saturate(0.75); }
+
+/* --- accessibilità: focus ben visibile, mai solo colore --- */
+:focus-visible { outline: 3px solid rgba(47, 111, 109, 0.55); outline-offset: 2px; border-radius: 8px; }
+.pillola:focus-visible, .bottone:focus-visible, .segmento:focus-visible { outline-offset: 3px; }
+.salta-al-contenuto {
+  position: absolute; left: 12px; top: -60px; z-index: 2000; padding: 10px 14px; border-radius: 12px;
+  background: var(--teal); color: #fff; font-weight: 700; text-decoration: none; transition: top var(--veloce);
+}
+.salta-al-contenuto:focus { top: 12px; }
+
+/* --- movimento: le schermate scorrono, non saltano --- */
+@keyframes entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes sali { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes appare { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+main.entra > * { animation: entra var(--morbido) both; }
+main.entra > *:nth-child(2) { animation-delay: 30ms; }
+main.entra > *:nth-child(3) { animation-delay: 60ms; }
+main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
+.pannello-livelli:not([hidden]) { animation: appare var(--veloce); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* senza sfocatura (browser vecchi) il vetro diventa quasi pieno, per restare leggibile */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --vetro: rgba(255, 255, 255, 0.95); --vetro-forte: rgba(255, 255, 255, 0.97); --scheda: #fff; }
+}
+
+/* ======================================================================
+   Desktop: navigazione a sinistra, mappa con i risultati di fianco,
+   schede su due colonne, finestre al centro
+   ====================================================================== */
+@media (min-width: 1024px) {
+  :root { --larghezza-nav: 232px; }
+  .cima { margin-left: var(--larghezza-nav); }
+  .testata { padding: 12px 32px; }
+  .banner { padding: 8px 32px; }
+
+  .barra-schede {
+    top: 0; bottom: 0; right: auto; width: var(--larghezza-nav); height: auto;
+    flex-direction: column; justify-content: flex-start; gap: 4px;
+    padding: 84px 14px 24px; border-top: none; border-right: var(--bordo-vetro);
+    box-shadow: 6px 0 24px rgba(37, 50, 56, 0.06);
+  }
+  .barra-schede a {
+    flex: none; flex-direction: row; justify-content: flex-start; gap: 12px;
+    padding: 12px 14px; border-radius: 14px; font-size: 0.95rem; font-weight: 650;
+  }
+  .barra-schede a:hover { background: rgba(255, 255, 255, 0.6); }
+  .barra-schede a.attiva { background: rgba(47, 111, 109, 0.12); }
+
+  main { margin-left: var(--larghezza-nav); max-width: none; padding: 24px 40px 48px; }
+  main > * { max-width: 1180px; margin-left: auto; margin-right: auto; }
+  .fab { right: 40px; bottom: 40px; }
+
+  /* pagina iniziale: le righe di schede diventano griglie */
+  .scorrimento { margin: 0; padding: 2px 0 10px; overflow: visible; display: grid; }
+  .parchi-foto { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .specie-foto { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .carta-foto, .carta-specie { width: auto; max-width: none; }
+  .lista { grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); }
+  .selettore-attivita, .ricerca-home { max-width: 640px; }
+  .pillole { margin: 0; padding-left: 0; padding-right: 0; flex-wrap: wrap; overflow: visible; }
+
+  /* scheda del sentiero su due colonne, la colonna laterale resta in vista */
+  .scheda {
+    display: grid; grid-template-columns: minmax(0, 1fr) 400px; column-gap: 28px; align-items: start;
+    padding-bottom: 24px;
+  }
+  .scheda-testa { grid-column: 1; grid-row: 1; }
+  .scheda-corpo { grid-column: 1; grid-row: 2; }
+  .scheda-laterale {
+    grid-column: 2; grid-row: 1 / span 2; position: sticky; top: calc(var(--altezza-cima) + 16px);
+    max-height: calc(100dvh - var(--altezza-cima) - 32px); overflow-y: auto; scrollbar-width: thin;
+    padding: 2px 4px 8px; margin: -2px -4px 0;
+  }
+  .scheda-laterale .anteprima-mappa { margin: 0 0 14px; height: 280px; border-radius: var(--raggio-grande); box-shadow: var(--ombra); }
+  .barra-azioni {
+    position: static; max-width: none; margin: 14px 0; padding: 0; background: none; border: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .scheda { padding-bottom: 0; }
+
+  /* pagine con mappa: risultati a sinistra, mappa grande a destra */
+  body.con-mappa main {
+    display: grid; grid-template-columns: 420px minmax(0, 1fr); grid-template-rows: auto 1fr;
+    height: calc(100dvh - var(--altezza-cima)); padding: 0; overflow: hidden;
+  }
+  body.con-mappa main > * { max-width: none; margin: 0; }
+  body.con-mappa .mappa-barra { grid-column: 1; grid-row: 1; padding: 16px 20px 10px; border-bottom: none; }
+  body.con-mappa .mappa { grid-column: 2; grid-row: 1 / span 2; height: 100%; min-height: 0; }
+  body.con-mappa .pannello { grid-column: 1; grid-row: 2; overflow: auto; margin: 0; max-width: none; padding: 8px 20px 24px; }
+  body.con-mappa main > :not(.mappa-barra):not(.mappa):not(.pannello) { grid-column: 1; }
+
+  /* finestre al centro invece che dal basso */
+  .foglio {
+    margin: auto; width: min(520px, calc(100% - 48px)); max-height: min(78vh, 720px);
+    border-radius: var(--raggio-grande); padding: 18px 24px 22px;
+  }
+  .foglio[open] { animation: appare var(--morbido); }
+  .foglio-maniglia { display: none; }
+
+  .pagina-parco .parco-mappa { height: 380px; border-radius: var(--raggio-grande); overflow: hidden; }
+}
+
+/* mobile: le parti della scheda restano in un'unica colonna, mappa in cima */
+@media (max-width: 1023.98px) {
+  .scheda { display: flex; flex-direction: column; }
+  .scheda-laterale, .scheda-testa, .scheda-corpo { display: contents; }
+  .scheda-laterale .anteprima-mappa { order: -1; }
+  .scheda-testa > * { order: 0; }
+  .scheda-laterale .panorama { order: 1; }
+  .scheda-corpo > * { order: 2; }
+  .scheda-laterale > :not(.anteprima-mappa):not(.panorama) { order: 3; }
+}
+
+/* elenco dei risultati accanto alla mappa */
+.risultati-mappa { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.risultato {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; text-align: left;
+  border: var(--bordo-vetro); border-radius: 14px; background: var(--scheda); box-shadow: var(--ombra);
+  color: var(--testo); font: inherit; cursor: pointer; transition: transform var(--veloce), box-shadow var(--veloce);
+}
+.risultato:hover { box-shadow: var(--ombra-alta); }
+.risultato:active { transform: scale(0.99); }
+.pallino-stato { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.risultato-testo { line-height: 1.35; }
+.piccolo-inline { font-size: 0.78rem; }

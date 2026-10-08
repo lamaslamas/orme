@@ -8,6 +8,7 @@ import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
 import { parcoDa } from '../datiParchi.js';
+import { COLORI } from './colori.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
 
@@ -26,7 +27,7 @@ const IMPRONTA = improntaSvg.replace(/<svg[^>]*>/, '').replace('</svg>', '');
 // Miniatura: la sagoma della traccia, oppure un segnaposto con l'impronta
 export function miniatura(traccia, stato) {
   const d = traccia ? sagomaSvg(traccia.geojson, 88, 88, 12) : '';
-  const colore = stato === 'fatto' ? '#2f9e6b' : '#c2410c';
+  const colore = stato === 'fatto' ? COLORI.tracciaFatta : COLORI.traccia;
   return d
     ? `<svg class="miniatura" viewBox="0 0 88 88" aria-hidden="true"><path d="${d}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${colore}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
     : `<div class="miniatura vuota" aria-hidden="true"><svg viewBox="0 0 116 138">${IMPRONTA}</svg><span>Nessuna traccia</span></div>`;

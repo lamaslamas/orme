@@ -2,6 +2,7 @@
 // di percorrenza, etichette "Partenza" e "Arrivo".
 import L from 'leaflet';
 import { percorsoSentiero, estremiTraccia, frecceLungoPercorso } from '../lib/tracce.js';
+import { COLORI } from './colori.js';
 
 const latlng = (p) => [p[1], p[0]];
 
@@ -38,7 +39,7 @@ export function freccia(punto, direzione, colore) {
 }
 
 // Restituisce un gruppo di livelli; opzioni: colore, spessore, tratteggio, frecce, estremi
-export function disegnaPercorso(geojson, { colore = '#c2410c', spessore = 5, tratteggio = null, frecce = true, estremi = true } = {}) {
+export function disegnaPercorso(geojson, { colore = COLORI.traccia, spessore = 5, tratteggio = null, frecce = true, estremi = true } = {}) {
   const gruppo = L.featureGroup();
   const { pezzi } = percorsoSentiero(geojson);
   const linee = pezzi.map((l) => l.map(latlng));

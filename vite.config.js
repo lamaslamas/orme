@@ -28,14 +28,14 @@ export default defineConfig({
       manifest: {
         name: 'Orme',
         short_name: 'Orme',
-        description: "Sentieri faunistici del Parco Nazionale d'Abruzzo, Lazio e Molise",
+        description: 'Sentieri, fauna e panorami dei parchi nazionali italiani: trekking, MTB ed e-MTB',
         lang: 'it',
         start_url: BASE,
         scope: BASE,
         display: 'standalone',
-        orientation: 'portrait',
-        background_color: '#f5f8f6',
-        theme_color: '#326752',
+        orientation: 'any',
+        background_color: '#f6f4ef',
+        theme_color: '#2f6f6d',
         icons: [
           { src: 'icone/icona-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icone/icona-512.png', sizes: '512x512', type: 'image/png' },

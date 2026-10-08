@@ -18,8 +18,9 @@ import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
+import { COLORI } from './colori.js';
 
-const COLORE_TRACCIA = '#c2410c';
+const COLORE_TRACCIA = COLORI.traccia;
 const COLORE_ANTEPRIMA = '#2563eb';
 
 // la cartografia è unica per tutta l'app (src/viste/cartografia.js)
@@ -76,7 +77,7 @@ export async function vistaMappa(app, id) {
 
   const p = sentiero.partenza ?? {};
   if (Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
-    L.circleMarker([p.lat, p.lon], { radius: 8, color: '#fff', weight: 2, fillColor: '#326752', fillOpacity: 1 })
+    L.circleMarker([p.lat, p.lon], { radius: 8, color: '#fff', weight: 2, fillColor: COLORI.partenza, fillOpacity: 1 })
       .bindTooltip('Partenza')
       .addTo(mappa);
     if (!traccia) mappa.setView([p.lat, p.lon], 14);

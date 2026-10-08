@@ -106,6 +106,7 @@ import { stato as statoApp } from '../stato.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
+import { COLORI } from './colori.js';
 
 // Riga di numeri grandi: lunghezza, dislivello, durata
 export function numeriGrandi(m) {
@@ -198,11 +199,16 @@ export async function vistaScheda(app, id) {
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Parchi</a>
     <article class="scheda">
+      <aside class="scheda-laterale">
       ${
         traccia
           ? `<a class="anteprima-mappa" href="#/sentiero/${idUrl}/mappa" aria-label="Apri la mappa del sentiero"><div id="miniMappa"></div></a>`
           : `<a class="anteprima-mappa vuota" href="#/sentiero/${idUrl}/mappa"><span>Nessuna traccia salvata</span><b>Recupera la traccia ›</b></a>`
       }
+      ${htmlPanorama(s, traccia, idUrl)}
+      ${htmlPortamiAllaPartenza(puntoDiPartenza(s, traccia))}
+      </aside>
+      <div class="scheda-testa">
       <div class="carta-titolo intestazione">
         ${bollinoDifficolta(s)}
         ${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span>` : ''}
@@ -231,14 +237,14 @@ export async function vistaScheda(app, id) {
         <a class="bottone primario" href="#/sentiero/${idUrl}/mappa">${traccia ? 'Apri la mappa' : 'Mappa e traccia'}</a>
         <a class="bottone" href="#/sentiero/${idUrl}/modifica">Modifica</a>
       </div>
+      </div>
+      <div class="scheda-corpo">
 
       <section class="riquadro accesso accesso-${tipo}">
         <h2>Accesso: ${ACCESSI[tipo] ?? ACCESSI.nessuno}</h2>
         ${s.accesso?.nota ? `<p>${escapeHtml(s.accesso.nota)}</p>` : ''}
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
-
-      ${htmlPanorama(s, traccia, idUrl)}
 
       ${htmlCompatibilita(s, traccia)}
 
@@ -254,8 +260,6 @@ export async function vistaScheda(app, id) {
           ${riga('Partenza', partenza)}
         </dl>
       </section>
-
-      ${htmlPortamiAllaPartenza(puntoDiPartenza(s, traccia))}
 
       ${
         haEscursione
@@ -304,6 +308,7 @@ export async function vistaScheda(app, id) {
         <p class="salvato" id="salvato" hidden>Salvato</p>
         ${s.notePersonali ? `<p class="note">${escapeHtml(s.notePersonali)}</p>` : '<p class="tenue">Nessuna nota personale.</p>'}
       </section>
+      </div>
     </article>
   `;
 
@@ -404,7 +409,7 @@ export async function vistaScheda(app, id) {
   const contenitoreMini = app.querySelector('#miniMappa');
   if (!contenitoreMini) return;
   const mini = creaMappa(contenitoreMini, { anteprima: true });
-  const gruppo = disegnaPercorso(traccia.geojson, { colore: '#c2410c', frecce: false }).addTo(mini);
+  const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false }).addTo(mini);
   mini.attenuaSentieri(true);
   requestAnimationFrame(() => {
     mini.invalidateSize();

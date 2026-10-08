@@ -2,7 +2,7 @@
 // percorsi di osservazione e l'elenco di tutti i percorsi con i filtri.
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
-import { ANIMALI } from '../lib/costanti.js';
+import { ANIMALI, HABITAT } from '../lib/costanti.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
 import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
@@ -30,13 +30,20 @@ function htmlCredito(chiave) {
     : '';
 }
 
-function htmlParco(p, n, evidenziato) {
+// attivita: { trekking, mtb, emtb } = quanti percorsi del parco sono adatti a ciascuna
+function htmlParco(p, n, evidenziato, attivita) {
+  const specie = p.animali.slice(0, 3).map((a) => ANIMALI[a]).join(', ');
   return `<li class="carta-foto ${evidenziato ? 'evidenziata' : ''}">
     <a class="carta-foto-link" href="#/parco/${encodeURIComponent(p.id)}">
       ${htmlFoto(p.id, p.nomeBreve)}
       <span class="carta-foto-testo">
         <span class="nome">${escapeHtml(p.nomeBreve)}</span>
+        <span class="specie-parco">${escapeHtml(specie)}</span>
         <span class="carta-dati">${escapeHtml(p.regioni.join(' · '))} · <b>${n}</b> percorsi</span>
+        <span class="parco-badge">${Object.entries(ATTIVITA)
+          .filter(([k]) => attivita[k])
+          .map(([k, nome]) => `<span title="${attivita[k]} percorsi adatti">${nome} ${attivita[k]}</span>`)
+          .join('')}</span>
       </span>
     </a>
     ${htmlCredito(p.id)}
@@ -49,6 +56,7 @@ function htmlSpecie(r, scelta, evidenziata) {
     <button type="button" class="carta-specie-bottone" data-specie="${r.animale}" aria-pressed="${scelta}">
       ${htmlFoto(r.animale, r.nome)}
       <span class="nome">${escapeHtml(r.nome)}</span>
+      ${HABITAT[r.animale] ? `<span class="habitat">${escapeHtml(HABITAT[r.animale])}</span>` : ''}
       <span class="carta-dati">${r.percorsi ? `${r.percorsi} ${r.percorsi === 1 ? 'percorso' : 'percorsi'}` : 'nessun percorso'}</span>
       <span class="carta-dati piccolo">${escapeHtml(parchi)}</span>
     </button>
@@ -60,6 +68,18 @@ export async function vistaHome(app) {
   const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   const preparati = preparaPercorsi(sentieri, tracce);
   const st = stato.leggi();
+  // per i badge dei parchi: percorsi non "non percorribili" per ciascuna attività
+  const perAttivita = new Map(PARCHI.map((p) => [p.id, { trekking: 0, mtb: 0, emtb: 0 }]));
+  for (const { sentiero, compat } of preparati) {
+    for (const id of sentiero.parchi ?? [sentiero.parco]) {
+      const conta = perAttivita.get(id);
+      if (!conta) continue;
+      for (const k of Object.keys(conta)) {
+        const ok = k === 'trekking' ? sentiero.tipoPercorso !== 'itinerario_mtb' : compat[k].stato === 'percorribile' || compat[k].stato === 'con_limitazioni';
+        if (ok) conta[k]++;
+      }
+    }
+  }
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Esplora i parchi</h1>
@@ -113,7 +133,7 @@ export async function vistaHome(app) {
     // ciò che corrisponde alla ricerca viene prima
     const parchi = [...PARCHI].sort((a, b) => cercati.parchi.includes(b.id) - cercati.parchi.includes(a.id));
     listaParchi.innerHTML = parchi
-      .map((p) => htmlParco(p, visibili.filter((x) => (x.parchi ?? [x.parco]).includes(p.id)).length, cercati.parchi.includes(p.id)))
+      .map((p) => htmlParco(p, visibili.filter((x) => (x.parchi ?? [x.parco]).includes(p.id)).length, cercati.parchi.includes(p.id), perAttivita.get(p.id)))
       .join('');
 
     const specie = riepilogoSpecie(visibili).sort(

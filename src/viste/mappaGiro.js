@@ -11,6 +11,7 @@ import { freccia, marcatoreEstremo } from './disegnoTraccia.js';
 import { frecceLungoPercorso, SOGLIA_ANELLO_M } from '../lib/tracce.js';
 import { distanzaKm } from '../lib/geo.js';
 import { caricaContesto, htmlMisure } from './giri.js';
+import { COLORI } from './colori.js';
 
 // colori ben distinguibili per le tappe, ripetuti se il giro è lungo
 export const COLORI_TAPPE = ['#c2410c', '#2563eb', '#7c3aed', '#0f766e', '#be185d', '#a16207'];
@@ -73,7 +74,7 @@ export async function vistaMappaGiro(app, id) {
   }
 
   for (const salto of calcolo.salti) {
-    L.polyline(salto.punti.map(latlng), { color: '#475569', weight: 3, dashArray: '4 8' })
+    L.polyline(salto.punti.map(latlng), { color: COLORI.salto, weight: 3, dashArray: '4 8' })
       .bindTooltip(`Salto di ${Math.round(salto.distanzaM)} m in linea d'aria`, { permanent: true, direction: 'center', className: 'etichetta-salto' })
       .addTo(mappa);
   }

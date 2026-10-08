@@ -1,4 +1,5 @@
 import '@fontsource-variable/manrope';
+import '@fontsource-variable/inter';
 import './stile.css';
 import { caricaDatiIniziali, sincronizzaArchivio } from './db.js';
 import { vistaHome } from './viste/home.js';
@@ -60,6 +61,21 @@ function aggiornaBarraSchede(percorso) {
   }
 }
 
+// Ingresso morbido della nuova schermata (spento se il sistema chiede meno movimento)
+function animaIngresso() {
+  app.classList.remove('entra');
+  void app.offsetWidth; // riparte l'animazione
+  app.classList.add('entra');
+}
+
+// Altezza della testata (logo e avviso): serve al layout desktop delle mappe
+function misuraTestata() {
+  const cima = document.querySelector('.cima');
+  if (cima) document.documentElement.style.setProperty('--altezza-cima', `${cima.offsetHeight}px`);
+}
+window.addEventListener('resize', misuraTestata);
+new ResizeObserver(misuraTestata).observe(document.querySelector('.cima'));
+
 async function mostra() {
   const percorso = location.hash.replace(/^#/, '') || '/';
   aggiornaBarraSchede(percorso);
@@ -72,6 +88,7 @@ async function mostra() {
     if (trovato) {
       try {
         pulisciVistaPrecedente = await vista(app, ...trovato.slice(1).map(decodeURIComponent));
+        animaIngresso();
       } catch (errore) {
         console.error(errore);
         app.innerHTML = `<p class="errore">Qualcosa è andato storto: ${escapeHtml(errore.message)}</p>`;

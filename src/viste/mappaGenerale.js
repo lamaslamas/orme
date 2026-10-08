@@ -16,9 +16,10 @@ import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import { stato } from '../stato.js';
 import { parcoDa, PARCHI } from '../datiParchi.js';
+import { COLORI } from './colori.js';
 
 // Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
-const STILE_DISCRETO = { color: '#475569', weight: 2, opacity: 0.45 };
+const STILE_DISCRETO = { color: COLORI.sfondo, weight: 2, opacity: 0.5 };
 
 // Riquadro di un parco, o di tutti i parchi
 export function limitiParco(idParco) {
@@ -29,8 +30,8 @@ export function limitiParco(idParco) {
 }
 
 export const COLORI_STATO = {
-  da_fare: '#c2410c',
-  fatto: '#2f9e6b',
+  da_fare: COLORI.traccia,
+  fatto: COLORI.tracciaFatta,
 };
 
 function riquadroSentiero(s) {
@@ -60,6 +61,8 @@ export async function vistaMappaGenerale(app) {
     </div>
     <div id="mappa" class="mappa"></div>
     <section class="pannello">
+      <h2 class="titolo-sezione" id="titoloRisultati"></h2>
+      <ul class="risultati-mappa" id="risultatiMappa"></ul>
       <h2 class="titolo-sezione" id="titoloSenza"></h2>
       <ul class="senza-traccia" id="senzaTraccia"></ul>
     </section>
@@ -73,6 +76,8 @@ export async function vistaMappaGenerale(app) {
   const livello = L.layerGroup();
   mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));
   const selezione = L.layerGroup().addTo(mappa);
+  // area toccabile di ogni traccia: l'elenco dei risultati la "tocca" per evidenziarla
+  const aree = new Map();
   // confine del parco scelto: sempre visibile e più marcato (si scarica se manca)
   const confineScelto = L.layerGroup().addTo(mappa);
   let parcoMostrato = null;
@@ -140,6 +145,7 @@ export async function vistaMappaGenerale(app) {
     visibili = conTraccia.map((x) => x.traccia);
 
     livello.clearLayers();
+    aree.clear();
     selezione.clearLayers();
     mappa.closePopup();
     // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
@@ -152,6 +158,7 @@ export async function vistaMappaGenerale(app) {
       const linea = disegnaTraccia(traccia.geojson, ricerca ? { color: colore, weight: 4 } : STILE_DISCRETO).addTo(livello);
       // linea invisibile più larga: più facile da toccare con il dito
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0 }).addTo(livello);
+      aree.set(sentiero.id, area);
       // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
       // così durante la misura il tocco arriva allo strumento di misura
       area.on('click', () => {
@@ -196,6 +203,17 @@ export async function vistaMappaGenerale(app) {
       `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ` +
       `${filtrati.length} ${filtrati.length === 1 ? 'sentiero' : 'sentieri'}${filtriAttivi(filtri) ? ' filtrati' : ''}`;
 
+    // elenco dei risultati con traccia: un tocco evidenzia e inquadra il percorso sulla mappa
+    app.querySelector('#titoloRisultati').textContent = conTraccia.length ? `Sulla mappa (${conTraccia.length})` : '';
+    app.querySelector('#risultatiMappa').innerHTML = conTraccia
+      .map(
+        ({ sentiero: s }) => `<li><button type="button" class="risultato" data-id="${escapeHtml(s.id)}">
+          <span class="pallino-stato" style="background:${COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare}"></span>
+          <span class="risultato-testo">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}
+            ${s.panorama ? `<span class="tenue piccolo-inline">· panorama ${s.panorama.punteggio}</span>` : ''}</span>
+        </button></li>`,
+      )
+      .join('');
     app.querySelector('#titoloSenza').textContent = senzaTraccia.length
       ? `Sentieri senza traccia (${senzaTraccia.length})`
       : 'Tutti i sentieri filtrati hanno una traccia.';
@@ -211,6 +229,10 @@ export async function vistaMappaGenerale(app) {
 
   const controlli = collegaFiltri(app.querySelector('.filtri'), sentieri, filtri, disegna);
   const scollegaAttivita = collegaSelettoreAttivita(app);
+  app.querySelector('#risultatiMappa').addEventListener('click', (e) => {
+    const id = e.target.closest('[data-id]')?.dataset.id;
+    aree.get(id)?.fire('click');
+  });
   app.querySelector('#nessunRisultato').addEventListener('click', (e) => {
     if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
   });

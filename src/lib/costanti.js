@@ -18,6 +18,25 @@ export const ANIMALI = {
   altro: 'Altro',
 };
 
+// Dove vive, in breve (per le schede degli animali)
+export const HABITAT = {
+  orso: 'Faggete e pascoli d\'altura, si sposta molto',
+  lupo: 'Boschi e praterie, ampi territori di branco',
+  camoscio: 'Pareti rocciose e praterie sopra il bosco',
+  cervo: 'Boschi aperti e radure, bramito in autunno',
+  capriolo: 'Margini del bosco e radure',
+  daino: 'Boschi misti con ampie radure',
+  muflone: 'Versanti rocciosi e boschi radi',
+  cinghiale: 'Boschi di latifoglie, ovunque',
+  volpe: 'Ovunque, dal bosco ai paesi',
+  lontra: 'Fiumi puliti con rive naturali',
+  gatto_selvatico: 'Boschi fitti e macchia, molto elusivo',
+  aquila_reale: 'Pareti rocciose e praterie d\'alta quota',
+  gufo_reale: 'Rupi e gole, attivo al crepuscolo',
+  nibbio_reale: 'Campi aperti e valli, plana a lungo',
+  cicogna_nera: 'Fiumi e boschi tranquilli',
+};
+
 // Specie su iNaturalist (id del taxon a livello di specie: in Appennino molte osservazioni
 // non indicano la sottospecie). Verificati con l'API di iNaturalist.
 export const TAXON_INATURALIST = {
