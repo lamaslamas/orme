@@ -51,7 +51,7 @@ async function importaEcotur() {
   const link = linkEscursioni(elenco);
   if (!link.length) {
     const titolo = elenco.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
-    throw new Error(`nessuna escursione nell'elenco (pagina "${titolo.slice(0, 80)}", ${elenco.length} caratteri)`);
+    throw new Error(`nessuna escursione nell'elenco (pagina "${titolo.slice(0, 80)}", ${elenco.length} caratteri: ${elenco.replace(/\s+/g, " ").slice(0, 200)})`);
   }
   const candidati = [];
   let completo = true;
