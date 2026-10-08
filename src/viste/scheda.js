@@ -62,7 +62,7 @@ import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 
 // Riga di numeri grandi: lunghezza, dislivello, durata
-function numeriGrandi(m) {
+export function numeriGrandi(m) {
   const casella = (valore, etichetta, nota = '') =>
     `<div class="numero"><b>${valore ?? '–'}</b><span>${etichetta}${nota}</span></div>`;
   return `<div class="numeri-grandi">
@@ -73,7 +73,7 @@ function numeriGrandi(m) {
 }
 
 // Grafico del profilo altimetrico in SVG
-function graficoProfilo(profilo) {
+export function graficoProfilo(profilo) {
   if (!profilo) return '';
   const L = 320;
   const A = 110;

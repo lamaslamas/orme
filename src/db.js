@@ -5,21 +5,24 @@
 // - avvistamenti: i miei avvistamenti (chiave: id) – restano solo sul dispositivo
 // - confini:  confini dei parchi scaricati da OpenStreetMap (chiave: parco)
 // - osservazioni: osservazioni iNaturalist in memoria (chiave: id)
+// - percorsi: i miei percorsi della sezione Pianifica (chiave: id)
 // - meta:     informazioni interne (es. dati iniziali già caricati)
 import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI, VERSIONE_TRACCE_INIZIALI, AGGIORNAMENTI } from './datiIniziali.js';
 import { applicaAggiornamento, tracciaDaAggiornare } from './lib/aggiornamenti.js';
 import { completaSentiero } from './lib/sentiero.js';
 import { completaGiro } from './lib/giro.js';
 import { completaAvvistamento } from './lib/avvistamenti.js';
+import { completaPercorso } from './lib/percorso.js';
 
 const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
 // 2: aggiunto il campo "bici" ai sentieri già salvati
 // 3: aggiunto l'archivio "giri"
 // 4: parchi (campo "parco" nei sentieri), avvistamenti, confini, osservazioni
-const VERSIONE_DB = 4;
-// backup 1: sentieri e tracce; 2: anche i giri; 3: anche gli avvistamenti (facoltativi)
-export const VERSIONE_BACKUP = 3;
+// 5: percorsi della sezione Pianifica
+const VERSIONE_DB = 5;
+// backup 1: sentieri e tracce; 2: anche i giri; 3: anche gli avvistamenti (facoltativi); 4: anche i percorsi
+export const VERSIONE_BACKUP = 4;
 
 let promessaDb = null;
 
@@ -53,6 +56,7 @@ export function apriDb() {
       if (!db.objectStoreNames.contains('osservazioni')) {
         db.createObjectStore('osservazioni', { keyPath: 'id' }).createIndex('parco', 'parco');
       }
+      if (!db.objectStoreNames.contains('percorsi')) db.createObjectStore('percorsi', { keyPath: 'id' });
       if (evento.oldVersion >= 1 && evento.oldVersion < 4) {
         // Aggiunge i campi nuovi (bici, parco) solo dove mancano, senza toccare il resto
         const cursore = req.transaction.objectStore('sentieri').openCursor();
@@ -184,6 +188,27 @@ export async function eliminaAvvistamento(id) {
   await fine(tx);
 }
 
+// --- Percorsi (Pianifica) ---
+
+export const tuttiIPercorsi = async () => (await tuttiDa('percorsi')).map(completaPercorso);
+
+export async function leggiPercorso(id) {
+  const p = await leggiDa('percorsi', id);
+  return p && completaPercorso(p);
+}
+
+export function salvaPercorso(p) {
+  const adesso = new Date().toISOString();
+  return scriviIn('percorsi', completaPercorso({ ...p, creato: p.creato ?? adesso, modificato: adesso }));
+}
+
+export async function eliminaPercorso(id) {
+  const db = await apriDb();
+  const tx = db.transaction('percorsi', 'readwrite');
+  tx.objectStore('percorsi').delete(id);
+  await fine(tx);
+}
+
 // --- Confini dei parchi ---
 
 export const leggiConfine = (parco) => leggiDa('confini', parco);
@@ -245,6 +270,7 @@ export async function esporta({ escludiAvvistamenti = true } = {}) {
     sentieri: await tuttiISentieri(),
     tracce: await tuttiDa('tracce'),
     giri: await tuttiIGiri(),
+    percorsi: await tuttiIPercorsi(),
     ...(escludiAvvistamenti ? { avvistamentiEsclusi: true } : { avvistamenti: await tuttiGliAvvistamenti() }),
   };
 }
@@ -271,6 +297,10 @@ export function controllaBackup(dati) {
       throw new Error('Nel backup c’è un giro non valido.');
     }
   }
+  if (dati.percorsi != null && !Array.isArray(dati.percorsi)) throw new Error('Nel backup i percorsi non sono validi.');
+  for (const p of dati.percorsi ?? []) {
+    if (!p || typeof p.id !== 'string' || !p.id) throw new Error('Nel backup c’è un percorso non valido.');
+  }
   if (dati.avvistamenti != null && !Array.isArray(dati.avvistamenti)) throw new Error('Nel backup gli avvistamenti non sono validi.');
   for (const a of dati.avvistamenti ?? []) {
     if (!a || typeof a.id !== 'string' || !a.id) throw new Error('Nel backup c’è un avvistamento non valido.');
@@ -282,7 +312,8 @@ export function controllaBackup(dati) {
 export async function importa(dati, modo = 'unisci') {
   controllaBackup(dati);
   const db = await apriDb();
-  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'avvistamenti', 'meta'], 'readwrite');
+  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'avvistamenti', 'percorsi', 'meta'], 'readwrite');
+  const percorsi = tx.objectStore('percorsi');
   const sentieri = tx.objectStore('sentieri');
   const tracce = tx.objectStore('tracce');
   const giri = tx.objectStore('giri');
@@ -292,10 +323,12 @@ export async function importa(dati, modo = 'unisci') {
     sentieri.clear();
     tracce.clear();
     giri.clear();
+    if (Array.isArray(dati.percorsi)) percorsi.clear();
     // un backup senza avvistamenti non cancella quelli che ho sul telefono
     if (conAvvistamenti) avvistamenti.clear();
   }
   for (const a of dati.avvistamenti ?? []) avvistamenti.put(completaAvvistamento(a));
+  for (const p of dati.percorsi ?? []) percorsi.put(completaPercorso(p));
   for (const s of dati.sentieri) sentieri.put(completaSentiero(s));
   for (const t of dati.tracce) tracce.put(t);
   for (const g of dati.giri ?? []) giri.put(completaGiro(g));
@@ -311,5 +344,6 @@ export async function importa(dati, modo = 'unisci') {
     tracce: dati.tracce.length,
     giri: dati.giri?.length ?? 0,
     avvistamenti: dati.avvistamenti?.length ?? 0,
+    percorsi: dati.percorsi?.length ?? 0,
   };
 }

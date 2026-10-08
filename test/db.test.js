@@ -129,7 +129,7 @@ describe('giri', () => {
   it('il backup include i giri e accetta backup vecchi senza giri', async () => {
     await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [] });
     const backup = JSON.parse(JSON.stringify(await db.esporta()));
-    expect(backup.versione).toBe(3);
+    expect(backup.versione).toBe(4);
     expect(backup.giri).toHaveLength(1);
 
     await db.importa({ app: 'orme', versione: 1, sentieri: [], tracce: [] }, 'sostituisci');
@@ -210,5 +210,19 @@ describe('aggiornamento alla versione 4 dei dati iniziali', () => {
     expect(a.accesso.nota).toBe('mia nota');
     expect(a.dislivelloM).toBe(780);
     expect((await db.leggiTraccia('f1-monte-amaro')).origine).toBe('gpx');
+  });
+});
+
+describe('percorsi', () => {
+  it('si salvano, entrano nel backup e un backup vecchio non li cancella', async () => {
+    await db.salvaPercorso({ id: 'p1', nome: 'Prova', origine: 'disegnato', geojson: { type: 'MultiLineString', coordinates: [] } });
+    expect((await db.leggiPercorso('p1')).nome).toBe('Prova');
+    const backup = JSON.parse(JSON.stringify(await db.esporta()));
+    expect(backup.percorsi).toHaveLength(1);
+    await db.importa({ app: 'orme', versione: 3, sentieri: [], tracce: [] }, 'sostituisci');
+    expect(await db.tuttiIPercorsi()).toHaveLength(1);
+    await db.eliminaPercorso('p1');
+    await db.importa(backup, 'unisci');
+    expect(await db.leggiPercorso('p1')).toBeTruthy();
   });
 });
