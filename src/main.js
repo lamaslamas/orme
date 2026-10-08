@@ -1,3 +1,4 @@
+import '@fontsource-variable/manrope';
 import './stile.css';
 import { caricaDatiIniziali } from './db.js';
 import { vistaLista } from './viste/lista.js';
@@ -9,7 +10,9 @@ import { vistaMappaGenerale } from './viste/mappaGenerale.js';
 import { vistaGiri, vistaGiro } from './viste/giri.js';
 import { vistaModificaGiro } from './viste/modificaGiro.js';
 import { vistaMappaGiro } from './viste/mappaGiro.js';
+import { vistaAltro } from './viste/altro.js';
 import { escapeHtml } from './lib/formato.js';
+import { sezioneDi } from './lib/sezioni.js';
 
 const app = document.getElementById('app');
 
@@ -21,6 +24,7 @@ const percorsi = [
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
   [/^\/nuovo\/?$/, (app) => vistaModifica(app, null)],
   [/^\/backup\/?$/, vistaBackup],
+  [/^\/altro\/?$/, vistaAltro],
   [/^\/mappa\/?$/, vistaMappaGenerale],
   [/^\/giri\/?$/, vistaGiri],
   [/^\/giro-nuovo\/?$/, (app) => vistaModificaGiro(app, null)],
@@ -31,8 +35,19 @@ const percorsi = [
 
 let pulisciVistaPrecedente = null;
 
+function aggiornaBarraSchede(percorso) {
+  const sezione = sezioneDi(percorso);
+  for (const a of document.querySelectorAll('.barra-schede a')) {
+    const attiva = a.dataset.sezione === sezione;
+    a.classList.toggle('attiva', attiva);
+    if (attiva) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
+}
+
 async function mostra() {
   const percorso = location.hash.replace(/^#/, '') || '/';
+  aggiornaBarraSchede(percorso);
   if (typeof pulisciVistaPrecedente === 'function') pulisciVistaPrecedente();
   pulisciVistaPrecedente = null;
   for (const [regola, vista] of percorsi) {

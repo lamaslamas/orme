@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#3d5a3a" />
+    <meta name="theme-color" content="#1d3b1f" />
     <meta name="description" content="Sentieri faunistici del Parco Nazionale d'Abruzzo, Lazio e Molise" />
     <link rel="icon" href="/icone/icona.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icone/apple-touch-icon.png" />
@@ -11,19 +11,46 @@
   </head>
   <body>
     <div class="cima">
-    <header class="testata">
-      <a href="#/" class="logo">Orme</a>
-      <nav class="menu">
-        <a href="#/mappa">Mappa</a>
-        <a href="#/giri">Giri</a>
-        <a href="#/backup">Backup</a>
-      </nav>
-    </header>
-    <div class="banner" role="note">
-      Nel Parco è vietato uscire dai sentieri. Chiusure e numeri chiusi cambiano ogni anno: verifica sempre sul sito del Parco.
-    </div>
+      <header class="testata">
+        <a href="#/" class="logo" aria-label="Orme, torna all'inizio">
+          <svg viewBox="0 0 512 512" aria-hidden="true">
+            <rect width="512" height="512" rx="120" fill="#1d3b1f" />
+            <g fill="#f5efe2">
+              <path d="M256 236c-62 0-116 40-124 96-6 44 22 76 62 80 24 2 40-8 62-8s38 10 62 8c40-4 68-36 62-80-8-56-62-96-124-96z" />
+              <ellipse cx="128" cy="214" rx="30" ry="38" transform="rotate(-28 128 214)" />
+              <ellipse cx="184" cy="152" rx="32" ry="42" transform="rotate(-12 184 152)" />
+              <ellipse cx="256" cy="130" rx="33" ry="44" />
+              <ellipse cx="328" cy="152" rx="32" ry="42" transform="rotate(12 328 152)" />
+              <ellipse cx="384" cy="214" rx="30" ry="38" transform="rotate(28 384 214)" />
+            </g>
+          </svg>
+          Orme
+        </a>
+      </header>
+      <div class="banner" role="note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4M12 16.5v.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Nel Parco è vietato uscire dai sentieri. Chiusure e numeri chiusi cambiano ogni anno: verifica sempre sul sito del Parco.</span>
+      </div>
     </div>
     <main id="app"></main>
+    <nav class="barra-schede" aria-label="Sezioni">
+      <a href="#/" data-sezione="esplora">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m16.5 16.5 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Esplora
+      </a>
+      <a href="#/mappa" data-sezione="mappa">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z M9 4v14 M15 6v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        Mappa
+      </a>
+      <a href="#/giri" data-sezione="giri">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="6" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Giri
+      </a>
+      <a href="#/altro" data-sezione="altro">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg>
+        Altro
+      </a>
+    </nav>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

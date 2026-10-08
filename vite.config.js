@@ -34,8 +34,8 @@ export default defineConfig({
         scope: BASE,
         display: 'standalone',
         orientation: 'portrait',
-        background_color: '#faf8f4',
-        theme_color: '#3d5a3a',
+        background_color: '#f4f5f2',
+        theme_color: '#1d3b1f',
         icons: [
           { src: 'icone/icona-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icone/icona-512.png', sizes: '512x512', type: 'image/png' },
@@ -43,7 +43,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: `${BASE}index.html`,
         runtimeCaching: [
           cacheMappa('mappa-osm', /^https:\/\/tile\.openstreetmap\.org\//),
