@@ -123,3 +123,82 @@ export async function cercaSuOsm(codici, opzioni = {}) {
   const json = await interrogaOverpass(costruisciQuery(codici, opzioni.parco), opzioni);
   return raggruppaPerCodice(codici, interpretaRisposta(json));
 }
+
+// --- Importazione dei sentieri di un parco ---
+
+// Elenco leggero (solo dati, niente geometria) dei sentieri escursionistici nel parco
+export function queryElencoParco(idParco) {
+  const parco = parcoDa(idParco);
+  return `[out:json][timeout:90];
+area(id:${areaDaRelazione(parco.osm.relazione)})->.parco;
+rel["route"="hiking"](area.parco);
+out tags;`;
+}
+
+// Geometria e tag dei tratti per le relazioni scelte
+export function queryGeometrie(idRelazioni) {
+  return `[out:json][timeout:120];
+rel(id:${idRelazioni.map(Number).join(',')});
+out geom;
+way(r);
+out tags;`;
+}
+
+export function interpretaElenco(json) {
+  return (json?.elements ?? [])
+    .filter((e) => e.type === 'relation')
+    .map((e) => {
+      const t = e.tags ?? {};
+      const km = Number(String(t.distance ?? '').replace(',', '.'));
+      return {
+        idOsm: e.id,
+        ref: normalizzaCodice(t.ref),
+        nome: t.name ?? '',
+        da: t.from ?? '',
+        a: t.to ?? '',
+        km: Number.isFinite(km) && km > 0 ? km : null,
+        rete: t.network ?? '',
+      };
+    })
+    // prima i sentieri con codice (in ordine naturale: 2 prima di 10), poi gli altri per nome
+    .sort((x, y) => {
+      if (x.ref && !y.ref) return -1;
+      if (!x.ref && y.ref) return 1;
+      return x.ref.localeCompare(y.ref, 'it', { numeric: true }) || x.nome.localeCompare(y.nome, 'it');
+    });
+}
+
+export function nomeRelazione(r) {
+  if (r.nome) return r.nome;
+  if (r.da && r.a) return `${r.da} – ${r.a}`;
+  return r.ref ? `Sentiero ${r.ref}` : `Sentiero OSM ${r.idOsm}`;
+}
+
+// Nuovo sentiero (da verificare) a partire da una relazione OSM
+export function sentieroDaRelazione(r, idParco) {
+  const parco = parcoDa(idParco);
+  return {
+    parco: idParco,
+    codici: r.ref ? [r.ref] : [],
+    nome: nomeRelazione(r),
+    zona: '',
+    descrizione: r.da && r.a && r.nome ? `Da ${r.da} a ${r.a}.` : '',
+    animali: [],
+    escursione: {
+      associazione: '',
+      nomeUscita: '',
+      periodo: '',
+      fonte: 'OpenStreetMap',
+      url: `https://www.openstreetmap.org/relation/${r.idOsm}`,
+    },
+    lunghezzaKm: r.km,
+    dislivelloM: null,
+    durataMin: null,
+    partenza: { paese: '', descrizione: r.da, lat: null, lon: null },
+    accesso: { tipo: 'nessuno', nota: '', link: parco.sito },
+    stato: 'da_fare',
+    dataPercorso: null,
+    notePersonali: '',
+    daVerificare: true,
+  };
+}

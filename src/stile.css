@@ -554,3 +554,9 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .parco-mappa { height: 240px; background: #e9f5ee; }
 .parco-mappa #mappaParco { position: absolute; inset: 0; }
 .piccolo { font-size: 0.78rem; margin-top: 6px !important; }
+.elenco-import { list-style: none; margin: 0 0 90px; padding: 0; background: var(--scheda); border-radius: var(--raggio); box-shadow: var(--ombra); }
+.elenco-import li { padding: 4px 14px; border-bottom: 1px solid var(--bordo); }
+.elenco-import li:last-child { border-bottom: none; }
+.elenco-import .scelta { align-items: flex-start; padding: 6px 0; }
+.elenco-import .scelta input { margin-top: 2px; flex: none; }
+#contenuto .ricerca { margin: 12px 0 0; }

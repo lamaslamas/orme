@@ -107,3 +107,40 @@ describe('tag bici dei tratti', () => {
     expect(c.suggerimentoBici).toBeNull();
   });
 });
+
+import { interpretaElenco, sentieroDaRelazione, nomeRelazione, queryElencoParco, queryGeometrie } from '../src/lib/overpass.js';
+
+describe('importazione dei sentieri di un parco', () => {
+  const json = {
+    elements: [
+      { type: 'relation', id: 3, tags: { ref: '10', name: 'Anello del Lago', distance: '7,5' } },
+      { type: 'relation', id: 1, tags: { ref: 'CAI 2', from: 'Stia', to: 'Falterona' } },
+      { type: 'relation', id: 2, tags: { name: 'Via dei Legni' } },
+    ],
+  };
+
+  it('elenca i sentieri in ordine di codice', () => {
+    const elenco = interpretaElenco(json);
+    expect(elenco.map((r) => r.idOsm)).toEqual([1, 3, 2]);
+    expect(elenco[0].ref).toBe('2');
+    expect(elenco[1].km).toBe(7.5);
+  });
+
+  it('dà un nome anche ai sentieri che non lo hanno', () => {
+    const [due] = interpretaElenco(json);
+    expect(nomeRelazione(due)).toBe('Stia – Falterona');
+    expect(nomeRelazione({ idOsm: 9, ref: '', nome: '', da: '', a: '' })).toBe('Sentiero OSM 9');
+  });
+
+  it('crea un sentiero da verificare nel parco giusto', () => {
+    const s = sentieroDaRelazione(interpretaElenco(json)[1], 'foreste-casentinesi');
+    expect(s).toMatchObject({ parco: 'foreste-casentinesi', codici: ['10'], nome: 'Anello del Lago', lunghezzaKm: 7.5, daVerificare: true });
+    expect(s.escursione.url).toBe('https://www.openstreetmap.org/relation/3');
+    expect(s.accesso.link).toContain('parcoforestecasentinesi');
+  });
+
+  it('costruisce le query per il parco e per le geometrie', () => {
+    expect(queryElencoParco('appennino-lucano')).toContain('area(id:3606274746)');
+    expect(queryGeometrie([1, 2])).toContain('rel(id:1,2)');
+  });
+});
