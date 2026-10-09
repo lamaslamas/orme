@@ -16,6 +16,7 @@ import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.j
 import { stato } from '../stato.js';
 import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
+import { htmlFaunaBreve } from './faunaBreve.js';
 
 // Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
 const STILE_DISCRETO = { color: COLORI.sfondo, weight: 2, opacity: 0.5 };
@@ -137,6 +138,40 @@ export async function vistaMappaGenerale(app) {
   const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
 
   const preparati = preparaPercorsi(sentieri, tracce);
+  // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
+  let inMappa = [];
+  let saltaSpostamento = false; // lo spostamento fatto per inquadrare un percorso scelto non cambia l'elenco
+  function elencoInVista() {
+    const vista = mappa.getBounds();
+    const qui = inMappa.filter(({ sentiero }) => aree.get(sentiero.id)?.getBounds().intersects(vista));
+    app.querySelector('#titoloRisultati').textContent = inMappa.length
+      ? `Nella zona inquadrata (${qui.length}${qui.length < inMappa.length ? ` su ${inMappa.length}` : ''})`
+      : '';
+    app.querySelector('#risultatiMappa').innerHTML =
+      qui
+        .slice(0, 60)
+        .map(
+          ({ sentiero: s }) => `<li><button type="button" class="risultato" data-id="${escapeHtml(s.id)}">
+          <span class="pallino-stato" style="background:${COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare}"></span>
+          <span class="risultato-testo">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}
+            ${s.panorama ? `<span class="tenue piccolo-inline">· panorama ${s.panorama.punteggio}</span>` : ''}
+            ${htmlFaunaBreve(s)}</span>
+        </button></li>`,
+        )
+        .join('') +
+      (qui.length > 60 ? `<li class="tenue piccolo">e altri ${qui.length - 60}: avvicinati sulla mappa o usa i filtri</li>` : '') +
+      (inMappa.length && !qui.length ? '<li class="tenue piccolo">Nessun percorso in questa zona: sposta la mappa o allontanati.</li>' : '');
+  }
+  let attesaVista = null;
+  mappa.on('moveend', () => {
+    if (saltaSpostamento) {
+      saltaSpostamento = false;
+      return;
+    }
+    clearTimeout(attesaVista);
+    attesaVista = setTimeout(elencoInVista, 150);
+  });
+
   function disegna() {
     mostraConfineScelto(filtri.parco);
     const filtrati = filtraPercorsi(preparati, filtri, stato.leggi().attivita).map((p) => p.sentiero);
@@ -166,12 +201,14 @@ export async function vistaMappaGenerale(app) {
         // e viene inquadrata, lasciando in alto lo spazio per il riquadro
         selezione.clearLayers();
         const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6 }).addTo(selezione);
+        saltaSpostamento = true;
         mappa.fitBounds(evidenziata.getBounds(), {
           paddingTopLeft: [40, 150],
           paddingBottomRight: [40, 30],
           maxZoom: 15,
           animate: false,
         });
+        saltaSpostamento = false; // senza animazione lo spostamento è già avvenuto
         const limitiScelta = evidenziata.getBounds();
         L.popup({ autoPan: false })
           .setLatLng([limitiScelta.getNorth(), limitiScelta.getCenter().lng])
@@ -202,18 +239,8 @@ export async function vistaMappaGenerale(app) {
       `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ` +
       `${filtrati.length} ${filtrati.length === 1 ? 'sentiero' : 'sentieri'}${filtriAttivi(filtri) ? ' filtrati' : ''}`;
 
-    // elenco dei risultati con traccia: un tocco evidenzia e inquadra il percorso sulla mappa
-    app.querySelector('#titoloRisultati').textContent = conTraccia.length ? `Sulla mappa (${conTraccia.length})` : '';
-    app.querySelector('#risultatiMappa').innerHTML = conTraccia
-      .slice(0, 60)
-      .map(
-        ({ sentiero: s }) => `<li><button type="button" class="risultato" data-id="${escapeHtml(s.id)}">
-          <span class="pallino-stato" style="background:${COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare}"></span>
-          <span class="risultato-testo">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}
-            ${s.panorama ? `<span class="tenue piccolo-inline">· panorama ${s.panorama.punteggio}</span>` : ''}</span>
-        </button></li>`,
-      )
-      .join('') + (conTraccia.length > 60 ? `<li class="tenue piccolo">e altri ${conTraccia.length - 60}: usa i filtri o la ricerca per trovarli</li>` : '');
+    inMappa = conTraccia;
+    elencoInVista();
     app.querySelector('#titoloSenza').textContent = senzaTraccia.length
       ? `Non sulla mappa: senza traccia (${senzaTraccia.length})`
       : ''; // tutti i risultati sono già sulla mappa: niente da segnalare

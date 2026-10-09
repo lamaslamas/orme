@@ -3,7 +3,6 @@
 // A Open-Meteo vanno solo coordinate e quote dei sentieri. Preferenze e scelte restano sul telefono.
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
-import { ANIMALI } from '../lib/costanti.js';
 import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
@@ -21,27 +20,14 @@ import {
   datiPerMeteo,
   ordinaClassifica,
   giornoAllaQuota,
-  animaliDelMese,
 } from '../lib/condizioni.js';
 import { stato } from '../stato.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { caricaPunti } from './puntiUtili.js';
+import { ICONE } from './icone.js';
+import { htmlFaunaBreve } from './faunaBreve.js';
 import { puntiLungoIlPercorso, perLaNotte, conAcqua, riassuntoPunti, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 
-// Icone semplici a linea (stesso stile, colore del testo)
-const svg = (d) => `<svg class="icona" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-const ICONE = {
-  orologio: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
-  bandierina: svg('<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>'),
-  avviso: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/>'),
-  ok: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'),
-  nuvola: svg('<path d="M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.3 3.3 0 0 0 7 18z"/>'),
-  casa: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>'),
-  goccia: svg('<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>'),
-  zampa: svg('<circle cx="7" cy="10" r="1.6"/><circle cx="11" cy="6.5" r="1.6"/><circle cx="15.5" cy="7" r="1.6"/><circle cx="18" cy="11" r="1.6"/><path d="M8.5 17c0-2.5 2-4.5 4-4.5s4 2 4 4.5c0 1.5-1.2 2.5-2.6 2.5-1 0-1-.6-1.4-.6s-.5.6-1.5.6c-1.4 0-2.5-1-2.5-2.5z"/>'),
-  parco: svg('<path d="M12 3 6 13h4l-3 5h10l-3-5h4z"/><path d="M12 18v3"/>'),
-  segnaposto: svg('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
-};
 // giudizio: cerchio pieno colorato con il segno dentro
 const giudizio = (colore, d) => `<svg class="icona-giudizio" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="${colore}"/><path d="${d}" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_GIUDIZIO = {
@@ -271,7 +257,7 @@ export async function vistaDoveVado(app) {
       const alto = p.meteo.alto ? giornoAllaQuota(memoria.get(p.meteo.alto.chiave)?.giorni[data], p.meteo.alto.quota) : null;
       const giudizio = giudicaGiornata({ basso, alto, durataMin: p.meteo.durataMin, percorso: p.meteo.percorso, soglie, attivita, dopoMin });
       if (!giudizio || !nellaDurata(giudizio.durataPrevista, scelte.durata)) continue;
-      voci.push({ ...p, giudizio, panorama: p.meteo.percorso.panorama, animali: animaliDelMese(p.sentiero.faunaInat, mese) });
+      voci.push({ ...p, giudizio, panorama: p.meteo.percorso.panorama, mese });
     }
 
     // com'è la giornata in ciascun parco (solo quando non se ne è scelto uno)
@@ -333,7 +319,7 @@ export async function vistaDoveVado(app) {
           ${note.length ? riga(ICONE.nuvola, escapeHtml(note.map((f) => f.testo).join(' · '))) : ''}
           ${notte.length ? riga(ICONE.casa, escapeHtml(notte.slice(0, 2).map((p) => `${p.nome ?? TIPI_PUNTO[p.tipo].nome}${p.distanzaM >= 30 ? ` (${p.distanzaM} m)` : ''}`).join(', ')), 'rifugi') : ''}
           ${acqua.length ? riga(ICONE.goccia, escapeHtml(riassuntoPunti(acqua)), 'acqua') : ''}
-          ${v.animali.length ? riga(ICONE.zampa, v.animali.slice(0, 3).map((a) => escapeHtml(ANIMALI[a] ?? a)).join(', '), 'animali') : ''}
+          ${htmlFaunaBreve(s, { mese: v.mese, riga: true })}
         </span>
       </a>
     </li>`;

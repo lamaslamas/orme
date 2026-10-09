@@ -1,4 +1,4 @@
-import { ANIMALI, ACCESSI, BICI_CONSENTITA } from '../lib/costanti.js';
+import { ACCESSI, BICI_CONSENTITA } from '../lib/costanti.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { STATI_COMPATIBILITA, ATTIVITA } from '../lib/compatibilita.js';
 import { stato } from '../stato.js';
@@ -9,6 +9,7 @@ import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi, definizioni } fro
 import improntaSvg from '../impronta.svg?raw';
 import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
+import { htmlFaunaBreve } from './faunaBreve.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
 
@@ -50,14 +51,6 @@ export function bollinoCompatibilita(compat, attivita) {
 export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
   const m = misureSentiero(s, traccia);
   const luogo = [s.zona, s.partenza?.paese && `da ${s.partenza.paese}`].filter(Boolean).map(escapeHtml).join(' · ');
-  const animali =
-    (s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('') +
-    // dagli avvistamenti verificati di iNaturalist (non già indicati dalle associazioni)
-    (s.faunaInat?.specie ?? [])
-      .filter((x) => !(s.animali ?? []).includes(x.animale))
-      .slice(0, 4)
-      .map((x) => `<span class="chip chip-inat" title="Osservato su iNaturalist ${x.livello === 'percorso' ? 'lungo il percorso' : 'nella zona'}">${ANIMALI[x.animale]}${x.livello === 'zona' ? ' · zona' : ''}</span>`)
-      .join('');
   const tipo = s.accesso?.tipo || 'nessuno';
   const numeri = rigaNumeri(m);
   return `
@@ -74,9 +67,9 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
           ${luogo ? `<div class="carta-dati">${luogo}</div>` : ''}
           ${mostraParco ? `<div class="carta-parco-nome">${escapeHtml((s.parchi ?? [s.parco]).map((id) => parcoDa(id)?.nomeBreve).filter(Boolean).join(' · '))}</div>` : ''}
           ${numeri ? `<div class="numeri">${numeri}</div>` : ''}
+          ${htmlFaunaBreve(s)}
           <div class="chips">
             ${bollinoCompatibilita(compat, stato.leggi().attivita)}
-            ${animali}
             ${tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${ACCESSI[tipo]}</span>` : ''}
             ${bollinoBici(s)}
             ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}

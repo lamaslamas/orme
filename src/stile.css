@@ -1148,3 +1148,14 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 }
 .invito-meteo .icona-meteo { font-size: 1.6rem; }
 .invito-meteo b { display: block; }
+
+/* etichetta fauna, uguale in tutte le liste */
+.fauna-breve { display: grid; grid-template-columns: 16px 1fr; gap: 6px; align-items: start; font-size: 0.86rem; line-height: 1.35; margin: 4px 0; }
+.fauna-breve .icona { margin-top: 1px; }
+.fauna-frequenti .icona { color: #2f7d4a; }
+.fauna-frequenti b { color: #2f7d4a; }
+.fauna-possibili .icona { color: #8a6a1f; }
+.fauna-possibili b { color: #7a5d16; }
+.fauna-occasionali .icona, .fauna-occasionali b { color: var(--testo-tenue); }
+.risultato-testo .fauna-breve { margin: 2px 0 0; font-size: 0.8rem; }
+.riga-meteo.fauna-breve { margin: 0; font-size: 0.9rem; }

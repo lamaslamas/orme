@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { faunaDalleOsservazioni, animaleDelTaxon, animaliPossibili } from '../src/lib/faunaPercorso.js';
+import { faunaDalleOsservazioni, animaleDelTaxon, animaliPossibili, possibilitaFauna } from '../src/lib/faunaPercorso.js';
 
 const traccia = { type: 'MultiLineString', coordinates: [[[13.8, 42], [13.82, 42]]] };
 const oss = (taxon, lat, lon, utente, { obscured = false, data = '2025-09-12', qualita = 'research' } = {}) => ({
@@ -47,5 +47,25 @@ describe('fauna del parco', () => {
     );
     expect(r.osservazioni).toBe(5); // quella fuori dal confine e dal riquadro non conta
     expect(r.specie).toEqual([{ animale: 'cervo', osservazioni: 3, persone: 3, mesi: 'set', sfumate: 0 }]); // il lupo ha solo 2 osservazioni
+  });
+});
+
+describe('possibilità di vedere fauna', () => {
+  const sp = (animale, livello, osservazioni, mesi = '') => ({ animale, livello, osservazioni, mesi });
+
+  it('frequenti, possibili, occasionali', () => {
+    expect(possibilitaFauna({ faunaInat: { specie: [sp('cervo', 'percorso', 12)] } }).livello).toBe('frequenti');
+    expect(possibilitaFauna({ faunaInat: { specie: [sp('cervo', 'percorso', 4)] } }).livello).toBe('possibili');
+    expect(possibilitaFauna({ faunaInat: { specie: [sp('orso', 'zona', 5)] } }).livello).toBe('occasionali');
+    expect(possibilitaFauna({ osservazione: true, animali: ['lupo'] }).livello).toBe('frequenti');
+    expect(possibilitaFauna({ faunaInat: { specie: [] } })).toBeNull();
+  });
+
+  it('prima gli animali del periodo, poi quelli lungo il percorso', () => {
+    const s = { faunaInat: { specie: [sp('cervo', 'percorso', 30, 'set–ott'), sp('orso', 'zona', 50, 'giu'), sp('lupo', 'zona', 5, 'giu')] } };
+    expect(possibilitaFauna(s).specie).toEqual(['cervo', 'orso', 'lupo']);
+    const giugno = possibilitaFauna(s, 6);
+    expect(giugno.specie).toEqual(['orso', 'lupo', 'cervo']);
+    expect(giugno.nelPeriodo).toBe(true);
   });
 });

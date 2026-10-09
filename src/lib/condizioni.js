@@ -2,6 +2,9 @@
 // orarie di Open-Meteo (gratuito, senza chiavi) alla quota di partenza e al punto più alto.
 // Il giudizio non dice mai "sicuro": dice se le previsioni sono favorevoli, con i motivi.
 
+import { mesiDaTesto } from './faunaPercorso.js';
+
+export { mesiDaTesto };
 export const URL_PREVISIONI = 'https://api.open-meteo.com/v1/forecast';
 const ORARIE = [
   'temperature_2m',
@@ -322,22 +325,6 @@ export function nellaDurata(durataPrevista, chiave) {
   const d = DURATE[chiave];
   if (!d || !Number.isFinite(durataPrevista)) return true;
   return (d.min == null || durataPrevista >= d.min) && durataPrevista <= d.max;
-}
-
-// Mesi di un testo tipo "giu, ago–set" → numeri 1-12
-const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
-export function mesiDaTesto(testo) {
-  const mesi = new Set();
-  for (const parte of String(testo ?? '').split(',')) {
-    const [a, b] = parte.trim().split(/[–-]/).map((x) => MESI.indexOf(x.trim()) + 1);
-    if (!a) continue;
-    if (!b) mesi.add(a);
-    else for (let m = a; ; m = (m % 12) + 1) {
-      mesi.add(m);
-      if (m === b) break;
-    }
-  }
-  return mesi;
 }
 
 // Animali osservati di solito in quel mese lungo il percorso o nella zona (da iNaturalist)

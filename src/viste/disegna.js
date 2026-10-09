@@ -7,6 +7,8 @@ import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { aggiungiGps } from './gps.js';
+import { aggiungiHeatmap } from './heatmap.js';
+import { aggiungiDistribuzione } from './distribuzione.js';
 
 export async function vistaDisegna(app, id = null) {
   const esistente = id ? await leggiPercorso(id) : null;
@@ -30,9 +32,12 @@ export async function vistaDisegna(app, id = null) {
     </section>
   `;
 
-  // nel disegno i tocchi servono ai punti: niente heatmap, solo il GPS
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['gps'] });
+  // heatmap della fauna e distribuzione ufficiale per scegliere dove passare; i tocchi sulla
+  // mappa restano ai punti del percorso (la heatmap si guarda, non apre i dettagli)
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'gps'] });
   const fermaGps = aggiungiGps(mappa, () => null);
+  aggiungiDistribuzione(mappa);
+  const heat = aggiungiHeatmap(mappa, { occupata: () => true });
   const livelloPercorso = L.layerGroup().addTo(mappa);
   const livelloPunti = L.layerGroup().addTo(mappa);
   const stato = app.querySelector('#statoDisegno');
@@ -124,6 +129,7 @@ export async function vistaDisegna(app, id = null) {
 
   return () => {
     fermaGps();
+    heat.rimuovi();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

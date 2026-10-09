@@ -93,3 +93,49 @@ export function faunaDelParco(risultati, { anelli = null, bbox }) {
     .sort((x, y) => y.osservazioni - x.osservazioni);
   return { osservazioni: totale, specie };
 }
+
+// Mesi di un testo tipo "giu, ago–set" → numeri 1-12
+const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+export function mesiDaTesto(testo) {
+  const mesi = new Set();
+  for (const parte of String(testo ?? '').split(',')) {
+    const [a, b] = parte.trim().split(/[–-]/).map((x) => MESI.indexOf(x.trim()) + 1);
+    if (!a) continue;
+    if (!b) mesi.add(a);
+    else
+      for (let m = a; ; m = (m % 12) + 1) {
+        mesi.add(m);
+        if (m === b) break;
+      }
+  }
+  return mesi;
+}
+
+// Possibilità di vedere fauna lungo un percorso, uguale in tutte le liste dell'app:
+// - frequenti: molte osservazioni verificate lungo il percorso (o più specie), oppure
+//   uscite di osservazione delle associazioni
+// - possibili: qualche osservazione lungo il percorso, o molte nella zona
+// - occasionali: solo nella zona
+// mese (1-12): gli animali osservati di solito in quel mese vengono prima.
+// Non è una probabilità statistica: dice quanto spesso sono stati visti, non se li vedrai.
+export const POSSIBILITA_FAUNA = {
+  frequenti: 'Avvistamenti frequenti',
+  possibili: 'Avvistamenti possibili',
+  occasionali: 'Avvistamenti occasionali (nella zona)',
+};
+export function possibilitaFauna(s, mese = null) {
+  const inat = s?.faunaInat?.specie ?? [];
+  const associazioni = s?.animali ?? [];
+  if (!inat.length && !associazioni.length) return null;
+  const lungo = inat.filter((x) => x.livello === 'percorso');
+  let livello = 'occasionali';
+  if (lungo.some((x) => x.osservazioni >= 10) || lungo.length >= 3 || (s.osservazione && associazioni.length)) livello = 'frequenti';
+  else if (lungo.length || associazioni.length || inat.some((x) => x.osservazioni >= 15)) livello = 'possibili';
+  const nelMese = (x) => (mese ? mesiDaTesto(x.mesi).has(mese) : false);
+  const ordinate = [
+    ...associazioni.map((animale) => ({ animale, peso: 3, mese: false })),
+    ...inat.map((x) => ({ animale: x.animale, peso: (x.livello === 'percorso' ? 2 : 1) + Math.min(x.osservazioni, 50) / 100, mese: nelMese(x) })),
+  ].sort((a, b) => b.mese - a.mese || b.peso - a.peso);
+  const specie = [...new Set(ordinate.map((x) => x.animale))].slice(0, 3);
+  return { livello, specie, nelPeriodo: ordinate.some((x) => x.mese) };
+}
