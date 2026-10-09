@@ -81,7 +81,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
     ? { zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false }
     : { zoomControl: true };
   // canvas: molto più veloce con centinaia di tracce (i tocchi sulle linee funzionano lo stesso)
-  const mappa = L.map(contenitore, { ...ferma, preferCanvas: true }).setView(CENTRO_PREDEFINITO, 11);
+  // minZoom esplicito: senza, Leaflet prende quello dei livelli (Waymarked parte da 11) e impedisce di allontanarsi
+  const mappa = L.map(contenitore, { ...ferma, preferCanvas: true, minZoom: 5, maxZoom: 19 }).setView(CENTRO_PREDEFINITO, 11);
   // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi
   // (non toccabili), sopra ancora pin e riquadri
   mappa.createPane('etichette');

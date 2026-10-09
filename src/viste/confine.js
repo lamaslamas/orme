@@ -22,9 +22,13 @@ export async function ottieniConfine(parco) {
   return salvaConfine({ parco: parco.id, anelli });
 }
 
-export function disegnaConfine(confine) {
-  return L.polygon(
-    confine.anelli.map((a) => a.map(([lon, lat]) => [lat, lon])),
-    { color: COLORI.confine, weight: 2.5, dashArray: '6 5', fillColor: COLORI.confineRiempimento, fillOpacity: 0.08, interactive: false },
-  );
+// Confine come nelle carte escursionistiche: fascia verde larga e trasparente con una linea sottile
+// al centro, senza riempimento (così non si confonde con le tracce né copre la mappa).
+// scelto: il parco selezionato, più marcato.
+export function disegnaConfine(confine, { scelto = false } = {}) {
+  const anelli = confine.anelli.map((a) => a.map(([lon, lat]) => [lat, lon]));
+  return L.featureGroup([
+    L.polygon(anelli, { color: COLORI.confineFascia, weight: scelto ? 12 : 8, opacity: scelto ? 0.3 : 0.2, fill: false, interactive: false, lineJoin: 'round' }),
+    L.polygon(anelli, { color: COLORI.confine, weight: scelto ? 2 : 1.25, opacity: 0.9, fill: false, interactive: false }),
+  ]);
 }

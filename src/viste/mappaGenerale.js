@@ -89,7 +89,7 @@ export async function vistaMappaGenerale(app) {
     ottieniConfine(parco)
       .then((confine) => {
         if (parcoMostrato !== idParco) return;
-        disegnaConfine(confine).setStyle({ weight: 3.5, opacity: 0.95, fillOpacity: 0.08 }).addTo(confineScelto);
+        disegnaConfine(confine, { scelto: true }).addTo(confineScelto);
       })
       .catch(() => {}); // senza rete il riquadro del parco basta per inquadrarlo
   }

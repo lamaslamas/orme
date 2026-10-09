@@ -134,7 +134,7 @@ export async function vistaParco(app, id) {
   ottieniConfine(parco)
     .then((confine) => {
       if (chiusa) return;
-      const poligono = disegnaConfine(confine);
+      const poligono = disegnaConfine(confine, { scelto: true });
       mappa.suLivello('confini', (acceso) => (acceso ? poligono.addTo(mappa) : poligono.remove()));
       mappa.fitBounds(poligono.getBounds(), { padding: [12, 12] });
       avvisoConfine.hidden = true;

@@ -8,14 +8,22 @@ const STILE = 'https://tiles.openfreemap.org/styles/liberty';
 export const ATTR_VETTORIALE =
   '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, dati &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
+// Lo stile mostra i nomi in inglese ("Italy", "Tuscany"): si usa name:it, altrimenti il nome locale
+const NOME_ITALIANO = ['coalesce', ['get', 'name:it'], ['get', 'name']];
+function inItaliano(l) {
+  const testo = l.layout?.['text-field'];
+  if (!JSON.stringify(testo ?? '').includes('name_en')) return l;
+  return { ...l, layout: { ...l.layout, 'text-field': NOME_ITALIANO } };
+}
+
 let stiliInCorso = null;
 function stili() {
   stiliInCorso ??= fetch(STILE)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`stile: risposta ${r.status}`))))
     .then((s) => ({
       base: { ...s, layers: s.layers.filter((l) => l.type !== 'symbol') },
-      // solo le scritte, su fondo trasparente
-      etichette: { ...s, layers: s.layers.filter((l) => l.type === 'symbol') },
+      // solo le scritte, su fondo trasparente, con i nomi in italiano dove esistono
+      etichette: { ...s, layers: s.layers.filter((l) => l.type === 'symbol').map(inItaliano) },
     }))
     .catch((e) => {
       stiliInCorso = null;

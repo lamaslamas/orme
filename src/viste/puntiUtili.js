@@ -6,6 +6,7 @@ import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNe
 
 // da vicino le icone; da lontano pallini colorati (leggeri, su canvas) per avere il quadro d'insieme
 export const ZOOM_PUNTI = 12;
+export const ZOOM_PALLINI = 8; // più lontano (scala nazionale) sarebbero solo macchie
 const GRUPPI = ['rifugi', 'acqua'];
 const COLORE_GRUPPO = { rifugi: '#9a4b2f', acqua: '#2a7bbf' };
 
@@ -69,16 +70,18 @@ export function aggiungiPuntiUtili(mappa) {
   const vicino = () => mappa.getZoom() >= ZOOM_PUNTI;
   function aggiorna() {
     const z = mappa.getZoom();
-    const raggio = z >= 10 ? 5.5 : z >= 8 ? 4 : 3;
+    // pallini piccoli da lontano, più grandi avvicinandosi
+    const raggio = z >= 11 ? 4.5 : z >= 10 ? 3.5 : 2.5;
+    const bordo = z >= 10 ? 1.25 : 0.75;
     for (const g of GRUPPI) {
       for (const [gruppo, mostra] of [
         [livelli[g], accesi[g] && vicino() && dati],
-        [pallini[g], accesi[g] && !vicino() && dati],
+        [pallini[g], accesi[g] && !vicino() && mappa.getZoom() >= ZOOM_PALLINI && dati],
       ]) {
         if (mostra && !mappa.hasLayer(gruppo)) gruppo.addTo(mappa);
         if (!mostra && mappa.hasLayer(gruppo)) gruppo.remove();
       }
-      pallini[g].eachLayer((c) => c.setRadius(raggio));
+      pallini[g].eachLayer((c) => c.setRadius(raggio).setStyle({ weight: bordo }));
     }
     mappa.aggiornaLegenda?.();
   }
@@ -107,8 +110,8 @@ export function aggiungiPuntiUtili(mappa) {
       L.circleMarker([p.lat, p.lon], {
         renderer: tela,
         pane: 'puntiLontani',
-        radius: 5.5,
-        weight: 1.5,
+        radius: 3,
+        weight: 1,
         color: '#fff',
         fillColor: p.chiuso ? '#8a8f8c' : COLORE_GRUPPO[t.gruppo],
         fillOpacity: 0.95,
@@ -142,7 +145,13 @@ export function aggiungiPuntiUtili(mappa) {
         const qui = puntiNelRiquadro(dati, [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]).filter((p) => voci.includes(TIPI_PUNTO[p.tipo].gruppo));
         return `<p class="piccolo">Nella zona inquadrata: <b>${qui.length ? escapeHtml(riassuntoPunti(qui)) : 'nessuno'}</b></p>`;
       })()}
-      ${vicino() ? '' : `<p class="tenue piccolo">Da lontano sono pallini colorati; avvicinandosi diventano icone.</p>`}
+      ${
+        mappa.getZoom() < ZOOM_PALLINI
+          ? '<p class="tenue piccolo">Avvicinati a un parco per vederli sulla mappa.</p>'
+          : vicino()
+            ? ''
+            : '<p class="tenue piccolo">Da lontano sono pallini colorati; avvicinandosi diventano icone.</p>'
+      }
       <p class="tenue piccolo">Fonte: OpenStreetMap (ODbL), aggiornata ogni settimana.</p>
     </div>`;
   });
