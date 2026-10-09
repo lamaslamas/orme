@@ -3,12 +3,19 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { stato } from '../stato.js';
+import { creaBaseVettoriale } from './mappaVettoriale.js';
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
+// Etichette in primo piano: le basi "chiara" e "satellitare" hanno i nomi dei luoghi in un livello
+// separato, sopra le tracce; così i percorsi non coprono mai nomi e punti d'interesse.
 export const BASI = {
+  chiara: {
+    nome: 'Chiara (nomi in primo piano)',
+    vettoriale: true, // MapLibre + OpenFreeMap, caricata solo quando serve
+  },
   topo: {
-    nome: 'Topografica',
+    nome: 'Dettagliata (OpenStreetMap)',
     crea: () =>
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -31,6 +38,11 @@ export const BASI = {
         maxZoom: 19,
         attribution: 'Immagini &copy; Esri, Maxar, Earthstar Geographics e comunità GIS',
       }),
+    etichette: () =>
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        pane: 'etichette',
+      }),
   },
 };
 
@@ -51,7 +63,7 @@ const ICONA_LIVELLI =
 
 // anteprima: mappa ferma, senza comandi. livelli: chiavi dei livelli offerti da questa mappa.
 export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {}) {
-  const basi = Object.fromEntries(Object.entries(BASI).map(([k, b]) => [k, b.crea()]));
+  const basi = Object.fromEntries(Object.entries(BASI).filter(([, b]) => b.crea).map(([k, b]) => [k, b.crea()]));
   // sentieri di Waymarked: tenui e solo da vicino (a scala regionale o nazionale fanno solo confusione)
   const sentieri = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -64,14 +76,51 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
     : { zoomControl: true };
   // canvas: molto più veloce con centinaia di tracce (i tocchi sulle linee funzionano lo stesso)
   const mappa = L.map(contenitore, { ...ferma, preferCanvas: true }).setView(CENTRO_PREDEFINITO, 11);
+  // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi
+  // (non toccabili), sopra ancora pin e riquadri
+  mappa.createPane('etichette');
+  mappa.getPane('etichette').style.zIndex = 450;
+  mappa.getPane('etichette').style.pointerEvents = 'none';
+  const etichette = Object.fromEntries(Object.entries(BASI).filter(([, b]) => b.etichette).map(([k, b]) => [k, b.etichette()]));
+
+  // base vettoriale: si crea alla prima richiesta; se non si può (offline, niente WebGL) si usa la dettagliata
+  let vettoriale = null;
+  const preparaVettoriale = () =>
+    (vettoriale ??= creaBaseVettoriale()
+      .then((v) => {
+        basi.chiara = v.base;
+        etichette.chiara = v.etichette;
+        return true;
+      })
+      .catch((e) => {
+        console.warn('Mappa vettoriale non disponibile', e);
+        return false;
+      }));
 
   let baseAttuale = null;
-  function applicaBase(chiave) {
-    const k = basi[chiave] ? chiave : 'topo';
+  let richiesta = 0;
+  let rimossa = false;
+  mappa.on('unload', () => (rimossa = true));
+  async function applicaBase(chiave) {
+    let k = BASI[chiave] ? chiave : 'chiara';
+    const mia = ++richiesta;
+    if (k === 'chiara' && !basi.chiara) {
+      // intanto la dettagliata, così la mappa non resta vuota
+      if (!baseAttuale) mostraBase('topo');
+      if (!(await preparaVettoriale())) k = 'topo';
+      if (mia !== richiesta || rimossa) return; // nel frattempo è cambiata la scelta o la mappa è chiusa
+    }
+    mostraBase(k);
+  }
+  function mostraBase(k) {
     if (baseAttuale === k) return;
-    if (baseAttuale) basi[baseAttuale].remove();
+    if (baseAttuale) {
+      basi[baseAttuale]?.remove();
+      etichette[baseAttuale]?.remove();
+    }
     basi[k].addTo(mappa);
-    basi[k].bringToBack();
+    basi[k].bringToBack?.();
+    etichette[k]?.addTo(mappa);
     baseAttuale = k;
   }
   function applicaSentieri(visibili) {

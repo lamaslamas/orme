@@ -14,6 +14,7 @@ import { aggiungiGps } from './gps.js';
 import { stato } from '../stato.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
+import { htmlFaunaParco, collegaFaunaParco } from './faunaParco.js';
 
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
@@ -46,6 +47,8 @@ export async function vistaParco(app, id) {
       </div>
       <p class="descrizione">${escapeHtml(parco.descrizione)}</p>
 
+      ${htmlFaunaParco()}
+
       <section class="riquadro accesso accesso-guida">
         <h2>Regole del parco</h2>
         <p>${escapeHtml(parco.regole)}</p>
@@ -65,6 +68,7 @@ export async function vistaParco(app, id) {
   `;
 
   const scollegaAttivita = collegaSelettoreAttivita(app);
+  collegaFaunaParco(app, parco, sentieri);
   // la mappa mostra gli stessi percorsi dell'elenco (modalità e filtri scelti)
   let ultimoRisultato = null;
   let disegnaPercorsi = () => {};
@@ -95,7 +99,7 @@ export async function vistaParco(app, id) {
     percorsi.clearLayers();
     for (const { sentiero: s, traccia } of ultimoRisultato ?? conTraccia.map((x) => ({ sentiero: x, traccia: tracce.get(x.id) }))) {
       if (!traccia?.geojson) continue;
-      disegnaTraccia(traccia.geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 4 })
+      disegnaTraccia(traccia.geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 })
         .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
         .addTo(percorsi);
     }

@@ -53,6 +53,7 @@ export default defineConfig({
         navigateFallback: `${BASE}index.html`,
         runtimeCaching: [
           cacheMappa('mappa-osm', /^https:\/\/tile\.openstreetmap\.org\//),
+          cacheMappa('mappa-vettoriale', /^https:\/\/tiles\.openfreemap\.org\//),
           cacheMappa('mappa-topo', /^https:\/\/[abc]\.tile\.opentopomap\.org\//),
           cacheMappa('mappa-sentieri', /^https:\/\/tile\.waymarkedtrails\.org\//),
           cacheMappa('mappa-satellite', /^https:\/\/server\.arcgisonline\.com\//),

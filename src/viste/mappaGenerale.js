@@ -154,7 +154,7 @@ export async function vistaMappaGenerale(app) {
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
     for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
       const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
-      const linea = disegnaTraccia(traccia.geojson, ricerca ? { color: colore, weight: 4 } : STILE_DISCRETO).addTo(livello);
+      const linea = disegnaTraccia(traccia.geojson, ricerca ? { color: colore, weight: 3.5, opacity: 0.85 } : STILE_DISCRETO).addTo(livello);
       // linea invisibile più larga: più facile da toccare con il dito
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0 }).addTo(livello);
       aree.set(sentiero.id, area);

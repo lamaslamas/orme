@@ -1049,3 +1049,17 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* animali da iNaturalist */
 .chip-inat { background: rgba(191, 214, 227, 0.45); color: #33505e; border: 1px dashed rgba(51, 80, 94, 0.3); }
 .elenco-fauna { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; line-height: 1.4; }
+.invito-filtri { list-style: none; text-align: center; padding: 18px 12px; border-radius: var(--raggio); background: var(--scheda); border: var(--bordo-vetro); box-shadow: var(--ombra); grid-column: 1 / -1; }
+.invito-filtri p { margin: 0; }
+
+/* fauna del parco: stato dei dati sempre esplicito */
+.stato-dati { padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; }
+.stato-ok { background: rgba(155, 184, 165, 0.22); }
+.stato-scarso { background: rgba(216, 195, 165, 0.35); }
+.stato-assente { background: rgba(191, 214, 227, 0.4); }
+.elenco-fauna-parco { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.riga-fauna {
+  width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; text-align: left;
+  border: 1px solid var(--bordo); border-radius: 12px; background: rgba(255, 255, 255, 0.6); font: inherit; color: var(--testo); cursor: pointer;
+}
+.riga-fauna:hover { border-color: rgba(47, 111, 109, 0.45); }

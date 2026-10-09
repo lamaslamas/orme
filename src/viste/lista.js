@@ -7,7 +7,7 @@ import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi, definizioni } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
-import { parcoDa } from '../datiParchi.js';
+import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
@@ -88,7 +88,8 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
 
 // Elenco dei sentieri con ricerca e filtri, usato dalla pagina Parchi e da quella di ogni parco
 // alRisultato(risultato): chiamata a ogni aggiornamento (es. per mostrare sulla mappa gli stessi percorsi)
-export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null } = {}) {
+// serveUnFiltro: l'elenco compare solo dopo aver scelto almeno un filtro (pagina iniziale)
+export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
     ${htmlFiltri(sentieri, filtri, { ricerca })}
@@ -117,6 +118,8 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
       lista.insertAdjacentHTML('beforeend', htmlPagina(da));
       return;
     }
+    const parcoScelto = e.target.closest('[data-parco]')?.dataset.parco;
+    if (parcoScelto) stato.imposta({ parco: parcoScelto });
     const togli = e.target.closest('[data-togli]')?.dataset.togli;
     if (togli) controlli.togli(togli);
   });
@@ -145,6 +148,17 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
       alRisultato?.(risultato);
       ultimoRisultato = risultato;
       quanti = PAGINA;
+      // nessun filtro scelto: invece di centinaia di percorsi, un invito a scegliere
+      const scelti = Object.entries(filtri).filter(([k, v]) => v && !['soloBici', 'paese'].includes(k));
+      if (serveUnFiltro && !scelti.length) {
+        conteggio.textContent = `${risultato.length} percorsi disponibili`;
+        lista.innerHTML = `<li class="invito-filtri">
+            <p><b>Scegli da dove partire</b>: un parco, un animale, la ricerca qui sopra o un altro filtro.</p>
+            <div class="suggerimenti-filtri">${PARCHI.map((p) => `<button type="button" class="pillola" data-parco="${p.id}">${escapeHtml(p.nomeBreve)}</button>`).join('')}</div>
+          </li>`;
+        alRisultato?.([]);
+        return;
+      }
       lista.innerHTML = risultato.length
         ? htmlPagina(0)
         : `<li class="vuoto">Nessun percorso corrisponde ai filtri${attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''}.

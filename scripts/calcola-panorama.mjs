@@ -12,7 +12,9 @@ import { interrogaOverpass } from '../src/lib/overpass.js';
 import { parcoDa } from '../src/datiParchi.js';
 import { percorsoSentiero } from '../src/lib/tracce.js';
 import { puntiOgni, abbinaTerreno, vieDaRisposta, queryVieVicine, queryTrattiRelazioni } from '../src/lib/terreno.js';
-import { faunaDalleOsservazioni, TAXA_FAUNA } from '../src/lib/faunaPercorso.js';
+import { faunaDalleOsservazioni, faunaDelParco, TAXA_FAUNA } from '../src/lib/faunaPercorso.js';
+import { PARCHI } from '../src/datiParchi.js';
+import { existsSync } from 'node:fs';
 
 const FILE = 'public/dati/archivio.json';
 const AGENTE = 'Orme/0.6 (archivio personale di sentieri; https://lamaslamas.github.io/orme/)';
@@ -226,6 +228,27 @@ for (const p of archivio.percorsi) {
   } catch (e) {
     console.warn(`  fauna ${p.id}: ${e.message}`);
   }
+}
+
+// Riepilogo della fauna di ogni parco (stesso metodo per tutti), una volta a settimana
+const FILE_FAUNA = 'public/dati/fauna-parchi.json';
+const faunaParchi = existsSync(FILE_FAUNA) ? JSON.parse(readFileSync(FILE_FAUNA, 'utf8')) : { parchi: {} };
+const confiniParchi = existsSync('public/dati/confini.json') ? JSON.parse(readFileSync('public/dati/confini.json', 'utf8')).confini : {};
+let parchiFauna = 0;
+for (const parco of PARCHI) {
+  const prima = faunaParchi.parchi[parco.id];
+  if (!tutti && prima?.calcolato && (new Date(oggi) - new Date(prima.calcolato)) / 86_400_000 < 7) continue;
+  try {
+    const r = faunaDelParco(await osservazioniDelParco(parco.id), { anelli: confiniParchi[parco.id], bbox: parco.bbox });
+    faunaParchi.parchi[parco.id] = { ...r, calcolato: oggi };
+    parchiFauna++;
+  } catch (e) {
+    console.warn(`  fauna del parco ${parco.id}: ${e.message}`);
+  }
+}
+if (parchiFauna) {
+  writeFileSync(FILE_FAUNA, JSON.stringify({ fonte: 'iNaturalist (osservazioni verificate)', ...faunaParchi, aggiornato: new Date().toISOString() }));
+  console.log(`Fauna dei parchi: ${parchiFauna} parchi aggiornati`);
 }
 
 for (const p of archivio.percorsi) {

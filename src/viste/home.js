@@ -179,7 +179,7 @@ export async function vistaHome(app) {
   });
   ricerca.addEventListener('input', () => stato.imposta({ filtri: { testo: ricerca.value } }));
 
-  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { ricerca: false });
+  const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { ricerca: false, serveUnFiltro: true });
   const scollegaAttivita = collegaSelettoreAttivita(app);
   const scollegaStato = stato.ascolta((s) => {
     if (ricerca.value !== s.filtri.testo && document.activeElement !== ricerca) ricerca.value = s.filtri.testo;

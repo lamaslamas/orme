@@ -58,13 +58,17 @@ function htmlFontiVerifica(s) {
 }
 
 // Animali che si possono incontrare: dalle uscite delle associazioni e da iNaturalist
-function htmlFauna(s) {
+function htmlFauna(s, traccia) {
   const associazioni = s.animali ?? [];
   const inat = (s.faunaInat?.specie ?? []).filter((x) => !associazioni.includes(x.animale) || x.livello === 'percorso');
   if (!associazioni.length && !inat.length) {
-    return s.faunaInat
-      ? `<section class="riquadro fauna"><h2>Animali che si possono incontrare</h2><p class="tenue">Su iNaturalist non ci sono abbastanza osservazioni verificate lungo questo percorso.</p></section>`
-      : '';
+    // stato sempre esplicito: mai una sezione che sparisce senza spiegazione
+    const motivo = s.faunaInat
+      ? '<b>Dati insufficienti:</b> su iNaturalist non ci sono abbastanza osservazioni verificate lungo questo percorso o nei dintorni.'
+      : traccia
+        ? '<b>Dati non ancora calcolati</b> per questo percorso: arrivano con il prossimo aggiornamento automatico dell\'archivio.'
+        : '<b>Serve una traccia</b> per confrontare il percorso con le osservazioni di iNaturalist.'
+    return `<section class="riquadro fauna"><h2>Animali che si possono incontrare</h2><p class="stato-dati ${s.faunaInat ? 'stato-scarso' : 'stato-assente'}">${motivo}</p></section>`;
   }
   const riga = (nome, testo) => `<li><b>${escapeHtml(nome)}</b> <span class="tenue">${testo}</span></li>`;
   return `<section class="riquadro fauna">
@@ -317,7 +321,7 @@ export async function vistaScheda(app, id) {
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
 
-      ${htmlFauna(s)}
+      ${htmlFauna(s, traccia)}
 
       ${htmlCompatibilita(s, traccia)}
 

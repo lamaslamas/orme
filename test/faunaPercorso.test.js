@@ -35,3 +35,17 @@ describe('animali lungo il percorso da iNaturalist', () => {
     expect(animaliPossibili({ animali: ['lupo'], faunaInat: { specie: [{ animale: 'cervo' }, { animale: 'lupo' }] } })).toEqual(['lupo', 'cervo']);
   });
 });
+
+describe('fauna del parco', () => {
+  it('conta le osservazioni dentro il confine, le sfumate dentro il riquadro', async () => {
+    const { faunaDelParco } = await import('../src/lib/faunaPercorso.js');
+    const anelli = [[[13.0, 41.0], [14.0, 41.0], [14.0, 42.0], [13.0, 42.0], [13.0, 41.0]]];
+    const o = (taxon, lat, lon, u, obscured = false) => ({ taxon, location: `${lat},${lon}`, user: { id: u }, observed_on: '2025-09-01', quality_grade: 'research', obscured });
+    const r = faunaDelParco(
+      [o(CERVO, 41.5, 13.5, 1), o(CERVO, 41.5, 13.6, 2), o(CERVO, 41.6, 13.5, 3), o(CERVO, 42.3, 13.5, 4), o(LUPO, 41.5, 13.5, 1, true), o(LUPO, 41.7, 13.2, 2, true)],
+      { anelli, bbox: [40.9, 12.9, 42.5, 14.1] },
+    );
+    expect(r.osservazioni).toBe(5); // quella fuori dal confine e dal riquadro non conta
+    expect(r.specie).toEqual([{ animale: 'cervo', osservazioni: 3, persone: 3, mesi: 'set', sfumate: 0 }]); // il lupo ha solo 2 osservazioni
+  });
+});
