@@ -9,6 +9,7 @@ import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco } from '../lib/home.js';
 import { fotoDi } from '../datiFoto.js';
 import { htmlPulsanteCrediti } from './visore.js';
+import { htmlInvitoInstalla, collegaInstalla } from './installa.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
@@ -83,6 +84,7 @@ export async function vistaHome(app) {
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Esplora i parchi</h1>
+    ${htmlInvitoInstalla()}
     <a class="invito-meteo" href="#/domani"><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Dove vado domani?</b><span class="tenue piccolo">I percorsi migliori secondo il meteo, la durata e le tue preferenze</span></span></a>
     ${htmlSelettoreAttivita()}
     <div class="ricerca-home">${htmlRicerca(st.filtri.testo, 'Cerca parco, animale o percorso…')}</div>
@@ -110,6 +112,7 @@ export async function vistaHome(app) {
     </section>
 
     <div class="scorciatoie">
+      <a class="pillola" href="#/salvati">Salvati</a>
       <a class="pillola" href="#/giri">I miei giri</a>
       <a class="pillola" href="#/avvistamenti">I miei avvistamenti</a>
     </div>
@@ -182,6 +185,7 @@ export async function vistaHome(app) {
 
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { ricerca: false, serveUnFiltro: true });
   const scollegaAttivita = collegaSelettoreAttivita(app);
+  const scollegaInstalla = collegaInstalla(app);
   const scollegaStato = stato.ascolta((s) => {
     if (ricerca.value !== s.filtri.testo && document.activeElement !== ricerca) ricerca.value = s.filtri.testo;
     disegna();
@@ -190,6 +194,7 @@ export async function vistaHome(app) {
   return () => {
     elenco.scollega();
     scollegaAttivita();
+    scollegaInstalla();
     scollegaStato();
   };
 }

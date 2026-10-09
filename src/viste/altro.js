@@ -3,12 +3,15 @@ import { FOTO } from '../datiFoto.js';
 import { parcoDa } from '../datiParchi.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { escapeHtml } from '../lib/formato.js';
+import { collegaInstalla } from './installa.js';
 
 export async function vistaAltro(app) {
   const archivio = await infoArchivio();
   app.innerHTML = `
     <h1 class="titolo-pagina">Altro</h1>
     <ul class="menu-altro">
+      <li class="voce-installa" hidden><button type="button" class="voce-menu" data-azione="installa"><b>Installa l'app</b><span>Sulla schermata Home, funziona anche offline</span></button></li>
+      <li><a href="#/salvati"><b>Sentieri salvati</b><span>I sentieri che hai salvato, con i filtri</span></a></li>
       <li><a href="#/backup"><b>Backup</b><span>Esporta e importa sentieri, tracce e giri</span></a></li>
       <li><a href="#/nuovo"><b>Aggiungi un sentiero</b><span>Inserisci a mano un nuovo sentiero</span></a></li>
       <li><a href="#/giro-nuovo"><b>Nuovo giro</b><span>Combina più sentieri in un unico percorso</span></a></li>
@@ -45,4 +48,5 @@ export async function vistaAltro(app) {
       <p class="tenue">Mappe e sentieri © collaboratori di OpenStreetMap, OpenTopoMap, Waymarked Trails (CC-BY-SA). Quote stimate con Open-Meteo (modello del terreno Copernicus).</p>
     </section>
   `;
+  return collegaInstalla(app);
 }

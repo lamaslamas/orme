@@ -140,6 +140,20 @@ export function htmlPortamiAllaPartenza(punto) {
   </section>`;
 }
 
+// "Portami": le stesse scelte di prima, in un pannello che si apre dalla barra in fondo
+function htmlFoglioPortami(punto) {
+  return `<dialog class="foglio" id="foglioPortami">
+    <div class="foglio-maniglia"></div>
+    <h2 class="foglio-titolo">Portami ${punto.fonte === 'manuale' ? 'alla partenza' : "all'inizio del sentiero"}</h2>
+    <p class="tenue">Apre la navigazione dalla tua posizione.</p>
+    <div class="scelte-portami">
+      <a class="bottone primario" href="${linkGoogleMaps(punto, 'auto')}" target="_blank" rel="noopener">In auto</a>
+      <a class="bottone" href="${linkGoogleMaps(punto, 'piedi')}" target="_blank" rel="noopener">A piedi</a>
+      <a class="bottone testo" href="${linkGeo(punto)}">Altra app</a>
+    </div>
+  </dialog>`;
+}
+
 // Testo del riquadro "Traccia"
 function descriviStatoTraccia(stato, traccia) {
   const elenco = (codici) => codici.map((c) => `<b>${escapeHtml(c)}</b>`).join(', ');
@@ -178,7 +192,7 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
-import { EMOJI_ANIMALI } from './icone.js';
+import { EMOJI_ANIMALI, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA } from '../lib/faunaPercorso.js';
@@ -289,6 +303,7 @@ export async function vistaScheda(app, id) {
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
+  const puntoPartenza = puntoDiPartenza(s, traccia);
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Parchi</a>
@@ -300,7 +315,6 @@ export async function vistaScheda(app, id) {
           : `<a class="anteprima-mappa vuota" href="#/sentiero/${idUrl}/mappa"><span>Nessuna traccia salvata</span><b>Recupera la traccia ›</b></a>`
       }
       ${htmlSezione('panorama', { icona: 'sole', titolo: 'Panorama', riassunto: s.panorama ? `Indice ${s.panorama.punteggio}/100${s.panorama.belvedere?.length ? ` · ${s.panorama.belvedere.length} belvedere` : ''}` : 'Non calcolabile senza traccia' }, htmlPanorama(s, traccia, idUrl))}
-      ${htmlPortamiAllaPartenza(puntoDiPartenza(s, traccia))}
       </aside>
       <div class="scheda-testa">
       <div class="carta-titolo intestazione">
@@ -308,7 +322,10 @@ export async function vistaScheda(app, id) {
         ${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span>` : ''}
       </div>
       <h1>${escapeHtml(s.nome)}</h1>
-      ${parco ? `<a class="link-parco" href="#/parco/${encodeURIComponent(parco.id)}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
+      <div class="sotto-titolo">
+        ${parco ? `<a class="link-parco" href="#/parco/${encodeURIComponent(parco.id)}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
+        <a class="link-modifica" href="#/sentiero/${idUrl}/modifica">Modifica</a>
+      </div>
       ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
       <div class="chips">
         ${(s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('')}
@@ -328,9 +345,11 @@ export async function vistaScheda(app, id) {
       ${s.descrizione ? `<p class="descrizione">${escapeHtml(s.descrizione)}</p>` : ''}
 
       <div class="barra-azioni">
-        <a class="bottone primario" href="#/sentiero/${idUrl}/mappa">${traccia ? 'Apri la mappa' : 'Mappa e traccia'}</a>
-        <a class="bottone" href="#/sentiero/${idUrl}/modifica">Modifica</a>
+        <button type="button" class="bottone ${s.salvato ? 'salvato' : ''}" id="salvaSentiero" aria-pressed="${Boolean(s.salvato)}">${ICONE.segnalibro}<span>${s.salvato ? 'Salvato' : 'Salva'}</span></button>
+        <a class="bottone" href="#/sentiero/${idUrl}/mappa">${ICONE.mappa}<span>Mappa</span></a>
+        ${puntoPartenza ? `<button type="button" class="bottone primario" id="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
       </div>
+      ${puntoPartenza ? htmlFoglioPortami(puntoPartenza) : ''}
       </div>
       <div class="scheda-corpo">
 
@@ -444,6 +463,20 @@ export async function vistaScheda(app, id) {
     }
   });
   campoData.addEventListener('change', () => salva({ dataPercorso: campoData.value || null }));
+
+  // salva / togli dai sentieri salvati
+  const pulsanteSalva = app.querySelector('#salvaSentiero');
+  pulsanteSalva.addEventListener('click', async () => {
+    const salvato = attuale.salvato ? null : oggi();
+    await salva({ salvato });
+    pulsanteSalva.classList.toggle('salvato', Boolean(salvato));
+    pulsanteSalva.setAttribute('aria-pressed', String(Boolean(salvato)));
+    pulsanteSalva.querySelector('span').textContent = salvato ? 'Salvato' : 'Salva';
+  });
+  app.querySelector('#portami')?.addEventListener('click', () => app.querySelector('#foglioPortami').showModal());
+  app.querySelector('#foglioPortami')?.addEventListener('click', (e) => {
+    if (e.target.id === 'foglioPortami' || e.target.closest('a')) e.currentTarget.close();
+  });
 
   if (traccia) collegaNaturaSentiero(app.querySelector('#naturaSentiero'), percorsoSentiero(traccia.geojson).pezzi);
 

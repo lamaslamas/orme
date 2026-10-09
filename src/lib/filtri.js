@@ -1,8 +1,8 @@
 import { ANIMALI } from './costanti.js';
 import { PARCHI } from '../datiParchi.js';
-import { animaliPossibili } from './faunaPercorso.js';
+import { animaliPossibili, possibilitaFauna } from './faunaPercorso.js';
 
-export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '' };
 
 export function normalizza(s) {
   return String(s ?? '')
@@ -20,7 +20,13 @@ export function filtraSentieri(sentieri, filtri) {
     if (filtri.animale && !animaliPossibili(s).includes(filtri.animale)) return false;
     if (filtri.stato && s.stato !== filtri.stato) return false;
     if (filtri.accesso && (s.accesso?.tipo || 'nessuno') !== filtri.accesso) return false;
-    if (filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
+    // "facili" = T ed E insieme (scorciatoia); altrimenti la difficoltà esatta
+    if (filtri.difficolta === 'facili' ? !['T', 'E'].includes(s.difficolta) : filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
+    // fauna: "frequenti" solo avvistamenti frequenti; "possibili" anche quelli possibili
+    if (filtri.fauna) {
+      const livello = possibilitaFauna(s)?.livello;
+      if (filtri.fauna === 'frequenti' ? livello !== 'frequenti' : !['frequenti', 'possibili'].includes(livello)) return false;
+    }
     if (filtri.bici && (s.bici?.consentita || 'da_verificare') !== filtri.bici) return false;
     if (filtri.paese && normalizza(s.partenza?.paese) !== normalizza(filtri.paese)) return false;
     // indice panoramico minimo: i percorsi senza indice restano fuori

@@ -14,6 +14,7 @@ import { vistaMappaGiro } from './viste/mappaGiro.js';
 import { vistaAltro } from './viste/altro.js';
 import { vistaPianifica } from './viste/pianifica.js';
 import { vistaDoveVado } from './viste/doveVado.js';
+import { vistaSalvati } from './viste/salvati.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna } from './viste/disegna.js';
 import { vistaParco } from './viste/parco.js';
@@ -22,12 +23,14 @@ import { vistaElencoAvvistamenti, vistaModificaAvvistamento } from './viste/avvi
 import { impostaBanner } from './viste/banner.js';
 import { preparaLibreria } from './viste/mappaVettoriale.js';
 import { collegaVisore } from './viste/visore.js';
+import { preparaInstallazione } from './viste/installa.js';
 import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi } from './lib/sezioni.js';
 
 const app = document.getElementById('app');
 collegaVisore();
+preparaInstallazione();
 
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [
@@ -42,6 +45,7 @@ const percorsi = [
   [/^\/altro\/?$/, vistaAltro],
   [/^\/pianifica\/?$/, vistaPianifica],
   [/^\/domani\/?$/, vistaDoveVado],
+  [/^\/salvati\/?$/, vistaSalvati],
   [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
   [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],

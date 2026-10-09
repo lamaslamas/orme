@@ -101,3 +101,24 @@ describe('filtro difficoltà', () => {
     expect(ids(filtraSentieri(dati, f({ difficolta: 'nessuna' })))).toEqual(['c']);
   });
 });
+
+describe('scorciatoie: fauna e percorsi facili', () => {
+  const s = (id, extra) => ({ id, nome: id, parco: 'pnalm', ...extra });
+  const sentieri = [
+    s('frequente', { difficolta: 'E', faunaInat: { specie: [{ animale: 'cervo', livello: 'percorso', osservazioni: 20 }] } }),
+    s('possibile', { difficolta: 'EE', faunaInat: { specie: [{ animale: 'cervo', livello: 'percorso', osservazioni: 4 }] } }),
+    s('zona', { difficolta: 'T', faunaInat: { specie: [{ animale: 'orso', livello: 'zona', osservazioni: 5 }] } }),
+    s('niente', {}),
+  ];
+  const ids = (f) => filtraSentieri(sentieri, { ...FILTRI_VUOTI, ...f }).map((x) => x.id);
+
+  it('fauna frequente o almeno possibile', () => {
+    expect(ids({ fauna: 'frequenti' })).toEqual(['frequente']);
+    expect(ids({ fauna: 'possibili' })).toEqual(['frequente', 'possibile']);
+  });
+
+  it('facili = difficoltà T o E', () => {
+    expect(ids({ difficolta: 'facili' })).toEqual(['frequente', 'zona']);
+    expect(ids({ difficolta: 'EE' })).toEqual(['possibile']);
+  });
+});

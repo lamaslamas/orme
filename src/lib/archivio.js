@@ -3,7 +3,7 @@
 // (confronto a tre vie: versione precedente dell'archivio, la mia, quella nuova).
 
 // Campi solo miei: l'archivio non li tocca mai
-export const CAMPI_PERSONALI = ['stato', 'dataPercorso', 'notePersonali', 'creato', 'modificato'];
+export const CAMPI_PERSONALI = ['stato', 'dataPercorso', 'notePersonali', 'creato', 'modificato', 'salvato'];
 
 const uguali = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 

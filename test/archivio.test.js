@@ -5,7 +5,7 @@ const base = { id: 'a', nome: 'Vecchio nome', accesso: { tipo: 'libero', nota: '
 
 describe('unione a tre vie', () => {
   it('aggiorna i campi che non ho toccato, anche dentro gli oggetti', () => {
-    const mio = { ...base, accesso: { tipo: 'libero', nota: 'scritta da me' }, notePersonali: 'mie', stato: 'fatto' };
+    const mio = { ...base, accesso: { tipo: 'libero', nota: 'scritta da me' }, notePersonali: 'mie', stato: 'fatto', salvato: '2026-10-10' };
     const nuovo = { id: 'a', nome: 'Nome nuovo', accesso: { tipo: 'guida', nota: 'nuova' }, codici: ['C5'], fonti: ['x'] };
     const r = unisciTreVie(base, mio, nuovo);
     expect(r.nome).toBe('Nome nuovo');
@@ -14,6 +14,7 @@ describe('unione a tre vie', () => {
     expect(r.fonti).toEqual(['x']);
     expect(r.notePersonali).toBe('mie');
     expect(r.stato).toBe('fatto');
+    expect(r.salvato).toBe('2026-10-10'); // un sentiero salvato resta salvato
   });
 
   it('senza versione precedente non sovrascrive i valori diversi dai miei', () => {

@@ -444,7 +444,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 
 /* --- Altro --- */
 .menu-altro { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 10px; }
-.menu-altro a {
+.menu-altro a, .menu-altro .voce-menu {
   display: flex; flex-direction: column; gap: 2px; padding: 14px 16px;
   background: var(--scheda); border-radius: var(--raggio); box-shadow: var(--ombra);
   color: var(--testo); text-decoration: none;
@@ -811,7 +811,7 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 .legenda { border-radius: 12px; }
 
 /* --- schede e riquadri --- */
-.carta, .riquadro, .modulo fieldset, .menu-altro a, .numeri-grandi, .carta-specie-bottone, .elenco-import {
+.carta, .riquadro, .modulo fieldset, .menu-altro a, .menu-altro .voce-menu, .numeri-grandi, .carta-specie-bottone, .elenco-import {
   background: var(--scheda);
   border: var(--bordo-vetro);
   box-shadow: var(--ombra);
@@ -925,7 +925,7 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 @keyframes entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes sali { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 @keyframes appare { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
-main.entra > * { animation: entra var(--morbido) both; }
+main.entra > * { animation: entra var(--morbido) backwards; } /* backwards: a fine animazione niente trasformazione, che sposterebbe le barre fisse */
 main.entra > *:nth-child(2) { animation-delay: 30ms; }
 main.entra > *:nth-child(3) { animation-delay: 60ms; }
 main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
@@ -992,7 +992,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
     position: static; max-width: none; margin: 14px 0; padding: 0; background: none; border: none;
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
-  .scheda { padding-bottom: 0; }
+  .scheda { padding-bottom: 0 !important; }
 
   /* pagine con mappa: risultati a sinistra, mappa grande a destra */
   body.con-mappa main {
@@ -1281,3 +1281,83 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .animale-fauna { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(47, 125, 74, 0.08); font-size: 0.88rem; }
 .animale-fauna b { font-weight: 600; }
 .animale-fauna .tenue { font-size: 0.78rem; }
+
+/* --- pulsanti su tre livelli: pieno (azione principale), tonale (secondarie), testo (minori) --- */
+.bottone {
+  gap: 8px; border: none; border-radius: 14px; min-height: 46px; padding: 10px 16px;
+  background: #e3efeb; color: #1d4f4c; box-shadow: none; font-weight: 700;
+}
+.bottone:hover { background: #d6e8e2; border-color: transparent; }
+.bottone.primario { background: var(--teal); color: #fff; box-shadow: 0 4px 12px rgba(47, 111, 109, 0.22); }
+.bottone.primario:hover { background: #2a6462; }
+.bottone.testo { background: none; color: var(--teal); min-height: 40px; padding: 6px 10px; box-shadow: none; }
+.bottone.testo:hover { background: rgba(47, 111, 109, 0.07); }
+.bottone.pericolo { background: #fbe9e7; color: #b42318; }
+.bottone .icona { width: 18px; height: 18px; }
+
+/* --- barra in fondo alla scheda del sentiero: Salva, Mappa, Portami --- */
+.barra-azioni { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; }
+.barra-azioni .bottone { min-height: 48px; padding: 8px 10px; }
+.bottone.salvato { background: var(--teal); color: #fff; }
+.bottone.salvato .icona path { fill: currentColor; }
+.scheda { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.sotto-titolo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 0 6px; }
+.link-modifica { font-size: 0.88rem; font-weight: 600; color: var(--testo-tenue); }
+.scelte-portami { display: grid; gap: 8px; margin-top: 10px; }
+
+/* --- filtri: ricerca con un solo pulsante "Filtri", scorciatoie a icone, filtri attivi --- */
+.riga-ricerca { display: flex; gap: 8px; align-items: center; }
+.riga-ricerca .ricerca { flex: 1; min-width: 0; margin: 0; }
+.pulsante-filtri {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 46px; padding: 0 14px;
+  border: none; border-radius: 999px; background: #e3efeb; color: #1d4f4c; font: inherit; font-weight: 700; cursor: pointer;
+}
+.pulsante-filtri.attivo { background: var(--teal); color: #fff; }
+.pulsante-filtri .quanti { min-width: 20px; height: 20px; border-radius: 10px; background: #fff; color: var(--teal); font-size: 0.75rem; display: grid; place-items: center; padding: 0 5px; }
+.scorciatoie-filtri { display: flex; gap: 8px; overflow-x: auto; padding: 10px 2px 2px; scrollbar-width: none; align-items: center; }
+.scorciatoie-filtri::-webkit-scrollbar { display: none; }
+.scorciatoie-voci { display: contents; }
+.scorciatoie-filtri .pulsante-filtri { min-height: 38px; }
+.chip-scorciatoia {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--bordo); background: var(--scheda-piena); color: var(--testo); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+}
+.chip-scorciatoia .icona { color: var(--teal); }
+.chip-scorciatoia.attiva { background: var(--teal); border-color: var(--teal); color: #fff; }
+.chip-scorciatoia.attiva .icona { color: #fff; }
+.filtri-attivi { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; }
+.filtri-attivi:empty { display: none; }
+.filtro-attivo {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 999px; border: none;
+  background: rgba(47, 111, 109, 0.12); color: #1d4f4c; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.filtro-attivo span { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: rgba(47, 111, 109, 0.16); font-size: 0.7rem; }
+.foglio-filtri { max-height: 88dvh; }
+.foglio-testa { display: flex; justify-content: space-between; align-items: center; }
+.foglio-sezioni { display: grid; gap: 14px; margin: 6px 0 14px; max-height: calc(88dvh - 170px); overflow-y: auto; }
+.sezione-filtro h3 { margin: 0 0 6px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--testo-tenue); }
+.opzioni-filtro { display: flex; flex-wrap: wrap; gap: 6px; }
+.opzione {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--bordo); background: var(--scheda-piena); color: var(--testo); font: inherit; font-size: 0.88rem; cursor: pointer;
+}
+.opzione small { color: var(--testo-tenue); font-size: 0.75rem; }
+.opzione.attiva { background: var(--teal); border-color: var(--teal); color: #fff; }
+.opzione.attiva small { color: rgba(255, 255, 255, 0.8); }
+.opzione.vuota { opacity: 0.45; }
+.pulsante-filtri .quanti[hidden] { display: none; }
+
+/* --- invito a installare l'app --- */
+.invito-installa {
+  display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; margin: 10px 0 4px;
+  padding: 10px 10px 10px 14px; border-radius: 18px; background: var(--scheda-piena); box-shadow: var(--ombra);
+}
+.invito-installa[hidden] { display: none; }
+.invito-installa-icona { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: #e3efeb; color: var(--teal); }
+.invito-installa-testo { display: grid; line-height: 1.25; }
+.invito-installa-testo span { font-size: 0.82rem; color: var(--testo-tenue); }
+.invito-installa .bottone { min-height: 38px; padding: 6px 14px; }
+.invito-installa-chiudi { border: none; background: none; color: var(--testo-tenue); font-size: 0.9rem; cursor: pointer; padding: 6px; }
+.voce-installa[hidden] { display: none; }
+.voce-menu { width: 100%; text-align: left; border: none; background: none; font: inherit; color: inherit; cursor: pointer; display: grid; padding: 0; }
+.passi-installa { margin: 8px 0 14px; padding-left: 20px; display: grid; gap: 8px; }
