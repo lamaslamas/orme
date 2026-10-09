@@ -87,7 +87,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
           <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>
           ${parchi ? `<span class="carta-parco-nome">${escapeHtml(parchi)}</span>` : ''}
           ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
-          ${htmlFaunaBreve(s)}
+          ${htmlFaunaBreve(s, { compatta: true })}
           ${etichette ? `<span class="chips">${etichette}</span>` : ''}
         </span>
       </a>

@@ -3,7 +3,7 @@ import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
-import { escapeHtml, codici } from '../lib/formato.js';
+import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { creaMappa, disegnaTraccia } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
@@ -18,6 +18,10 @@ import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { aggiungiDaQui } from './daQui.js';
+import { ICONE } from './icone.js';
+import { miniatura } from './lista.js';
+import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
+import { misureSentiero } from '../lib/riassunto.js';
 
 // Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
 const STILE_DISCRETO = { color: COLORI.sfondo, weight: 2, opacity: 0.5 };
@@ -154,18 +158,30 @@ export async function vistaMappaGenerale(app) {
     app.querySelector('#risultatiMappa').innerHTML =
       qui
         .slice(0, 60)
-        .map(
-          ({ sentiero: s }) => `<li><button type="button" class="risultato" data-id="${escapeHtml(s.id)}">
-          <span class="pallino-stato" style="background:${COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare}"></span>
-          <span class="risultato-testo">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}
-            ${s.panorama ? `<span class="tenue piccolo-inline">· panorama ${s.panorama.punteggio}</span>` : ''}
-            ${htmlFaunaBreve(s)}</span>
-        </button></li>`,
-        )
+        .map(({ sentiero: s, traccia }) => {
+          // stessa scheda degli elenchi, compatta: foto (o disegno della traccia), nome, tre numeri, fauna
+          const m = misureSentiero(s, traccia);
+          const foto = copertina(s, traccia);
+          const dati = [
+            m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
+            m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+            m.durataMin != null ? `<span>${ICONE.orologio}${durata(m.durataMin)}</span>` : '',
+          ].join('');
+          return `<li><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">
+            <span class="ris-foto">${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}</span>
+            <span class="ris-corpo">
+              <span class="nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</span>
+              ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
+              ${htmlFaunaBreve(s, { compatta: true })}
+            </span>
+          </button></li>`;
+        })
         .join('') +
       (qui.length > 60 ? `<li class="tenue piccolo">e altri ${qui.length - 60}: avvicinati sulla mappa o usa i filtri</li>` : '') +
       (inMappa.length && !qui.length ? '<li class="tenue piccolo">Nessun percorso in questa zona: sposta la mappa o allontanati.</li>' : '');
   }
+  // le foto di copertina arrivano dopo: quando ci sono, l'elenco si ridisegna
+  if (!copertineCaricate()) caricaDaVedere().then((d) => d && app.isConnected && elencoInVista());
   let attesaVista = null;
   mappa.on('moveend', () => {
     if (saltaSpostamento) {
