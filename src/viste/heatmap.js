@@ -408,14 +408,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
           elenco.osservazioni
             .map(
               (o) => `<li>
-            ${o.foto ? `<img src="${escapeHtml(o.foto.url)}" alt="" width="64" height="64" loading="lazy" />` : '<div class="senza-foto"></div>'}
+            ${o.foto ? `<button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: o.foto.url, autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: o.specie }))}"><img src="${escapeHtml(o.foto.url)}" alt="" width="64" height="64" loading="lazy" /></button>` : '<div class="senza-foto"></div>'}
             <div>
               <b>${escapeHtml(o.specie)}</b> <span class="tenue">${escapeHtml(o.nomeScientifico)}</span><br />
               ${o.data ? escapeHtml(new Date(o.data).toLocaleDateString('it-IT')) : 'data non indicata'}
               ${o.sfumata ? '<span class="chip chip-verifica">posizione approssimata</span>' : ''}<br />
               <span class="tenue">Fonte: ${escapeHtml(o.fonte)}${o.licenza ? ` · ${escapeHtml(o.licenza)}` : ''}</span> ·
               <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Apri ↗</a>
-              ${o.foto?.attribuzione ? `<div class="crediti">Foto ${escapeHtml(o.foto.attribuzione)}</div>` : ''}
             </div>
           </li>`,
             )

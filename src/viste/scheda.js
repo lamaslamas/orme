@@ -36,7 +36,7 @@ function htmlCompatibilita(s, traccia) {
         </dd></div>`,
       )
       .join('')}</dl>
-    <p class="tenue piccolo">Prima contano divieti e regole del parco, poi le caratteristiche tecniche. Se mancano informazioni lo stato è "da verificare": la presenza di un sentiero su OpenStreetMap non basta a dire che è percorribile in bici. Le regole del parco prevalgono sempre.</p>
+    <p class="tenue piccolo">Prima le regole del parco, poi le caratteristiche tecniche · senza informazioni: "da verificare"</p>
   </section>`;
 }
 
@@ -71,22 +71,17 @@ function htmlFauna(s, traccia) {
         : '<b>Serve una traccia</b> per confrontare il percorso con le osservazioni.'
     return `<section class="riquadro fauna"><h2>Animali che si possono incontrare</h2><p class="stato-dati ${s.faunaInat ? 'stato-scarso' : 'stato-assente'}">${motivo}</p></section>`;
   }
-  const riga = (nome, testo) => `<li><b>${escapeHtml(nome)}</b> <span class="tenue">${testo}</span></li>`;
+  // etichette leggere: icona, nome e mesi migliori, divise per dove sono state viste
+  const etichetta = (a, mesi = '') =>
+    `<li class="animale-fauna"><span aria-hidden="true">${EMOJI_ANIMALI[a] ?? '🐾'}</span><b>${escapeHtml(ANIMALI[a] ?? a)}</b>${mesi ? `<span class="tenue">${escapeHtml(mesi)}</span>` : ''}</li>`;
+  const gruppo = (titolo, voci) => (voci.length ? `<p class="gruppo-fauna">${titolo}</p><ul class="elenco-fauna-leggero">${voci.join('')}</ul>` : '');
+  const altri = inat.filter((x) => !associazioni.includes(x.animale));
   return `<section class="riquadro fauna">
     <h2>Animali che si possono incontrare</h2>
-    <ul class="elenco-fauna">
-      ${associazioni.map((a) => riga(ANIMALI[a] ?? a, '· uscite di osservazione')).join('')}
-      ${inat
-        .filter((x) => !associazioni.includes(x.animale))
-        .map((x) =>
-          riga(
-            ANIMALI[x.animale],
-            `· ${x.livello === 'percorso' ? 'lungo il percorso' : 'nella zona'} · ${x.osservazioni} oss.${x.mesi ? ` · ${x.mesi}` : ''}`,
-          ),
-        )
-        .join('')}
-    </ul>
-    <p class="tenue piccolo">Osservazioni verificate da GBIF (iNaturalist, eBird, Observation.org e altre fonti)${s.faunaInat?.calcolato ? `, aggiornate il ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''}. "Nella zona": posizione approssimata (per le specie protette fino a ~10 km). Non garantisce un incontro: resta sui sentieri e osserva a distanza.</p>
+    ${gruppo('Uscite di osservazione', associazioni.map((a) => etichetta(a)))}
+    ${gruppo('Lungo il percorso', altri.filter((x) => x.livello === 'percorso').map((x) => etichetta(x.animale, x.mesi)))}
+    ${gruppo('Nella zona', altri.filter((x) => x.livello !== 'percorso').map((x) => etichetta(x.animale, x.mesi)))}
+    <p class="tenue piccolo">Osservazioni verificate (GBIF)${s.faunaInat?.calcolato ? ` · ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''} · non garantiscono un incontro</p>
   </section>`;
 }
 
@@ -183,6 +178,7 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
+import { EMOJI_ANIMALI } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA } from '../lib/faunaPercorso.js';

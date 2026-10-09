@@ -31,13 +31,12 @@ async function scarica(pezzi, filtri, raggioM) {
 
 function voceOsservazione(o) {
   return `<li>
-    ${o.foto ? `<img src="${escapeHtml(o.foto.url)}" alt="" width="64" height="64" loading="lazy" />` : '<div class="senza-foto"></div>'}
+    ${o.foto ? `<button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: o.foto.url, autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: o.specie }))}"><img src="${escapeHtml(o.foto.url)}" alt="" width="64" height="64" loading="lazy" /></button>` : '<div class="senza-foto"></div>'}
     <div>
       <b>${escapeHtml(o.specie)}</b> <span class="tenue">${escapeHtml(o.nomeScientifico)}</span><br />
       ${o.data ? escapeHtml(new Date(o.data).toLocaleDateString('it-IT')) : 'data non indicata'} · a ${Math.round(o.distanzaM)} m dalla traccia
       ${o.verificata ? '' : '<span class="chip">da confermare</span>'}<br />
       <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Apri su iNaturalist ↗</a>
-      ${o.foto?.attribuzione ? `<div class="crediti">Foto ${escapeHtml(o.foto.attribuzione)}</div>` : ''}
     </div>
   </li>`;
 }

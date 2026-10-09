@@ -33,10 +33,9 @@ export function htmlDaVedere(d) {
   if (!d) return '';
   const foto = (d.foto ?? [])
     .map(
-      (f) => `<li><a href="${escapeHtml(f.pagina)}" target="_blank" rel="noopener" title="Foto: ${escapeHtml(f.autore)} · ${escapeHtml(f.licenza)}">
+      (f) => `<li><button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: f.url, autore: f.autore, licenza: f.licenza, pagina: f.pagina, titolo: `km ${String(f.km).replace('.', ',')}` }))}">
         <img src="${escapeHtml(f.url)}" alt="Foto lungo il sentiero, km ${String(f.km).replace('.', ',')}" loading="lazy" decoding="async" />
-        <span class="km">km ${String(f.km).replace('.', ',')}</span></a>
-        <span class="credito">${escapeHtml(f.autore)} · ${escapeHtml(f.licenza)}</span></li>`,
+        <span class="km">km ${String(f.km).replace('.', ',')}</span></button></li>`,
     )
     .join('');
   const luoghi = (d.luoghi ?? [])
@@ -44,5 +43,5 @@ export function htmlDaVedere(d) {
     .join('');
   return `${foto ? `<ul class="striscia-foto">${foto}</ul>` : ''}
     ${luoghi ? `<ul class="luoghi-vicini">${luoghi}</ul>` : ''}
-    <p class="tenue piccolo">Foto Wikimedia Commons (licenze libere, autore su ogni foto) · luoghi da Wikipedia, entro 1 km dalla traccia.</p>`;
+    <p class="tenue piccolo">Foto Wikimedia Commons · luoghi da Wikipedia</p>`;
 }

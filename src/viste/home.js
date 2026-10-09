@@ -8,6 +8,7 @@ import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco } from '../lib/home.js';
 import { fotoDi } from '../datiFoto.js';
+import { htmlPulsanteCrediti } from './visore.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
@@ -16,18 +17,17 @@ import { montaElenco, schedaInLista } from './lista.js';
 
 const PER_PARCO = 4;
 
-// Foto con il credito (autore e licenza, link alla pagina del file su Commons)
+// Foto di parchi e animali (Wikimedia Commons)
 function htmlFoto(chiave, alt) {
   const f = fotoDi(chiave);
   if (!f) return '<div class="foto vuota" aria-hidden="true"></div>';
   return `<img class="foto" src="${escapeHtml(f.url)}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" />`;
 }
 
-function htmlCredito(chiave) {
+// crediti solo nella foto a schermo pieno: nell'anteprima un piccolo "©"
+function htmlCredito(chiave, titolo) {
   const f = fotoDi(chiave);
-  return f
-    ? `<a class="credito" href="${escapeHtml(f.pagina)}" target="_blank" rel="noopener" title="Foto da Wikimedia Commons">Foto: ${escapeHtml(f.autore)} · ${escapeHtml(f.licenza)}</a>`
-    : '';
+  return f ? htmlPulsanteCrediti({ url: f.url, autore: f.autore, licenza: f.licenza, pagina: f.pagina, titolo }) : '';
 }
 
 // attivita: { trekking, mtb, emtb } = quanti percorsi del parco sono adatti a ciascuna
@@ -46,7 +46,7 @@ function htmlParco(p, n, evidenziato, attivita) {
           .join('')}</span>
       </span>
     </a>
-    ${htmlCredito(p.id)}
+    ${htmlCredito(p.id, p.nomeBreve)}
   </li>`;
 }
 
@@ -60,7 +60,7 @@ function htmlSpecie(r, scelta, evidenziata) {
       <span class="carta-dati">${r.percorsi ? `${r.percorsi} ${r.percorsi === 1 ? 'percorso' : 'percorsi'}` : 'nessun percorso'}</span>
       <span class="carta-dati piccolo">${escapeHtml(parchi)}</span>
     </button>
-    ${htmlCredito(r.animale)}
+    ${htmlCredito(r.animale, r.nome)}
   </li>`;
 }
 

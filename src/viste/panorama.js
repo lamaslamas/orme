@@ -64,16 +64,15 @@ export function htmlPanorama(s, traccia, idUrl) {
   </section>`;
 }
 
-// Foto dei belvedere lungo il percorso (Wikimedia Commons, licenze libere, con autore)
+// Foto dei belvedere lungo il percorso (Wikimedia Commons): crediti nella foto a schermo pieno
 function htmlFotoBelvedere(belvedere = []) {
   const conFoto = belvedere.filter((b) => b.foto?.url);
   if (!conFoto.length) return '';
   return `<ul class="foto-belvedere">${conFoto
     .map(
-      (b) => `<li><a href="${escapeHtml(b.foto.pagina)}" target="_blank" rel="noopener">
+      (b) => `<li><button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: b.foto.url, autore: b.foto.autore, licenza: b.foto.licenza, pagina: b.foto.pagina, titolo: b.nome || 'Belvedere' }))}">
         <img src="${escapeHtml(b.foto.url)}" alt="Vista vicino al belvedere ${escapeHtml(b.nome || '')}" loading="lazy" decoding="async" />
-        <span class="foto-belvedere-nome">${escapeHtml(b.nome || 'Belvedere')}</span></a>
-        <span class="credito">Foto: ${escapeHtml(b.foto.autore)} · ${escapeHtml(b.foto.licenza)}</span></li>`,
+        <span class="foto-belvedere-nome">${escapeHtml(b.nome || 'Belvedere')}</span></button></li>`,
     )
     .join('')}</ul>`;
 }

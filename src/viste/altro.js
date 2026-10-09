@@ -1,4 +1,8 @@
 import { infoArchivio } from '../db.js';
+import { FOTO } from '../datiFoto.js';
+import { parcoDa } from '../datiParchi.js';
+import { ANIMALI } from '../lib/costanti.js';
+import { escapeHtml } from '../lib/formato.js';
 
 export async function vistaAltro(app) {
   const archivio = await infoArchivio();
@@ -22,6 +26,14 @@ export async function vistaAltro(app) {
       <p>I percorsi arrivano da un archivio pubblico aggiornato automaticamente (sentieri ufficiali e uscite di associazioni ed enti parco, con le fonti). Le tue modifiche, note e tracce restano tue: l'archivio aggiorna solo i campi che non hai cambiato.</p>
       <p class="tenue piccolo">${archivio ? `Archivio del ${new Date(archivio.aggiornato).toLocaleString('it-IT')}, ricevuto il ${new Date(archivio.sincronizzato).toLocaleString('it-IT')}.` : 'Archivio non ancora ricevuto.'}</p>
     </section>
+
+    <details class="riquadro crediti-foto">
+      <summary><b>Crediti delle foto</b></summary>
+      <p class="tenue piccolo">Foto di parchi e animali da Wikimedia Commons. Le foto lungo i sentieri e delle osservazioni hanno i crediti nella foto aperta a schermo pieno.</p>
+      <ul>${Object.entries(FOTO)
+        .map(([k, f]) => `<li>${escapeHtml(parcoDa(k)?.nomeBreve ?? ANIMALI[k] ?? k)}: <a href="${escapeHtml(f.pagina)}" target="_blank" rel="noopener">${escapeHtml(f.autore)}</a> · ${escapeHtml(f.licenza)}</li>`)
+        .join('')}</ul>
+    </details>
 
     <section class="riquadro">
       <h2>I tuoi dati</h2>

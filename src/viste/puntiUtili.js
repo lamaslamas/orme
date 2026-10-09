@@ -168,7 +168,7 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson) {
   contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}
     ${
       vicini.length
-        ? `<p><b>${escapeHtml(riassuntoPunti(vicini))}</b> entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia.</p>
+        ? `
       <ul class="lista-punti">${vicini
         .map((p) => {
           const t = TIPI_PUNTO[p.tipo];
@@ -178,9 +178,9 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson) {
             <span class="tenue piccolo">${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}${note.length ? ` · ${escapeHtml(note.join(' · '))}` : ''}</span></span></li>`;
         })
         .join('')}</ul>`
-        : `<p class="tenue">Nessun rifugio, bivacco, sorgente o fontanella segnati su OpenStreetMap entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia.</p>`
+        : `<p class="tenue">Niente entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia.</p>`
     }
-    <p class="tenue piccolo">Dati OpenStreetMap: verifica sul posto, soprattutto l'acqua in estate.</p>
+    <p class="tenue piccolo">OpenStreetMap · verifica sul posto</p>
   </section>`;
   return vicini;
 }

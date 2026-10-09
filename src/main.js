@@ -21,11 +21,13 @@ import { vistaImporta } from './viste/importa.js';
 import { vistaElencoAvvistamenti, vistaModificaAvvistamento } from './viste/avvistamenti.js';
 import { impostaBanner } from './viste/banner.js';
 import { preparaLibreria } from './viste/mappaVettoriale.js';
+import { collegaVisore } from './viste/visore.js';
 import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi } from './lib/sezioni.js';
 
 const app = document.getElementById('app');
+collegaVisore();
 
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [
