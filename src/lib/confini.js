@@ -8,6 +8,24 @@ export function queryConfine(osm) {
   return osm.way ? `[out:json][timeout:90];way(${Number(osm.way)});out geom;` : `[out:json][timeout:90];rel(${Number(osm.relazione)});out geom;`;
 }
 
+// Riserva quando Overpass non risponde: l'API principale di OpenStreetMap (lettura di un solo oggetto)
+export function urlApiOsm(osm) {
+  return osm.way ? `https://api.openstreetmap.org/api/0.6/way/${Number(osm.way)}/full.json` : `https://api.openstreetmap.org/api/0.6/relation/${Number(osm.relazione)}/full.json`;
+}
+// Dalla risposta "full" dell'API (nodi, linee e relazione separati) allo stesso formato di Overpass "out geom"
+export function rispostaDaApiOsm(json) {
+  const nodi = new Map();
+  const linee = new Map();
+  for (const e of json?.elements ?? []) if (e.type === 'node') nodi.set(e.id, { lat: e.lat, lon: e.lon });
+  for (const e of json?.elements ?? []) if (e.type === 'way') linee.set(e.id, (e.nodes ?? []).map((n) => nodi.get(n)).filter(Boolean));
+  const rel = (json?.elements ?? []).find((e) => e.type === 'relation');
+  if (rel) {
+    return { elements: [{ type: 'relation', id: rel.id, members: (rel.members ?? []).map((m) => (m.type === 'way' ? { ...m, geometry: linee.get(m.ref) } : m)) }] };
+  }
+  const [id, geometry] = [...linee][0] ?? [];
+  return { elements: geometry ? [{ type: 'way', id, geometry }] : [] };
+}
+
 // Riduce i punti di un anello tenendo la forma (Douglas-Peucker, tolleranza in gradi)
 export function semplifica(punti, tolleranza = 0.0003) {
   if (punti.length < 3) return punti;

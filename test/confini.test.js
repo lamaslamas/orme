@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { anelliDaRelazione, puntoNelPoligono, parcoDelPunto, semplifica, queryConfine } from '../src/lib/confini.js';
+import { anelliDaRelazione, puntoNelPoligono, parcoDelPunto, semplifica, queryConfine, rispostaDaApiOsm } from '../src/lib/confini.js';
 import { costruisciQuery } from '../src/lib/overpass.js';
 import { PARCHI } from '../src/datiParchi.js';
 
@@ -79,5 +79,19 @@ describe('ricerche nel Pollino', () => {
       expect(q).not.toContain('area(');
     }
     expect(queryMtbParco('pnalm')).toContain('rel["route"="mtb"](area.parco)');
+  });
+});
+
+describe('confine dall\'API di OpenStreetMap (riserva)', () => {
+  const nodi = [[1, 41, 13], [2, 41, 14], [3, 42, 14], [4, 42, 13]].map(([id, lat, lon]) => ({ type: 'node', id, lat, lon }));
+  it('linea chiusa', () => {
+    const r = rispostaDaApiOsm({ elements: [...nodi, { type: 'way', id: 9, nodes: [1, 2, 3, 4, 1] }] });
+    expect(anelliDaRelazione(r, 0)[0]).toHaveLength(5);
+  });
+  it('relazione con più tratti', () => {
+    const r = rispostaDaApiOsm({
+      elements: [...nodi, { type: 'way', id: 7, nodes: [1, 2, 3] }, { type: 'way', id: 8, nodes: [3, 4, 1] }, { type: 'relation', id: 5, members: [{ type: 'way', ref: 7, role: 'outer' }, { type: 'way', ref: 8, role: 'outer' }] }],
+    });
+    expect(anelliDaRelazione(r, 0)).toHaveLength(1);
   });
 });

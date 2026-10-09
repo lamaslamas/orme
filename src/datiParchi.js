@@ -71,6 +71,24 @@ export const PARCHI = [
       "Il parco nazionale più grande d'Italia, tra Basilicata e Calabria: il massiccio del Pollino e i Monti di Orsomarso, con il pino loricato. Tra gli animali: lupo, capriolo italico, lontra, aquila reale e gufo reale.",
     daVerificare: true,
   },
+  {
+    id: 'gallipoli-cognato',
+    nome: 'Parco regionale di Gallipoli Cognato e Piccole Dolomiti Lucane',
+    nomeBreve: 'Gallipoli Cognato',
+    regioni: ['Basilicata'],
+    sito: 'https://www.parcogallipolicognato.it/',
+    // parco regionale; su OpenStreetMap il confine è una sola linea chiusa, non una relazione
+    osm: { way: 1004022533 },
+    bbox: [40.42, 15.97, 40.61, 16.25],
+    centro: [40.52, 16.11],
+    // da Wikipedia; daini e cervi solo nell'oasi faunistica recintata, quindi non elencati
+    animali: ['lupo', 'gatto_selvatico', 'cinghiale', 'volpe', 'nibbio_reale'],
+    regole:
+      'Resta sui sentieri segnati. Divieti, chiusure e autorizzazioni cambiano nel tempo: verifica sempre sul sito del Parco.',
+    descrizione:
+      'Parco regionale tra le province di Matera e Potenza: la foresta di Gallipoli Cognato, fino ai 1319 m del Monte Croccia, e le guglie di arenaria delle Dolomiti Lucane attorno a Castelmezzano e Pietrapertosa. Tra gli animali: lupo, gatto selvatico, cinghiale e rapaci come il nibbio reale.',
+    daVerificare: true,
+  },
 ];
 
 export const PARCO_PREDEFINITO = 'pnalm';

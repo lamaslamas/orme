@@ -6,7 +6,7 @@ import { lunghezzaKm } from '../geo.js';
 import { parcoDa } from '../../datiParchi.js';
 import { ritagliaESemplifica } from './osmMtb.js';
 
-export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm'] };
+export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm', 'gallipoli-cognato'] };
 
 export function querySentieriParco(idParco) {
   const { prima, filtro } = dentroIlParco(parcoDa(idParco));
@@ -18,11 +18,26 @@ out tags;`;
 }
 
 const DIFFICOLTA_CAI = ['T', 'E', 'EE', 'EEA'];
+
+// Vie ferrate: su OSM sono spesso route=hiking, ma non sono sentieri qualunque
+export function eViaFerrata(tagRelazione = {}, tagTratti = []) {
+  if (/via ferrata|ferrata/i.test(`${tagRelazione.name ?? ''} ${tagRelazione.route ?? ''}`)) return true;
+  if (tagRelazione.via_ferrata_scale != null) return true;
+  return tagTratti.some((t) => t.highway === 'via_ferrata' || t.via_ferrata_scale != null);
+}
+const MOTIVO_FERRATA = 'Via ferrata: servono imbrago, set da ferrata, casco ed esperienza';
 const MINIMO_KM = 0.5;
 
 export function candidatiSentieri(json, idParco) {
   const parco = parcoDa(idParco);
   const tag = new Map((json?.elements ?? []).filter((e) => e.type === 'relation').map((e) => [e.id, e.tags ?? {}]));
+  // tag dei tratti di ogni relazione (per riconoscere le vie ferrate)
+  const tagWay = new Map((json?.elements ?? []).filter((e) => e.type === 'way').map((e) => [e.id, e.tags ?? {}]));
+  const tagTratti = new Map(
+    (json?.elements ?? [])
+      .filter((e) => e.type === 'relation')
+      .map((e) => [e.id, (e.members ?? []).filter((m) => m.type === 'way').map((m) => tagWay.get(m.ref)).filter(Boolean)]),
+  );
   const candidati = [];
   const viste = new Set();
   for (const c of interpretaRisposta(json)) {
@@ -41,7 +56,8 @@ export function candidatiSentieri(json, idParco) {
     traccia.dettagli = { ...traccia.dettagli, codici, fonte: url, ...(ritagliata ? { ritagliata: true } : {}) };
     const zona = [t.from, t.to].filter(Boolean).join(' – ');
     const nome = t.name || (ref.toUpperCase().startsWith('SI') ? `Sentiero Italia CAI${zona ? `: ${zona}` : ''}` : `Sentiero ${ref || c.idOsm}${zona ? `: ${zona}` : ''}`);
-    const difficolta = DIFFICOLTA_CAI.includes((t.cai_scale ?? '').toUpperCase()) ? t.cai_scale.toUpperCase() : null;
+    const ferrata = eViaFerrata(t, tagTratti.get(c.idOsm) ?? []);
+    const difficolta = ferrata ? 'EEA' : DIFFICOLTA_CAI.includes((t.cai_scale ?? '').toUpperCase()) ? t.cai_scale.toUpperCase() : null;
     candidati.push({
       fonte: `${OSM_SENTIERI.fonte}:${idParco}`,
       tipo: 'sentiero',
@@ -60,7 +76,11 @@ export function candidatiSentieri(json, idParco) {
       animali: [],
       lunghezzaKm: km,
       // percorribile a piedi perché segnato; la bici resta da valutare (regole del parco e terreno)
-      attivita: { trekking: { stato: 'percorribile', motivi: ['Sentiero segnato su OpenStreetMap (CAI, Parco o Sentiero Italia)'] } },
+      attivita: {
+        trekking: ferrata
+          ? { stato: 'con_limitazioni', motivi: [MOTIVO_FERRATA] }
+          : { stato: 'percorribile', motivi: ['Sentiero segnato su OpenStreetMap (CAI, Parco o Sentiero Italia)'] },
+      },
       traccia,
     });
   }
