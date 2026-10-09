@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco, diOsservazione } from '../src/lib/home.js';
+import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco, diOsservazione, specieDaMostrare } from '../src/lib/home.js';
 import { filtraSentieri, FILTRI_VUOTI } from '../src/lib/filtri.js';
 
 const sentieri = [
@@ -39,6 +39,18 @@ describe('osservazione', () => {
       ['foreste-casentinesi', ['b']],
     ]);
     expect(osservazionePerParco(sentieri).find((g) => g.parco === 'pnalm').percorsi.map((s) => s.id)).toEqual(['a', 'd']);
+  });
+});
+
+describe('animali da mostrare', () => {
+  it('nasconde quelli senza percorsi, salvo quelli scelti o cercati', () => {
+    const r = [
+      { animale: 'lupo', percorsi: 3 },
+      { animale: 'gufo_reale', percorsi: 0 },
+      { animale: 'lontra', percorsi: 0 },
+    ];
+    expect(specieDaMostrare(r).map((x) => x.animale)).toEqual(['lupo']);
+    expect(specieDaMostrare(r, ['lontra']).map((x) => x.animale)).toEqual(['lupo', 'lontra']);
   });
 });
 
