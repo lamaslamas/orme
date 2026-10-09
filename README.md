@@ -1,19 +1,55 @@
 # Orme
 
-Web app personale (PWA) per raccogliere e percorrere i sentieri faunistici del
-Parco Nazionale d'Abruzzo, Lazio e Molise (orso, lupo, camoscio, cervo).
+**I sentieri dei parchi italiani, con gli animali che puoi incontrare e il momento giusto per andarci.**
 
-**Apri:** https://lamaslamas.github.io/orme/
+**Apri l'app:** https://lamaslamas.github.io/orme/ (funziona dal telefono, anche offline: si può installare come app)
 
-- Lista filtrabile per animale, stato, tipo di accesso e paese di partenza
-- Scheda di ogni sentiero, con accesso, escursione d'origine e diario
-- Traccia da OpenStreetMap (per codice PNALM) o da file GPX
-- Posizione GPS sulla mappa, con distanza dalla traccia
-- Backup in JSON (esporta / importa)
+Orme è un progetto personale, gratuito e senza pubblicità per scegliere ed esplorare i sentieri
+dei parchi dell'Appennino, a piedi, in MTB o in e-MTB, con un'attenzione particolare alla fauna.
 
-I dati restano solo sul dispositivo (IndexedDB): nessun account, nessun server.
-I sentieri iniziali sono marcati "da verificare". Non vengono salvati punti di
-avvistamento o appostamento: solo sentieri ufficiali e zone.
+## A chi è utile
+
+- a chi va nei parchi nel tempo libero e vuole scegliere bene dove andare;
+- a chi cerca la fauna: dove e quando sono stati osservati cervi, camosci, lupi, rapaci;
+- a chi va in bici e vuole capire cosa è consentito e percorribile.
+
+Non è una guida ufficiale né un servizio di sicurezza: molte tracce sono "da verificare".
+
+## Cosa fa
+
+- **Centinaia di percorsi** da fonti pubbliche (sentieri segnati su OpenStreetMap, itinerari MTB,
+  uscite di associazioni ed enti parco), con lunghezza, dislivello, durata stimata e difficoltà.
+- **Fauna**: per ogni percorso gli animali osservati lungo il sentiero o nella zona e i mesi migliori
+  (osservazioni verificate da GBIF: iNaturalist, eBird, Observation.org e altre fonti);
+  heatmap delle osservazioni e distribuzione ufficiale europea delle specie.
+- **Dove vado domani?**: i percorsi migliori per oggi o domani secondo il meteo (pioggia, vento,
+  freddo in quota, fango, ore di luce), la durata e le tue preferenze.
+- **Compatibilità** con trekking, MTB ed e-MTB, sempre prudente: le regole del parco prevalgono.
+- **Lungo il percorso**: rifugi, bivacchi e acqua, indice panoramico, foto e luoghi da vedere.
+- **Percorsi da qui**: tocchi un punto sulla mappa e vedi quali sentieri ci passano.
+- **Pianifica** un percorso tuo seguendo i sentieri, oppure carica il tuo GPX.
+
+Parchi coperti oggi: Abruzzo, Lazio e Molise · Foreste Casentinesi · Appennino Lucano · Pollino ·
+Gallipoli Cognato e Piccole Dolomiti Lucane.
+
+## Privacy
+
+Nessun account e nessun server: preferenze, avvistamenti, foto e giri fatti restano solo sul tuo
+dispositivo (con backup su file quando vuoi). Ai servizi esterni vanno solo coordinate di sentieri e mappe.
+
+## Da sapere
+
+- Resta sempre sui sentieri e verifica regole, chiusure e numeri chiusi sul sito del parco.
+- Le osservazioni di fauna dicono dove gli animali sono stati visti, non garantiscono un incontro.
+  Per le specie protette la posizione è volutamente approssimata.
+- Meteo e tracce possono essere sbagliati o non aggiornati: controlla prima di partire.
+
+## Fonti e licenze
+
+Dati © OpenStreetMap (ODbL) · osservazioni GBIF e iNaturalist (licenze CC indicate su ogni
+osservazione) · meteo Open-Meteo (CC BY 4.0) · mappe OpenFreeMap, Waymarked Trails, OpenTopoMap,
+Esri · distribuzione delle specie EEA (CC BY 4.0) · foto Wikimedia Commons (autore e licenza su
+ogni foto, elenco in Altro → Crediti delle foto) · testi Wikipedia (CC BY-SA).
 
 ## Sviluppo
 
