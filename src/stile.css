@@ -1178,6 +1178,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .popup-oss p { margin: 4px 0 0; }
 /* con il pulsante Fauna in alto a destra, il pannello dei livelli si apre sotto di esso */
 .leaflet-container:has(.heat-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
+.leaflet-container:has(.daqui-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
+.leaflet-container:has(.heat-bottone):has(.daqui-bottone) .pannello-livelli { top: 150px; max-height: calc(100% - 164px); }
 
 /* heatmap GBIF: esagoni di densità sfumati in macchie, la mappa sotto resta leggibile */
 .leaflet-heatmap-pane .tile-densita { filter: blur(3px); }
@@ -1213,10 +1215,20 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .luoghi-vicini { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: 0.92rem; }
 
 /* --- Percorsi da qui --- */
-.daqui-bottone { display: grid !important; place-items: center; color: #333; }
-.daqui-bottone.attivo { background: #ede4f4 !important; color: #7b2d9b; }
+.daqui-bottone {
+  display: flex !important; align-items: center; gap: 5px; width: auto !important; padding: 0 10px 0 7px;
+  color: #c2410c; font-weight: 800; font-size: 0.8rem; text-decoration: none;
+}
+.daqui-bottone.attivo { background: #e8590c !important; color: #fff !important; }
+/* spillo arancio sul punto scelto */
+.spillo-daqui { background: none; border: none; }
+.spillo-daqui span {
+  position: absolute; left: 2px; top: 2px; width: 22px; height: 22px; background: #e8590c; border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 2px 6px rgba(37, 50, 56, 0.45);
+}
 .scegli-punto, .scegli-punto .leaflet-interactive { cursor: crosshair !important; }
 .con-daqui .leaflet-overlay-pane { opacity: 0.3; }
+.con-elenco-daqui .legenda { display: none; }
 .barra-daqui { max-height: 46%; overflow: auto; z-index: 860; }
 .daqui-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .daqui-raggi { margin: 4px 0 2px; padding: 4px 0; }
@@ -1227,4 +1239,4 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .daqui-elenco .nome { font-weight: 700; }
 .daqui-elenco .dati { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
 .daqui-elenco .fauna-breve { margin: 0; font-size: 0.8rem; }
-.chip-daqui { background: #ede4f4; color: #5e2178; }
+.chip-daqui { background: #fde7d9; color: #9a3412; }

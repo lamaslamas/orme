@@ -10,8 +10,11 @@ import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 
 const MOSTRATI = 10;
-const MIRINO =
-  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
+// segnaposto con un percorso che ci passa (diverso dal mirino del GPS)
+const ICONA_DA_QUI =
+  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20c4-1 6-6 10-7s6 3 10 1" stroke-dasharray="2 3"/><path d="M12 13s5-4.5 5-8a5 5 0 0 0-10 0c0 3.5 5 8 5 8z" fill="currentColor" fill-opacity=".2"/><circle cx="12" cy="5" r="1.6"/></svg>';
+// colore dell'evidenziazione: arancio, non usato da nient'altro sulla mappa
+const EVIDENZA = '#e8590c';
 
 // leggiPercorsi(): [{ sentiero, traccia, misure }]; attenua: le altre tracce si fanno tenui
 export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
@@ -31,7 +34,7 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
   L.DomEvent.disableScrollPropagation(barra);
 
   const Controllo = L.Control.extend({
-    options: { position: 'topleft' },
+    options: { position: 'topright' },
     onAdd() {
       const div = L.DomUtil.create('div', 'leaflet-bar');
       const b = L.DomUtil.create('a', 'daqui-bottone', div);
@@ -39,7 +42,7 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
       b.setAttribute('role', 'button');
       b.title = 'Percorsi da qui: tocca un punto e vedi quali percorsi ci passano';
       b.setAttribute('aria-label', 'Percorsi da qui');
-      b.innerHTML = MIRINO;
+      b.innerHTML = `${ICONA_DA_QUI}<span>Da qui</span>`;
       L.DomEvent.disableClickPropagation(div);
       L.DomEvent.on(b, 'click', (e) => {
         L.DomEvent.preventDefault(e);
@@ -50,6 +53,10 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
     },
   });
   const controllo = new Controllo().addTo(mappa);
+  // in alto a destra, subito sotto "Fauna" (se c'è) e sopra il pulsante dei livelli
+  const angolo = controllo.getContainer().parentNode;
+  const fauna = angolo.querySelector('.heat-bottone')?.closest('.leaflet-bar');
+  angolo.insertBefore(controllo.getContainer(), fauna ? fauna.nextSibling : angolo.firstChild);
 
   function scegli() {
     scegliendo = true;
@@ -68,16 +75,32 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
     livello.clearLayers();
     barra.hidden = true;
     controllo.bottone.classList.remove('attivo');
-    mappa.getContainer().classList.remove('scegli-punto', 'con-daqui');
+    mappa.getContainer().classList.remove('scegli-punto', 'con-daqui', 'con-elenco-daqui');
   }
 
   function mostra() {
     livello.clearLayers();
     const trovati = percorsiDaQui(leggiPercorsi() ?? [], punto, raggio);
-    L.circle([punto[1], punto[0]], { pane: 'evidenza', radius: raggio, color: COLORI.traccia, weight: 1.5, dashArray: '4 4', fillOpacity: 0.06, interactive: false }).addTo(livello);
+    const centro = [punto[1], punto[0]];
+    L.circle(centro, { pane: 'evidenza', radius: raggio, color: EVIDENZA, weight: 2, fillColor: EVIDENZA, fillOpacity: 0.12, interactive: false }).addTo(livello);
+    const tracce = L.featureGroup().addTo(livello);
     for (const t of trovati) {
-      L.geoJSON(t.traccia.geojson, { pane: 'evidenza', interactive: false, style: { color: COLORI.traccia, weight: 5, opacity: 0.95 } }).addTo(livello);
+      // bordo bianco sotto, arancio sopra: si stacca da tutte le altre tracce
+      L.geoJSON(t.traccia.geojson, { pane: 'evidenza', interactive: false, style: { color: '#fff', weight: 9, opacity: 0.95 } }).addTo(tracce);
+      L.geoJSON(t.traccia.geojson, { pane: 'evidenza', interactive: false, style: { color: EVIDENZA, weight: 5, opacity: 1 } }).addTo(tracce);
     }
+    L.marker(centro, {
+      zIndexOffset: 2000, // sopra rifugi, acqua e animali
+      interactive: false,
+      keyboard: false,
+      icon: L.divIcon({ className: 'spillo-daqui', html: '<span></span>', iconSize: [26, 34], iconAnchor: [13, 34] }),
+    }).addTo(livello);
+    // la mappa inquadra i percorsi trovati, lasciando sotto lo spazio per l'elenco
+    if (trovati.length) {
+      const altezzaBarra = Math.min(mappa.getSize().y * 0.46, 260);
+      mappa.fitBounds(tracce.getBounds().extend(centro), { paddingTopLeft: [30, 30], paddingBottomRight: [30, altezzaBarra], maxZoom: 15 });
+    }
+    mappa.getContainer().classList.add('con-elenco-daqui');
     if (attenua) mappa.getContainer().classList.add('con-daqui');
     barra.innerHTML = `
       <div class="daqui-testa"><b>${trovati.length ? `Passano da qui: ${trovati.length}` : 'Nessun percorso passa da qui'}</b>
