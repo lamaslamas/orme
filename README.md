@@ -65,6 +65,20 @@ solo dati del luogo (tipo, nome, quota, potabilità, stagionalità), mai telefon
 Sulla mappa sono due livelli separati, "Rifugi e bivacchi" e "Acqua", visibili da zoom 12;
 nella scheda del sentiero quelli entro 300 m dalla traccia.
 
+## Dove vado domani?
+
+La pagina `#/domani` ordina i percorsi per oggi o domani con le previsioni orarie di
+[Open-Meteo](https://open-meteo.com/) (gratuito, senza chiavi, CC BY 4.0), chieste alla quota di
+partenza e a quella del punto più alto. I calcoli sono in `src/lib/condizioni.js`: pioggia e
+temporali nelle ore di cammino, freddo percepito in quota, caldo (meno se c'è bosco), raffiche
+(più severe sui percorsi esposti), neve e ghiaccio, fango (pioggia dei 3 giorni prima sul terreno
+di terra), ore di luce e orario di partenza consigliato. A Open-Meteo vanno solo coordinate e
+quote dei sentieri, raggruppate in celle di 0,1°; preferenze e scelte restano sul dispositivo.
+
+Il profilo delle quote di ogni traccia (partenza, punto più alto, dislivello) lo calcola il robot
+con il modello del terreno (`src/lib/profiloQuote.js`, campo `quote` dell'archivio);
+`node scripts/calcola-panorama.mjs --solo-quote` lo ricalcola senza gli altri passi.
+
 ## Distribuzione ufficiale delle specie
 
 `public/dati/distribuzione.json` contiene le celle di 10 km della Direttiva Habitat

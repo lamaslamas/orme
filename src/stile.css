@@ -1082,3 +1082,32 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
   border: 1px solid var(--bordo); border-radius: 12px; background: rgba(255, 255, 255, 0.6); font: inherit; color: var(--testo); cursor: pointer;
 }
 .riga-fauna:hover { border-color: rgba(47, 111, 109, 0.45); }
+
+/* --- Dove vado domani? --- */
+.scelta-giorno { grid-template-columns: repeat(2, 1fr); margin-bottom: 10px; }
+.parchi-meteo { list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.parco-meteo {
+  width: 100%; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; text-align: left;
+  padding: 10px 12px; border-radius: 14px; border: var(--bordo-vetro); background: var(--vetro); box-shadow: var(--ombra); font: inherit; color: inherit; cursor: pointer;
+}
+.parco-meteo .simbolo { grid-row: span 2; font-size: 1.2rem; }
+.giudizio-ok .parco-meteo { border-left: 4px solid #3f8f4f; }
+.giudizio-attenzione .parco-meteo { border-left: 4px solid #c98a1b; }
+.giudizio-sconsigliato .parco-meteo { border-left: 4px solid #b5473a; }
+.classifica-meteo .voce-meteo a { display: flex; gap: 12px; align-items: flex-start; text-decoration: none; color: inherit; }
+.voce-meteo .simbolo { font-size: 1.25rem; line-height: 1.4; flex: none; }
+.voce-meteo .corpo { display: grid; gap: 3px; min-width: 0; }
+.voce-meteo .nome { font-weight: 700; }
+.voce-meteo .motivo { font-size: 0.92rem; }
+.voce-meteo.giudizio-attenzione .motivo { color: #8a5d0e; }
+.voce-meteo.giudizio-sconsigliato .motivo { color: #9b3a2f; }
+.voce-meteo .chip-animali { display: flex; flex-wrap: wrap; gap: 4px; }
+.preferenze-meteo summary { font-weight: 700; cursor: pointer; }
+.preferenze-meteo label { display: grid; gap: 4px; margin: 10px 0; font-size: 0.92rem; }
+.fonte-meteo { margin-top: 16px; }
+.invito-meteo {
+  display: flex; align-items: center; gap: 12px; margin: 12px 0 4px; padding: 14px 16px; border-radius: 18px; text-decoration: none; color: inherit;
+  background: var(--vetro); border: var(--bordo-vetro); box-shadow: var(--ombra);
+}
+.invito-meteo .icona-meteo { font-size: 1.6rem; }
+.invito-meteo b { display: block; }

@@ -83,6 +83,7 @@ export async function vistaHome(app) {
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Esplora i parchi</h1>
+    <a class="invito-meteo" href="#/domani"><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Dove vado domani?</b><span class="tenue piccolo">I percorsi migliori secondo il meteo, la durata e le tue preferenze</span></span></a>
     ${htmlSelettoreAttivita()}
     <div class="ricerca-home">${htmlRicerca(st.filtri.testo, 'Cerca parco, animale o percorso…')}</div>
     <p class="trovati tenue" hidden></p>

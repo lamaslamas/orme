@@ -14,6 +14,7 @@ import { percorsoSentiero } from '../src/lib/tracce.js';
 import { puntiOgni, abbinaTerreno, vieDaRisposta, queryVieVicine, queryTrattiRelazioni } from '../src/lib/terreno.js';
 import { faunaDalleOsservazioni, faunaDelParco, TAXA_FAUNA } from '../src/lib/faunaPercorso.js';
 import { PARCHI } from '../src/datiParchi.js';
+import { profiloQuote } from '../src/lib/profiloQuote.js';
 import { existsSync } from 'node:fs';
 
 const FILE = 'public/dati/archivio.json';
@@ -183,6 +184,31 @@ async function terrenoDellaTraccia(traccia) {
 const archivio = JSON.parse(readFileSync(FILE, 'utf8'));
 let calcolati = 0;
 let saltati = 0;
+// ---------- profilo delle quote (partenza, punto più alto, dislivello) ----------
+// Per "Dove vado domani?": temperatura in vetta e durata anche per le tracce senza quote.
+// Veloce (solo il modello del terreno), si ricalcola quando cambia la traccia.
+let profili = 0;
+for (const p of archivio.percorsi) {
+  const g = p.traccia?.geojson;
+  if (!g?.coordinates?.length) continue;
+  const geometria = improntaTraccia(g).split('-')[1];
+  if (!tutti && p.quote?.impronta === geometria) continue;
+  try {
+    await terreno.prepara(riquadro(g, 0.005));
+    const r = profiloQuote(g, quota);
+    if (!r) continue;
+    p.quote = { ...r, impronta: geometria };
+    profili++;
+  } catch (e) {
+    console.warn(`  quote ${p.id}: ${e.message}`);
+  }
+}
+console.log(`Profilo delle quote: ${profili} percorsi`);
+if (process.argv.includes('--solo-quote')) {
+  if (profili) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+  process.exit(0);
+}
+
 // ---------- fauna da iNaturalist (osservazioni verificate delle specie di Orme) ----------
 // Una volta per parco: tutte le osservazioni nel riquadro (più un margine), poi il confronto
 // con ogni percorso avviene qui. Si rispetta il limite di circa una richiesta al secondo.
@@ -305,7 +331,7 @@ for (const p of archivio.percorsi) {
 }
 
 
-if (calcolati || terreni || faune) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+if (calcolati || terreni || faune || profili) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
 console.log(`\nFauna iNaturalist: ${faune} percorsi. Terreno: ${terreni} percorsi aggiornati. Indice panoramico: ${calcolati} calcolati, ${saltati} già aggiornati.`);
 
 // eventuali richieste di rete rimaste appese non devono tenere aperto il processo

@@ -14,6 +14,7 @@ describe('barra in basso', () => {
     expect(sezioneDi('/pianifica')).toBe('pianifica');
     expect(sezioneDi('/percorso/p1')).toBe('pianifica');
     expect(sezioneDi('/percorso-nuovo')).toBe('pianifica');
+    expect(sezioneDi('/domani')).toBe('pianifica');
     expect(sezioneDi('/backup')).toBe('altro');
     expect(sezioneDi('/altro')).toBe('altro');
   });
