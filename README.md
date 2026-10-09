@@ -58,6 +58,13 @@ Dopo l'importazione, per ogni percorso con traccia:
 
 I confini dei parchi sono in `public/dati/confini.json` (`node scripts/scarica-confini.mjs`).
 
+Rifugi, bivacchi, ricoveri, sorgenti e fontanelle dei parchi (OpenStreetMap, ODbL) sono in
+`public/dati/punti.json`: li scarica `node scripts/scarica-punti.mjs` durante l'aggiornamento
+automatico, al massimo una volta a settimana per parco (`--forza` per rifarli subito). Si salvano
+solo dati del luogo (tipo, nome, quota, potabilità, stagionalità), mai telefoni o email.
+Sulla mappa sono due livelli separati, "Rifugi e bivacchi" e "Acqua", visibili da zoom 12;
+nella scheda del sentiero quelli entro 300 m dalla traccia.
+
 ## Distribuzione ufficiale delle specie
 
 `public/dati/distribuzione.json` contiene le celle di 10 km della Direttiva Habitat

@@ -721,6 +721,23 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .pannello-livelli .legenda { border-top: 1px solid var(--bordo); padding-top: 8px; margin-top: 10px; }
 .voce-legenda { margin: 4px 0 8px; font-size: 0.82rem; line-height: 1.35; }
 .voce-legenda .piccolo { margin-top: 4px !important; }
+/* rifugi e acqua */
+.punto-utile { display: grid; place-items: center; border-radius: 50%; border: 2px solid #fff; color: #fff; box-shadow: 0 1px 3px rgba(37, 50, 56, 0.45); }
+.punto-utile.rifugi { background: #9a4b2f; }
+.punto-utile.acqua { background: #2a7bbf; }
+.punto-utile.chiuso { filter: grayscale(1); opacity: 0.75; }
+.legenda-punti { list-style: none; margin: 4px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px 10px; }
+.legenda-punti li { display: flex; align-items: center; gap: 6px; }
+.legenda-punti .punto-utile { width: 20px; height: 20px; flex: none; }
+.lista-punti { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.lista-punti li { display: flex; gap: 10px; align-items: flex-start; }
+.lista-punti li > span:last-child { display: grid; }
+.lista-punti .punto-utile { width: 24px; height: 24px; flex: none; }
+.popup-punto { display: grid; gap: 4px; min-width: 180px; }
+.leaflet-popup-content .popup-punto p { margin: 0; }
+.tipo-punto { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.tipo-punto.rifugi { color: #9a4b2f; }
+.tipo-punto.acqua { color: #2a7bbf; }
 .legenda-stati { list-style: none; margin: 4px 0 0; padding: 0; }
 .legenda-stati li { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
 .campione { display: inline-block; flex: none; width: 18px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }

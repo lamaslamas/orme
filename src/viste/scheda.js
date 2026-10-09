@@ -14,6 +14,7 @@ import { htmlFotoPersonali, collegaFotoPersonali } from './fotoPersonali.js';
 import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
 import { improntaTraccia } from '../lib/panorama.js';
+import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 
 const STATI_VERIFICA = {
   verificato: 'Verificato',
@@ -327,6 +328,8 @@ export async function vistaScheda(app, id) {
 
       ${riquadroBici(s, traccia)}
 
+      ${traccia ? '<div id="puntiLungo"></div>' : ''}
+
       ${traccia ? htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi) : ''}
       ${traccia ? '<div id="contenitoreTerreno"></div>' : ''}
       ${traccia ? htmlNaturaSentiero() : ''}
@@ -429,6 +432,7 @@ export async function vistaScheda(app, id) {
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
   if (traccia) collegaTerreno(app, s, traccia);
+  if (traccia) mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), traccia.geojson);
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {

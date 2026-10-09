@@ -34,6 +34,11 @@ jobs:
       - name: Calcola l'indice panoramico
         run: node scripts/calcola-panorama.mjs
         continue-on-error: true
+      # rifugi, bivacchi e acqua da OpenStreetMap: ogni parco al massimo una volta a settimana
+      - name: Aggiorna rifugi e acqua
+        run: node scripts/scarica-punti.mjs
+        continue-on-error: true
+        timeout-minutes: 15
       - name: Salva l'archivio se è cambiato
         id: salva
         run: |

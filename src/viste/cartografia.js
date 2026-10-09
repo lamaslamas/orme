@@ -4,6 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { stato } from '../stato.js';
 import { creaBaseVettoriale } from './mappaVettoriale.js';
+import { aggiungiPuntiUtili } from './puntiUtili.js';
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
@@ -57,6 +58,8 @@ export const NOMI_LIVELLI = {
   confini: 'Confini dei parchi',
   distribuzione: 'Distribuzione ufficiale (EEA)',
   panoramicita: 'Panoramicità del percorso',
+  rifugi: 'Rifugi e bivacchi (OSM)',
+  acqua: 'Acqua: sorgenti e fontanelle (OSM)',
   sentieriOsm: 'Sentieri escursionistici (Waymarked)',
   gps: 'Posizione GPS',
 };
@@ -164,7 +167,10 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
   mappa.aggiornaLegenda = () => {};
   if (anteprima) return mappa;
   L.control.scale({ imperial: false }).addTo(mappa);
-  aggiungiPannelloLivelli(mappa, ['sentieriOsm', ...livelli]);
+  // rifugi e acqua: in tutte le mappe con il pannello dei livelli, prima del GPS
+  const conPunti = [...livelli.filter((k) => k !== 'gps'), 'rifugi', 'acqua', ...livelli.filter((k) => k === 'gps')];
+  aggiungiPannelloLivelli(mappa, ['sentieriOsm', ...conPunti]);
+  aggiungiPuntiUtili(mappa);
   return mappa;
 }
 
