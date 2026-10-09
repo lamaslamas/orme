@@ -9,13 +9,15 @@ const CENTRO_PREDEFINITO = [41.79, 13.85];
 
 // Etichette in primo piano: le basi "chiara" e "satellitare" hanno i nomi dei luoghi in un livello
 // separato, sopra le tracce; così i percorsi non coprono mai nomi e punti d'interesse.
+// Le basi "nomiSotto" sono immagini con i nomi già stampati: lì le tracce si fanno trasparenti.
 export const BASI = {
   chiara: {
     nome: 'Chiara (nomi in primo piano)',
     vettoriale: true, // MapLibre + OpenFreeMap, caricata solo quando serve
   },
   topo: {
-    nome: 'Dettagliata (OpenStreetMap)',
+    nome: 'Dettagliata (OpenStreetMap, nomi sotto le tracce)',
+    nomiSotto: true,
     crea: () =>
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -23,7 +25,8 @@ export const BASI = {
       }),
   },
   curve: {
-    nome: 'Curve di livello',
+    nome: 'Curve di livello (nomi sotto le tracce)',
+    nomiSotto: true,
     crea: () =>
       L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         maxZoom: 17,
@@ -105,8 +108,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
     let k = BASI[chiave] ? chiave : 'chiara';
     const mia = ++richiesta;
     if (k === 'chiara' && !basi.chiara) {
-      // intanto la dettagliata, così la mappa non resta vuota
-      if (!baseAttuale) mostraBase('topo');
+      // si aspetta la vettoriale (di solito già scaricata all'avvio): la dettagliata solo se non si può
       if (!(await preparaVettoriale())) k = 'topo';
       if (mia !== richiesta || rimossa) return; // nel frattempo è cambiata la scelta o la mappa è chiusa
     }
@@ -121,6 +123,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
     basi[k].addTo(mappa);
     basi[k].bringToBack?.();
     etichette[k]?.addTo(mappa);
+    mappa.getContainer().classList.toggle('nomi-sotto', !!BASI[k].nomiSotto);
     baseAttuale = k;
   }
   function applicaSentieri(visibili) {

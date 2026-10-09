@@ -284,7 +284,9 @@ body.con-mappa main { max-width: none; padding: 0; }
 .risultati li { padding: 4px 0; border-bottom: 1px solid #f0ece4; }
 .risultati .scelta { align-items: flex-start; }
 .risultati .scelta input { margin-top: 2px; flex: none; }
-.leaflet-container { font: inherit; }
+.leaflet-container { font: inherit; background: #f2efe9; }
+/* basi con i nomi stampati nelle immagini: tracce e confini trasparenti, i nomi si leggono attraverso */
+.nomi-sotto .leaflet-overlay-pane { opacity: 0.6; }
 
 /* --- GPS --- */
 .gps-bottone { display: grid !important; place-items: center; color: #333; }

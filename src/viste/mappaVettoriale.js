@@ -24,11 +24,21 @@ function stili() {
   return stiliInCorso;
 }
 
+let libreriaInCorso = null;
+// Scarica in anticipo libreria e stile (all'avvio, a riposo): la prima mappa compare già pronta
+export function preparaLibreria() {
+  libreriaInCorso ??= Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')])
+    .then(() => import('@maplibre/maplibre-gl-leaflet'))
+    .catch((e) => {
+      libreriaInCorso = null;
+      throw e;
+    });
+  return Promise.all([libreriaInCorso, stili()]).then(([, s]) => s);
+}
+
 // Restituisce { base, etichette } come livelli Leaflet, oppure lancia un errore (offline, niente WebGL)
 export async function creaBaseVettoriale() {
-  await Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')]);
-  await import('@maplibre/maplibre-gl-leaflet');
-  const { base, etichette } = await stili();
+  const { base, etichette } = await preparaLibreria();
   return {
     base: L.maplibreGL({ style: base, attributionControl: { customAttribution: ATTR_VETTORIALE } }),
     etichette: L.maplibreGL({ style: etichette, pane: 'etichette', attributionControl: false, interactive: false }),

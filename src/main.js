@@ -19,6 +19,8 @@ import { vistaParco } from './viste/parco.js';
 import { vistaImporta } from './viste/importa.js';
 import { vistaElencoAvvistamenti, vistaModificaAvvistamento } from './viste/avvistamenti.js';
 import { impostaBanner } from './viste/banner.js';
+import { preparaLibreria } from './viste/mappaVettoriale.js';
+import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi } from './lib/sezioni.js';
 
@@ -159,7 +161,11 @@ caricaDatiIniziali()
     globalThis.__ormeFase = 'dati pronti';
     return mostra();
   })
-  .then(() => (globalThis.__ormeFase = 'pagina mostrata'))
+  .then(() => {
+    globalThis.__ormeFase = 'pagina mostrata';
+    // la mappa vettoriale si scarica a riposo, così le mappe non aspettano (né mostrano ripieghi)
+    if (stato.leggi().base === 'chiara') (globalThis.requestIdleCallback ?? setTimeout)(() => preparaLibreria().catch(() => {}));
+  })
   .catch((errore) => {
     console.error('Avvio non riuscito', errore);
     app.innerHTML = `<section class="riquadro" style="margin-top:24px">
