@@ -789,7 +789,7 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 /* --- superfici di vetro --- */
 .vetro,
 .testata, .barra-schede, .barra-azioni, .foglio, .pannello-livelli, .misura-barra, .legenda,
-.gps-stato, .avviso-mappa, .segmenti, .pillola, .ricerca, .carta-foto-testo {
+.gps-stato, .avviso-mappa, .segmenti, .pillola, .ricerca {
   -webkit-backdrop-filter: var(--sfocatura);
   backdrop-filter: var(--sfocatura);
 }
@@ -877,7 +877,12 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 
 /* --- card dei parchi e degli animali --- */
 .carta-foto-link { border-radius: var(--raggio-grande); }
-.carta-foto-testo { background: linear-gradient(transparent, rgba(20, 38, 40, 0.72)); }
+.carta-foto-testo {
+  /* niente vetro sulla foto: una sfumatura scura solo in basso, la foto resta visibile */
+  padding-top: 56px;
+  background: linear-gradient(to top, rgba(12, 24, 22, 0.86) 0%, rgba(12, 24, 22, 0.6) 45%, rgba(12, 24, 22, 0) 100%);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
 .carta-specie-bottone { border-radius: var(--raggio); }
 .carta-specie.scelta .carta-specie-bottone {
   background: var(--scheda); color: var(--testo);
