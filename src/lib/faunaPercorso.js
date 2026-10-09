@@ -1,4 +1,5 @@
-// Animali che si possono incontrare lungo un percorso secondo iNaturalist (osservazioni verificate).
+// Animali che si possono incontrare lungo un percorso secondo le osservazioni verificate
+// (GBIF: iNaturalist, eBird, Observation.org e le altre fonti; un tempo solo iNaturalist).
 // Due livelli, perché iNaturalist sposta di proposito la posizione delle specie protette:
 // - "percorso": posizione precisa entro 500 m dalla traccia;
 // - "zona": posizione sfumata (orso, lupo, camoscio…) o comunque nei dintorni, entro circa 5 km.
@@ -23,24 +24,36 @@ export function animaleDelTaxon(taxon) {
   return null;
 }
 
-// risultati: osservazioni grezze dell'API di iNaturalist; geojson: traccia del percorso
+// Un'osservazione in forma comune, da GBIF (già interpretata: src/lib/gbif.js) o dall'API di
+// iNaturalist (grezza). null se non è una delle nostre specie o manca la posizione.
+export function osservazioneComune(o) {
+  if (o && 'animale' in o && 'lat' in o) {
+    if (!o.animale || !Number.isFinite(o.lat) || !Number.isFinite(o.lon)) return null;
+    return { animale: o.animale, lat: o.lat, lon: o.lon, sfumata: Boolean(o.sfumata), persona: o.osservatore ?? null, data: o.data ?? null };
+  }
+  if (o?.quality_grade && o.quality_grade !== 'research') return null;
+  const animale = animaleDelTaxon(o?.taxon);
+  const [lat, lon] = String(o?.location ?? ',').split(',').map(Number);
+  if (!animale || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { animale, lat, lon, sfumata: Boolean(o.obscured), persona: o.user?.id ?? null, data: o.observed_on ?? null };
+}
+
+// risultati: osservazioni (GBIF o iNaturalist); geojson: traccia del percorso
 export function faunaDalleOsservazioni(risultati, geojson) {
   const perAnimale = new Map();
-  for (const o of risultati ?? []) {
-    if (o.quality_grade && o.quality_grade !== 'research') continue;
-    const animale = animaleDelTaxon(o.taxon);
-    if (!animale) continue;
-    const [lat, lon] = String(o.location ?? ',').split(',').map(Number);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+  for (const grezza of risultati ?? []) {
+    const o = osservazioneComune(grezza);
+    if (!o) continue;
+    const { animale, lat, lon } = o;
     const d = distanzaDallaTracciaM([lon, lat], geojson);
-    const vicino = !o.obscured && d <= RAGGIO_PERCORSO_M;
-    if (!vicino && d > RAGGIO_ZONA_M + (o.obscured ? 10_000 : 0)) continue; // le sfumate possono essere spostate di ~10 km
+    const vicino = !o.sfumata && d <= RAGGIO_PERCORSO_M;
+    if (!vicino && d > RAGGIO_ZONA_M + (o.sfumata ? 10_000 : 0)) continue; // le sfumate possono essere spostate di ~10 km
     const a = perAnimale.get(animale) ?? { percorso: { n: 0, persone: new Set(), mesi: Array(12).fill(0) }, zona: { n: 0, persone: new Set(), mesi: Array(12).fill(0) } };
     for (const livello of vicino ? ['percorso', 'zona'] : ['zona']) {
       const l = a[livello];
       l.n++;
-      if (o.user?.id != null) l.persone.add(o.user.id);
-      if (o.observed_on) l.mesi[Number(o.observed_on.slice(5, 7)) - 1]++;
+      if (o.persona != null) l.persone.add(o.persona);
+      if (o.data) l.mesi[Number(o.data.slice(5, 7)) - 1]++;
     }
     perAnimale.set(animale, a);
   }
@@ -72,19 +85,18 @@ export function faunaDelParco(risultati, { anelli = null, bbox }) {
   const nelRiquadro = (lat, lon) => lat >= s && lat <= n && lon >= o && lon <= e;
   const perAnimale = new Map();
   let totale = 0;
-  for (const x of risultati ?? []) {
-    if (x.quality_grade && x.quality_grade !== 'research') continue;
-    const animale = animaleDelTaxon(x.taxon);
-    if (!animale) continue;
-    const [lat, lon] = String(x.location ?? ',').split(',').map(Number);
-    if (!Number.isFinite(lat) || !nelRiquadro(lat, lon)) continue;
-    if (!x.obscured && anelli?.length && !puntoNelPoligono([lon, lat], anelli)) continue;
+  for (const grezza of risultati ?? []) {
+    const x = osservazioneComune(grezza);
+    if (!x) continue;
+    const { animale, lat, lon } = x;
+    if (!nelRiquadro(lat, lon)) continue;
+    if (!x.sfumata && anelli?.length && !puntoNelPoligono([lon, lat], anelli)) continue;
     totale++;
     const a = perAnimale.get(animale) ?? { n: 0, persone: new Set(), mesi: Array(12).fill(0), sfumate: 0 };
     a.n++;
-    if (x.obscured) a.sfumate++;
-    if (x.user?.id != null) a.persone.add(x.user.id);
-    if (x.observed_on) a.mesi[Number(x.observed_on.slice(5, 7)) - 1]++;
+    if (x.sfumata) a.sfumate++;
+    if (x.persona != null) a.persone.add(x.persona);
+    if (x.data) a.mesi[Number(x.data.slice(5, 7)) - 1]++;
     perAnimale.set(animale, a);
   }
   const specie = [...perAnimale]

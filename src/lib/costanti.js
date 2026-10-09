@@ -57,6 +57,27 @@ export const TAXON_INATURALIST = {
   cicogna_nera: { id: 4736, nome: 'Ciconia nigra' },
 };
 
+// Le stesse specie su GBIF (chiavi del suo elenco dei nomi). Camoscio: tutto il genere Rupicapra,
+// perché molte osservazioni appenniniche sono registrate con il nome della specie alpina.
+// Muflone: solo la sottospecie musimon (non le pecore domestiche).
+export const TAXON_GBIF = {
+  orso: 2433433,
+  lupo: 5219173,
+  camoscio: 5220169,
+  cervo: 2440958,
+  capriolo: 5220126,
+  daino: 5220136,
+  muflone: 6165157,
+  cinghiale: 7705930,
+  volpe: 5219243,
+  lontra: 2433753,
+  gatto_selvatico: 7964291,
+  aquila_reale: 2480506,
+  gufo_reale: 5959092,
+  nibbio_reale: 5229168,
+  cicogna_nera: 2481909,
+};
+
 export const STATI = {
   da_fare: 'Da fare',
   fatto: 'Fatto',

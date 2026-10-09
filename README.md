@@ -51,8 +51,10 @@ node scripts/importa-archivio.mjs ecotur       # una sola: ecotur, wolf-howling,
 ## Arricchimento giornaliero (scripts/calcola-panorama.mjs)
 
 Dopo l'importazione, per ogni percorso con traccia:
-- **animali da iNaturalist**: osservazioni verificate "lungo il percorso" (entro 500 m) o "nella zona"
-  (posizioni sfumate delle specie protette), solo conteggi, nessun dato sugli osservatori;
+- **animali da GBIF** (tutte le fonti insieme, ognuna una volta: iNaturalist, eBird, Observation.org,
+  atlanti, collezioni; `src/lib/gbif.js`): osservazioni "lungo il percorso" (entro 500 m, posizione
+  precisa entro 1 km) o "nella zona" (posizioni sfumate o approssimate), solo conteggi e un codice
+  anonimo per contare le persone, mai i nomi. `--solo-fauna` ricalcola subito solo la fauna;
 - **indice panoramico** (analisi di visibilità sul terreno);
 - **terreno** (tag OSM delle vie), al massimo 20 minuti per giro: si completa nei giorni successivi.
 

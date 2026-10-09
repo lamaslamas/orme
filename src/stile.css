@@ -1168,5 +1168,16 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
   box-shadow: 0 1px 3px rgba(37, 50, 56, 0.4);
 }
 .icona-osservazione .spillo > span { transform: rotate(45deg); font-size: 12px; line-height: 1; }
+.icona-osservazione .quante {
+  position: absolute; left: 15px; top: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+  background: #5b4b9a; color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-weight: 700;
+}
+.icona-osservazione.sfumata .spillo { border-style: dashed; background: rgba(241, 236, 255, 0.75); }
+.icona-osservazione.sfumata .spillo > span { opacity: 0.6; }
+.popup-oss ul { margin: 6px 0 0; padding-left: 16px; font-size: 0.85rem; }
+.popup-oss p { margin: 4px 0 0; }
 /* con il pulsante Fauna in alto a destra, il pannello dei livelli si apre sotto di esso */
 .leaflet-container:has(.heat-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
+
+/* heatmap GBIF: esagoni di densità sfumati in macchie, la mappa sotto resta leggibile */
+.leaflet-heatmap-pane .tile-densita { filter: blur(3px); }

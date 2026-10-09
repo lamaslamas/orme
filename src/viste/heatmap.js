@@ -1,17 +1,16 @@
-// Livello "Fauna rara – iNaturalist" per la mappa principale: heatmap ufficiale di
-// iNaturalist (tile già filtrate) ed elenco delle osservazioni toccando una zona.
+// Livello "Fauna": heatmap delle osservazioni di tutte le fonti raccolte da GBIF (iNaturalist,
+// eBird, Observation.org, atlanti…, ognuna una volta sola), icone degli animali da vicino ed
+// elenco delle osservazioni toccando una zona. La correzione per lo sforzo usa la griglia di iNaturalist.
 // Non usa mai i miei avvistamenti personali.
 import L from 'leaflet';
-import { ANIMALI, TAXON_INATURALIST } from '../lib/costanti.js';
+import { ANIMALI, TAXON_GBIF } from '../lib/costanti.js';
+import { urlTileGbif, urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { stato } from '../stato.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
   STAGIONI,
   SPECIE_RARE,
   FILTRI_INAT_PREDEFINITI,
-  urlTileHeatmap,
-  urlOsservazioni,
-  interpretaOsservazioni,
   riquadroAttorno,
   urlTileGriglia,
   TUTTE_LE_SPECIE,
@@ -29,17 +28,17 @@ const ICONA =
   '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="9" cy="10" r="6" fill="currentColor" opacity=".35"/><circle cx="15" cy="14" r="6" fill="currentColor" opacity=".5"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>';
 
 export const SPIEGAZIONE_HEATMAP = `
-  <p><b>Cosa mostra.</b> Le zone colorate indicano dove sono state registrate più osservazioni su iNaturalist (dal rosa: poche, al giallo: molte). È una densità relativa, non un conteggio, e la scala cambia con lo zoom.</p>
-  <p><b>Posizioni sfumate.</b> Per le specie protette (orso, lupo, camoscio e altre) iNaturalist sposta di proposito ogni osservazione dentro un quadrato di circa 20 km. Per queste specie la heatmap indica solo la zona generale: a zoom alto non va letta come posizione reale.</p>
-  <p><b>Dove passano più persone.</b> Le osservazioni si concentrano vicino a strade, paesi e sentieri frequentati: una zona vuota spesso significa solo che lì nessuno ha fotografato, non che l'animale manchi. Non è un censimento.</p>
-  <p><b>Correzione per lo sforzo.</b> Con questa opzione, invece della heatmap, ogni cella mostra quante osservazioni della specie ci sono rispetto a tutte le osservazioni verificate nella stessa cella e nello stesso periodo. Così una zona molto frequentata non risulta "ricca" solo perché ci passa tanta gente. Le celle grigie hanno troppo pochi dati (meno di ${MINIMO_RIFERIMENTO} osservazioni in tutto). La correzione non rimedia alle posizioni sfumate delle specie protette e funziona meglio a zoom medio (vista di un parco o di una valle).</p>
-  <p><b>Solo verificate.</b> Con "solo research grade" restano le osservazioni con data, luogo e foto la cui specie è stata confermata da altri utenti.</p>
-  <p class="tenue">Dati e foto © degli autori su iNaturalist, con licenze Creative Commons indicate su ogni osservazione. I tuoi avvistamenti personali non sono mai inclusi.</p>`;
+  <p><b>Cosa mostra.</b> Dove sono state registrate più osservazioni delle specie scelte (dal viola: poche, al giallo: molte). Densità relativa, non un censimento.</p>
+  <p><b>Fonti.</b> Tutte quelle raccolte da GBIF, ognuna una volta sola: iNaturalist, eBird, Observation.org, atlanti e collezioni scientifiche. Aprendo un'osservazione vedi da dove viene.</p>
+  <p><b>Posizioni approssimate.</b> Per le specie protette (orso, lupo, camoscio…) la posizione è spostata di proposito fino a circa 20 km; anche alcuni atlanti hanno posizioni a quadrati. Sulla mappa sono icone tratteggiate: indicano la zona, non il punto.</p>
+  <p><b>Dove passano più persone.</b> Le osservazioni si concentrano vicino a strade, paesi e sentieri frequentati: una zona vuota spesso significa solo che lì nessuno ha registrato niente.</p>
+  <p><b>Correzione per lo sforzo.</b> Ogni cella mostra le osservazioni della specie rispetto a tutte quelle della cella, per non premiare le zone solo perché frequentate. È calcolata sui dati di iNaturalist; le celle grigie hanno troppo pochi dati (meno di ${MINIMO_RIFERIMENTO}).</p>
+  <p class="tenue">Dati © degli autori, con le licenze Creative Commons indicate su ogni osservazione. I tuoi avvistamenti personali non sono mai inclusi.</p>`;
 
 // Filtri della heatmap dallo stato condiviso: l'animale è lo stesso scelto nei filtri dei sentieri
 export function filtriHeatmap(st = stato.leggi()) {
   const h = st.heatmap ?? {};
-  const specie = st.specie && TAXON_INATURALIST[st.specie] ? st.specie : h.insieme === 'minacciate' ? 'minacciate' : 'rare';
+  const specie = st.specie && TAXON_GBIF[st.specie] ? st.specie : 'rare';
   // solo i campi noti: valori estranei rimasti in memoria non devono cambiare la ricerca
   return {
     specie,
@@ -53,7 +52,6 @@ export function filtriHeatmap(st = stato.leggi()) {
 function opzioniSpecie(scelta) {
   const voci = [
     ['rare', 'Tutte le specie rare della lista'],
-    ['minacciate', 'Specie minacciate (iNaturalist)'],
     ...SPECIE_RARE.map((k) => [k, ANIMALI[k]]),
   ];
   return voci.map(([v, et]) => `<option value="${v}" ${scelta === v ? 'selected' : ''}>${escapeHtml(et)}</option>`).join('');
@@ -188,6 +186,35 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   let richiestaIcone = 0;
   let attesaIcone = null;
   let iconeInfo = '';
+  function raggruppa(oss) {
+    const gruppi = new Map();
+    for (const o of oss) {
+      const p = mappa.latLngToContainerPoint([o.lat, o.lon]);
+      const k = `${o.animale}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / 60)}|${Math.floor(p.y / 60)}`;
+      const g = gruppi.get(k) ?? { animale: o.animale, sfumata: o.sfumata, oss: [] };
+      g.oss.push(o);
+      gruppi.set(k, g);
+    }
+    return [...gruppi.values()].map((g) => ({
+      ...g,
+      lat: g.oss.reduce((a, o) => a + o.lat, 0) / g.oss.length,
+      lon: g.oss.reduce((a, o) => a + o.lon, 0) / g.oss.length,
+      oss: g.oss.sort((a, b) => String(b.data).localeCompare(String(a.data))),
+    }));
+  }
+  function popupGruppo(g) {
+    const righe = g.oss
+      .slice(0, 5)
+      .map(
+        (o) =>
+          `<li>${o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata'} · ${escapeHtml(o.fonte)} · <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">apri ↗</a></li>`,
+      )
+      .join('');
+    return `<div class="popup-oss"><b>${escapeHtml(ANIMALI[g.animale])}</b> · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
+      ${g.sfumata ? '<p class="tenue piccolo">Posizione approssimata (fino a ~20 km per le specie protette): qui è solo la zona.</p>' : ''}
+      <ul>${righe}</ul>${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
+  }
+
   async function aggiornaIcone() {
     const mia = ++richiestaIcone;
     if (!attiva || filtri.correggiSforzo || mappa.getZoom() < ZOOM_ICONE) {
@@ -198,26 +225,32 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     }
     const b = mappa.getBounds();
     try {
-      const r = await fetch(urlOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], filtri, { perPagina: 200 }));
+      const r = await fetch(urlOsservazioniGbif([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], filtri, { limite: 300 }));
       if (!r.ok) throw new Error(String(r.status));
-      const oss = interpretaOsservazioni(await r.json());
+      const oss = interpretaGbif(await r.json()).filter((o) => o.animale);
       if (mia !== richiestaIcone) return;
       icone.clearLayers();
-      const esatte = oss.filter((o) => !o.sfumata && o.lat != null && o.animale);
-      for (const o of esatte) {
-        L.marker([o.lat, o.lon], {
-          icon: L.divIcon({ className: 'icona-osservazione', html: `<span class="spillo"><span>${EMOJI_ANIMALI[o.animale] ?? '🐾'}</span></span>`, iconSize: [24, 30], iconAnchor: [12, 30], popupAnchor: [0, -28] }),
-          title: o.specie,
+      // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
+      // le posizioni approssimate (specie protette, atlanti) a parte, sbiadite e tratteggiate
+      for (const g of raggruppa(oss)) {
+        const emoji = EMOJI_ANIMALI[g.animale] ?? '🐾';
+        L.marker([g.lat, g.lon], {
+          icon: L.divIcon({
+            className: `icona-osservazione${g.sfumata ? ' sfumata' : ''}`,
+            html: `<span class="spillo"><span>${emoji}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
+            iconSize: [24, 30],
+            iconAnchor: [12, 30],
+            popupAnchor: [0, -28],
+          }),
+          title: `${ANIMALI[g.animale]}: ${g.oss.length}`,
           keyboard: false,
         })
-          .bindPopup(
-            `<b>${escapeHtml(o.specie)}</b>${o.data ? ` · ${escapeHtml(o.data.split('-').reverse().join('/'))}` : ''}<br><a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Vedi su iNaturalist ↗</a>`,
-          )
+          .bindPopup(() => popupGruppo(g))
           .addTo(icone);
       }
       icone.addTo(mappa);
-      const sfumate = oss.length - esatte.length;
-      iconeInfo = `spilli lilla = ${esatte.length} osservazioni con posizione esatta${sfumate ? `; ${sfumate} di specie protette con posizione sfumata (solo nella heatmap)` : ''}.`;
+      const sfumate = oss.filter((o) => o.sfumata).length;
+      iconeInfo = `${oss.length} osservazioni qui${sfumate ? `, di cui ${sfumate} con posizione approssimata (icone tratteggiate)` : ''}.`;
     } catch {
       if (mia === richiestaIcone) iconeInfo = 'Icone degli animali non disponibili ora.';
     }
@@ -239,21 +272,22 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       return;
     }
     // tile dello zoom precedente mostrate a 512 px: le macchie diventano più grandi e leggibili
-    livello = L.tileLayer(urlTileHeatmap(filtri), {
+    livello = L.tileLayer(urlTileGbif(filtri), {
       pane: 'heatmap',
-      opacity: 1,
+      opacity: 0.85,
+      className: 'tile-densita',
       tileSize: 512,
       zoomOffset: -1,
       minNativeZoom: 1,
       maxNativeZoom: 17,
       maxZoom: 19,
-      attribution: 'Osservazioni © <a href="https://www.inaturalist.org" target="_blank" rel="noopener">iNaturalist</a> (CC)',
+      attribution: 'Osservazioni: <a href="https://www.gbif.org" target="_blank" rel="noopener">GBIF</a> (iNaturalist, eBird e altre fonti, CC)',
     }).addTo(mappa);
   }
 
   function disegnaPannello() {
     pannello.innerHTML = `
-      <div class="heat-testa"><b>Fauna rara · iNaturalist</b>
+      <div class="heat-testa"><b>Fauna · tutte le fonti</b>
         <span><button type="button" class="link" data-azione="info">Come leggerla</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
@@ -270,7 +304,6 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
         ]
           .map(([v, et]) => `<option value="${v}" ${Number(filtri.anni) === v ? 'selected' : ''}>${et}</option>`)
           .join('')}</select>
-        <label class="scelta"><input type="checkbox" name="soloVerificate" ${filtri.soloVerificate ? 'checked' : ''}/> Solo research grade</label>
         <label class="scelta intera-riga"><input type="checkbox" name="correggiSforzo" ${filtri.correggiSforzo ? 'checked' : ''}/> Correggi per lo sforzo di osservazione</label>
       </div>
       ${
@@ -281,7 +314,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
              <p class="misura-nota" id="statoGriglia"></p>`
           : '<div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div>'
       }
-      <p class="misura-nota">Tocca una zona colorata per vedere le osservazioni. Dati © iNaturalist (CC).</p>`;
+      <p class="misura-nota">Tocca una zona colorata o un'icona per vedere le osservazioni. Dati GBIF: iNaturalist, eBird, Observation.org e altre fonti (CC).</p>`;
     pannello.hidden = false;
   }
 
@@ -289,10 +322,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     const { name } = e.target;
     if (!name) return;
     if (name === 'specie') {
-      // un animale diventa la scelta di tutta l'app; "rare"/"minacciate" restano della heatmap
+      // un animale diventa la scelta di tutta l'app; "rare" toglie la scelta
       const v = e.target.value;
-      if (TAXON_INATURALIST[v]) stato.imposta({ specie: v });
-      else stato.imposta({ specie: '', heatmap: { insieme: v } });
+      stato.imposta({ specie: TAXON_GBIF[v] ? v : '' });
       return;
     }
     const valore = e.target.type === 'checkbox' ? e.target.checked : name === 'anni' ? Number(e.target.value) : e.target.value;
@@ -350,14 +382,14 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     const centro = mappa.latLngToContainerPoint(e.latlng);
     const no = mappa.containerPointToLatLng(centro.subtract([RAGGIO_TOCCO_PX, RAGGIO_TOCCO_PX]));
     const se = mappa.containerPointToLatLng(centro.add([RAGGIO_TOCCO_PX, RAGGIO_TOCCO_PX]));
-    foglio.innerHTML = '<div class="foglio-maniglia"></div><h2 class="foglio-titolo">Osservazioni in questa zona</h2><p class="messaggio">Cerco su iNaturalist…</p>';
+    foglio.innerHTML = '<div class="foglio-maniglia"></div><h2 class="foglio-titolo">Osservazioni in questa zona</h2><p class="messaggio">Cerco le osservazioni…</p>';
     foglio.showModal();
     let elenco;
     try {
-      const risposta = await fetch(urlOsservazioni(riquadroAttorno(e.latlng, no, se), filtri));
-      if (!risposta.ok) throw new Error(`iNaturalist ha risposto ${risposta.status}`);
+      const risposta = await fetch(urlOsservazioniGbif(riquadroAttorno(e.latlng, no, se), filtri, { limite: 30 }));
+      if (!risposta.ok) throw new Error(`GBIF ha risposto ${risposta.status}`);
       const json = await risposta.json();
-      elenco = { totale: json.total_results ?? 0, osservazioni: interpretaOsservazioni(json) };
+      elenco = { totale: json.count ?? 0, osservazioni: interpretaGbif(json) };
     } catch (err) {
       foglio.querySelector('.messaggio').innerHTML = `<span class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}).</span>`;
       return;
@@ -369,7 +401,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       <h2 class="foglio-titolo">Osservazioni in questa zona</h2>
       <p class="tenue">${elenco.totale} ${elenco.totale === 1 ? 'osservazione' : 'osservazioni'}${
         elenco.totale > elenco.osservazioni.length ? `, le ${elenco.osservazioni.length} più recenti` : ''
-      }. Con le posizioni sfumate una osservazione può trovarsi fino a ~10 km dal punto mostrato.</p>
+      }. Le posizioni approssimate (specie protette, atlanti) possono essere lontane fino a ~10 km dal punto mostrato.</p>
       <ul class="elenco-oss">
         ${
           elenco.osservazioni
@@ -379,9 +411,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
             <div>
               <b>${escapeHtml(o.specie)}</b> <span class="tenue">${escapeHtml(o.nomeScientifico)}</span><br />
               ${o.data ? escapeHtml(new Date(o.data).toLocaleDateString('it-IT')) : 'data non indicata'}
-              ${o.sfumata ? '<span class="chip chip-verifica">posizione sfumata</span>' : ''}
-              ${o.verificata ? '' : '<span class="chip">da confermare</span>'}<br />
-              <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Apri su iNaturalist ↗</a>
+              ${o.sfumata ? '<span class="chip chip-verifica">posizione approssimata</span>' : ''}<br />
+              <span class="tenue">Fonte: ${escapeHtml(o.fonte)}${o.licenza ? ` · ${escapeHtml(o.licenza)}` : ''}</span> ·
+              <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Apri ↗</a>
               ${o.foto?.attribuzione ? `<div class="crediti">Foto ${escapeHtml(o.foto.attribuzione)}</div>` : ''}
             </div>
           </li>`,

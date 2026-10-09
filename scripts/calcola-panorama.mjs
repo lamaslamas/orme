@@ -12,7 +12,8 @@ import { interrogaOverpass } from '../src/lib/overpass.js';
 import { parcoDa } from '../src/datiParchi.js';
 import { percorsoSentiero } from '../src/lib/tracce.js';
 import { puntiOgni, abbinaTerreno, vieDaRisposta, queryVieVicine, queryTrattiRelazioni } from '../src/lib/terreno.js';
-import { faunaDalleOsservazioni, faunaDelParco, TAXA_FAUNA } from '../src/lib/faunaPercorso.js';
+import { faunaDalleOsservazioni, faunaDelParco } from '../src/lib/faunaPercorso.js';
+import { urlOsservazioniGbif, interpretaGbif } from '../src/lib/gbif.js';
 import { PARCHI } from '../src/datiParchi.js';
 import { profiloQuote } from '../src/lib/profiloQuote.js';
 import { existsSync } from 'node:fs';
@@ -21,6 +22,7 @@ const FILE = 'public/dati/archivio.json';
 const AGENTE = 'Orme/0.6 (archivio personale di sentieri; https://lamaslamas.github.io/orme/)';
 const oggi = new Date().toISOString().slice(0, 10);
 const tutti = process.argv.includes('--tutti');
+const soloFauna = process.argv.includes('--solo-fauna'); // ricalcola subito la fauna di percorsi e parchi, poi esce
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------- tile (Web Mercator) ----------
@@ -209,32 +211,26 @@ if (process.argv.includes('--solo-quote')) {
   process.exit(0);
 }
 
-// ---------- fauna da iNaturalist (osservazioni verificate delle specie di Orme) ----------
-// Una volta per parco: tutte le osservazioni nel riquadro (più un margine), poi il confronto
-// con ogni percorso avviene qui. Si rispetta il limite di circa una richiesta al secondo.
+// ---------- fauna da GBIF (tutte le fonti: iNaturalist, eBird, Observation.org, atlanti…) ----------
+// Una volta per parco: tutte le osservazioni delle specie di Orme nel riquadro (più un margine),
+// poi il confronto con ogni percorso avviene qui. Con calma: GBIF è un servizio gratuito.
 const osservazioniPerParco = new Map();
 async function osservazioniDelParco(idParco) {
   if (osservazioniPerParco.has(idParco)) return osservazioniPerParco.get(idParco);
   const [s, o, n, e] = parcoDa(idParco).bbox;
   const m = 0.15;
   const risultati = [];
-  let dopo = 0;
-  for (let pagina = 0; pagina < 60; pagina++) {
-    const url =
-      `https://api.inaturalist.org/v1/observations?taxon_id=${TAXA_FAUNA.join(',')}&quality_grade=research` +
-      `&swlat=${s - m}&swlng=${o - m}&nelat=${n + m}&nelng=${e + m}&per_page=200&order_by=id&order=asc&id_above=${dopo}`;
+  for (let pagina = 0; pagina < 100; pagina++) {
+    const url = urlOsservazioniGbif([s - m, o - m, n + m, e + m], { specie: 'tutte' }, { limite: 300, scarto: pagina * 300 });
     const r = await fetch(url, { headers: { 'User-Agent': AGENTE }, signal: AbortSignal.timeout(60_000) });
-    if (!r.ok) throw new Error(`iNaturalist: risposta ${r.status}`);
+    if (!r.ok) throw new Error(`GBIF: risposta ${r.status}`);
     const json = await r.json();
-    // si tengono solo i campi necessari (niente nomi degli osservatori)
-    for (const x of json.results ?? []) {
-      risultati.push({ taxon: { id: x.taxon?.id, ancestor_ids: x.taxon?.ancestor_ids }, location: x.location, obscured: x.obscured, user: { id: x.user?.id }, observed_on: x.observed_on, quality_grade: x.quality_grade });
-    }
-    if ((json.results ?? []).length < 200) break;
-    dopo = json.results.at(-1).id;
-    await attendi(1100);
+    // solo i campi necessari: niente nomi degli osservatori (un codice anonimo per contarli)
+    for (const x of interpretaGbif(json)) risultati.push({ animale: x.animale, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore, data: x.data });
+    if (json.endOfRecords || !json.results?.length) break;
+    await attendi(400);
   }
-  console.log(`  iNaturalist ${idParco}: ${risultati.length} osservazioni verificate`);
+  console.log(`  GBIF ${idParco}: ${risultati.length} osservazioni`);
   osservazioniPerParco.set(idParco, risultati);
   return risultati;
 }
@@ -246,7 +242,7 @@ for (const p of archivio.percorsi) {
   const geometria = improntaTraccia(g).split('-')[1];
   const f = p.faunaInat;
   // si ricalcola se cambia la traccia o una volta al mese
-  if (!tutti && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
+  if (!tutti && !soloFauna && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
   try {
     const tutteLeOss = (await Promise.all((p.parchi ?? [p.parco]).map(osservazioniDelParco))).flat();
     p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, impronta: geometria };
@@ -263,7 +259,7 @@ const confiniParchi = existsSync('public/dati/confini.json') ? JSON.parse(readFi
 let parchiFauna = 0;
 for (const parco of PARCHI) {
   const prima = faunaParchi.parchi[parco.id];
-  if (!tutti && prima?.calcolato && (new Date(oggi) - new Date(prima.calcolato)) / 86_400_000 < 7) continue;
+  if (!tutti && !soloFauna && prima?.calcolato && (new Date(oggi) - new Date(prima.calcolato)) / 86_400_000 < 7) continue;
   try {
     const r = faunaDelParco(await osservazioniDelParco(parco.id), { anelli: confiniParchi[parco.id], bbox: parco.bbox });
     faunaParchi.parchi[parco.id] = { ...r, calcolato: oggi };
@@ -273,8 +269,13 @@ for (const parco of PARCHI) {
   }
 }
 if (parchiFauna) {
-  writeFileSync(FILE_FAUNA, JSON.stringify({ fonte: 'iNaturalist (osservazioni verificate)', ...faunaParchi, aggiornato: new Date().toISOString() }));
+  writeFileSync(FILE_FAUNA, JSON.stringify({ fonte: 'GBIF (iNaturalist, eBird, Observation.org e altre fonti)', ...faunaParchi, aggiornato: new Date().toISOString() }));
   console.log(`Fauna dei parchi: ${parchiFauna} parchi aggiornati`);
+}
+if (soloFauna) {
+  if (faune) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+  console.log(`Fauna: ${faune} percorsi, ${parchiFauna} parchi`);
+  process.exit(0);
 }
 
 for (const p of archivio.percorsi) {
