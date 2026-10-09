@@ -25,9 +25,6 @@ export function urlFotoVicine({ lat, lon }, raggioM) {
 export function urlInfoFoto(idPagine) {
   return `${API_COMMONS}?action=query&format=json&prop=imageinfo&iiprop=url|extmetadata|mime&iiurlwidth=480&pageids=${idPagine.join('|')}`;
 }
-export function urlEstratti(titoli) {
-  return `${API_WIKIPEDIA}?action=query&format=json&prop=extracts|pageimages&exintro=1&explaintext=1&exsentences=1&piprop=thumbnail&pithumbsize=160&titles=${encodeURIComponent(titoli.join('|'))}`;
-}
 
 // Distanza (m) dalla traccia e chilometro più vicino, sui campioni fitti del percorso
 function posizioneSulPercorso(campioni, lat, lon) {
@@ -93,8 +90,6 @@ export function fotoDaInfo(pagina, candidata) {
     autore: testo(m.Artist?.value).slice(0, 80) || 'autore su Commons',
     licenza,
     km: candidata.km,
-    lat: candidata.lat,
-    lon: candidata.lon,
   };
 }
 
@@ -114,17 +109,11 @@ export function sceltaFoto(tratti, info) {
   return scelte;
 }
 
-// Luogo con la frase iniziale di Wikipedia (testo CC BY-SA) e il link
-export function luogoConEstratto(luogo, pagina) {
-  return {
-    titolo: luogo.titolo,
-    url: `https://it.wikipedia.org/wiki/${encodeURIComponent(luogo.titolo.replace(/ /g, '_'))}`,
-    frase: testo(pagina?.extract).slice(0, 220),
-    miniatura: pagina?.thumbnail?.source ?? null,
-    distanzaM: luogo.distanzaM,
-    km: luogo.km,
-  };
+// Luogo da salvare: titolo della voce di Wikipedia e distanza dalla traccia (il link si ricava dal titolo)
+export function luogoDaSalvare(luogo) {
+  return { titolo: luogo.titolo, distanzaM: luogo.distanzaM };
 }
+export const urlVoce = (titolo) => `https://it.wikipedia.org/wiki/${encodeURIComponent(titolo.replace(/ /g, '_'))}`;
 
 // Riassunto della scheda chiusa: "2 luoghi · 6 foto"
 export function riassuntoDaVedere(d) {

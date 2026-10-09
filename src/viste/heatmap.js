@@ -4,12 +4,13 @@
 // Non usa mai i miei avvistamenti personali.
 import L from 'leaflet';
 import { ANIMALI, TAXON_GBIF } from '../lib/costanti.js';
-import { urlTileGbif, urlOsservazioniGbif, interpretaGbif, ZOOM_MINIMO_HEATMAP } from '../lib/gbif.js';
+import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { stato } from '../stato.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
   STAGIONI,
   SPECIE_RARE,
+  urlTileHeatmap,
   FILTRI_INAT_PREDEFINITI,
   riquadroAttorno,
   urlTileGriglia,
@@ -67,7 +68,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   mappa.vociLegenda?.push(() =>
     stato.leggi().livelli.heatmap
       ? `<div class="voce-legenda"><b><span class="campione sfumato"></span>Fauna (iNaturalist)</b>
-          <p class="tenue piccolo">Dal rosa (poche osservazioni) al rosso (molte). Specie protette: posizione sfumata.</p></div>`
+          <p class="tenue piccolo">Dal rosa (poche osservazioni) al giallo (molte). Specie protette: posizione sfumata.</p></div>`
       : '',
   );
 
@@ -256,11 +257,6 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     }
     mappa.aggiornaLegenda?.();
   }
-  const avvisoZoom = () => {
-    const a = pannello.querySelector('.avviso-zoom-heatmap');
-    if (a) a.hidden = !attiva || filtri.correggiSforzo || mappa.getZoom() >= ZOOM_MINIMO_HEATMAP;
-  };
-  mappa.on('zoomend', avvisoZoom);
   mappa.on('moveend', () => {
     clearTimeout(attesaIcone);
     attesaIcone = setTimeout(aggiornaIcone, 500);
@@ -277,20 +273,22 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       return;
     }
     // tile dello zoom precedente mostrate a 512 px: le macchie diventano più grandi e leggibili
-    livello = L.tileLayer(urlTileGbif(filtri), {
+    // la heatmap è quella di iNaturalist (leggibile a ogni zoom); icone ed elenchi usano tutte le fonti
+    livello = L.tileLayer(urlTileHeatmap({ ...filtri, soloVerificate: true }), {
       pane: 'heatmap',
-      opacity: 0.85,
-      className: 'tile-densita',
-      minZoom: ZOOM_MINIMO_HEATMAP,
+      opacity: 1,
+      tileSize: 512,
+      zoomOffset: -1,
+      minNativeZoom: 1,
       maxNativeZoom: 17,
       maxZoom: 19,
-      attribution: 'Osservazioni: <a href="https://www.gbif.org" target="_blank" rel="noopener">GBIF</a> (iNaturalist, eBird e altre fonti, CC)',
+      attribution: 'Heatmap © <a href="https://www.inaturalist.org" target="_blank" rel="noopener">iNaturalist</a>, osservazioni <a href="https://www.gbif.org" target="_blank" rel="noopener">GBIF</a> (CC)',
     }).addTo(mappa);
   }
 
   function disegnaPannello() {
     pannello.innerHTML = `
-      <div class="heat-testa"><b>Fauna · tutte le fonti</b>
+      <div class="heat-testa"><b>Fauna</b>
         <span><button type="button" class="link" data-azione="info">Come leggerla</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
@@ -317,8 +315,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
              <p class="misura-nota" id="statoGriglia"></p>`
           : '<div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div>'
       }
-      <p class="misura-nota avviso-zoom-heatmap" hidden>Avvicinati a un parco per vedere la heatmap: a scala nazionale coprirebbe tutto.</p>
-      <p class="misura-nota">Tocca una zona colorata o un'icona per vedere le osservazioni. Dati GBIF: iNaturalist, eBird, Observation.org e altre fonti (CC).</p>`;
+      <p class="misura-nota">Tocca una zona colorata o un'icona per vedere le osservazioni. Heatmap iNaturalist; icone ed elenchi da tutte le fonti (GBIF: iNaturalist, eBird, Observation.org…).</p>`;
     pannello.hidden = false;
   }
 
@@ -348,7 +345,6 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     if (foglio.open) foglio.close();
     if (cambiaVista || pannello.querySelector('[name=specie]')?.value !== filtri.specie) disegnaPannello();
     disegnaLivello();
-    avvisoZoom();
   });
 
   pannello.addEventListener('click', (e) => {
@@ -368,7 +364,6 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     mappa.getContainer().classList.add('con-heatmap');
     disegnaLivello();
     disegnaPannello();
-    avvisoZoom();
   }
 
   function spegni() {

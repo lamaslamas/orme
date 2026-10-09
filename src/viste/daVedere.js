@@ -1,14 +1,27 @@
 // Scheda "Da vedere": foto di Wikimedia Commons lungo il sentiero (striscia che scorre) e luoghi
-// con una voce su Wikipedia, uno per riga. Calcolati dal robot (campo daVedere dell'archivio).
+// con una voce su Wikipedia, uno per riga. Calcolati dal robot in dati/da-vedere.json, un file a
+// parte che si scarica solo quando si apre la scheda di un sentiero.
 import { escapeHtml } from '../lib/formato.js';
 import { improntaTraccia } from '../lib/panorama.js';
-import { riassuntoDaVedere } from '../lib/daVedere.js';
+import { riassuntoDaVedere, urlVoce } from '../lib/daVedere.js';
+
+let inCorso = null;
+function carica() {
+  inCorso ??= fetch(`${import.meta.env.BASE_URL}dati/da-vedere.json`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null)
+    .then((d) => {
+      if (!d) inCorso = null; // si riprova la prossima volta
+      return d;
+    });
+  return inCorso;
+}
 
 // valido solo se calcolato su questa traccia (un GPX mio lo rende superato)
-export function daVedereDellaTraccia(s, traccia) {
-  const d = s?.daVedere;
-  if (!d || !traccia?.geojson) return null;
-  if (improntaTraccia(traccia.geojson).split('-')[1] !== d.impronta) return null;
+export async function daVedereDellaTraccia(s, traccia) {
+  if (!traccia?.geojson) return null;
+  const d = (await carica())?.percorsi?.[s.id];
+  if (!d || improntaTraccia(traccia.geojson).split('-')[1] !== d.impronta) return null;
   return d.luoghi?.length || d.foto?.length ? d : null;
 }
 
@@ -27,7 +40,7 @@ export function htmlDaVedere(d) {
     )
     .join('');
   const luoghi = (d.luoghi ?? [])
-    .map((l) => `<li><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener">${escapeHtml(l.titolo)}</a> <span class="tenue">· ${distanza(l.distanzaM)}</span></li>`)
+    .map((l) => `<li><a href="${escapeHtml(urlVoce(l.titolo))}" target="_blank" rel="noopener">${escapeHtml(l.titolo)}</a> <span class="tenue">· ${distanza(l.distanzaM)}</span></li>`)
     .join('');
   return `${foto ? `<ul class="striscia-foto">${foto}</ul>` : ''}
     ${luoghi ? `<ul class="luoghi-vicini">${luoghi}</ul>` : ''}

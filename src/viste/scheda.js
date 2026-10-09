@@ -293,7 +293,6 @@ export async function vistaScheda(app, id) {
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
-  const daVedere = daVedereDellaTraccia(s, traccia);
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Parchi</a>
@@ -347,7 +346,7 @@ export async function vistaScheda(app, id) {
 
       ${htmlSezione('fauna', { icona: 'zampa', titolo: 'Fauna', riassunto: riassuntoFauna(s, traccia) }, htmlFauna(s, traccia))}
 
-      ${htmlSezione('davedere', { icona: 'binocolo', titolo: 'Da vedere', riassunto: riassuntoScheda(daVedere) }, htmlDaVedere(daVedere))}
+      ${traccia ? htmlSezione('davedere', { icona: 'binocolo', titolo: 'Da vedere', riassunto: 'Cerco foto e luoghi…' }, '<div id="daVedere"></div>') : ''}
 
       ${traccia ? htmlSezione('rifugi', { icona: 'casa', titolo: 'Rifugi e acqua', riassunto: 'Cerco lungo il percorso…' }, '<div id="puntiLungo"></div>') : ''}
 
@@ -462,6 +461,15 @@ export async function vistaScheda(app, id) {
       impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : 'Nessuno entro 300 m'),
     );
   collegaSezioni(app);
+  // foto e luoghi lungo il percorso: dal file a parte; se non c'è niente la sezione sparisce
+  if (traccia)
+    daVedereDellaTraccia(s, traccia).then((d) => {
+      const sezione = app.querySelector('[data-sezione="davedere"]');
+      if (!sezione) return;
+      if (!d) return sezione.remove();
+      sezione.querySelector('#daVedere').innerHTML = htmlDaVedere(d);
+      impostaRiassunto(app, 'davedere', riassuntoScheda(d));
+    });
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {

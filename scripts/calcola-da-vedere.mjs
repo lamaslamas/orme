@@ -1,8 +1,9 @@
 // "Da vedere" lungo ogni percorso: voci di Wikipedia entro 1 km e foto di Wikimedia Commons
-// entro 300 m dalla traccia (solo licenze libere senza NC/ND), salvate nell'archivio (campo daVedere).
+// entro 300 m dalla traccia (solo licenze libere senza NC/ND), salvate in public/dati/da-vedere.json
+// (file a parte: l'app lo scarica solo quando si apre la scheda di un sentiero).
 // Si ricalcola quando cambia la traccia o ogni 60 giorni. Al massimo 15 minuti per giro, salvando
 // man mano: i percorsi rimasti si completano nei giorni successivi. A mano: node scripts/calcola-da-vedere.mjs
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { improntaTraccia } from '../src/lib/panorama.js';
 import { lunghezzaKm } from '../src/lib/geo.js';
 import {
@@ -10,14 +11,14 @@ import {
   urlLuoghiVicini,
   urlFotoVicine,
   urlInfoFoto,
-  urlEstratti,
   sceltaLuoghi,
   candidateFoto,
   sceltaFoto,
-  luogoConEstratto,
+  luogoDaSalvare,
 } from '../src/lib/daVedere.js';
 
 const FILE = 'public/dati/archivio.json';
+const FILE_DV = 'public/dati/da-vedere.json';
 const AGENTE = 'Orme/0.6 (archivio personale di sentieri; https://lamaslamas.github.io/orme/)';
 const RINNOVA_GIORNI = 60;
 const FINE = Date.now() + (process.argv.includes('--senza-limite') ? 24 * 60 : 15) * 60_000;
@@ -44,13 +45,7 @@ async function daVedere(g) {
   const centri = centriRicerca(g, 4000);
   const risLuoghi = [];
   for (const c of centri) risLuoghi.push((await json(urlLuoghiVicini(c, 3000))).query?.geosearch ?? []);
-  const scelti = sceltaLuoghi(risLuoghi, g);
-  let luoghi = [];
-  if (scelti.length) {
-    const pagine = Object.values((await json(urlEstratti(scelti.map((l) => l.titolo)))).query?.pages ?? {});
-    const perTitolo = new Map(pagine.map((p) => [p.title, p]));
-    luoghi = scelti.map((l) => luogoConEstratto(l, perTitolo.get(l.titolo)));
-  }
+  const luoghi = sceltaLuoghi(risLuoghi, g).map(luogoDaSalvare);
   const risFoto = [];
   for (const c of centri) risFoto.push((await json(urlFotoVicine(c, 3000))).query?.geosearch ?? []);
   const tratti = candidateFoto(risFoto, g, lunghezzaKm(g));
@@ -64,7 +59,27 @@ async function daVedere(g) {
 }
 
 const archivio = JSON.parse(readFileSync(FILE, 'utf8'));
-const salva = () => writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+const dv = existsSync(FILE_DV) ? JSON.parse(readFileSync(FILE_DV, 'utf8')) : { percorsi: {} };
+const compatto = (d) => ({
+  impronta: d.impronta,
+  calcolato: d.calcolato,
+  luoghi: (d.luoghi ?? []).map(luogoDaSalvare),
+  foto: (d.foto ?? []).map(({ url, pagina, autore, licenza, km }) => ({ url, pagina, autore, licenza, km })),
+});
+// dati calcolati prima dentro l'archivio: si spostano nel file a parte
+let spostati = 0;
+for (const p of archivio.percorsi) {
+  if (!p.daVedere) continue;
+  dv.percorsi[p.id] ??= compatto(p.daVedere);
+  delete p.daVedere;
+  spostati++;
+}
+if (spostati) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
+// via i percorsi non più in archivio
+const ids = new Set(archivio.percorsi.map((p) => p.id));
+for (const id of Object.keys(dv.percorsi)) if (!ids.has(id)) delete dv.percorsi[id];
+
+const salva = () => writeFileSync(FILE_DV, JSON.stringify({ fonte: 'Wikipedia (CC BY-SA), Wikimedia Commons (licenze libere)', aggiornato: new Date().toISOString(), percorsi: dv.percorsi }));
 let fatti = 0;
 for (const p of archivio.percorsi) {
   if (Date.now() > FINE) {
@@ -74,11 +89,11 @@ for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
   if (!g?.coordinates?.length) continue;
   const geometria = improntaTraccia(g).split('-')[1];
-  const d = p.daVedere;
+  const d = dv.percorsi[p.id];
   if (d?.impronta === geometria && (new Date(oggi) - new Date(d.calcolato)) / 86_400_000 < RINNOVA_GIORNI) continue;
   try {
     const r = await daVedere(g);
-    p.daVedere = { ...r, calcolato: oggi, impronta: geometria };
+    dv.percorsi[p.id] = { impronta: geometria, calcolato: oggi, ...r };
     fatti++;
     console.log(`${r.luoghi.length} luoghi, ${r.foto.length} foto  ${p.nome}`);
     if (fatti % 10 === 0) salva();
@@ -86,6 +101,6 @@ for (const p of archivio.percorsi) {
     console.warn(`  ${p.id}: ${e.message}`);
   }
 }
-if (fatti) salva();
-console.log(`Da vedere: ${fatti} percorsi aggiornati`);
+salva();
+console.log(`Da vedere: ${fatti} percorsi aggiornati, ${spostati} spostati dall'archivio`);
 process.exit(0);

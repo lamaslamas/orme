@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { centriRicerca, sceltaLuoghi, candidateFoto, fotoDaInfo, sceltaFoto, luogoConEstratto, riassuntoDaVedere, urlLuoghiVicini, MAX_FOTO } from '../src/lib/daVedere.js';
+import { centriRicerca, sceltaLuoghi, candidateFoto, fotoDaInfo, sceltaFoto, luogoDaSalvare, urlVoce, riassuntoDaVedere, urlLuoghiVicini, MAX_FOTO } from '../src/lib/daVedere.js';
 
 // traccia verso est di circa 8,3 km
 const traccia = { type: 'MultiLineString', coordinates: [[[13.8, 41.8], [13.9, 41.8]]] };
@@ -37,7 +37,7 @@ describe('da vedere lungo il percorso', () => {
   it('solo licenze libere senza NC/ND, con autore', () => {
     const pagina = (licenza, mime = 'image/jpeg') => ({ imageinfo: [{ thumburl: 'https://upload/x.jpg?1', descriptionurl: 'https://commons/x', mime, extmetadata: { LicenseShortName: { value: licenza }, Artist: { value: '<a>Anna</a>' } } }] });
     const c = { km: 1.2, lat: 41.8, lon: 13.8 };
-    expect(fotoDaInfo(pagina('CC BY-SA 4.0'), c)).toMatchObject({ url: 'https://upload/x.jpg', autore: 'Anna', licenza: 'CC BY-SA 4.0', km: 1.2 });
+    expect(fotoDaInfo(pagina('CC BY-SA 4.0'), c)).toEqual({ url: 'https://upload/x.jpg', pagina: 'https://commons/x', autore: 'Anna', licenza: 'CC BY-SA 4.0', km: 1.2 });
     expect(fotoDaInfo(pagina('CC BY-NC 2.0'), c)).toBeNull();
     expect(fotoDaInfo(pagina('All rights reserved'), c)).toBeNull();
     expect(fotoDaInfo(pagina('CC0', 'image/png'), c)).toBeNull();
@@ -53,9 +53,10 @@ describe('da vedere lungo il percorso', () => {
     expect(sceltaFoto(molti, info)).toHaveLength(MAX_FOTO);
   });
 
-  it('luogo con la frase di Wikipedia, e riassunto della scheda', () => {
-    const l = luogoConEstratto({ titolo: 'Val Fondillo', distanzaM: 20, km: 1 }, { extract: 'Valle del Parco nazionale.' });
-    expect(l).toMatchObject({ url: 'https://it.wikipedia.org/wiki/Val_Fondillo', frase: 'Valle del Parco nazionale.' });
+  it('luogo salvato in breve, link alla voce e riassunto della scheda', () => {
+    const l = luogoDaSalvare({ titolo: 'Val Fondillo', distanzaM: 20, km: 1, lat: 1, lon: 2 });
+    expect(l).toEqual({ titolo: 'Val Fondillo', distanzaM: 20 });
+    expect(urlVoce("Rifugio Coppo dell'Orso")).toBe("https://it.wikipedia.org/wiki/Rifugio_Coppo_dell'Orso");
     expect(riassuntoDaVedere({ luoghi: [l, l], foto: [{}] })).toBe('2 luoghi · 1 foto');
     expect(riassuntoDaVedere(null)).toBe('');
   });
