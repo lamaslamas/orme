@@ -1,10 +1,4 @@
-// Il banner fisso mostra le regole del parco che sto guardando, altrimenti quella generale.
-// Il richiamo a non uscire dai sentieri c'è sempre.
-import { parcoDa, REGOLA_GENERALE } from '../datiParchi.js';
-
-export function impostaBanner(idParco = null) {
-  const testo = document.getElementById('testoBanner');
-  if (!testo) return;
-  const parco = idParco ? parcoDa(idParco) : null;
-  testo.textContent = parco ? `${parco.nomeBreve}: ${parco.regole}` : REGOLA_GENERALE;
-}
+// Il banner fisso in cima non c'è più: le regole del parco stanno nella pagina del parco
+// ("Regole del parco") e nella scheda del sentiero (nota sotto il titolo e riquadro "Accesso").
+// La funzione resta per le viste che la chiamano.
+export function impostaBanner() {}

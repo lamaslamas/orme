@@ -1361,3 +1361,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .voce-installa[hidden] { display: none; }
 .voce-menu { width: 100%; text-align: left; border: none; background: none; font: inherit; color: inherit; cursor: pointer; display: grid; padding: 0; }
 .passi-installa { margin: 8px 0 14px; padding-left: 20px; display: grid; gap: 8px; }
+
+/* nota sulle regole del parco, sotto il titolo del sentiero (al posto del banner fisso) */
+.nota-regole { display: flex; align-items: center; gap: 6px; margin: 2px 0 8px; font-size: 0.82rem; color: #7a5d16; }
+.nota-regole .icona { width: 14px; height: 14px; flex: none; }
+.nota-regole a { color: inherit; }
