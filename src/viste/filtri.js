@@ -2,7 +2,7 @@
 // dal basso con tutte le voci), scorciatoie a icone e filtri attivi da togliere con un tocco.
 // I filtri scelti valgono per tutte le schermate.
 import { ANIMALI, STATI, ACCESSI, DIFFICOLTA } from '../lib/costanti.js';
-import { FILTRI_VUOTI, animaliPresenti } from '../lib/filtri.js';
+import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { escapeHtml } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { stato } from '../stato.js';
@@ -22,13 +22,10 @@ function salvaFiltri(filtri) {
   stato.imposta({ parco: parco ?? '', specie: animale ?? '', filtri: voci });
 }
 
-// Animali da proporre: quelli del parco scelto (o di tutti i parchi) presenti in almeno un percorso,
-// più quello già scelto
-function vociAnimali(idParco, sentieri) {
+// Animali da proporre: quelli del parco scelto, oppure di tutti i parchi
+function vociAnimali(idParco) {
   const ammessi = new Set(idParco ? parcoDa(idParco)?.animali ?? [] : PARCHI.flatMap((p) => p.animali));
-  const presenti = animaliPresenti(sentieri);
-  const scelto = stato.leggi().specie;
-  return Object.entries(ANIMALI).filter(([k]) => ammessi.has(k) && (presenti.has(k) || k === scelto));
+  return Object.entries(ANIMALI).filter(([k]) => ammessi.has(k));
 }
 
 export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
@@ -37,7 +34,7 @@ export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
     ...(parcoFisso
       ? []
       : [{ chiave: 'parco', titolo: 'Parco', voci: PARCHI.map((p) => [p.id, p.nomeBreve]) }]),
-    { chiave: 'animale', titolo: 'Animale', voci: vociAnimali(parcoFisso, sentieri) },
+    { chiave: 'animale', titolo: 'Animale', voci: vociAnimali(parcoFisso) },
     {
       chiave: 'fauna',
       titolo: 'Avvistamenti',

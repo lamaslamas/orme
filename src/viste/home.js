@@ -6,7 +6,7 @@ import { ANIMALI, HABITAT } from '../lib/costanti.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
 import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
-import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco, specieDaMostrare } from '../lib/home.js';
+import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco } from '../lib/home.js';
 import { fotoDi } from '../datiFoto.js';
 import { htmlPulsanteCrediti } from './visore.js';
 import { htmlInvitoInstalla, collegaInstalla } from './installa.js';
@@ -141,9 +141,11 @@ export async function vistaHome(app) {
       .map((p) => htmlParco(p, visibili.filter((x) => (x.parchi ?? [x.parco]).includes(p.id)).length, cercati.parchi.includes(p.id), perAttivita.get(p.id)))
       .join('');
 
-    // gli animali senza percorsi non compaiono (salvo quello scelto o cercato)
-    const specie = specieDaMostrare(riepilogoSpecie(visibili), [s.specie, ...cercati.specie]).sort(
-      (a, b) => cercati.specie.includes(b.animale) - cercati.specie.includes(a.animale) || (b.animale === s.specie) - (a.animale === s.specie),
+    const specie = riepilogoSpecie(visibili).sort(
+      (a, b) =>
+        cercati.specie.includes(b.animale) - cercati.specie.includes(a.animale) ||
+        (b.animale === s.specie) - (a.animale === s.specie) ||
+        (b.percorsi > 0) - (a.percorsi > 0),
     );
     listaSpecie.innerHTML = specie.map((r) => htmlSpecie(r, r.animale === s.specie, cercati.specie.includes(r.animale))).join('');
 

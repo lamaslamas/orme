@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco, diOsservazione, specieDaMostrare } from '../src/lib/home.js';
+import { cercaParchiESpecie, riepilogoSpecie, osservazionePerParco, diOsservazione } from '../src/lib/home.js';
 import { filtraSentieri, FILTRI_VUOTI } from '../src/lib/filtri.js';
 
 const sentieri = [
@@ -42,18 +42,6 @@ describe('osservazione', () => {
   });
 });
 
-describe('animali da mostrare', () => {
-  it('nasconde quelli senza percorsi, salvo quelli scelti o cercati', () => {
-    const r = [
-      { animale: 'lupo', percorsi: 3 },
-      { animale: 'gufo_reale', percorsi: 0 },
-      { animale: 'lontra', percorsi: 0 },
-    ];
-    expect(specieDaMostrare(r).map((x) => x.animale)).toEqual(['lupo']);
-    expect(specieDaMostrare(r, ['lontra']).map((x) => x.animale)).toEqual(['lupo', 'lontra']);
-  });
-});
-
 describe('filtro valore panoramico', () => {
   it('tiene solo i percorsi con indice almeno uguale alla soglia', () => {
     const lista = [
@@ -63,16 +51,5 @@ describe('filtro valore panoramico', () => {
     ];
     expect(filtraSentieri(lista, { ...FILTRI_VUOTI, panorama: '50' }).map((s) => s.id)).toEqual(['a']);
     expect(filtraSentieri(lista, { ...FILTRI_VUOTI, panorama: '' }).map((s) => s.id)).toEqual(['a', 'b', 'c']);
-  });
-});
-
-describe('animali nei filtri', async () => {
-  const { animaliPresenti } = await import('../src/lib/filtri.js');
-  it('propone solo gli animali presenti in almeno un percorso', () => {
-    const presenti = animaliPresenti([
-      { animali: ['lupo'] },
-      { animali: [], faunaInat: { specie: [{ animale: 'cervo', livello: 'percorso' }] } },
-    ]);
-    expect([...presenti].sort()).toEqual(['cervo', 'lupo']);
   });
 });

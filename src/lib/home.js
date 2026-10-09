@@ -36,11 +36,6 @@ export function riepilogoSpecie(visibili) {
   });
 }
 
-// Animali da mostrare: solo quelli con almeno un percorso (più quelli scelti o cercati, anche se a zero)
-export function specieDaMostrare(riepilogo, tenere = []) {
-  return riepilogo.filter((r) => r.percorsi > 0 || tenere.includes(r.animale));
-}
-
 // Percorsi di osservazione divisi per parco (nell'ordine dei parchi), eventualmente per un animale
 export function osservazionePerParco(visibili, specie = '') {
   const scelti = visibili.filter((s) => (specie ? animaliPossibili(s).includes(specie) : diOsservazione(s)));
