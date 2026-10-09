@@ -17,6 +17,7 @@ import { stato } from '../stato.js';
 import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
+import { aggiungiDaQui } from './daQui.js';
 
 // Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
 const STILE_DISCRETO = { color: COLORI.sfondo, weight: 2, opacity: 0.5 };
@@ -135,7 +136,10 @@ export async function vistaMappaGenerale(app) {
   const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
   aggiungiDistribuzione(mappa);
-  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() || Boolean(mappa.strumento) });
+  // "Percorsi da qui": tra i percorsi con i filtri e la modalità scelti
+  let filtratiOra = [];
+  const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true });
 
   const preparati = preparaPercorsi(sentieri, tracce);
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
@@ -174,7 +178,8 @@ export async function vistaMappaGenerale(app) {
 
   function disegna() {
     mostraConfineScelto(filtri.parco);
-    const filtrati = filtraPercorsi(preparati, filtri, stato.leggi().attivita).map((p) => p.sentiero);
+    filtratiOra = filtraPercorsi(preparati, filtri, stato.leggi().attivita);
+    const filtrati = filtratiOra.map((p) => p.sentiero);
     const { conTraccia, senzaTraccia } = dividiPerTraccia(filtrati, tracce);
     visibili = conTraccia.map((x) => x.traccia);
 
@@ -196,7 +201,7 @@ export async function vistaMappaGenerale(app) {
       // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
       // così durante la misura il tocco arriva allo strumento di misura
       area.on('click', () => {
-        if (misura.attiva() || avv.attiva()) return;
+        if (misura.attiva() || avv.attiva() || mappa.strumento) return;
         // la traccia scelta si evidenzia con partenza, arrivo e verso di percorrenza
         // e viene inquadrata, lasciando in alto lo spazio per il riquadro
         selezione.clearLayers();
@@ -268,6 +273,7 @@ export async function vistaMappaGenerale(app) {
   return () => {
     fermaGps();
     heat.rimuovi();
+    daQui.chiudi();
     controlli.scollega();
     scollegaAttivita();
     mappa.remove();

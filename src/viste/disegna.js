@@ -1,6 +1,10 @@
 // Disegno di un percorso: tocco i punti sulla mappa e BRouter li collega seguendo i sentieri.
 import L from 'leaflet';
-import { leggiPercorso, salvaPercorso } from '../db.js';
+import { leggiPercorso, salvaPercorso, tuttiISentieri, tutteLeTracce } from '../db.js';
+import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
+import { FILTRI_VUOTI } from '../lib/filtri.js';
+import { stato as statoApp } from '../stato.js';
+import { aggiungiDaQui } from './daQui.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
 import { escapeHtml } from '../lib/formato.js';
@@ -38,6 +42,10 @@ export async function vistaDisegna(app, id = null) {
   const fermaGps = aggiungiGps(mappa, () => null);
   aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => true });
+  // percorsi dell'archivio che passano da un punto (per la modalità scelta: trekking, MTB, e-MTB)
+  const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const preparati = preparaPercorsi(sentieri, tracce);
+  const daQui = aggiungiDaQui(mappa, () => filtraPercorsi(preparati, { ...FILTRI_VUOTI }, statoApp.leggi().attivita));
   const livelloPercorso = L.layerGroup().addTo(mappa);
   const livelloPunti = L.layerGroup().addTo(mappa);
   const stato = app.querySelector('#statoDisegno');
@@ -85,6 +93,7 @@ export async function vistaDisegna(app, id = null) {
   }
 
   mappa.on('click', (e) => {
+    if (mappa.strumento) return; // il tocco serve a "Percorsi da qui"
     punti.push([Number(e.latlng.lng.toFixed(6)), Number(e.latlng.lat.toFixed(6))]);
     ricalcola();
   });
@@ -130,6 +139,7 @@ export async function vistaDisegna(app, id = null) {
   return () => {
     fermaGps();
     heat.rimuovi();
+    daQui.chiudi();
     mappa.remove();
     document.body.classList.remove('con-mappa');
   };

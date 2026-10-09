@@ -58,35 +58,35 @@ function htmlFontiVerifica(s) {
   </section>`;
 }
 
-// Animali che si possono incontrare: dalle uscite delle associazioni e da iNaturalist
+// Animali che si possono incontrare: dalle uscite delle associazioni e dalle osservazioni verificate (GBIF)
 function htmlFauna(s, traccia) {
   const associazioni = s.animali ?? [];
   const inat = (s.faunaInat?.specie ?? []).filter((x) => !associazioni.includes(x.animale) || x.livello === 'percorso');
   if (!associazioni.length && !inat.length) {
     // stato sempre esplicito: mai una sezione che sparisce senza spiegazione
     const motivo = s.faunaInat
-      ? '<b>Dati insufficienti:</b> su iNaturalist non ci sono abbastanza osservazioni verificate lungo questo percorso o nei dintorni.'
+      ? '<b>Dati insufficienti:</b> non ci sono abbastanza osservazioni verificate lungo questo percorso o nei dintorni.'
       : traccia
         ? '<b>Dati non ancora calcolati</b> per questo percorso: arrivano con il prossimo aggiornamento automatico dell\'archivio.'
-        : '<b>Serve una traccia</b> per confrontare il percorso con le osservazioni di iNaturalist.'
+        : '<b>Serve una traccia</b> per confrontare il percorso con le osservazioni.'
     return `<section class="riquadro fauna"><h2>Animali che si possono incontrare</h2><p class="stato-dati ${s.faunaInat ? 'stato-scarso' : 'stato-assente'}">${motivo}</p></section>`;
   }
   const riga = (nome, testo) => `<li><b>${escapeHtml(nome)}</b> <span class="tenue">${testo}</span></li>`;
   return `<section class="riquadro fauna">
     <h2>Animali che si possono incontrare</h2>
     <ul class="elenco-fauna">
-      ${associazioni.map((a) => riga(ANIMALI[a] ?? a, '· indicato dalle uscite di osservazione')).join('')}
+      ${associazioni.map((a) => riga(ANIMALI[a] ?? a, '· uscite di osservazione')).join('')}
       ${inat
         .filter((x) => !associazioni.includes(x.animale))
         .map((x) =>
           riga(
             ANIMALI[x.animale],
-            `· ${x.livello === 'percorso' ? 'osservato lungo il percorso' : 'osservato nella zona'} su iNaturalist (${x.osservazioni} osservazioni di ${x.persone} persone${x.mesi ? `, soprattutto ${x.mesi}` : ''})`,
+            `· ${x.livello === 'percorso' ? 'lungo il percorso' : 'nella zona'} · ${x.osservazioni} oss.${x.mesi ? ` · ${x.mesi}` : ''}`,
           ),
         )
         .join('')}
     </ul>
-    <p class="tenue piccolo">Da osservazioni verificate (research grade) di iNaturalist${s.faunaInat?.calcolato ? `, aggiornate il ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''}. "Nella zona": per le specie protette iNaturalist sfuma la posizione di circa 10 km, quindi indica solo la presenza nei dintorni. Non è una garanzia di incontro: resta sui sentieri e osserva a distanza.</p>
+    <p class="tenue piccolo">Osservazioni verificate da GBIF (iNaturalist, eBird, Observation.org e altre fonti)${s.faunaInat?.calcolato ? `, aggiornate il ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''}. "Nella zona": posizione approssimata (per le specie protette fino a ~10 km). Non garantisce un incontro: resta sui sentieri e osserva a distanza.</p>
   </section>`;
 }
 
@@ -183,6 +183,28 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
+import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
+import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
+import { possibilitaFauna, POSSIBILITA_FAUNA } from '../lib/faunaPercorso.js';
+import { riassuntoPunti } from '../lib/puntiUtili.js';
+
+// Righe di riassunto delle sezioni richiudibili
+function riassuntoFauna(s, traccia) {
+  const f = possibilitaFauna(s, new Date().getMonth() + 1);
+  if (!f) return s.faunaInat ? 'Dati insufficienti' : traccia ? 'Non ancora calcolata' : 'Serve una traccia';
+  return escapeHtml(`${POSSIBILITA_FAUNA[f.livello]} · ${f.specie.map((a) => ANIMALI[a] ?? a).join(', ')}`);
+}
+function riassuntoTerreno(m) {
+  const parti = [];
+  if (m.salita != null) parti.push(`+${m.salita} m`);
+  if (m.discesa != null) parti.push(`−${m.discesa} m`);
+  return parti.join(' · ') || 'Profilo e fondo del sentiero';
+}
+function riassuntoCompatibilita(s, traccia) {
+  const a = statoApp.leggi().attivita;
+  const c = valutaCompatibilita(s, traccia)[a];
+  return escapeHtml(`${ATTIVITA[a]}: ${STATI_COMPATIBILITA[c.stato]}`);
+}
 
 // Riga di numeri grandi: lunghezza, dislivello, durata
 export function numeriGrandi(m) {
@@ -271,6 +293,7 @@ export async function vistaScheda(app, id) {
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
+  const daVedere = daVedereDellaTraccia(s, traccia);
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Parchi</a>
@@ -281,7 +304,7 @@ export async function vistaScheda(app, id) {
           ? `<a class="anteprima-mappa" href="#/sentiero/${idUrl}/mappa" aria-label="Apri la mappa del sentiero"><div id="miniMappa"></div></a>`
           : `<a class="anteprima-mappa vuota" href="#/sentiero/${idUrl}/mappa"><span>Nessuna traccia salvata</span><b>Recupera la traccia ›</b></a>`
       }
-      ${htmlPanorama(s, traccia, idUrl)}
+      ${htmlSezione('panorama', { icona: 'sole', titolo: 'Panorama', riassunto: s.panorama ? `Indice ${s.panorama.punteggio}/100${s.panorama.belvedere?.length ? ` · ${s.panorama.belvedere.length} belvedere` : ''}` : 'Non calcolabile senza traccia' }, htmlPanorama(s, traccia, idUrl))}
       ${htmlPortamiAllaPartenza(puntoDiPartenza(s, traccia))}
       </aside>
       <div class="scheda-testa">
@@ -322,17 +345,19 @@ export async function vistaScheda(app, id) {
         <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">Verifica sul sito del Parco ↗</a>
       </section>
 
-      ${htmlFauna(s, traccia)}
+      ${htmlSezione('fauna', { icona: 'zampa', titolo: 'Fauna', riassunto: riassuntoFauna(s, traccia) }, htmlFauna(s, traccia))}
 
-      ${htmlCompatibilita(s, traccia)}
+      ${htmlSezione('davedere', { icona: 'binocolo', titolo: 'Da vedere', riassunto: riassuntoScheda(daVedere) }, htmlDaVedere(daVedere))}
 
-      ${riquadroBici(s, traccia)}
+      ${traccia ? htmlSezione('rifugi', { icona: 'casa', titolo: 'Rifugi e acqua', riassunto: 'Cerco lungo il percorso…' }, '<div id="puntiLungo"></div>') : ''}
 
-      ${traccia ? '<div id="puntiLungo"></div>' : ''}
+      ${traccia ? htmlSezione('terreno', { icona: 'montagna', titolo: 'Terreno e pendenze', riassunto: riassuntoTerreno(misure) }, `${htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi)}<div id="contenitoreTerreno"></div>`) : ''}
 
-      ${traccia ? htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi) : ''}
-      ${traccia ? '<div id="contenitoreTerreno"></div>' : ''}
-      ${traccia ? htmlNaturaSentiero() : ''}
+      ${htmlSezione('compatibilita', { icona: 'scudo', titolo: 'Compatibilità', riassunto: riassuntoCompatibilita(s, traccia) }, htmlCompatibilita(s, traccia))}
+
+      ${htmlSezione('bici', { icona: 'bici', titolo: 'Bici e MTB', riassunto: escapeHtml(BICI_CONSENTITA[s.bici?.consentita] ?? '') }, riquadroBici(s, traccia))}
+
+      ${traccia ? htmlSezione('natura', { icona: 'foglia', titolo: 'Altre osservazioni vicine', riassunto: 'iNaturalist, su richiesta' }, htmlNaturaSentiero()) : ''}
 
       <section class="riquadro">
         <h2>Percorso</h2>
@@ -344,7 +369,7 @@ export async function vistaScheda(app, id) {
 
       ${
         haEscursione
-          ? `<section class="riquadro">
+          ? htmlSezione('escursione', { icona: 'calendario', titolo: "Escursione d'origine", riassunto: escapeHtml([e.associazione, e.periodo].filter(Boolean).join(' · ')) }, `<section class="riquadro">
               <h2>Escursione d'origine</h2>
               <dl>
                 ${riga('Associazione', escapeHtml(e.associazione))}
@@ -359,11 +384,11 @@ export async function vistaScheda(app, id) {
                 )}
                 ${riga('Fonte', linkSicuro(e.url) ? `<a href="${escapeHtml(linkSicuro(e.url))}" target="_blank" rel="noopener">${escapeHtml(e.fonte || 'pagina')} ↗</a>` : escapeHtml(e.fonte ?? ''))}
               </dl>
-            </section>`
+            </section>`)
           : ''
       }
 
-      ${htmlFontiVerifica(s)}
+      ${htmlSezione('fonti', { icona: 'libro', titolo: 'Fonti e verifica', riassunto: escapeHtml(STATI_VERIFICA[s.verifica?.stato] ?? `${(s.fonti ?? []).length} fonti`) }, htmlFontiVerifica(s))}
 
       ${(() => {
         const suoi = giriConSentiero(giri, s.id);
@@ -377,7 +402,7 @@ export async function vistaScheda(app, id) {
           : '';
       })()}
 
-      ${htmlFotoPersonali()}
+      ${htmlSezione('mieFoto', { icona: 'foto', titolo: 'Le mie foto', riassunto: 'Solo su questo telefono' }, htmlFotoPersonali())}
 
       <section class="riquadro">
         <h2>Il mio diario</h2>
@@ -432,7 +457,11 @@ export async function vistaScheda(app, id) {
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
   if (traccia) collegaTerreno(app, s, traccia);
-  if (traccia) mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), traccia.geojson);
+  if (traccia)
+    mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), traccia.geojson).then((vicini) =>
+      impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : 'Nessuno entro 300 m'),
+    );
+  collegaSezioni(app);
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {

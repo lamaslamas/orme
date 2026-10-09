@@ -34,6 +34,11 @@ jobs:
       - name: Calcola l'indice panoramico
         run: node scripts/calcola-panorama.mjs
         continue-on-error: true
+      # luoghi (Wikipedia) e foto (Commons) lungo i percorsi: al massimo 15 minuti per giro
+      - name: Calcola cosa vedere lungo i percorsi
+        run: node scripts/calcola-da-vedere.mjs
+        continue-on-error: true
+        timeout-minutes: 20
       # rifugi, bivacchi e acqua da OpenStreetMap: ogni parco al massimo una volta a settimana
       - name: Aggiorna rifugi e acqua
         run: node scripts/scarica-punti.mjs

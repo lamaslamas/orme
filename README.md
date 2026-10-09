@@ -58,6 +58,10 @@ Dopo l'importazione, per ogni percorso con traccia:
 - **indice panoramico** (analisi di visibilità sul terreno);
 - **terreno** (tag OSM delle vie), al massimo 20 minuti per giro: si completa nei giorni successivi.
 
+**Da vedere** (`scripts/calcola-da-vedere.mjs`, campo `daVedere`): voci di Wikipedia entro 1 km
+dalla traccia e foto di Wikimedia Commons entro 300 m (solo licenze libere senza NC/ND, con
+autore), al massimo 15 minuti per giro; si rinnova ogni 60 giorni o quando cambia la traccia.
+
 I confini dei parchi sono in `public/dati/confini.json` (`node scripts/scarica-confini.mjs`).
 
 Rifugi, bivacchi, ricoveri, sorgenti e fontanelle dei parchi (OpenStreetMap, ODbL) sono in

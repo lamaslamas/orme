@@ -157,12 +157,12 @@ export function aggiungiPuntiUtili(mappa) {
 
 // Riquadro della scheda: rifugi, bivacchi e acqua vicino alla traccia
 export async function mostraPuntiLungoIlPercorso(contenitore, geojson) {
-  if (!contenitore) return;
+  if (!contenitore) return null;
   const punti = await caricaPunti();
   const titolo = '<h2>Rifugi e acqua lungo il percorso</h2>';
   if (!punti) {
     contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}<p class="stato-dati stato-assente">Dati non raggiungibili ora (sei offline?).</p></section>`;
-    return;
+    return null;
   }
   const vicini = puntiLungoIlPercorso(punti, geojson);
   contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}
@@ -182,4 +182,5 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson) {
     }
     <p class="tenue piccolo">Dati OpenStreetMap: verifica sul posto, soprattutto l'acqua in estate.</p>
   </section>`;
+  return vicini;
 }

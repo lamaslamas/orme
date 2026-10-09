@@ -1181,3 +1181,50 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 
 /* heatmap GBIF: esagoni di densità sfumati in macchie, la mappa sotto resta leggibile */
 .leaflet-heatmap-pane .tile-densita { filter: blur(3px); }
+
+/* --- sezioni richiudibili della scheda del sentiero --- */
+.sezione { background: var(--scheda); border: var(--bordo-vetro); border-radius: 16px; box-shadow: var(--ombra); margin: 0 0 10px; overflow: hidden; }
+.sezione > summary {
+  list-style: none; cursor: pointer; display: grid; grid-template-columns: 22px minmax(0, 1fr) 18px; gap: 10px; align-items: center; padding: 12px 14px;
+}
+.sezione > summary::-webkit-details-marker { display: none; }
+.sezione-icona { display: grid; color: var(--teal, #2f6f6d); }
+.sezione-icona .icona { width: 20px; height: 20px; }
+.sezione-testo { display: grid; min-width: 0; }
+.sezione-titolo { font-weight: 700; }
+.sezione-riassunto { font-size: 0.84rem; color: var(--testo-tenue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sezione-freccia { display: grid; color: var(--testo-tenue); transition: transform var(--morbido, 0.2s); }
+.sezione[open] > summary .sezione-freccia { transform: rotate(180deg); }
+.sezione[open] > summary .sezione-riassunto { white-space: normal; }
+.sezione-corpo { padding: 0 14px 12px; }
+/* dentro la sezione i riquadri di prima perdono cornice e titolo (il titolo è nel sommario) */
+.sezione-corpo .riquadro, .sezione-corpo > div > .riquadro { background: none; border: none; box-shadow: none; padding: 0; margin: 0 0 8px; }
+.sezione-corpo .riquadro > h2:first-child { display: none; }
+.sezione-zampa .sezione-icona, .sezione-fauna .sezione-icona { color: #2f7d4a; }
+.sezione-rifugi .sezione-icona { color: #9a4b2f; }
+
+/* da vedere: striscia di foto e luoghi */
+.striscia-foto { list-style: none; margin: 0 0 8px; padding: 0 0 4px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; }
+.striscia-foto li { flex: none; width: 132px; scroll-snap-align: start; display: grid; gap: 2px; }
+.striscia-foto a { position: relative; display: block; }
+.striscia-foto img { width: 132px; height: 100px; object-fit: cover; border-radius: 10px; display: block; }
+.striscia-foto .km { position: absolute; left: 6px; bottom: 6px; font-size: 0.72rem; font-weight: 700; background: rgba(255, 255, 255, 0.85); color: var(--testo); border-radius: 6px; padding: 0 5px; }
+.striscia-foto .credito { font-size: 0.68rem; color: var(--testo-tenue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.luoghi-vicini { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: 0.92rem; }
+
+/* --- Percorsi da qui --- */
+.daqui-bottone { display: grid !important; place-items: center; color: #333; }
+.daqui-bottone.attivo { background: #ede4f4 !important; color: #7b2d9b; }
+.scegli-punto, .scegli-punto .leaflet-interactive { cursor: crosshair !important; }
+.con-daqui .leaflet-overlay-pane { opacity: 0.3; }
+.barra-daqui { max-height: 46%; overflow: auto; z-index: 860; }
+.daqui-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.daqui-raggi { margin: 4px 0 2px; padding: 4px 0; }
+.daqui-raggi .pillola { min-height: 30px; font-size: 0.8rem; }
+.daqui-elenco { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.daqui-elenco a { display: grid; gap: 1px; padding: 6px 4px; border-radius: 8px; color: inherit; text-decoration: none; }
+.daqui-elenco a:hover { background: rgba(123, 45, 155, 0.06); }
+.daqui-elenco .nome { font-weight: 700; }
+.daqui-elenco .dati { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
+.daqui-elenco .fauna-breve { margin: 0; font-size: 0.8rem; }
+.chip-daqui { background: #ede4f4; color: #5e2178; }
