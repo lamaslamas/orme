@@ -12,3 +12,22 @@ export const ICONE = {
   parco: svg('<path d="M12 3 6 13h4l-3 5h10l-3-5h4z"/><path d="M12 18v3"/>'),
   segnaposto: svg('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
 };
+
+// Icone degli animali sulla mappa (emoji: leggibili, senza file da scaricare)
+export const EMOJI_ANIMALI = {
+  orso: '🐻',
+  lupo: '🐺',
+  camoscio: '🐐',
+  cervo: '🦌',
+  capriolo: '🦌',
+  daino: '🦌',
+  muflone: '🐏',
+  cinghiale: '🐗',
+  volpe: '🦊',
+  lontra: '🦦',
+  gatto_selvatico: '🐈',
+  aquila_reale: '🦅',
+  gufo_reale: '🦉',
+  nibbio_reale: '🦅',
+  cicogna_nera: '🐦',
+};

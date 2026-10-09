@@ -16,6 +16,7 @@ import {
   urlTileGriglia,
   TUTTE_LE_SPECIE,
 } from '../lib/inaturalist.js';
+import { EMOJI_ANIMALI } from './icone.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
 
 const COLORI_CLASSI = { 0: '#f3f4f6', 1: '#c4b5fd', 2: '#7c6cf0', 3: '#3c9a2a', 4: '#e2d600' };
@@ -67,8 +68,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
 
   mappa.vociLegenda?.push(() =>
     stato.leggi().livelli.heatmap
-      ? `<div class="voce-legenda"><b><span class="campione sfumato"></span>Heatmap: osservazioni su iNaturalist</b>
-          <p class="tenue piccolo">Dove le persone hanno fotografato la specie (dal rosa: poche, al giallo: molte). Densità relativa, non un censimento; per le specie protette le posizioni sono sfumate di circa 20 km.</p></div>`
+      ? `<div class="voce-legenda"><b><span class="campione sfumato"></span>Fauna (iNaturalist)</b>
+          <p class="tenue piccolo">Dal rosa (poche osservazioni) al giallo (molte). Specie protette: posizione sfumata.</p></div>`
       : '',
   );
 
@@ -112,6 +113,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     },
   });
   const controllo = new Controllo().addTo(mappa);
+  // il pulsante Fauna sta in cima, sopra quello dei livelli: il pannello dei livelli non lo copre
+  const angolo = controllo.getContainer().parentNode;
+  angolo.insertBefore(controllo.getContainer(), angolo.firstChild);
 
   let griglia = null;
   let richiestaGriglia = 0;
@@ -176,7 +180,57 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     attesa = setTimeout(disegnaGriglia, 600);
   });
 
+  // Da vicino: un'icona per ogni osservazione con posizione esatta (le sfumate delle specie
+  // protette no: indicherebbero un punto falso). Toccando l'icona si vede l'animale; il tocco
+  // non arriva alla mappa, così nel disegno di un percorso non aggiunge punti.
+  const ZOOM_ICONE = 12;
+  const icone = L.layerGroup();
+  let richiestaIcone = 0;
+  let attesaIcone = null;
+  let iconeInfo = '';
+  async function aggiornaIcone() {
+    const mia = ++richiestaIcone;
+    if (!attiva || filtri.correggiSforzo || mappa.getZoom() < ZOOM_ICONE) {
+      icone.clearLayers();
+      icone.remove();
+      iconeInfo = attiva && !filtri.correggiSforzo ? 'Avvicinati per vedere le icone degli animali.' : '';
+      return mappa.aggiornaLegenda?.();
+    }
+    const b = mappa.getBounds();
+    try {
+      const r = await fetch(urlOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], filtri, { perPagina: 200 }));
+      if (!r.ok) throw new Error(String(r.status));
+      const oss = interpretaOsservazioni(await r.json());
+      if (mia !== richiestaIcone) return;
+      icone.clearLayers();
+      const esatte = oss.filter((o) => !o.sfumata && o.lat != null && o.animale);
+      for (const o of esatte) {
+        L.marker([o.lat, o.lon], {
+          icon: L.divIcon({ className: 'icona-osservazione', html: `<span class="spillo"><span>${EMOJI_ANIMALI[o.animale] ?? '🐾'}</span></span>`, iconSize: [24, 30], iconAnchor: [12, 30], popupAnchor: [0, -28] }),
+          title: o.specie,
+          keyboard: false,
+        })
+          .bindPopup(
+            `<b>${escapeHtml(o.specie)}</b>${o.data ? ` · ${escapeHtml(o.data.split('-').reverse().join('/'))}` : ''}<br><a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Vedi su iNaturalist ↗</a>`,
+          )
+          .addTo(icone);
+      }
+      icone.addTo(mappa);
+      const sfumate = oss.length - esatte.length;
+      iconeInfo = `spilli lilla = ${esatte.length} osservazioni con posizione esatta${sfumate ? `; ${sfumate} di specie protette con posizione sfumata (solo nella heatmap)` : ''}.`;
+    } catch {
+      if (mia === richiestaIcone) iconeInfo = 'Icone degli animali non disponibili ora.';
+    }
+    mappa.aggiornaLegenda?.();
+  }
+  mappa.on('moveend', () => {
+    clearTimeout(attesaIcone);
+    attesaIcone = setTimeout(aggiornaIcone, 500);
+  });
+  mappa.vociLegenda?.push(() => (stato.leggi().livelli.heatmap && iconeInfo ? `<p class="voce-legenda tenue piccolo">Icone: ${escapeHtml(iconeInfo)}</p>` : ''));
+
   function disegnaLivello() {
+    aggiornaIcone();
     livello?.remove();
     livello = null;
     griglia?.clearLayers();
@@ -287,6 +341,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     livello?.remove();
     livello = null;
     griglia?.clearLayers();
+    aggiornaIcone();
     pannello.hidden = true;
   }
 

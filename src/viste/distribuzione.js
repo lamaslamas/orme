@@ -64,10 +64,10 @@ export function aggiungiDistribuzione(mappa) {
   mappa.vociLegenda?.push(() => {
     const s = stato.leggi();
     if (s.livelli.distribuzione === false) return '';
-    if (!s.specie) return '<p class="voce-legenda tenue">Distribuzione ufficiale (EEA): scegli un animale per vederla.</p>';
+    if (!s.specie) return '<p class="voce-legenda tenue">Distribuzione EEA: scegli un animale.</p>';
     const nome = ANIMALI[s.specie] ?? s.specie;
     if (!haDistribuzione(s.specie)) {
-      return `<p class="voce-legenda tenue">Distribuzione ufficiale: <b>non disponibile</b> per ${escapeHtml(nome)} (non è tra le specie della Direttiva Habitat riportate dall'Art. 17).</p>`;
+      return `<p class="voce-legenda tenue">Distribuzione EEA: non disponibile per ${escapeHtml(nome)}.</p>`;
     }
     if (datiMancanti) return '<p class="voce-legenda tenue">Distribuzione ufficiale: dati non raggiungibili ora.</p>';
     if (!mostrata || mostrata.animale !== s.specie) return '';

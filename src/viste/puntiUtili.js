@@ -143,16 +143,14 @@ export function aggiungiPuntiUtili(mappa) {
         if (!dati) return '';
         const b = mappa.getBounds();
         const qui = puntiNelRiquadro(dati, [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]).filter((p) => voci.includes(TIPI_PUNTO[p.tipo].gruppo));
-        return `<p class="piccolo">Nella zona inquadrata: <b>${qui.length ? escapeHtml(riassuntoPunti(qui)) : 'nessuno'}</b></p>`;
+        return `<p class="piccolo">Qui: <b>${qui.length ? escapeHtml(riassuntoPunti(qui)) : 'nessuno'}</b></p>`;
       })()}
       ${
         mappa.getZoom() < ZOOM_PALLINI
-          ? '<p class="tenue piccolo">Avvicinati a un parco per vederli sulla mappa.</p>'
-          : vicino()
-            ? ''
-            : '<p class="tenue piccolo">Da lontano sono pallini colorati; avvicinandosi diventano icone.</p>'
+          ? '<p class="tenue piccolo">Avvicinati per vederli.</p>'
+          : ''
       }
-      <p class="tenue piccolo">Fonte: OpenStreetMap (ODbL), aggiornata ogni settimana.</p>
+      <p class="tenue piccolo">Fonte: OpenStreetMap.</p>
     </div>`;
   });
 }

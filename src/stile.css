@@ -1095,7 +1095,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .pannello-scelte .segmenti, .pannello-scelte .selettore-attivita { margin: 0; max-width: none; box-shadow: none; }
 .pannello-scelte .selettore-attivita .segmenti { background: var(--sfondo); }
 .scelta-giorno { grid-template-columns: repeat(2, 1fr); background: var(--sfondo); }
-.scelta { display: grid; gap: 6px; }
+.gruppo-scelta { display: grid; gap: 6px; }
 .scelta-nome { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--testo-tenue); }
 .pannello-scelte .pillole { margin: 0; padding: 0 0 2px; }
 .pannello-scelte .pillola .icona { margin-left: -2px; }
@@ -1138,7 +1138,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .preferenze-meteo label { display: grid; gap: 4px; margin: 10px 0; font-size: 0.92rem; }
 @media (min-width: 760px) {
   .scelte-riga { grid-template-columns: minmax(200px, 1fr) minmax(320px, 1.6fr); }
-  .scelta { grid-template-columns: 170px 1fr; align-items: center; }
+  .gruppo-scelta { grid-template-columns: 170px 1fr; align-items: center; }
   .pannello-scelte .pillole { flex-wrap: wrap; overflow: visible; }
   .classifica-meteo { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
 }
@@ -1159,3 +1159,14 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .fauna-occasionali .icona, .fauna-occasionali b { color: var(--testo-tenue); }
 .risultato-testo .fauna-breve { margin: 2px 0 0; font-size: 0.8rem; }
 .riga-meteo.fauna-breve { margin: 0; font-size: 0.9rem; }
+
+/* icone degli animali sopra la heatmap: spilli lilla (i rifugi e l'acqua sono cerchi pieni marroni e blu) */
+.icona-osservazione { background: none; border: none; }
+.icona-osservazione .spillo {
+  position: absolute; left: 2px; top: 0; width: 20px; height: 20px; display: grid; place-items: center;
+  background: #f1ecff; border: 2px solid #7c6cf0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  box-shadow: 0 1px 3px rgba(37, 50, 56, 0.4);
+}
+.icona-osservazione .spillo > span { transform: rotate(45deg); font-size: 12px; line-height: 1; }
+/* con il pulsante Fauna in alto a destra, il pannello dei livelli si apre sotto di esso */
+.leaflet-container:has(.heat-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }

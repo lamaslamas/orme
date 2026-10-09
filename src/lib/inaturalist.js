@@ -77,6 +77,7 @@ export function urlOsservazioni(riquadro, filtri, { perPagina = 30, pagina = 1, 
 }
 
 const NOMI_IT = new Map(Object.entries(TAXON_INATURALIST).map(([k, t]) => [t.id, ANIMALI[k]]));
+const CHIAVI = new Map(Object.entries(TAXON_INATURALIST).map(([k, t]) => [t.id, k]));
 
 // Dalla risposta API agli elementi da mostrare (nessun nome di osservatore salvato)
 export function interpretaOsservazioni(json) {
@@ -88,6 +89,7 @@ export function interpretaOsservazioni(json) {
     const nomeIt = antenati.map((id) => NOMI_IT.get(id)).find(Boolean);
     return {
       id: o.id,
+      animale: antenati.map((id) => CHIAVI.get(id)).find(Boolean) ?? null,
       specie: nomeIt ?? t.preferred_common_name ?? t.name ?? 'Specie non indicata',
       nomeScientifico: t.name ?? '',
       data: o.observed_on ?? null,

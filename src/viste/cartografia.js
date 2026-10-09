@@ -13,11 +13,11 @@ const CENTRO_PREDEFINITO = [41.79, 13.85];
 // Le basi "nomiSotto" sono immagini con i nomi già stampati: lì le tracce si fanno trasparenti.
 export const BASI = {
   chiara: {
-    nome: 'Chiara (nomi in primo piano)',
+    nome: 'Chiara',
     vettoriale: true, // MapLibre + OpenFreeMap, caricata solo quando serve
   },
   topo: {
-    nome: 'Dettagliata (OpenStreetMap, nomi sotto le tracce)',
+    nome: 'Dettagliata (OSM)',
     nomiSotto: true,
     crea: () =>
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -26,7 +26,7 @@ export const BASI = {
       }),
   },
   curve: {
-    nome: 'Curve di livello (nomi sotto le tracce)',
+    nome: 'Curve di livello',
     nomiSotto: true,
     crea: () =>
       L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
@@ -52,15 +52,15 @@ export const BASI = {
 
 // Nomi dei livelli che una mappa può offrire nel pannello
 export const NOMI_LIVELLI = {
-  heatmap: 'Heatmap fauna (iNaturalist)',
-  percorsi: 'Percorsi in archivio',
+  heatmap: 'Fauna (heatmap)',
+  percorsi: 'Percorsi',
   osservazione: 'Percorsi di osservazione',
   confini: 'Confini dei parchi',
-  distribuzione: 'Distribuzione ufficiale (EEA)',
-  panoramicita: 'Panoramicità del percorso',
-  rifugi: 'Rifugi e bivacchi (OSM)',
-  acqua: 'Acqua: sorgenti e fontanelle (OSM)',
-  sentieriOsm: 'Sentieri escursionistici (Waymarked)',
+  distribuzione: 'Distribuzione EEA',
+  panoramicita: 'Panoramicità',
+  rifugi: 'Rifugi e bivacchi',
+  acqua: 'Acqua',
+  sentieriOsm: 'Sentieri segnati',
   gps: 'Posizione GPS',
 };
 
@@ -224,7 +224,6 @@ function aggiungiPannelloLivelli(mappa, livelli) {
       </fieldset>
       <fieldset class="legenda"><legend>Legenda</legend>
         ${mappa.vociLegenda.map((f) => f()).join('')}
-        <p class="voce-legenda tenue">Idoneità dell'habitat: <b>non disponibile</b> (non esiste un modello aperto e affidabile per questi parchi).</p>
       </fieldset>`;
   }
   // la legenda segue le scelte (animale, livelli) mentre il pannello è aperto

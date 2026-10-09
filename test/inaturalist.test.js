@@ -54,7 +54,7 @@ describe('osservazioni', () => {
         },
       ],
     });
-    expect(o).toMatchObject({ id: 9, specie: 'Lupo', data: '2026-08-21', sfumata: true, lat: 41.75, verificata: true });
+    expect(o).toMatchObject({ id: 9, animale: 'lupo', specie: 'Lupo', data: '2026-08-21', sfumata: true, lat: 41.75, verificata: true });
     expect(o.foto.attribuzione).toContain('CC BY-NC');
     expect(JSON.stringify(o)).not.toContain('persona"');
   });

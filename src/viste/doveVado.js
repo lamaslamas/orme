@@ -137,21 +137,21 @@ export async function vistaDoveVado(app) {
           </div>
           ${htmlSelettoreAttivita({ titolo: false })}
         </div>
-        <div class="scelta">
+        <div class="gruppo-scelta">
           <span class="scelta-nome">${ICONE.orologio}Durata</span>
           <div class="pillole" role="group" aria-label="Durata">
             <button type="button" class="pillola" data-durata="">Qualsiasi</button>
             ${Object.entries(DURATE).map(([k, d]) => `<button type="button" class="pillola" data-durata="${k}">${d.nome}</button>`).join('')}
           </div>
         </div>
-        <div class="scelta">
+        <div class="gruppo-scelta">
           <span class="scelta-nome">${ICONE.parco}Parco</span>
           <div class="pillole" role="group" aria-label="Parco">
             <button type="button" class="pillola" data-parco="">Tutti</button>
             ${PARCHI.map((p) => `<button type="button" class="pillola" data-parco="${p.id}">${escapeHtml(p.nomeBreve)}</button>`).join('')}
           </div>
         </div>
-        <div class="scelta">
+        <div class="gruppo-scelta">
           <span class="scelta-nome">${ICONE.segnaposto}Lungo il percorso</span>
           <div class="pillole" role="group" aria-label="Lungo il percorso">
             <button type="button" class="pillola" data-filtro="notte" aria-pressed="false">${ICONE.casa}Rifugio o bivacco per la notte</button>
