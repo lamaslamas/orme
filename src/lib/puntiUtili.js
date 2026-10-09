@@ -83,6 +83,11 @@ export function puntiLungoIlPercorso(punti, geojson, raggioM = RAGGIO_LUNGO_IL_P
     .sort((a, b) => a.distanzaM - b.distanzaM);
 }
 
+// Punti dentro un riquadro [sud, ovest, nord, est]
+export function puntiNelRiquadro(punti, [s, o, n, e]) {
+  return punti.filter((p) => p.lat >= s && p.lat <= n && p.lon >= o && p.lon <= e);
+}
+
 // "1 bivacco, 2 sorgenti"
 export function riassuntoPunti(punti) {
   const conta = new Map();

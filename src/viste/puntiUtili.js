@@ -2,10 +2,12 @@
 // Due interruttori separati; le icone compaiono solo da vicino per non affollare la mappa.
 import L from 'leaflet';
 import { escapeHtml } from '../lib/formato.js';
-import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
+import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 
+// da vicino le icone; da lontano pallini colorati (leggeri, su canvas) per avere il quadro d'insieme
 export const ZOOM_PUNTI = 12;
 const GRUPPI = ['rifugi', 'acqua'];
+const COLORE_GRUPPO = { rifugi: '#9a4b2f', acqua: '#2a7bbf' };
 
 const ICONE = {
   rifugio: '<path d="M3 11 12 4l9 7v9H3z" fill="currentColor"/><path d="M10 20v-5h4v5" fill="#fff"/>',
@@ -52,6 +54,12 @@ function popup(p) {
 
 export function aggiungiPuntiUtili(mappa) {
   const livelli = Object.fromEntries(GRUPPI.map((g) => [g, L.layerGroup()]));
+  const pallini = Object.fromEntries(GRUPPI.map((g) => [g, L.layerGroup()]));
+  if (!mappa.getPane('puntiLontani')) {
+    mappa.createPane('puntiLontani');
+    mappa.getPane('puntiLontani').style.zIndex = 440; // sopra tracce e heatmap, sotto i nomi
+  }
+  const tela = L.canvas({ pane: 'puntiLontani', padding: 0.2 });
   const accesi = { rifugi: false, acqua: false };
   let dati = null;
   let mancanti = false;
@@ -60,10 +68,17 @@ export function aggiungiPuntiUtili(mappa) {
 
   const vicino = () => mappa.getZoom() >= ZOOM_PUNTI;
   function aggiorna() {
+    const z = mappa.getZoom();
+    const raggio = z >= 10 ? 5.5 : z >= 8 ? 4 : 3;
     for (const g of GRUPPI) {
-      const mostra = accesi[g] && vicino() && dati;
-      if (mostra && !mappa.hasLayer(livelli[g])) livelli[g].addTo(mappa);
-      if (!mostra && mappa.hasLayer(livelli[g])) livelli[g].remove();
+      for (const [gruppo, mostra] of [
+        [livelli[g], accesi[g] && vicino() && dati],
+        [pallini[g], accesi[g] && !vicino() && dati],
+      ]) {
+        if (mostra && !mappa.hasLayer(gruppo)) gruppo.addTo(mappa);
+        if (!mostra && mappa.hasLayer(gruppo)) gruppo.remove();
+      }
+      pallini[g].eachLayer((c) => c.setRadius(raggio));
     }
     mappa.aggiornaLegenda?.();
   }
@@ -89,6 +104,17 @@ export function aggiungiPuntiUtili(mappa) {
       })
         .bindPopup(popup(p))
         .addTo(livelli[t.gruppo]);
+      L.circleMarker([p.lat, p.lon], {
+        renderer: tela,
+        pane: 'puntiLontani',
+        radius: 5.5,
+        weight: 1.5,
+        color: '#fff',
+        fillColor: p.chiuso ? '#8a8f8c' : COLORE_GRUPPO[t.gruppo],
+        fillOpacity: 0.95,
+      })
+        .bindPopup(() => popup(p))
+        .addTo(pallini[t.gruppo]);
     }
     aggiorna();
   });
@@ -100,6 +126,8 @@ export function aggiungiPuntiUtili(mappa) {
     });
   }
   mappa.on('zoomend', aggiorna);
+  // la legenda conta i punti nella zona inquadrata
+  mappa.on('moveend', () => mappa.aggiornaLegenda?.());
 
   mappa.vociLegenda?.push(() => {
     const voci = GRUPPI.filter((g) => accesi[g]);
@@ -108,7 +136,13 @@ export function aggiungiPuntiUtili(mappa) {
     const tipi = Object.entries(TIPI_PUNTO).filter(([, t]) => voci.includes(t.gruppo));
     return `<div class="voce-legenda">
       <ul class="legenda-punti">${tipi.map(([k, t]) => `<li><span class="punto-utile ${t.gruppo}">${htmlIconaPunto(k)}</span>${t.nome}</li>`).join('')}</ul>
-      ${vicino() ? '' : `<p class="tenue piccolo">Le icone compaiono avvicinandosi alla zona.</p>`}
+      ${(() => {
+        if (!dati) return '';
+        const b = mappa.getBounds();
+        const qui = puntiNelRiquadro(dati, [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]).filter((p) => voci.includes(TIPI_PUNTO[p.tipo].gruppo));
+        return `<p class="piccolo">Nella zona inquadrata: <b>${qui.length ? escapeHtml(riassuntoPunti(qui)) : 'nessuno'}</b></p>`;
+      })()}
+      ${vicino() ? '' : `<p class="tenue piccolo">Da lontano sono pallini colorati; avvicinandosi diventano icone.</p>`}
       <p class="tenue piccolo">Fonte: OpenStreetMap (ODbL), aggiornata ogni settimana.</p>
     </div>`;
   });

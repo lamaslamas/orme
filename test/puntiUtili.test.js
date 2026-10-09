@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { queryPuntiParco, tipoDelPunto, puntoDaElemento, puntiDallaRisposta, puntiLungoIlPercorso, riassuntoPunti, noteDelPunto } from '../src/lib/puntiUtili.js';
+import { queryPuntiParco, tipoDelPunto, puntoDaElemento, puntiDallaRisposta, puntiLungoIlPercorso, riassuntoPunti, noteDelPunto, puntiNelRiquadro } from '../src/lib/puntiUtili.js';
 import { parcoDa } from '../src/datiParchi.js';
 
 const quadrato = [[[13.8, 41.8], [13.9, 41.8], [13.9, 41.9], [13.8, 41.9], [13.8, 41.8]]];
@@ -62,5 +62,10 @@ describe('punti utili (rifugi e acqua)', () => {
     expect(riassuntoPunti([{ tipo: 'fonte' }, { tipo: 'bivacco' }, { tipo: 'fonte' }])).toBe('1 bivacco, 2 sorgenti');
     expect(riassuntoPunti([])).toBe('');
     expect(noteDelPunto({ tipo: 'fonte', quota: 1200, stagionale: true })).toEqual(['1200 m', 'potabilità non indicata', 'può seccarsi in estate']);
+  });
+
+  it('trova i punti nella zona inquadrata', () => {
+    const punti = [{ id: 'a', lat: 41.85, lon: 13.85 }, { id: 'b', lat: 42.5, lon: 13.85 }];
+    expect(puntiNelRiquadro(punti, [41.8, 13.8, 41.9, 13.9]).map((p) => p.id)).toEqual(['a']);
   });
 });
