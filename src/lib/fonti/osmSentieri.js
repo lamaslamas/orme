@@ -6,7 +6,7 @@ import { lunghezzaKm } from '../geo.js';
 import { parcoDa } from '../../datiParchi.js';
 import { ritagliaESemplifica } from './osmMtb.js';
 
-export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm', 'gallipoli-cognato'] };
+export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm', 'gallipoli-cognato', 'majella'] };
 
 export function querySentieriParco(idParco) {
   const { prima, filtro } = dentroIlParco(parcoDa(idParco));

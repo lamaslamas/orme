@@ -89,6 +89,23 @@ export const PARCHI = [
       'Parco regionale tra le province di Matera e Potenza: la foresta di Gallipoli Cognato, fino ai 1319 m del Monte Croccia, e le guglie di arenaria delle Dolomiti Lucane attorno a Castelmezzano e Pietrapertosa. Tra gli animali: lupo, gatto selvatico, cinghiale e rapaci come il nibbio reale.',
     daVerificare: true,
   },
+  {
+    id: 'majella',
+    nome: 'Parco Nazionale della Majella',
+    nomeBreve: 'Majella',
+    regioni: ['Abruzzo'],
+    sito: 'https://www.parcomajella.it/',
+    osm: { relazione: 3159222 },
+    bbox: [41.84, 13.83, 42.25, 14.25],
+    centro: [42.05, 14.05],
+    // da Wikipedia
+    animali: ['orso', 'lupo', 'camoscio', 'cervo', 'capriolo', 'cinghiale', 'gatto_selvatico', 'lontra', 'volpe', 'aquila_reale'],
+    regole:
+      'Resta sui sentieri segnati. Divieti, chiusure e autorizzazioni cambiano nel tempo: verifica sempre sul sito del Parco.',
+    descrizione:
+      "Il massiccio della Majella con il Monte Amaro (2793 m), il Morrone, i Monti Pizzi e il Porrara, fino agli altipiani maggiori d'Abruzzo. Ospita la popolazione più numerosa di camoscio appenninico, un nucleo di orso marsicano, lupi, cervi e caprioli.",
+    daVerificare: true,
+  },
 ];
 
 export const PARCO_PREDEFINITO = 'pnalm';

@@ -12,7 +12,7 @@ const sentieri = [
 describe('ricerca', () => {
   it('trova parchi e animali da qualunque parola', () => {
     expect(cercaParchiESpecie('lupo casentinesi')).toEqual({ parchi: ['foreste-casentinesi'], specie: ['lupo'] });
-    expect(cercaParchiESpecie('abruzzo')).toEqual({ parchi: ['pnalm'], specie: [] });
+    expect(cercaParchiESpecie('abruzzo')).toEqual({ parchi: ['pnalm', 'majella'], specie: [] });
     expect(cercaParchiESpecie('  ')).toEqual({ parchi: [], specie: [] });
   });
 
