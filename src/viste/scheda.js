@@ -374,13 +374,17 @@ export async function vistaScheda(app, id) {
 
       ${traccia ? htmlSezione('natura', { icona: 'foglia', titolo: 'Altre osservazioni vicine', riassunto: 'iNaturalist, su richiesta' }, htmlNaturaSentiero()) : ''}
 
-      <section class="riquadro">
+      ${
+        s.difficolta || partenza
+          ? `<section class="riquadro">
         <h2>Percorso</h2>
         <dl>
           ${riga('Difficoltà', s.difficolta ? escapeHtml(DIFFICOLTA[s.difficolta]) : '')}
           ${riga('Partenza', partenza)}
         </dl>
-      </section>
+      </section>`
+          : ''
+      }
 
       ${
         haEscursione

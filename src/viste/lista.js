@@ -10,6 +10,9 @@ import improntaSvg from '../impronta.svg?raw';
 import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
+import { ICONE } from './icone.js';
+import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
+import { leggiSentiero, salvaSentiero } from '../db.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
 
@@ -48,35 +51,67 @@ export function bollinoCompatibilita(compat, attivita) {
   return `<span class="chip compat compat-${c.stato}">${ATTIVITA[attivita]}: ${STATI_COMPATIBILITA[c.stato].toLowerCase()}</span>`;
 }
 
+const DIFFICOLTA_BREVE = { T: 'T · turistico', E: 'E · escursionistico', EE: 'EE · esperti', EEA: 'EEA · attrezzatura' };
+
+// Scheda di un percorso in lista: copertina (foto lungo il sentiero o disegno della traccia),
+// difficoltà e pulsante salva sopra; sotto nome, tre numeri con icona, fauna e poche etichette
 export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
   const m = misureSentiero(s, traccia);
-  const luogo = [s.zona, s.partenza?.paese && `da ${s.partenza.paese}`].filter(Boolean).map(escapeHtml).join(' · ');
   const tipo = s.accesso?.tipo || 'nessuno';
-  const numeri = rigaNumeri(m);
+  const foto = copertina(s, traccia);
+  const cod = s.codici?.length ? codici(s) : '';
+  const parchi = mostraParco ? (s.parchi ?? [s.parco]).map((id) => parcoDa(id)?.nomeBreve).filter(Boolean).join(' · ') : '';
+  const dati = [
+    m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
+    m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+    m.durataMin != null ? `<span>${ICONE.orologio}${m.durataStimata ? '~' : ''}${durata(m.durataMin)}</span>` : '',
+  ].join('');
+  // al massimo due etichette: le più utili per decidere
+  const etichette = [
+    s.stato === 'fatto' ? '<span class="chip chip-fatto">✓ Fatto</span>' : '',
+    bollinoCompatibilita(compat, stato.leggi().attivita),
+    tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${ACCESSI[tipo]}</span>` : '',
+    s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : '',
+  ]
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('');
   return `
-    <li>
-      <a class="carta carta-sentiero ${s.stato === 'fatto' ? 'fatto' : ''}" href="#/sentiero/${encodeURIComponent(s.id)}">
-        ${miniatura(traccia, s.stato)}
-        <div class="carta-corpo">
-          <div class="carta-titolo">
-            ${bollinoDifficolta(s)}
-            ${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span>` : ''}
-            ${s.stato === 'fatto' ? '<span class="spunta" title="Fatto">✓ Fatto</span>' : ''}
-          </div>
-          <div class="nome">${escapeHtml(s.nome)}</div>
-          ${luogo ? `<div class="carta-dati">${luogo}</div>` : ''}
-          ${mostraParco ? `<div class="carta-parco-nome">${escapeHtml((s.parchi ?? [s.parco]).map((id) => parcoDa(id)?.nomeBreve).filter(Boolean).join(' · '))}</div>` : ''}
-          ${numeri ? `<div class="numeri">${numeri}</div>` : ''}
+    <li class="voce-percorso">
+      <a class="carta-percorso ${s.stato === 'fatto' ? 'fatto' : ''}" href="#/sentiero/${encodeURIComponent(s.id)}">
+        <span class="copertina ${foto ? 'con-foto' : ''}">
+          ${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}
+          ${s.difficolta ? `<span class="difficolta-copertina difficolta-${s.difficolta}">${escapeHtml(DIFFICOLTA_BREVE[s.difficolta] ?? s.difficolta)}</span>` : ''}
+        </span>
+        <span class="carta-percorso-corpo">
+          <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>
+          ${parchi ? `<span class="carta-parco-nome">${escapeHtml(parchi)}</span>` : ''}
+          ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
           ${htmlFaunaBreve(s)}
-          <div class="chips">
-            ${bollinoCompatibilita(compat, stato.leggi().attivita)}
-            ${tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${ACCESSI[tipo]}</span>` : ''}
-            ${bollinoBici(s)}
-            ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
-          </div>
-        </div>
+          ${etichette ? `<span class="chips">${etichette}</span>` : ''}
+        </span>
       </a>
+      <button type="button" class="salva-carta ${s.salvato ? 'salvato' : ''}" data-salva="${escapeHtml(s.id)}" aria-pressed="${Boolean(s.salvato)}" aria-label="${s.salvato ? 'Togli dai salvati' : 'Salva'}">${ICONE.segnalibro}</button>
     </li>`;
+}
+
+// Salva / togli dai salvati direttamente dalla scheda in lista (un solo ascoltatore per tutta l'app)
+let salvaCollegato = false;
+function collegaSalvaDaLista() {
+  if (salvaCollegato) return;
+  salvaCollegato = true;
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-salva]');
+    if (!b) return;
+    e.preventDefault();
+    const s = await leggiSentiero(b.dataset.salva);
+    if (!s) return;
+    const salvato = s.salvato ? null : new Date().toISOString().slice(0, 10);
+    await salvaSentiero({ ...s, salvato });
+    b.classList.toggle('salvato', Boolean(salvato));
+    b.setAttribute('aria-pressed', String(Boolean(salvato)));
+    b.setAttribute('aria-label', salvato ? 'Togli dai salvati' : 'Salva');
+  });
 }
 
 // Elenco dei sentieri con ricerca e filtri, usato dalla pagina Parchi e da quella di ogni parco
@@ -93,6 +128,13 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   const conteggio = contenitore.querySelector('.conteggio');
   const preparati = preparaPercorsi(sentieri, tracce);
   const contaCon = (f) => filtraPercorsi(preparati, f, stato.leggi().attivita).length;
+  collegaSalvaDaLista();
+  // le foto di copertina arrivano dopo: quando ci sono, le schede già mostrate si ridisegnano
+  if (!copertineCaricate())
+    caricaDaVedere().then((d) => {
+      if (!d || !contenitore.isConnected || !lista.querySelector('.voce-percorso')) return;
+      lista.innerHTML = htmlPagina(0);
+    });
   // elenco a pagine: con centinaia di percorsi il telefono resta veloce
   const PAGINA = 40;
   let ultimoRisultato = [];

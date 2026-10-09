@@ -10,6 +10,8 @@ export const ICONE = {
   goccia: svg('<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>'),
   zampa: svg('<circle cx="7" cy="10" r="1.6"/><circle cx="11" cy="6.5" r="1.6"/><circle cx="15.5" cy="7" r="1.6"/><circle cx="18" cy="11" r="1.6"/><path d="M8.5 17c0-2.5 2-4.5 4-4.5s4 2 4 4.5c0 1.5-1.2 2.5-2.6 2.5-1 0-1-.6-1.4-.6s-.5.6-1.5.6c-1.4 0-2.5-1-2.5-2.5z"/>'),
   parco: svg('<path d="M12 3 6 13h4l-3 5h10l-3-5h4z"/><path d="M12 18v3"/>'),
+  percorso: svg('<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h6"/>'),
+  salita: svg('<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>'),
   segnalibro: svg('<path d="M6 3h12v18l-6-4-6 4z"/>'),
   mappa: svg('<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/>'),
   navigazione: svg('<path d="m3 11 18-8-8 18-2-8z"/>'),

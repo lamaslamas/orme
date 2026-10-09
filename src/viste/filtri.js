@@ -39,10 +39,10 @@ export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
       chiave: 'fauna',
       titolo: 'Avvistamenti',
       voci: [
-        ['frequenti', 'Frequenti'],
-        ['possibili', 'Almeno possibili'],
+        ['frequenti', 'Ricchi di fauna (avvistamenti frequenti)'],
+        ['possibili', 'Con fauna (almeno possibili)'],
       ],
-      breve: (v) => (v === 'frequenti' ? 'Fauna frequente' : 'Fauna possibile'),
+      breve: (v) => (v === 'frequenti' ? 'Ricchi di fauna' : 'Con fauna'),
     },
     ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['tutti', 'Anche i sentieri da verificare']], breve: () => 'Anche da verificare' }] : []),
     ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),
@@ -86,7 +86,7 @@ export function htmlRicerca(testo, segnaposto = 'Cerca sentiero, zona…') {
 
 // Scorciatoie a icone sopra l'elenco: un tocco applica (o toglie) un filtro comune
 export const SCORCIATOIE = [
-  { chiave: 'fauna', valore: 'frequenti', nome: 'Fauna frequente', icona: 'zampa' },
+  { chiave: 'fauna', valore: 'frequenti', nome: 'Ricchi di fauna', icona: 'zampa' },
   { chiave: 'panorama', valore: '50', nome: 'Panoramici', icona: 'sole' },
   { chiave: 'durata', valore: '0-120', nome: 'Fino a 2 h', icona: 'orologio' },
   { chiave: 'difficolta', valore: 'facili', nome: 'Facili', icona: 'montagna' },

@@ -131,9 +131,9 @@ export function mesiDaTesto(testo) {
 // mese (1-12): gli animali osservati di solito in quel mese vengono prima.
 // Non è una probabilità statistica: dice quanto spesso sono stati visti, non se li vedrai.
 export const POSSIBILITA_FAUNA = {
-  frequenti: 'Avvistamenti frequenti',
-  possibili: 'Avvistamenti possibili',
-  occasionali: 'Avvistamenti occasionali (nella zona)',
+  frequenti: 'Ricco di fauna',
+  possibili: 'Fauna possibile',
+  occasionali: 'Fauna nella zona',
 };
 export function possibilitaFauna(s, mese = null) {
   const inat = s?.faunaInat?.specie ?? [];

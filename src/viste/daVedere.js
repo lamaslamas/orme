@@ -6,16 +6,26 @@ import { improntaTraccia } from '../lib/panorama.js';
 import { riassuntoDaVedere, urlVoce } from '../lib/daVedere.js';
 
 let inCorso = null;
-function carica() {
+let caricati = null; // dati già arrivati, per le copertine sincrone delle schede in lista
+export function carica() {
   inCorso ??= fetch(`${import.meta.env.BASE_URL}dati/da-vedere.json`)
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)
     .then((d) => {
       if (!d) inCorso = null; // si riprova la prossima volta
+      else caricati = d;
       return d;
     });
   return inCorso;
 }
+
+// Foto di copertina di un percorso per le schede in lista (la prima di "Da vedere"), se già caricata.
+// Con una traccia mia (GPX) non si usa: potrebbe essere di un altro posto.
+export function copertina(s, traccia) {
+  if (!caricati || traccia?.origine === 'gpx') return null;
+  return caricati.percorsi?.[s.id]?.foto?.[0] ?? null;
+}
+export const copertineCaricate = () => Boolean(caricati);
 
 // valido solo se calcolato su questa traccia (un GPX mio lo rende superato)
 export async function daVedereDellaTraccia(s, traccia) {
