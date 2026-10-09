@@ -69,6 +69,11 @@ export function paesiDiPartenza(sentieri) {
 }
 
 // Ordine: prima i "da fare", poi per primo codice, poi per nome
+// Animali segnalati (dal parco o dalle osservazioni) in almeno uno dei percorsi
+export function animaliPresenti(sentieri) {
+  return new Set(sentieri.flatMap(animaliPossibili));
+}
+
 export function ordinaSentieri(sentieri) {
   return [...sentieri].sort((a, b) => {
     if (a.stato !== b.stato) return a.stato === 'da_fare' ? -1 : 1;

@@ -65,3 +65,14 @@ describe('filtro valore panoramico', () => {
     expect(filtraSentieri(lista, { ...FILTRI_VUOTI, panorama: '' }).map((s) => s.id)).toEqual(['a', 'b', 'c']);
   });
 });
+
+describe('animali nei filtri', async () => {
+  const { animaliPresenti } = await import('../src/lib/filtri.js');
+  it('propone solo gli animali presenti in almeno un percorso', () => {
+    const presenti = animaliPresenti([
+      { animali: ['lupo'] },
+      { animali: [], faunaInat: { specie: [{ animale: 'cervo', livello: 'percorso' }] } },
+    ]);
+    expect([...presenti].sort()).toEqual(['cervo', 'lupo']);
+  });
+});
