@@ -607,7 +607,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .heat-filtri select { min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: #fff; font: inherit; font-size: 14px; padding: 0 6px; }
 .heat-filtri .scelta { font-size: 0.85rem; min-height: 38px; }
 .heat-legenda { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.75rem; color: var(--testo-tenue); }
-.heat-legenda i { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #f5d0f5, #8b6cf0, #3c9a2a, #b5d600, #f2e600); }
+.heat-legenda i { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #fbd3e3, #f57ba8, #e63a6e, #b0103f); }
 .elenco-oss { list-style: none; margin: 0 0 12px; padding: 0; }
 .elenco-oss li { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--bordo); font-size: 0.9rem; line-height: 1.45; }
 .elenco-oss img, .senza-foto { flex: none; width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--verde-chiaro); }
@@ -743,7 +743,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .campione { display: inline-block; flex: none; width: 18px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
 .legenda-stati .campione { margin-right: 0; }
 .campione.tratteggio { background: color-mix(in srgb, var(--colore) 22%, transparent); border: 1.5px dashed var(--colore); }
-.campione.sfumato { background: linear-gradient(90deg, #f0abfc, #a855f7, #22c55e, #eab308); }
+.campione.sfumato { background: linear-gradient(90deg, #fbd3e3, #f57ba8, #e63a6e, #b0103f); }
 
 /* indice panoramico */
 .panorama-testa { display: flex; align-items: center; gap: 14px; margin: 4px 0 12px; }
@@ -1182,7 +1182,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .leaflet-container:has(.heat-bottone):has(.daqui-bottone) .pannello-livelli { top: 150px; max-height: calc(100% - 164px); }
 
 /* heatmap GBIF: esagoni di densità sfumati in macchie, la mappa sotto resta leggibile */
-.leaflet-heatmap-pane .tile-densita { filter: blur(3px); }
+.leaflet-heatmap-pane .tile-densita { filter: blur(2px); }
 
 /* --- sezioni richiudibili della scheda del sentiero --- */
 .sezione { background: var(--scheda); border: var(--bordo-vetro); border-radius: 16px; box-shadow: var(--ombra); margin: 0 0 10px; overflow: hidden; }
