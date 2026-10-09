@@ -14,7 +14,7 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import { stato } from '../stato.js';
-import { parcoDa, PARCHI } from '../datiParchi.js';
+import { parcoDa, PARCHI, diUnParco } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { aggiungiDaQui } from './daQui.js';
@@ -52,7 +52,8 @@ function riquadroSentiero(s) {
 const sopra = (x) => (x.sentiero.stato === 'fatto' ? 0 : 1);
 
 export async function vistaMappaGenerale(app) {
-  const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const sentieri = tutti.filter(diUnParco);
   const filtri = leggiFiltri();
 
   document.body.classList.add('con-mappa');

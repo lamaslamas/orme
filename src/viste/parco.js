@@ -18,6 +18,10 @@ import { htmlFaunaParco, collegaFaunaParco } from './faunaParco.js';
 
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
+  if (parco?.zona) {
+    location.replace('#/intorno');
+    return;
+  }
   if (!parco) {
     app.innerHTML = '<p class="vuoto">Parco non trovato. <a href="#/">Torna ai parchi</a></p>';
     return;

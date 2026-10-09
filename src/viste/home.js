@@ -1,7 +1,7 @@
 // Pagina iniziale: "Come vuoi esplorare?", ricerca, parchi, animali,
 // percorsi di osservazione e l'elenco di tutti i percorsi con i filtri.
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
-import { PARCHI, parcoDa } from '../datiParchi.js';
+import { PARCHI, parcoDa, diUnParco } from '../datiParchi.js';
 import { ANIMALI, HABITAT } from '../lib/costanti.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
 import { FILTRI_VUOTI } from '../lib/filtri.js';
@@ -67,7 +67,8 @@ function htmlSpecie(r, scelta, evidenziata) {
 }
 
 export async function vistaHome(app) {
-  const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const sentieri = tutti.filter(diUnParco);
   const preparati = preparaPercorsi(sentieri, tracce);
   const st = stato.leggi();
   // per i badge dei parchi: percorsi non "non percorribili" per ciascuna attività

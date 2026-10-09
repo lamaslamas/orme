@@ -15,6 +15,7 @@ import { vistaAltro } from './viste/altro.js';
 import { vistaPianifica } from './viste/pianifica.js';
 import { vistaDoveVado } from './viste/doveVado.js';
 import { vistaSalvati } from './viste/salvati.js';
+import { vistaIntorno } from './viste/intorno.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna } from './viste/disegna.js';
 import { vistaParco } from './viste/parco.js';
@@ -56,6 +57,7 @@ const percorsi = [
   [/^\/pianifica\/?$/, vistaPianifica],
   [/^\/domani\/?$/, vistaDoveVado],
   [/^\/salvati\/?$/, vistaSalvati],
+  [/^\/intorno\/?$/, vistaIntorno],
   [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
   [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],

@@ -110,6 +110,24 @@ export const PARCHI = [
 
 export const PARCO_PREDEFINITO = 'pnalm';
 
+// "Intorno a me": i percorsi scaricati dal telefono attorno alla mia posizione. Non è un parco
+// e resta separato dalle pagine dei parchi; zona e posizione stanno solo sul dispositivo.
+export const ID_INTORNO = 'intorno';
+export const INTORNO = {
+  id: ID_INTORNO,
+  zona: true,
+  nome: 'Intorno a me',
+  nomeBreve: 'Intorno a me',
+  regioni: [],
+  sito: null,
+  animali: [],
+  regole: 'Fuori dai parchi molti sentieri attraversano campagne e proprietà private: resta sul tracciato segnato e rispetta recinzioni, muretti e coltivi.',
+  descrizione: '',
+};
+
 export function parcoDa(id) {
-  return PARCHI.find((p) => p.id === id) ?? null;
+  return PARCHI.find((p) => p.id === id) ?? (id === ID_INTORNO ? INTORNO : null);
 }
+
+// I percorsi dei parchi (senza quelli di "Intorno a me")
+export const diUnParco = (s) => s.parco !== ID_INTORNO;

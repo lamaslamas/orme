@@ -566,7 +566,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .pagina-parco h1 { font-size: 1.7rem; font-weight: 800; margin: 2px 0 0; }
 .nome-esteso { margin: 2px 0 0; font-size: 0.85rem; }
 .parco-mappa { height: 240px; background: #e9f5ee; }
-.parco-mappa #mappaParco { position: absolute; inset: 0; }
+.parco-mappa #mappaParco, .parco-mappa #mappaIntorno { position: absolute; inset: 0; }
 .piccolo { font-size: 0.78rem; margin-top: 6px !important; }
 .elenco-import { list-style: none; margin: 0 0 90px; padding: 0; background: var(--scheda); border-radius: var(--raggio); box-shadow: var(--ombra); }
 .elenco-import li { padding: 4px 14px; border-bottom: 1px solid var(--bordo); }
@@ -1461,3 +1461,13 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
   padding: 0 10px; font-size: 0.74rem; color: var(--testo-tenue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .carta-specie.scelta .specie-parchi { color: rgba(255, 255, 255, 0.8); }
+
+/* --- Intorno a me --- */
+.zona-intorno { display: grid; gap: 10px; }
+.zona-intorno .stato-intorno { margin: 0; }
+.zona-intorno .scelta-raggio { justify-self: start; }
+.azioni-intorno { display: flex; flex-wrap: wrap; gap: 8px; }
+.azioni-intorno .bottone[hidden] { display: none; }
+.azioni-intorno .bottone { display: inline-flex; align-items: center; gap: 6px; }
+.azioni-intorno .bottone svg { width: 18px; height: 18px; }
+.nota-intorno { margin-top: 16px; }

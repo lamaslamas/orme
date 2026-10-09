@@ -11,15 +11,18 @@ import { ICONE } from './icone.js';
 
 // I filtri vivono nello stato condiviso: parco e animale sono gli stessi della
 // heatmap e restano scelti passando da una sezione all'altra.
+// In "Intorno a me" (una zona, non un parco) parco e animale dei parchi non valgono e non si toccano.
 export function leggiFiltri(parcoFisso = null) {
   const st = stato.leggi();
-  return { ...FILTRI_VUOTI, ...st.filtri, parco: parcoFisso ?? st.parco, animale: st.specie };
+  const zona = parcoDa(parcoFisso)?.zona;
+  return { ...FILTRI_VUOTI, ...st.filtri, parco: parcoFisso ?? st.parco, animale: zona ? '' : st.specie };
 }
 
 function salvaFiltri(filtri) {
   const { parco, animale, ...altri } = filtri;
   const voci = Object.fromEntries(Object.keys(stato.leggi().filtri).map((k) => [k, altri[k] ?? '']));
-  stato.imposta({ parco: parco ?? '', specie: animale ?? '', filtri: voci });
+  if (parcoDa(parco)?.zona) stato.imposta({ filtri: voci });
+  else stato.imposta({ parco: parco ?? '', specie: animale ?? '', filtri: voci });
 }
 
 // Animali da proporre: quelli del parco scelto, oppure di tutti i parchi

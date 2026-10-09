@@ -2,7 +2,7 @@
 // previsioni di Open-Meteo alla partenza e in quota, alla durata e alle tue preferenze.
 // A Open-Meteo vanno solo coordinate e quote dei sentieri. Preferenze e scelte restano sul telefono.
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
-import { PARCHI, parcoDa } from '../datiParchi.js';
+import { PARCHI, parcoDa, diUnParco } from '../datiParchi.js';
 import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
@@ -116,7 +116,8 @@ function htmlPreferenze(s) {
 }
 
 export async function vistaDoveVado(app) {
-  const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const sentieri = tutti.filter(diUnParco);
   const preparati = preparaPercorsi(sentieri, tracce);
   let scelte = leggi(CHIAVE_SCELTE, { giorno: 1, durata: '', parco: '', notte: false, acqua: false });
   let soglie = leggi(CHIAVE_SOGLIE, SOGLIE_PREDEFINITE);

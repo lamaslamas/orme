@@ -1,5 +1,5 @@
 import { ANIMALI } from './costanti.js';
-import { PARCHI } from '../datiParchi.js';
+import { PARCHI, ID_INTORNO } from '../datiParchi.js';
 import { animaliPossibili, possibilitaFauna } from './faunaPercorso.js';
 
 export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '' };
@@ -15,7 +15,8 @@ export function normalizza(s) {
 export function filtraSentieri(sentieri, filtri) {
   const testo = normalizza(filtri.testo);
   return sentieri.filter((s) => {
-    if (filtri.parco && !(s.parchi ?? [s.parco || 'pnalm']).includes(filtri.parco)) return false;
+    // "Intorno a me": l'elenco è già quello della zona (anche percorsi dei parchi vicini)
+    if (filtri.parco && filtri.parco !== ID_INTORNO && !(s.parchi ?? [s.parco || 'pnalm']).includes(filtri.parco)) return false;
     // animali delle associazioni e quelli osservati su iNaturalist lungo il percorso o nella zona
     if (filtri.animale && !animaliPossibili(s).includes(filtri.animale)) return false;
     if (filtri.stato && s.stato !== filtri.stato) return false;

@@ -48,8 +48,8 @@ export function ritagliaESemplifica(linee, [s, o, n, e], margine = MARGINE) {
   return { linee: pezzi.map((l) => arrotonda(semplifica(l, TOLLERANZA))).filter((l) => l.length > 1), ritagliata };
 }
 
-export function candidatiMtb(json, idParco) {
-  const parco = parcoDa(idParco);
+// area: il parco, oppure una zona con il suo riquadro (es. "Intorno a me")
+export function candidatiMtb(json, idParco, parco = parcoDa(idParco)) {
   const tag = new Map((json?.elements ?? []).filter((e) => e.type === 'relation').map((e) => [e.id, e.tags ?? {}]));
   const candidati = [];
   const geometrieViste = new Set();
@@ -68,7 +68,7 @@ export function candidatiMtb(json, idParco) {
     const rif = t.ref ? `MTB ${t.ref}` : 'MTB';
     const zona = [t.from, t.to].filter(Boolean).join(' – ');
     const nome = t.name ? (/\bmtb\b/i.test(t.name) && !t.ref ? t.name : `${t.name} (${rif})`) : `Itinerario ${rif}`;
-    const descrizione = [t.description, ritagliata ? "Itinerario più lungo: qui c'è solo il tratto nel parco e nei dintorni." : '']
+    const descrizione = [t.description, ritagliata ? `Itinerario più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : 'nel parco e nei dintorni'}.` : '']
       .filter(Boolean)
       .join(' ')
       .slice(0, 280);

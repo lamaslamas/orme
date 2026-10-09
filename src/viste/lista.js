@@ -55,12 +55,13 @@ const DIFFICOLTA_BREVE = { T: 'T · turistico', E: 'E · escursionistico', EE: '
 
 // Scheda di un percorso in lista: copertina (foto lungo il sentiero o disegno della traccia),
 // difficoltà e pulsante salva sopra; sotto nome, tre numeri con icona, fauna e poche etichette
-export function schedaInLista(s, traccia, mostraParco = true, compat = null) {
+// nota: testo breve accanto al parco (es. la distanza in "Intorno a me")
+export function schedaInLista(s, traccia, mostraParco = true, compat = null, nota = '') {
   const m = misureSentiero(s, traccia);
   const tipo = s.accesso?.tipo || 'nessuno';
   const foto = copertina(s, traccia);
   const cod = s.codici?.length ? codici(s) : '';
-  const parchi = mostraParco ? (s.parchi ?? [s.parco]).map((id) => parcoDa(id)?.nomeBreve).filter(Boolean).join(' · ') : '';
+  const parchi = [nota, mostraParco ? (s.parchi ?? [s.parco]).map((id) => parcoDa(id)?.nomeBreve).filter(Boolean).join(' · ') : ''].filter(Boolean).join(' · ');
   const dati = [
     m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
     m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
@@ -117,7 +118,8 @@ function collegaSalvaDaLista() {
 // Elenco dei sentieri con ricerca e filtri, usato dalla pagina Parchi e da quella di ogni parco
 // alRisultato(risultato): chiamata a ogni aggiornamento (es. per mostrare sulla mappa gli stessi percorsi)
 // serveUnFiltro: l'elenco compare solo dopo aver scelto almeno un filtro (pagina iniziale)
-export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false } = {}) {
+// ordina(risultato): ordine diverso da quello normale; nota(percorso): testo breve sulla scheda
+export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false, ordina = null, nota = null } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
     ${htmlFiltri(sentieri, filtri, { ricerca })}
@@ -140,7 +142,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   let ultimoRisultato = [];
   let quanti = PAGINA;
   const htmlPagina = (da) => {
-    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat)).join('');
+    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '')).join('');
     const resto = ultimoRisultato.length - quanti;
     return pezzo + (resto > 0 ? `<li class="altri"><button type="button" class="bottone pieno-largo" data-azione="altri">Mostra altri ${Math.min(PAGINA, resto)} (ne restano ${resto})</button></li>` : '');
   };
@@ -176,7 +178,8 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
     filtri,
     () => {
       const attivita = stato.leggi().attivita;
-      const risultato = filtraPercorsi(preparati, filtri, attivita);
+      const filtrati = filtraPercorsi(preparati, filtri, attivita);
+      const risultato = ordina ? ordina(filtrati) : filtrati;
       conteggio.textContent = `${risultato.length} ${risultato.length === 1 ? 'percorso' : 'percorsi'}${
         attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''
       }`;

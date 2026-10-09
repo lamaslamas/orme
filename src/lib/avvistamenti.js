@@ -47,7 +47,7 @@ export function avvistamentoDaModulo(v, precedente = {}) {
     individui,
     note: (v.note ?? '').trim(),
     sentieroId: v.sentieroId || null,
-    parco: parcoDa(v.parco) ? v.parco : null,
+    parco: parcoDa(v.parco) && !parcoDa(v.parco).zona ? v.parco : null,
   });
 }
 
@@ -63,7 +63,8 @@ export function sentieriVicini(punto, sentieri, tracce, raggioM = RAGGIO_SENTIER
 
 // Parco proposto: quello del confine che contiene il punto, altrimenti quello del sentiero vicino
 export function parcoProposto(punto, confini, sentieroVicino = null) {
-  return parcoDelPunto([punto.lon, punto.lat], confini) ?? sentieroVicino?.parco ?? null;
+  const delSentiero = sentieroVicino?.parco && !parcoDa(sentieroVicino.parco)?.zona ? sentieroVicino.parco : null;
+  return parcoDelPunto([punto.lon, punto.lat], confini) ?? delSentiero;
 }
 
 export function filtraAvvistamenti(avvistamenti, { parco = '', animale = '' } = {}) {

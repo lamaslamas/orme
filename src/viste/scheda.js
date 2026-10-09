@@ -306,7 +306,7 @@ export async function vistaScheda(app, id) {
   const puntoPartenza = puntoDiPartenza(s, traccia);
 
   app.innerHTML = `
-    <a class="indietro" href="#/">‹ Parchi</a>
+    ${parco?.zona ? '<a class="indietro" href="#/intorno">‹ Intorno a me</a>' : '<a class="indietro" href="#/">‹ Parchi</a>'}
     <article class="scheda">
       <aside class="scheda-laterale">
       ${
@@ -323,11 +323,15 @@ export async function vistaScheda(app, id) {
       </div>
       <h1>${escapeHtml(s.nome)}</h1>
       <div class="sotto-titolo">
-        ${parco ? `<a class="link-parco" href="#/parco/${encodeURIComponent(parco.id)}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
+        ${parco ? `<a class="link-parco" href="${parco.zona ? '#/intorno' : `#/parco/${encodeURIComponent(parco.id)}`}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
         <a class="link-modifica" href="#/sentiero/${idUrl}/modifica">Modifica</a>
       </div>
       ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
-      <p class="nota-regole">${ICONE.avviso}<span>Resta sui sentieri · <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">regole e chiusure del Parco ↗</a></span></p>
+      <p class="nota-regole">${ICONE.avviso}<span>${
+        parco?.zona
+          ? `Resta sul tracciato: spesso attraversa proprietà private · <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">fonte ↗</a>`
+          : `Resta sui sentieri · <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">regole e chiusure del Parco ↗</a>`
+      }</span></p>
       <div class="chips">
         ${(s.animali ?? []).map((a) => `<span class="chip chip-${a}">${ANIMALI[a] ?? escapeHtml(a)}</span>`).join('')}
         ${bollinoBici(s)}

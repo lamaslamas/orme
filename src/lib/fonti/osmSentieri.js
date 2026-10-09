@@ -28,8 +28,8 @@ export function eViaFerrata(tagRelazione = {}, tagTratti = []) {
 const MOTIVO_FERRATA = 'Via ferrata: servono imbrago, set da ferrata, casco ed esperienza';
 const MINIMO_KM = 0.5;
 
-export function candidatiSentieri(json, idParco) {
-  const parco = parcoDa(idParco);
+// area: il parco, oppure una zona con il suo riquadro (es. "Intorno a me")
+export function candidatiSentieri(json, idParco, parco = parcoDa(idParco)) {
   const tag = new Map((json?.elements ?? []).filter((e) => e.type === 'relation').map((e) => [e.id, e.tags ?? {}]));
   // tag dei tratti di ogni relazione (per riconoscere le vie ferrate)
   const tagWay = new Map((json?.elements ?? []).filter((e) => e.type === 'way').map((e) => [e.id, e.tags ?? {}]));
@@ -72,7 +72,7 @@ export function candidatiSentieri(json, idParco) {
       organizzatore: t.operator ?? '',
       titoloFonte: 'OpenStreetMap (ODbL)',
       parco: idParco,
-      descrizione: [t.description, ritagliata ? "Sentiero più lungo: qui c'è solo il tratto nel parco e nei dintorni." : ''].filter(Boolean).join(' ').slice(0, 280),
+      descrizione: [t.description, ritagliata ? `Sentiero più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : 'nel parco e nei dintorni'}.` : ''].filter(Boolean).join(' ').slice(0, 280),
       animali: [],
       lunghezzaKm: km,
       // percorribile a piedi perché segnato; la bici resta da valutare (regole del parco e terreno)

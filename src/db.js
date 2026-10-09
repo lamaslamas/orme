@@ -17,6 +17,8 @@ import { completaAvvistamento } from './lib/avvistamenti.js';
 import { completaPercorso } from './lib/percorso.js';
 import { pianoSincronizzazione, controllaArchivio } from './lib/archivio.js';
 import { inBase64, daBase64, fotoValida } from './lib/foto.js';
+import { haDatiMiei } from './lib/intorno.js';
+import { ID_INTORNO } from './datiParchi.js';
 
 const NOME_DB = 'orme';
 // 1: sentieri, tracce, meta
@@ -272,6 +274,43 @@ export async function eliminaFoto(id) {
   const tx = db.transaction('foto', 'readwrite');
   tx.objectStore('foto').delete(id);
   await fine(tx);
+}
+
+// --- Intorno a me (solo sul dispositivo) ---
+// meta "intorno": { centro: [lon, lat], raggioKm, aggiornato }
+
+export const leggiIntorno = async () => (await leggiDa('meta', 'intorno')) ?? null;
+
+// Sostituisce i percorsi della zona con quelli appena scaricati. Quelli con dati miei (salvati,
+// fatti, note) restano anche se escono dalla zona; una traccia che ho cambiato io non si tocca.
+export async function salvaIntorno({ centro, raggioKm, percorsi }) {
+  const [miei, tracce] = await Promise.all([tuttiDa('sentieri'), tuttiDa('tracce')]);
+  const precedenti = new Map(miei.filter((s) => s.parco === ID_INTORNO).map((s) => [s.id, s]));
+  const tracceSalvate = new Map(tracce.map((t) => [t.sentieroId, t]));
+  const nuovi = new Set(percorsi.map((p) => p.sentiero.id));
+  const db = await apriDb();
+  const tx = db.transaction(['sentieri', 'tracce', 'meta'], 'readwrite');
+  const adesso = new Date().toISOString();
+  for (const [id, s] of precedenti) {
+    if (nuovi.has(id) || haDatiMiei(s)) continue;
+    tx.objectStore('sentieri').delete(id);
+    tx.objectStore('tracce').delete(id);
+  }
+  for (const { sentiero, traccia } of percorsi) {
+    const prima = precedenti.get(sentiero.id);
+    const personali = prima ? Object.fromEntries(['stato', 'dataPercorso', 'notePersonali', 'salvato', 'creato', 'quote'].filter((k) => prima[k] != null).map((k) => [k, prima[k]])) : {};
+    tx.objectStore('sentieri').put(completaSentiero({ ...sentiero, ...personali, creato: personali.creato ?? adesso, modificato: adesso }));
+    const t = tracceSalvate.get(sentiero.id);
+    if (!t || t.dettagli?.intorno) tx.objectStore('tracce').put({ ...traccia, salvata: adesso });
+  }
+  tx.objectStore('meta').put({ chiave: 'intorno', centro, raggioKm, aggiornato: adesso });
+  await fine(tx);
+}
+
+// Profilo delle quote calcolato sul telefono
+export async function salvaQuote(id, quote) {
+  const s = await leggiDa('sentieri', id);
+  if (s) await scriviIn('sentieri', { ...s, quote });
 }
 
 // --- Archivio pubblico ---

@@ -65,7 +65,7 @@ export async function vistaModifica(app, id, parcoIniziale = null) {
         <legend>Sentiero</legend>
         ${campo(
           'Parco',
-          `<select name="parco">${PARCHI.map((p) => `<option value="${p.id}" ${s.parco === p.id ? 'selected' : ''}>${v(p.nomeBreve)}</option>`).join('')}</select>`,
+          `<select name="parco">${[...PARCHI, ...(parcoDa(s.parco)?.zona ? [parcoDa(s.parco)] : [])].map((p) => `<option value="${p.id}" ${s.parco === p.id ? 'selected' : ''}>${v(p.nomeBreve)}</option>`).join('')}</select>`,
         )}
         <div class="due">
           ${campo('Codici del sentiero', `<input name="codici" value="${v((s.codici ?? []).join(', '))}" placeholder="F10, B4" autocapitalize="characters" />`, 'Separati da virgola')}

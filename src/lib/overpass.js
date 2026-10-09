@@ -32,7 +32,8 @@ function escapeRegex(s) {
 export function costruisciQuery(codici, idParco = PARCO_PREDEFINITO) {
   const lista = codici.map((c) => escapeRegex(c.trim())).filter(Boolean);
   if (!lista.length) throw new Error('Il sentiero non ha codici da cercare.');
-  const parco = parcoDa(idParco) ?? parcoDa(PARCO_PREDEFINITO);
+  // una zona senza riquadro ("Intorno a me") non si può cercare: si usa il parco predefinito
+  const parco = parcoDa(idParco)?.bbox ? parcoDa(idParco) : parcoDa(PARCO_PREDEFINITO);
   const ref = `^(PNALM[ -]?|CAI[ -]?)?(${lista.join('|')})$`;
   const [s, o, n, e] = parco.bbox;
   const { prima, filtro } = dentroIlParco(parco);
