@@ -14,6 +14,7 @@ import {
   animaliDelMese,
   MAX_LUOGHI_RICHIESTA,
   datiPerMeteo,
+  giornoAllaQuota,
   ordinaClassifica,
 } from '../src/lib/condizioni.js';
 import { profiloQuote } from '../src/lib/profiloQuote.js';
@@ -53,23 +54,29 @@ function risposta(base = {}, modifica = () => ({})) {
 const domani = (r) => giorniDaRisposta(r)['2026-10-10'];
 
 describe('previsioni: punti e richieste', () => {
-  it('raggruppa i punti vicini nella stessa cella e fascia di quota', () => {
-    const a = puntoMeteo(13.812, 41.79, 1540);
-    const b = puntoMeteo(13.79, 41.81, 1460);
-    expect(a.chiave).toBe(b.chiave);
-    expect(a).toMatchObject({ lon: 13.8, lat: 41.8, quota: 1500 });
-    expect(puntoMeteo(13.8, 41.8).chiave).toBe('41.8,13.8,dem');
+  it('raggruppa i punti vicini nella stessa cella', () => {
+    expect(puntoMeteo(13.812, 41.79).chiave).toBe(puntoMeteo(13.79, 41.81).chiave);
+    expect(puntoMeteo(13.812, 41.79)).toMatchObject({ lon: 13.8, lat: 41.8, chiave: '41.8,13.8' });
   });
 
-  it('divide le richieste e usa "nan" quando la quota non è nota', () => {
-    const punti = Array.from({ length: MAX_LUOGHI_RICHIESTA + 3 }, (_, i) => ({ lon: 13 + i / 10, lat: 41, quota: i ? 1000 : null }));
+  it('divide le richieste in gruppi', () => {
+    const punti = Array.from({ length: MAX_LUOGHI_RICHIESTA + 3 }, (_, i) => ({ lon: 13 + i / 10, lat: 41 }));
     const r = urlPrevisioni(punti);
     expect(r).toHaveLength(2);
     expect(r[1].punti).toHaveLength(3);
     const u = new URL(r[0].url);
-    expect(u.searchParams.get('elevation').startsWith('nan,1000')).toBe(true);
+    expect(u.searchParams.get('elevation')).toBeNull();
     expect(u.searchParams.get('timezone')).toBe('Europe/Rome');
     expect(u.searchParams.get('past_days')).toBe('3');
+  });
+
+  it('porta le temperature alla quota del percorso', () => {
+    const g = { ...giorniDaRisposta({ ...risposta(), elevation: 1000 })['2026-10-10'] };
+    expect(g.quota).toBe(1000);
+    const vetta = giornoAllaQuota(g, 2000);
+    expect(vetta.ore[0].t).toBeCloseTo(12 - 6.5, 5);
+    expect(vetta.ore[0].tp).toBeCloseTo(10 - 6.5, 5);
+    expect(giornoAllaQuota(g, null)).toBe(g);
   });
 
   it('legge la risposta: ore del giorno, alba, tramonto e pioggia dei 3 giorni prima', () => {
@@ -243,7 +250,7 @@ describe('dai percorsi ai punti meteo', () => {
   it('usa partenza e punto più alto del profilo', () => {
     const quote = { partenza: { lon: 13.81, lat: 41.79, quota: 1100 }, alto: { lon: 13.95, lat: 41.85, quota: 2000 }, min: 1100, max: 2000, salita: 900 };
     const d = datiPerMeteo({ sentiero, traccia, misure: { durataMin: 300, km: 12 } }, 'trekking', quote);
-    expect(d.basso.quota).toBe(1100);
+    expect(d.basso).toMatchObject({ chiave: '41.8,13.8', quota: 1100 });
     expect(d.alto).toMatchObject({ quota: 2000, lon: 13.9 });
     expect(d.durataMin).toBe(300);
     expect(d.percorso).toMatchObject({ quotaMax: 2000, panorama: 70, apertura: 60 });
@@ -251,7 +258,7 @@ describe('dai percorsi ai punti meteo', () => {
 
   it('senza profilo: inizio della traccia e quota dal modello del terreno; bici con la sua durata', () => {
     const d = datiPerMeteo({ sentiero: { id: 'b' }, traccia, misure: { km: 24, salita: 500 } }, 'mtb');
-    expect(d.basso.chiave).toBe('41.8,13.8,dem');
+    expect(d.basso).toMatchObject({ chiave: '41.8,13.8', quota: null });
     expect(d.alto).toBeNull();
     expect(d.durataMin).toBe(150);
     expect(datiPerMeteo({ sentiero: { id: 'c', partenza: {} }, traccia: null, misure: {} }, 'trekking')).toBeNull();

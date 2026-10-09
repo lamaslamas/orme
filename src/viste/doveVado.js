@@ -20,10 +20,35 @@ import {
   nellaDurata,
   datiPerMeteo,
   ordinaClassifica,
+  giornoAllaQuota,
   animaliDelMese,
 } from '../lib/condizioni.js';
 import { stato } from '../stato.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
+import { caricaPunti } from './puntiUtili.js';
+import { puntiLungoIlPercorso, perLaNotte, conAcqua, riassuntoPunti, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
+
+// Icone semplici a linea (stesso stile, colore del testo)
+const svg = (d) => `<svg class="icona" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICONE = {
+  orologio: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  bandierina: svg('<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>'),
+  avviso: svg('<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/>'),
+  ok: svg('<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'),
+  nuvola: svg('<path d="M7 18h10a4 4 0 0 0 0-8 6 6 0 0 0-11.5 1.5A3.3 3.3 0 0 0 7 18z"/>'),
+  casa: svg('<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>'),
+  goccia: svg('<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>'),
+  zampa: svg('<circle cx="7" cy="10" r="1.6"/><circle cx="11" cy="6.5" r="1.6"/><circle cx="15.5" cy="7" r="1.6"/><circle cx="18" cy="11" r="1.6"/><path d="M8.5 17c0-2.5 2-4.5 4-4.5s4 2 4 4.5c0 1.5-1.2 2.5-2.6 2.5-1 0-1-.6-1.4-.6s-.5.6-1.5.6c-1.4 0-2.5-1-2.5-2.5z"/>'),
+  parco: svg('<path d="M12 3 6 13h4l-3 5h10l-3-5h4z"/><path d="M12 18v3"/>'),
+  segnaposto: svg('<path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
+};
+// giudizio: cerchio pieno colorato con il segno dentro
+const giudizio = (colore, d) => `<svg class="icona-giudizio" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="${colore}"/><path d="${d}" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICONE_GIUDIZIO = {
+  ok: giudizio('#3f8f4f', 'm7 12.5 3.2 3.2L17 9'),
+  attenzione: giudizio('#c98a1b', 'M12 7v6M12 16.5v.5'),
+  sconsigliato: giudizio('#b5473a', 'M8 8l8 8M16 8l-8 8'),
+};
 
 const CHIAVE_SCELTE = 'orme.doveVado';
 const CHIAVE_SOGLIE = 'orme.preferenzeMeteo';
@@ -52,18 +77,36 @@ function dataTra(n) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// previsioni già scaricate in questa sessione: chiave del punto → { giorni, quando }
+// previsioni già scaricate: chiave della cella → { giorni, quando }. Restano anche sul dispositivo
+// per un'ora, così riaprire la pagina non le scarica di nuovo (Open-Meteo è gratuito: con calma)
+const CHIAVE_PREVISIONI = 'orme.previsioni';
 const memoria = new Map();
+try {
+  const salvate = JSON.parse(localStorage.getItem(CHIAVE_PREVISIONI) ?? '{}');
+  for (const [k, v] of Object.entries(salvate)) if (v.quando > Date.now() - VALIDITA_MS) memoria.set(k, v);
+} catch {
+  // niente memoria del dispositivo: si scaricano ogni volta
+}
+function salvaPrevisioni() {
+  const recenti = Object.fromEntries([...memoria].filter(([, v]) => v.quando > Date.now() - VALIDITA_MS));
+  try {
+    localStorage.setItem(CHIAVE_PREVISIONI, JSON.stringify(recenti));
+  } catch {
+    // spazio esaurito: restano solo in questa sessione
+  }
+}
 async function scaricaPrevisioni(punti, { segnale } = {}) {
   const adesso = Date.now();
   const mancanti = punti.filter((p) => !(memoria.get(p.chiave)?.quando > adesso - VALIDITA_MS));
   for (const { url, punti: gruppo } of urlPrevisioni(mancanti)) {
     const r = await fetch(url, { signal: segnale });
+    if (r.status === 429) throw new Error('troppe richieste a Open-Meteo, riprova tra un minuto');
     if (!r.ok) throw new Error(`Open-Meteo ha risposto ${r.status}`);
     const json = await r.json();
     const risposte = Array.isArray(json) ? json : [json];
     gruppo.forEach((p, i) => memoria.set(p.chiave, { giorni: giorniDaRisposta(risposte[i]), quando: adesso }));
   }
+  if (mancanti.length) salvaPrevisioni();
 }
 
 function htmlPreferenze(s) {
@@ -89,7 +132,7 @@ function htmlPreferenze(s) {
 export async function vistaDoveVado(app) {
   const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   const preparati = preparaPercorsi(sentieri, tracce);
-  let scelte = leggi(CHIAVE_SCELTE, { giorno: 1, durata: '', parco: '' });
+  let scelte = leggi(CHIAVE_SCELTE, { giorno: 1, durata: '', parco: '', notte: false, acqua: false });
   let soglie = leggi(CHIAVE_SOGLIE, SOGLIE_PREDEFINITE);
   let mostrati = PAGINA;
   let ancheSconsigliati = false;
@@ -97,26 +140,46 @@ export async function vistaDoveVado(app) {
   let controllo = null;
 
   app.innerHTML = `
-    <a class="indietro" href="#/pianifica">‹ Pianifica</a>
-    <h1 class="titolo-pagina">Dove vado ${scelte.giorno ? 'domani' : 'oggi'}?</h1>
-    <div class="segmenti scelta-giorno" role="radiogroup" aria-label="Giorno">
-      <button type="button" role="radio" class="segmento" data-giorno="0">Oggi</button>
-      <button type="button" role="radio" class="segmento" data-giorno="1">Domani</button>
+    <div class="pagina-meteo">
+      <a class="indietro" href="#/pianifica">‹ Pianifica</a>
+      <h1 class="titolo-pagina">Dove vado ${scelte.giorno ? 'domani' : 'oggi'}?</h1>
+      <section class="pannello-scelte" aria-label="Scelte">
+        <div class="scelte-riga">
+          <div class="segmenti scelta-giorno" role="radiogroup" aria-label="Giorno">
+            <button type="button" role="radio" class="segmento" data-giorno="0">Oggi</button>
+            <button type="button" role="radio" class="segmento" data-giorno="1">Domani</button>
+          </div>
+          ${htmlSelettoreAttivita({ titolo: false })}
+        </div>
+        <div class="scelta">
+          <span class="scelta-nome">${ICONE.orologio}Durata</span>
+          <div class="pillole" role="group" aria-label="Durata">
+            <button type="button" class="pillola" data-durata="">Qualsiasi</button>
+            ${Object.entries(DURATE).map(([k, d]) => `<button type="button" class="pillola" data-durata="${k}">${d.nome}</button>`).join('')}
+          </div>
+        </div>
+        <div class="scelta">
+          <span class="scelta-nome">${ICONE.parco}Parco</span>
+          <div class="pillole" role="group" aria-label="Parco">
+            <button type="button" class="pillola" data-parco="">Tutti</button>
+            ${PARCHI.map((p) => `<button type="button" class="pillola" data-parco="${p.id}">${escapeHtml(p.nomeBreve)}</button>`).join('')}
+          </div>
+        </div>
+        <div class="scelta">
+          <span class="scelta-nome">${ICONE.segnaposto}Lungo il percorso</span>
+          <div class="pillole" role="group" aria-label="Lungo il percorso">
+            <button type="button" class="pillola" data-filtro="notte" aria-pressed="false">${ICONE.casa}Rifugio o bivacco per la notte</button>
+            <button type="button" class="pillola" data-filtro="acqua" aria-pressed="false">${ICONE.goccia}Acqua</button>
+          </div>
+        </div>
+      </section>
+      <div id="parchiMeteo"></div>
+      <div id="esito" aria-live="polite"></div>
+      ${htmlPreferenze(soglie)}
+      <p class="tenue piccolo fonte-meteo">Previsioni <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), alla quota di partenza e del punto più alto.
+        Rifugi, bivacchi e acqua da OpenStreetMap, entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia: verifica sul posto.
+        È una valutazione delle previsioni, non una garanzia di sicurezza: controlla il meteo prima di partire e i bollettini valanghe d'inverno.</p>
     </div>
-    ${htmlSelettoreAttivita({ titolo: false })}
-    <div class="pillole scelta-durata" role="group" aria-label="Durata">
-      <button type="button" class="pillola" data-durata="">Qualsiasi durata</button>
-      ${Object.entries(DURATE).map(([k, d]) => `<button type="button" class="pillola" data-durata="${k}">${d.nome}</button>`).join('')}
-    </div>
-    <div class="pillole scelta-parco" role="group" aria-label="Parco">
-      <button type="button" class="pillola" data-parco="">Tutti i parchi</button>
-      ${PARCHI.map((p) => `<button type="button" class="pillola" data-parco="${p.id}">${escapeHtml(p.nomeBreve)}</button>`).join('')}
-    </div>
-    <div id="parchiMeteo"></div>
-    <div id="esito" aria-live="polite"></div>
-    ${htmlPreferenze(soglie)}
-    <p class="tenue piccolo fonte-meteo">Previsioni <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), alla quota di partenza e del punto più alto.
-      È una valutazione delle previsioni, non una garanzia di sicurezza: controlla il meteo prima di partire e i bollettini valanghe d'inverno.</p>
   `;
 
   const titolo = app.querySelector('.titolo-pagina');
@@ -132,6 +195,20 @@ export async function vistaDoveVado(app) {
     }
     for (const b of app.querySelectorAll('[data-durata]')) b.classList.toggle('attiva', b.dataset.durata === scelte.durata);
     for (const b of app.querySelectorAll('[data-parco]')) b.classList.toggle('attiva', b.dataset.parco === scelte.parco);
+    for (const b of app.querySelectorAll('[data-filtro]')) {
+      const attivo = Boolean(scelte[b.dataset.filtro]);
+      b.classList.toggle('attiva', attivo);
+      b.setAttribute('aria-pressed', String(attivo));
+    }
+  }
+
+  // rifugi e acqua vicino a ogni traccia (calcolati una volta per percorso)
+  let puntiUtili = null;
+  const vicini = new Map();
+  function puntiVicini(p) {
+    if (!puntiUtili || !p.traccia?.geojson) return [];
+    if (!vicini.has(p.sentiero.id)) vicini.set(p.sentiero.id, puntiLungoIlPercorso(puntiUtili, p.traccia.geojson));
+    return vicini.get(p.sentiero.id);
   }
 
   function candidati() {
@@ -139,6 +216,8 @@ export async function vistaDoveVado(app) {
     return filtraPercorsi(preparati, { ...FILTRI_VUOTI }, attivita)
       .filter((p) => p.sentiero.tipoPercorso !== 'uscita_guidata') // le uscite guidate hanno le loro date
       .filter((p) => !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
+      .map((p) => ({ ...p, vicini: puntiVicini(p) }))
+      .filter((p) => (!scelte.notte || p.vicini.some(perLaNotte)) && (!scelte.acqua || p.vicini.some(conAcqua)))
       .map((p) => ({ ...p, meteo: datiPerMeteo(p, attivita, quoteDellaTraccia(p.sentiero, p.traccia)) }))
       .filter((p) => p.meteo);
   }
@@ -148,12 +227,21 @@ export async function vistaDoveVado(app) {
     controllo?.abort();
     controllo = new AbortController();
     evidenzia();
+    if ((scelte.notte || scelte.acqua) && !puntiUtili) {
+      puntiUtili = await caricaPunti();
+      if (mia !== richiesta) return;
+      if (!puntiUtili) {
+        parchiMeteo.innerHTML = '';
+        esito.innerHTML = '<p class="stato-dati stato-assente">Dati su rifugi e acqua non raggiungibili ora: togli il filtro "Lungo il percorso" o riprova.</p>';
+        return;
+      }
+    }
     const attivita = stato.leggi().attivita;
     const data = dataTra(scelte.giorno);
     const lista = candidati();
     if (!lista.length) {
       parchiMeteo.innerHTML = '';
-      esito.innerHTML = '<p class="vuoto">Nessun percorso con traccia per questa scelta.</p>';
+      esito.innerHTML = `<p class="vuoto">Nessun percorso con traccia per questa scelta${scelte.notte || scelte.acqua ? ': prova a togliere un filtro "Lungo il percorso"' : ''}.</p>`;
       return;
     }
     const punti = new Map();
@@ -163,34 +251,43 @@ export async function vistaDoveVado(app) {
       await scaricaPrevisioni([...punti.values()], { segnale: controllo.signal });
     } catch (e) {
       if (mia !== richiesta || e.name === 'AbortError') return;
-      esito.innerHTML = `<p class="stato-dati stato-assente">Previsioni non disponibili ora${navigator.onLine === false ? ' (sei offline)' : ''}. <button type="button" class="link" data-azione="riprova">Riprova</button></p>`;
+      esito.innerHTML = `<p class="stato-dati stato-assente">Previsioni non disponibili ora (${navigator.onLine === false ? 'sei offline' : escapeHtml(e.message)}). <button type="button" class="link" data-azione="riprova">Riprova</button></p>`;
       return;
     }
     if (mia !== richiesta) return;
+    // i punti servono anche senza filtri, per mostrare rifugi e acqua nelle schede
+    if (!puntiUtili) {
+      puntiUtili = await caricaPunti();
+      if (mia !== richiesta) return;
+      if (puntiUtili) for (const p of lista) p.vicini = puntiVicini(p);
+    }
 
     const ora = new Date();
     const dopoMin = scelte.giorno === 0 ? ora.getHours() * 60 + ora.getMinutes() + 60 : 0; // oggi: almeno un'ora per arrivare
     const mese = Number(data.slice(5, 7));
     const voci = [];
     for (const p of lista) {
-      const basso = memoria.get(p.meteo.basso.chiave)?.giorni[data];
-      const alto = p.meteo.alto ? memoria.get(p.meteo.alto.chiave)?.giorni[data] : null;
+      const basso = giornoAllaQuota(memoria.get(p.meteo.basso.chiave)?.giorni[data], p.meteo.basso.quota);
+      const alto = p.meteo.alto ? giornoAllaQuota(memoria.get(p.meteo.alto.chiave)?.giorni[data], p.meteo.alto.quota) : null;
       const giudizio = giudicaGiornata({ basso, alto, durataMin: p.meteo.durataMin, percorso: p.meteo.percorso, soglie, attivita, dopoMin });
       if (!giudizio || !nellaDurata(giudizio.durataPrevista, scelte.durata)) continue;
       voci.push({ ...p, giudizio, panorama: p.meteo.percorso.panorama, animali: animaliDelMese(p.sentiero.faunaInat, mese) });
     }
 
-    // riga dei parchi: com'è la giornata in ciascuno
-    const perParco = PARCHI.map((parco) => ({
-      parco,
-      r: riassuntoParco(voci.filter((v) => (v.sentiero.parchi ?? [v.sentiero.parco]).includes(parco.id)).map((v) => v.giudizio)),
-    })).filter((x) => x.r);
+    // com'è la giornata in ciascun parco (solo quando non se ne è scelto uno)
+    const perParco = scelte.parco
+      ? []
+      : PARCHI.map((parco) => ({
+          parco,
+          r: riassuntoParco(voci.filter((v) => v.sentiero.parco === parco.id).map((v) => v.giudizio)),
+        })).filter((x) => x.r);
     parchiMeteo.innerHTML = perParco.length
       ? `<ul class="parchi-meteo">${perParco
           .map(
-            ({ parco, r }) => `<li class="giudizio-${r.giudizio}"><button type="button" class="parco-meteo" data-parco="${scelte.parco === parco.id ? '' : parco.id}">
-              <span class="simbolo">${GIUDIZI[r.giudizio].simbolo}</span><b>${escapeHtml(parco.nomeBreve)}</b>
-              <span class="tenue piccolo">${r.conta.ok} favorevoli${r.motivo ? ` · ${r.motivi[r.motivo]} con ${escapeHtml(NOMI_FATTORI[r.motivo])}` : ''}</span></button></li>`,
+            ({ parco, r }) => `<li class="giudizio-${r.giudizio}"><button type="button" class="parco-meteo" data-parco="${parco.id}">
+              <span class="simbolo">${ICONE_GIUDIZIO[r.giudizio]}</span>
+              <span class="parco-nome">${escapeHtml(parco.nomeBreve)}</span>
+              <span class="parco-dati">${r.conta.ok} favorevoli${r.motivo ? ` · ${r.motivi[r.motivo]} con ${escapeHtml(NOMI_FATTORI[r.motivo])}` : ''}</span></button></li>`,
           )
           .join('')}</ul>`
       : '';
@@ -204,41 +301,51 @@ export async function vistaDoveVado(app) {
       <p class="conteggio">${buoni.length ? `<b>${buoni.length}</b> percorsi consigliati ${scelte.giorno ? 'domani' : 'oggi'}` : `Nessun percorso consigliato ${scelte.giorno ? 'domani' : 'oggi'}`}${
         sconsigliati ? ` · <button type="button" class="link" data-azione="sconsigliati">${ancheSconsigliati ? 'nascondi' : 'mostra anche'} i ${sconsigliati} sconsigliati</button>` : ''
       }</p>
-      <ul class="lista classifica-meteo">${visibili.map(htmlVoce).join('')}</ul>
+      <ul class="classifica-meteo">${visibili.map(htmlVoce).join('')}</ul>
       ${totale > visibili.length ? `<button type="button" class="bottone mostra-altri" data-azione="altri">Mostra altri (${totale - visibili.length})</button>` : ''}`;
   }
+
+  const riga = (icona, html, classe = '') => `<span class="riga-meteo ${classe}">${icona}<span>${html}</span></span>`;
 
   function htmlVoce(v) {
     const { sentiero: s, giudizio: g } = v;
     const problemi = g.fattori.filter((f) => f.livello !== 'info');
     const note = g.fattori.filter((f) => f.livello === 'info');
-    const motivo = problemi.length ? problemi.map((f) => f.testo).join(' · ') : 'condizioni favorevoli';
     const parco = parcoDa(s.parco)?.nomeBreve ?? '';
     const cod = codici(s);
+    const notte = (v.vicini ?? []).filter(perLaNotte);
+    const acqua = (v.vicini ?? []).filter(conAcqua);
+    const partenza = !g.partenza
+      ? ''
+      : `${g.partenza.da === g.partenza.entro ? `Parti alle <b>${g.partenza.da}</b>` : `Parti tra le <b>${g.partenza.da}</b> e le <b>${g.partenza.entro}</b>`}${
+          g.partenza.poi ? `<span class="tenue"> · più tardi: ${escapeHtml(g.partenza.poi)}</span>` : ''
+        }`;
     return `<li class="voce-meteo giudizio-${g.giudizio}">
       <a href="#/sentiero/${encodeURIComponent(s.id)}">
-        <span class="simbolo" title="${GIUDIZI[g.giudizio].nome}">${GIUDIZI[g.giudizio].simbolo}</span>
-        <span class="corpo">
+        <span class="voce-testa">
+          <span class="simbolo" title="${GIUDIZI[g.giudizio].nome}">${ICONE_GIUDIZIO[g.giudizio]}</span>
           <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>
-          <span class="motivo">${escapeHtml(motivo)}</span>
-          <span class="dati tenue piccolo">${escapeHtml(parco)} · circa ${testoDurata(g.durataPrevista)} con le soste${
-            !g.partenza
-              ? ''
-              : (g.partenza.da === g.partenza.entro ? ` · parti alle ${g.partenza.da}` : ` · parti tra le ${g.partenza.da} e le ${g.partenza.entro}`) +
-                (g.partenza.poi ? ` (più tardi: ${escapeHtml(g.partenza.poi)})` : '')
-          }${note.length ? ` · ${escapeHtml(note.map((f) => f.testo).join(' · '))}` : ''}</span>
-          ${v.animali.length ? `<span class="chip-animali">${v.animali.slice(0, 3).map((a) => `<span class="chip">${escapeHtml(ANIMALI[a] ?? a)}</span>`).join('')}</span>` : ''}
+        </span>
+        <span class="voce-corpo">
+          ${riga(problemi.length ? ICONE.avviso : ICONE.ok, escapeHtml(problemi.length ? problemi.map((f) => f.testo).join(' · ') : 'Condizioni favorevoli'), 'motivo')}
+          ${riga(ICONE.orologio, `circa <b>${testoDurata(g.durataPrevista)}</b> con le soste · ${escapeHtml(parco)}`)}
+          ${partenza ? riga(ICONE.bandierina, partenza) : ''}
+          ${note.length ? riga(ICONE.nuvola, escapeHtml(note.map((f) => f.testo).join(' · '))) : ''}
+          ${notte.length ? riga(ICONE.casa, escapeHtml(notte.slice(0, 2).map((p) => `${p.nome ?? TIPI_PUNTO[p.tipo].nome}${p.distanzaM >= 30 ? ` (${p.distanzaM} m)` : ''}`).join(', ')), 'rifugi') : ''}
+          ${acqua.length ? riga(ICONE.goccia, escapeHtml(riassuntoPunti(acqua)), 'acqua') : ''}
+          ${v.animali.length ? riga(ICONE.zampa, v.animali.slice(0, 3).map((a) => escapeHtml(ANIMALI[a] ?? a)).join(', '), 'animali') : ''}
         </span>
       </a>
     </li>`;
   }
 
   app.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-giorno],[data-durata],[data-parco],[data-azione]');
+    const t = e.target.closest('[data-giorno],[data-durata],[data-parco],[data-filtro],[data-azione]');
     if (!t) return;
     if (t.dataset.giorno != null) scelte = { ...scelte, giorno: Number(t.dataset.giorno) };
     else if (t.dataset.durata != null) scelte = { ...scelte, durata: t.dataset.durata };
     else if (t.dataset.parco != null) scelte = { ...scelte, parco: t.dataset.parco };
+    else if (t.dataset.filtro) scelte = { ...scelte, [t.dataset.filtro]: !scelte[t.dataset.filtro] };
     else if (t.dataset.azione === 'altri') mostrati += PAGINA;
     else if (t.dataset.azione === 'sconsigliati') ancheSconsigliati = !ancheSconsigliati;
     else if (t.dataset.azione === 'soglie-base') {
@@ -246,7 +353,7 @@ export async function vistaDoveVado(app) {
       scrivi(CHIAVE_SOGLIE, soglie);
       for (const sel of app.querySelectorAll('.preferenze-meteo select')) sel.value = String(soglie[sel.name]);
     } else if (t.dataset.azione !== 'riprova') return;
-    if (t.dataset.giorno != null || t.dataset.durata != null || t.dataset.parco != null) mostrati = PAGINA;
+    if (t.dataset.giorno != null || t.dataset.durata != null || t.dataset.parco != null || t.dataset.filtro) mostrati = PAGINA;
     scrivi(CHIAVE_SCELTE, scelte);
     calcola();
   });

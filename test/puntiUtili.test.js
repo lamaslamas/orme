@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { queryPuntiParco, tipoDelPunto, puntoDaElemento, puntiDallaRisposta, puntiLungoIlPercorso, riassuntoPunti, noteDelPunto, puntiNelRiquadro } from '../src/lib/puntiUtili.js';
+import { queryPuntiParco, tipoDelPunto, puntoDaElemento, puntiDallaRisposta, puntiLungoIlPercorso, riassuntoPunti, noteDelPunto, puntiNelRiquadro, perLaNotte, conAcqua } from '../src/lib/puntiUtili.js';
 import { parcoDa } from '../src/datiParchi.js';
 
 const quadrato = [[[13.8, 41.8], [13.9, 41.8], [13.9, 41.9], [13.8, 41.9], [13.8, 41.8]]];
@@ -67,5 +67,13 @@ describe('punti utili (rifugi e acqua)', () => {
   it('trova i punti nella zona inquadrata', () => {
     const punti = [{ id: 'a', lat: 41.85, lon: 13.85 }, { id: 'b', lat: 42.5, lon: 13.85 }];
     expect(puntiNelRiquadro(punti, [41.8, 13.8, 41.9, 13.9]).map((p) => p.id)).toEqual(['a']);
+  });
+
+  it('punti per la notte e acqua utilizzabile', () => {
+    expect(perLaNotte({ tipo: 'bivacco' })).toBe(true);
+    expect(perLaNotte({ tipo: 'rifugio', chiuso: true })).toBe(false);
+    expect(perLaNotte({ tipo: 'fonte' })).toBe(false);
+    expect(conAcqua({ tipo: 'fonte' })).toBe(true);
+    expect(conAcqua({ tipo: 'fonte', potabile: false })).toBe(false);
   });
 });

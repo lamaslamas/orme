@@ -77,7 +77,20 @@ export function puntiDallaRisposta(json, anelli = null) {
 // Punti entro il raggio dalla traccia, dal più vicino
 export function puntiLungoIlPercorso(punti, geojson, raggioM = RAGGIO_LUNGO_IL_PERCORSO_M) {
   if (!geojson?.coordinates?.length) return [];
+  // prima un riquadro attorno alla traccia (veloce), poi la distanza vera solo per i punti dentro
+  let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const linea of geojson.coordinates) {
+    for (const [lon, lat] of linea) {
+      o = Math.min(o, lon);
+      e = Math.max(e, lon);
+      s = Math.min(s, lat);
+      n = Math.max(n, lat);
+    }
+  }
+  const mLat = raggioM / 111_000;
+  const mLon = mLat / Math.cos(((s + n) / 2) * (Math.PI / 180));
   return punti
+    .filter((p) => p.lat >= s - mLat && p.lat <= n + mLat && p.lon >= o - mLon && p.lon <= e + mLon)
     .map((p) => ({ ...p, distanzaM: Math.round(distanzaDallaTracciaM([p.lon, p.lat], geojson)) }))
     .filter((p) => p.distanzaM <= raggioM)
     .sort((a, b) => a.distanzaM - b.distanzaM);
@@ -87,6 +100,11 @@ export function puntiLungoIlPercorso(punti, geojson, raggioM = RAGGIO_LUNGO_IL_P
 export function puntiNelRiquadro(punti, [s, o, n, e]) {
   return punti.filter((p) => p.lat >= s && p.lat <= n && p.lon >= o && p.lon <= e);
 }
+
+// Dove passare la notte: rifugi, bivacchi e ricoveri non chiusi né privati
+export const perLaNotte = (p) => TIPI_PUNTO[p.tipo]?.gruppo === 'rifugi' && !p.chiuso && !p.privato;
+// Acqua: sorgenti e fontanelle non segnate come non potabili
+export const conAcqua = (p) => TIPI_PUNTO[p.tipo]?.gruppo === 'acqua' && p.potabile !== false;
 
 // "1 bivacco, 2 sorgenti"
 export function riassuntoPunti(punti) {

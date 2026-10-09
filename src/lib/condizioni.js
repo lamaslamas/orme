@@ -17,7 +17,10 @@ const ORARIE = [
 ];
 export const MAX_LUOGHI_RICHIESTA = 50;
 export const GRIGLIA_GRADI = 0.1; // celle di circa 8-11 km: il dettaglio dei modelli meteo
-export const FASCIA_QUOTA_M = 100;
+// Le previsioni si chiedono una volta per cella, alla quota del terreno; la temperatura alla
+// partenza e in vetta si ricava con il gradiente standard dell'atmosfera (6,5 °C ogni 1000 m),
+// lo stesso calcolo che fa Open-Meteo. Così bastano poche decine di luoghi per tutti i parchi.
+export const GRADIENTE_C_PER_M = 0.0065;
 
 export const SOGLIE_PREDEFINITE = {
   freddo: -2, // temperatura percepita minima al punto più alto (°C)
@@ -39,15 +42,14 @@ export const GIUDIZI = {
 
 // ---------- punti e richieste ----------
 
-// Punto meteo arrotondato: percorsi vicini e a quote simili condividono la stessa previsione
-export function puntoMeteo(lon, lat, quota = null) {
+// Cella meteo: percorsi vicini condividono la stessa previsione
+export function puntoMeteo(lon, lat) {
   const g = (x) => Math.round(x / GRIGLIA_GRADI) * GRIGLIA_GRADI;
-  const q = Number.isFinite(quota) ? Math.round(quota / FASCIA_QUOTA_M) * FASCIA_QUOTA_M : null;
-  const p = { lon: Number(g(lon).toFixed(2)), lat: Number(g(lat).toFixed(2)), quota: q };
-  return { ...p, chiave: `${p.lat},${p.lon},${q ?? 'dem'}` };
+  const p = { lon: Number(g(lon).toFixed(2)), lat: Number(g(lat).toFixed(2)) };
+  return { ...p, chiave: `${p.lat},${p.lon}` };
 }
 
-// Divide i punti in richieste da MAX_LUOGHI_RICHIESTA. Quota mancante: "nan" = modello del terreno
+// Divide le celle in richieste da MAX_LUOGHI_RICHIESTA (quota: quella del modello del terreno)
 export function urlPrevisioni(punti, { pastDays = 3, giorni = 2 } = {}) {
   const urls = [];
   for (let i = 0; i < punti.length; i += MAX_LUOGHI_RICHIESTA) {
@@ -55,7 +57,6 @@ export function urlPrevisioni(punti, { pastDays = 3, giorni = 2 } = {}) {
     const q = new URLSearchParams({
       latitude: gruppo.map((p) => p.lat).join(','),
       longitude: gruppo.map((p) => p.lon).join(','),
-      elevation: gruppo.map((p) => (p.quota == null ? 'nan' : p.quota)).join(','),
       hourly: ORARIE.join(','),
       daily: 'sunrise,sunset',
       timezone: 'Europe/Rome',
@@ -66,6 +67,14 @@ export function urlPrevisioni(punti, { pastDays = 3, giorni = 2 } = {}) {
     urls.push({ url: `${URL_PREVISIONI}?${q}`, punti: gruppo });
   }
   return urls;
+}
+
+// Il giorno di previsione portato a un'altra quota (solo le temperature cambiano)
+export function giornoAllaQuota(giorno, quota) {
+  if (!giorno || !Number.isFinite(quota) || !Number.isFinite(giorno.quota)) return giorno;
+  const d = (giorno.quota - quota) * GRADIENTE_C_PER_M;
+  if (Math.abs(d) < 0.05) return giorno;
+  return { ...giorno, quota, ore: giorno.ore.map((o) => ({ ...o, t: o.t + d, tp: o.tp + d })) };
 }
 
 const minutiDa = (iso) => {
@@ -98,6 +107,7 @@ export function giorniDaRisposta(r) {
     if (indice < 0) return;
     const prima = ore.slice(Math.max(0, indice - 72), indice);
     giorni[data] = {
+      quota: Number.isFinite(r.elevation) ? r.elevation : null,
       ore: ore.slice(indice, indice + 24),
       alba: minutiDa(r.daily.sunrise[i]),
       tramonto: minutiDa(r.daily.sunset[i]),
@@ -343,12 +353,12 @@ export function datiPerMeteo({ sentiero: s, traccia, misure }, attivita, quote =
   const primo = traccia?.geojson?.coordinates?.[0]?.[0];
   const partenza = quote?.partenza ?? (primo ? { lon: primo[0], lat: primo[1], quota: null } : Number.isFinite(s.partenza?.lat) ? { lon: s.partenza.lon, lat: s.partenza.lat, quota: null } : null);
   if (!partenza) return null;
-  const basso = puntoMeteo(partenza.lon, partenza.lat, partenza.quota);
-  const alto = quote?.alto && quote.max - (partenza.quota ?? quote.min) >= 150 ? puntoMeteo(quote.alto.lon, quote.alto.lat, quote.alto.quota) : null;
+  const basso = { ...puntoMeteo(partenza.lon, partenza.lat), quota: partenza.quota ?? null };
+  const alto = quote?.alto && quote.max - (partenza.quota ?? quote.min) >= 150 ? { ...puntoMeteo(quote.alto.lon, quote.alto.lat), quota: quote.alto.quota } : null;
   const durataMin = attivita === 'trekking' ? misure?.durataMin : durataInBici(misure?.km, misure?.salita ?? quote?.salita, attivita);
   return {
     basso,
-    alto: alto && alto.chiave !== basso.chiave ? alto : null,
+    alto,
     durataMin: durataMin ?? null,
     percorso: {
       quotaMax: quote?.max ?? null,
