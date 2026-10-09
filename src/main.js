@@ -31,6 +31,16 @@ import { sezioneDi } from './lib/sezioni.js';
 const app = document.getElementById('app');
 collegaVisore();
 preparaInstallazione();
+// quando arriva una versione nuova dell'app (il service worker prende il controllo), la pagina si
+// ricarica una volta: altrimenti resterebbe la grafica vecchia fino alla prossima apertura
+if (navigator.serviceWorker?.controller) {
+  let ricaricata = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (ricaricata) return;
+    ricaricata = true;
+    location.reload();
+  });
+}
 
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [

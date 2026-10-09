@@ -52,14 +52,15 @@ function htmlParco(p, n, evidenziato, attivita) {
 }
 
 function htmlSpecie(r, scelta, evidenziata) {
-  // i parchi per esteso nel suggerimento al passaggio del mouse; sulla scheda solo quanti sono
+  // i parchi su una riga sola (accorciata con i puntini); per esteso al passaggio del mouse
   const parchi = r.parchi.map((id) => parcoDa(id)?.nomeBreve).join(', ');
   return `<li class="carta-specie ${scelta ? 'scelta' : ''} ${evidenziata ? 'evidenziata' : ''}">
     <button type="button" class="carta-specie-bottone" data-specie="${r.animale}" aria-pressed="${scelta}" title="${escapeHtml(parchi)}">
       ${htmlFoto(r.animale, r.nome)}
       <span class="nome">${escapeHtml(r.nome)}</span>
-      <span class="specie-percorsi">${r.percorsi ? `${r.percorsi} ${r.percorsi === 1 ? 'percorso' : 'percorsi'}` : 'nessun percorso'}${r.parchi.length ? ` · ${r.parchi.length} ${r.parchi.length === 1 ? 'parco' : 'parchi'}` : ''}</span>
-      ${HABITAT[r.animale] ? `<span class="habitat" title="${escapeHtml(HABITAT[r.animale])}">${escapeHtml(HABITAT[r.animale])}</span>` : ''}
+      <span class="specie-percorsi">${r.percorsi ? `${r.percorsi} ${r.percorsi === 1 ? 'percorso' : 'percorsi'}` : 'nessun percorso'}</span>
+      ${HABITAT[r.animale] ? `<span class="habitat">${escapeHtml(HABITAT[r.animale])}</span>` : ''}
+      ${parchi ? `<span class="specie-parchi">${escapeHtml(parchi)}</span>` : ''}
     </button>
     ${htmlCredito(r.animale, r.nome)}
   </li>`;
