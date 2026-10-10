@@ -41,6 +41,8 @@ export function parametriInat(filtri, oggi = new Date()) {
     // ricerca per gruppo (lungo i percorsi): nessun filtro di specie
     if (GRUPPI[filtri.gruppo]?.taxa) p.set('iconic_taxa', GRUPPI[filtri.gruppo].taxa);
   } else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
+  // tutti i mammiferi (40151) e gli uccelli (3)
+  else if (filtri.specie === 'selvatici') p.set('taxon_id', '40151,3');
   else {
     const chiavi = filtri.specie === 'rare' ? SPECIE_RARE : [filtri.specie];
     const ids = chiavi.map((k) => TAXON_INATURALIST[k]?.id).filter(Boolean);

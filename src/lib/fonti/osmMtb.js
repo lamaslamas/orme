@@ -49,7 +49,9 @@ export function ritagliaESemplifica(linee, [s, o, n, e], margine = MARGINE) {
 }
 
 // area: il parco, oppure una zona con il suo riquadro (es. "Intorno a me")
-export function candidatiMtb(json, idParco, parco = parcoDa(idParco)) {
+// cicloturistici: itinerari ciclabili qualsiasi (route=bicycle), non solo quelli MTB: su strade e
+// sterrate, segnati per le bici. Sono "itinerari per bici" come gli MTB (visibili in MTB ed e-MTB).
+export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { cicloturistici = false } = {}) {
   const tag = new Map((json?.elements ?? []).filter((e) => e.type === 'relation').map((e) => [e.id, e.tags ?? {}]));
   const candidati = [];
   const geometrieViste = new Set();
@@ -65,9 +67,12 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco)) {
     geometrieViste.add(impronta);
     const url = `https://www.openstreetmap.org/relation/${c.idOsm}`;
     traccia.dettagli = { ...traccia.dettagli, codici: [], fonte: url, ...(ritagliata ? { ritagliata: true } : {}) };
-    const rif = t.ref ? `MTB ${t.ref}` : 'MTB';
+    const mtb = !cicloturistici || t.route === 'mtb' || /mtb/i.test(t.network ?? '') || t.mtb === 'yes';
+    const rif = t.ref ? `${mtb ? 'MTB ' : ''}${t.ref}` : mtb ? 'MTB' : '';
     const zona = [t.from, t.to].filter(Boolean).join(' – ');
-    const nome = t.name ? (/\bmtb\b/i.test(t.name) && !t.ref ? t.name : `${t.name} (${rif})`) : `Itinerario ${rif}`;
+    const nome = mtb
+      ? t.name ? (/\bmtb\b/i.test(t.name) && !t.ref ? t.name : `${t.name} (${rif})`) : `Itinerario ${rif}`
+      : t.name ? (rif && !t.name.includes(rif) ? `${t.name} (${rif})` : t.name) : `Itinerario ciclabile${rif ? ` ${rif}` : zona ? `: ${zona}` : ''}`;
     const descrizione = [t.description, ritagliata ? `Itinerario più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : 'nel parco e nei dintorni'}.` : '']
       .filter(Boolean)
       .join(' ')
@@ -91,7 +96,9 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco)) {
       lunghezzaKm: km,
       attivita: {
         trekking: { stato: 'da_verificare', motivi: ['Itinerario per bici: a piedi va verificato'] },
-        mtb: { stato: 'percorribile', motivi: ['Itinerario MTB segnato su OpenStreetMap: verifica sempre le regole del Parco'] },
+        mtb: mtb
+          ? { stato: 'percorribile', motivi: ['Itinerario MTB segnato su OpenStreetMap: verifica sempre le regole del Parco'] }
+          : { stato: 'percorribile', motivi: ['Itinerario ciclabile segnato su OpenStreetMap: spesso su strade secondarie e sterrate'] },
         emtb: { stato: 'da_verificare', motivi: ['Regole per le bici elettriche non documentate'] },
       },
       traccia,

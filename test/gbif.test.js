@@ -92,3 +92,16 @@ describe('GBIF: osservazioni', () => {
     expect(faunaDelParco(oss, { bbox: [41, 13, 42, 14] }).specie[0]).toMatchObject({ animale: 'cervo', osservazioni: 3 });
   });
 });
+
+describe('GBIF: tutti i mammiferi e uccelli', async () => {
+  const { parametriGbif, interpretaGbif } = await import('../src/lib/gbif.js');
+  const { parametriInat } = await import('../src/lib/inaturalist.js');
+  it('cerca le due classi intere, anche le specie fuori dalla lista', () => {
+    expect(parametriGbif({ specie: 'selvatici' }).getAll('taxonKey')).toEqual(['359', '212']);
+    expect(parametriInat({ specie: 'selvatici' }).get('taxon_id')).toBe('40151,3');
+  });
+  it('tiene la classe per scegliere l’icona', () => {
+    const [o] = interpretaGbif({ results: [{ key: 1, class: 'Aves', species: 'Upupa epops', decimalLatitude: 40, decimalLongitude: 18 }] });
+    expect(o).toMatchObject({ animale: null, classe: 'Aves', nomeScientifico: 'Upupa epops' });
+  });
+});

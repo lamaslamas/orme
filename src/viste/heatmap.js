@@ -37,9 +37,12 @@ export const SPIEGAZIONE_HEATMAP = `
   <p class="tenue">Dati © degli autori, con le licenze Creative Commons indicate su ogni osservazione. I tuoi avvistamenti personali non sono mai inclusi.</p>`;
 
 // Filtri della heatmap dallo stato condiviso: l'animale è lo stesso scelto nei filtri dei sentieri
-export function filtriHeatmap(st = stato.leggi()) {
+// intorno: in "Intorno a me" di base tutti i mammiferi e uccelli (scelta salvata a parte)
+const chiaveInsieme = (intorno) => (intorno ? 'insiemeIntorno' : 'insieme');
+export function filtriHeatmap(st = stato.leggi(), { intorno = false } = {}) {
   const h = st.heatmap ?? {};
-  const specie = st.specie && TAXON_GBIF[st.specie] ? st.specie : 'rare';
+  const insieme = h[chiaveInsieme(intorno)] ?? (intorno ? 'selvatici' : 'rare');
+  const specie = st.specie && TAXON_GBIF[st.specie] ? st.specie : insieme === 'selvatici' ? 'selvatici' : 'rare';
   // solo i campi noti: valori estranei rimasti in memoria non devono cambiare la ricerca
   return {
     specie,
@@ -50,17 +53,38 @@ export function filtriHeatmap(st = stato.leggi()) {
   };
 }
 
+const CLASSI = new Set(['Mammalia', 'Aves']);
+
+// Nome italiano delle specie fuori dalla lista (da iNaturalist, una volta sola per specie)
+const NOMI_IT = new Map();
+function nomeGruppo(g) {
+  return g.animale ? ANIMALI[g.animale] : NOMI_IT.get(g.scientifico) || g.nome || g.scientifico;
+}
+async function cercaNomeItaliano(scientifico) {
+  if (!scientifico || NOMI_IT.has(scientifico)) return NOMI_IT.get(scientifico);
+  NOMI_IT.set(scientifico, '');
+  try {
+    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(scientifico)}&rank=species&locale=it&per_page=1`);
+    const t = (await r.json()).results?.[0];
+    if (t?.name === scientifico && t.preferred_common_name) NOMI_IT.set(scientifico, t.preferred_common_name.replace(/^./, (c) => c.toUpperCase()));
+  } catch {
+    // resta il nome scientifico
+  }
+  return NOMI_IT.get(scientifico);
+}
+
 function opzioniSpecie(scelta) {
   const voci = [
     ['rare', 'Tutte le specie rare della lista'],
+    ['selvatici', 'Tutti i mammiferi e uccelli'],
     ...SPECIE_RARE.map((k) => [k, ANIMALI[k]]),
   ];
   return voci.map(([v, et]) => `<option value="${v}" ${scelta === v ? 'selected' : ''}>${escapeHtml(et)}</option>`).join('');
 }
 
 // occupata() dice se un altro strumento (misura, nuovo avvistamento) sta usando i tocchi
-export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
-  let filtri = filtriHeatmap();
+export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false } = {}) {
+  let filtri = filtriHeatmap(stato.leggi(), { intorno });
   let richiestaZona = 0;
   let livello = null;
   let attiva = false;
@@ -191,8 +215,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     const gruppi = new Map();
     for (const o of oss) {
       const p = mappa.latLngToContainerPoint([o.lat, o.lon]);
-      const k = `${o.animale}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / 60)}|${Math.floor(p.y / 60)}`;
-      const g = gruppi.get(k) ?? { animale: o.animale, sfumata: o.sfumata, oss: [] };
+      const specie = o.animale ?? o.nomeScientifico;
+      const k = `${specie}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / 60)}|${Math.floor(p.y / 60)}`;
+      const g = gruppi.get(k) ?? { animale: o.animale, scientifico: o.nomeScientifico, nome: o.specie, classe: o.classe, sfumata: o.sfumata, oss: [] };
       g.oss.push(o);
       gruppi.set(k, g);
     }
@@ -211,7 +236,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
           `<li>${o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata'} · ${escapeHtml(o.fonte)} · <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">apri ↗</a></li>`,
       )
       .join('');
-    return `<div class="popup-oss"><b>${escapeHtml(ANIMALI[g.animale])}</b> · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
+    return `<div class="popup-oss"><b>${escapeHtml(nomeGruppo(g))}</b>${g.animale ? '' : ` <i class="tenue">${escapeHtml(g.scientifico)}</i>`} · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
       ${g.sfumata ? '<p class="tenue piccolo">Posizione approssimata (fino a ~20 km per le specie protette): qui è solo la zona.</p>' : ''}
       <ul>${righe}</ul>${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
   }
@@ -228,7 +253,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     try {
       const r = await fetch(urlOsservazioniGbif([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], filtri, { limite: 300 }));
       if (!r.ok) throw new Error(String(r.status));
-      const oss = interpretaGbif(await r.json()).filter((o) => o.animale);
+      // con "tutti i mammiferi e uccelli" anche le specie fuori dalla lista di Orme
+      const oss = interpretaGbif(await r.json()).filter((o) => o.animale || (filtri.specie === 'selvatici' && CLASSI.has(o.classe)));
       if (mia !== richiestaIcone) return;
       icone.clearLayers();
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
@@ -237,15 +263,19 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
         L.marker([g.lat, g.lon], {
           icon: L.divIcon({
             className: `icona-osservazione${g.sfumata ? ' sfumata' : ''}`,
-            html: `<span class="spillo"><span>${iconaAnimale(g.animale)}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
+            html: `<span class="spillo"><span>${iconaAnimale(g.animale ?? (g.classe === 'Aves' ? 'uccello' : 'mammifero'))}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
             iconSize: [30, 36],
             iconAnchor: [15, 36],
             popupAnchor: [0, -34],
           }),
-          title: `${ANIMALI[g.animale]}: ${g.oss.length}`,
+          title: `${nomeGruppo(g)}: ${g.oss.length}`,
           keyboard: false,
         })
           .bindPopup(() => popupGruppo(g))
+          .on('popupopen', (ev) => {
+            if (g.animale || NOMI_IT.get(g.scientifico)) return;
+            cercaNomeItaliano(g.scientifico).then((nome) => nome && ev.popup.isOpen() && ev.popup.setContent(popupGruppo(g)));
+          })
           .addTo(icone);
       }
       icone.addTo(mappa);
@@ -324,7 +354,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     if (name === 'specie') {
       // un animale diventa la scelta di tutta l'app; "rare" toglie la scelta
       const v = e.target.value;
-      stato.imposta({ specie: TAXON_GBIF[v] ? v : '' });
+      if (TAXON_GBIF[v]) stato.imposta({ specie: v });
+      else stato.imposta({ specie: '', heatmap: { [chiaveInsieme(intorno)]: v } });
       return;
     }
     const valore = e.target.type === 'checkbox' ? e.target.checked : name === 'anni' ? Number(e.target.value) : e.target.value;
@@ -333,7 +364,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
 
   // ogni cambio di animale o di filtri sostituisce subito la heatmap precedente
   const scollega = stato.ascolta((nuovo) => {
-    const prossimi = filtriHeatmap(nuovo);
+    const prossimi = filtriHeatmap(nuovo, { intorno });
     const cambiati = JSON.stringify(prossimi) !== JSON.stringify(filtri);
     if (nuovo.livelli.heatmap !== attiva) nuovo.livelli.heatmap ? accendi() : spegni();
     if (!cambiati) return;

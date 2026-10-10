@@ -27,6 +27,7 @@ import {
   PAGINE_GBIF_MAX,
   faunaDaRicalcolare,
   animaliDellaZona,
+  VERSIONE_RICERCA,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
@@ -92,7 +93,7 @@ export async function vistaIntorno(app) {
   const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'] });
   mappa.setView([42, 12.6], 5);
   const fermaGps = aggiungiGps(mappa, () => null);
-  const heat = aggiungiHeatmap(mappa);
+  const heat = aggiungiHeatmap(mappa, { intorno: true });
   const selettoreAnimali = app.querySelector('.animali-intorno');
   const invitoMeteo = app.querySelector('.invito-meteo');
   const livelloZona = L.layerGroup().addTo(mappa);
@@ -311,7 +312,7 @@ export async function vistaIntorno(app) {
         json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 90000 });
       }
       const esistenti = new Set((await tuttiISentieri()).filter((s) => s.parco !== ID_INTORNO).map((s) => s.id));
-      await salvaIntorno({ centro, raggioKm: raggio, percorsi: percorsiIntorno(json, centro, raggio, { esistenti }) });
+      await salvaIntorno({ centro, raggioKm: raggio, versione: VERSIONE_RICERCA, percorsi: percorsiIntorno(json, centro, raggio, { esistenti }) });
       if (chiusa) return;
       zona = await leggiIntorno();
       disegnaZona();
@@ -374,7 +375,9 @@ export async function vistaIntorno(app) {
   });
   await mostraElenco();
   scriviStato();
-  if (zona) completa();
+  // zona scaricata con una ricerca più vecchia: si aggiorna da sola
+  if (zona && zona.versione !== VERSIONE_RICERCA) scarica(zona.centro);
+  else if (zona) completa();
 
   return () => {
     chiusa = true;

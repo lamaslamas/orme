@@ -32,7 +32,7 @@ export const ICONE = {
 
 // Icone degli animali: illustrazioni Fluent Emoji (Microsoft, licenza MIT) in public/icone/animali,
 // uguali su tutti i dispositivi (le emoji del telefono cambiano da un sistema all'altro)
-const CON_ICONA = new Set(['orso', 'lupo', 'camoscio', 'cervo', 'capriolo', 'daino', 'muflone', 'cinghiale', 'volpe', 'lontra', 'gatto_selvatico', 'aquila_reale', 'gufo_reale', 'nibbio_reale', 'cicogna_nera', 'fenicottero', 'falco_grillaio', 'riccio', 'tasso']);
+const CON_ICONA = new Set(['orso', 'lupo', 'camoscio', 'cervo', 'capriolo', 'daino', 'muflone', 'cinghiale', 'volpe', 'lontra', 'gatto_selvatico', 'aquila_reale', 'gufo_reale', 'nibbio_reale', 'cicogna_nera', 'fenicottero', 'falco_grillaio', 'riccio', 'tasso', 'uccello', 'mammifero']);
 export function iconaAnimale(animale, classe = '') {
   const k = CON_ICONA.has(animale) ? animale : 'altro';
   return `<img class="icona-animale ${classe}" src="${import.meta.env.BASE_URL}icone/animali/${k}.svg" alt="" aria-hidden="true" decoding="async" />`;

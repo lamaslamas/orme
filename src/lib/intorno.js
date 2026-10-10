@@ -12,6 +12,9 @@ import { urlOsservazioniGbif } from './gbif.js';
 import { ID_INTORNO, INTORNO } from '../datiParchi.js';
 
 export const RAGGI_INTORNO = [10, 25, 50];
+// cambia quando cambia cosa si cerca: le zone scaricate prima si riscaricano da sole
+// (2: anche itinerari ciclabili e percorsi a piedi non escursionistici)
+export const VERSIONE_RICERCA = 2;
 export const RAGGIO_INTORNO = 25;
 
 // Riquadro [sud, ovest, nord, est] che contiene il cerchio; centro: [lon, lat]
@@ -22,7 +25,7 @@ export function riquadroIntorno([lon, lat], km) {
   return [r(lat - dLat), r(lon - dLon), r(lat + dLat), r(lon + dLon)];
 }
 
-// Sentieri e itinerari MTB che passano entro il raggio. La geometria si chiede solo dentro il
+// Sentieri (anche i percorsi a piedi) e itinerari in bici (MTB e ciclabili) che passano entro il raggio. La geometria si chiede solo dentro il
 // riquadro: i cammini lunghi (Via Francigena, Sentiero Italia) restano leggeri.
 export function queryIntorno(centro, km) {
   const [lon, lat] = centro;
@@ -30,20 +33,20 @@ export function queryIntorno(centro, km) {
   const [s, o, n, e] = riquadroIntorno(centro, km);
   return `[out:json][timeout:60];
 (
-  rel["route"="hiking"]${intorno};
-  rel["route"="mtb"]${intorno};
-  rel["route"="bicycle"]["network"~"mtb",i]${intorno};
-  rel["route"="bicycle"]["mtb"="yes"]${intorno};
+  rel["route"~"^(hiking|foot|walking)$"]${intorno};
+  rel["route"~"^(mtb|bicycle)$"]${intorno};
 )->.percorsi;
 .percorsi out geom(${s},${o},${n},${e});
 way(r.percorsi)(${s},${o},${n},${e});
 out tags;`;
 }
 
+const A_PIEDI = new Set(['hiking', 'foot', 'walking']);
+
 // Solo le relazioni a piedi (o solo quelle in bici), con tutti i tratti
 function soloRelazioni(json, aPiedi) {
   return {
-    elements: (json?.elements ?? []).filter((el) => el.type !== 'relation' || (el.tags?.route === 'hiking') === aPiedi),
+    elements: (json?.elements ?? []).filter((el) => el.type !== 'relation' || A_PIEDI.has(el.tags?.route) === aPiedi),
   };
 }
 
@@ -53,7 +56,7 @@ export function percorsiIntorno(json, centro, km, { esistenti = new Set(), oggi 
   const area = { ...INTORNO, bbox: riquadroIntorno(centro, km) };
   const candidati = [
     ...candidatiSentieri(soloRelazioni(json, true), ID_INTORNO, area),
-    ...candidatiMtb(soloRelazioni(json, false), ID_INTORNO, area),
+    ...candidatiMtb(soloRelazioni(json, false), ID_INTORNO, area, { cicloturistici: true }),
   ];
   return candidati
     .filter((c) => !esistenti.has(c.id))

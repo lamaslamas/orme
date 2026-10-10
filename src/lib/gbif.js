@@ -6,6 +6,8 @@ import { TAXON_GBIF, ANIMALI, SPECIE_SOLO_INTORNO } from './costanti.js';
 import { STAGIONI, SPECIE_RARE } from './inaturalist.js';
 
 export const API_GBIF = 'https://api.gbif.org/v1';
+// classi Mammalia e Aves nell'elenco dei nomi di GBIF
+export const TAXA_SELVATICI_GBIF = [359, 212];
 export const MAPPE_GBIF = 'https://api.gbif.org/v2/map/occurrence/adhoc';
 // oltre questa incertezza la posizione vale solo per la zona (come le posizioni sfumate)
 export const INCERTEZZA_MAX_M = 1000;
@@ -17,6 +19,7 @@ export function parametriGbif(filtri = {}, oggi = new Date()) {
   const p = new URLSearchParams();
   // 'rare' = la lista della heatmap; 'tutte' = le specie dei parchi; 'intorno' = anche quelle di
   // "Intorno a me" (fenicottero, riccio…); altrimenti un animale
+  // 'selvatici' = tutti i mammiferi e gli uccelli, anche fuori dalla lista di Orme
   const chiavi =
     filtri.specie === 'intorno'
       ? Object.keys(TAXON_GBIF)
@@ -25,7 +28,7 @@ export function parametriGbif(filtri = {}, oggi = new Date()) {
         : !filtri.specie || filtri.specie === 'rare'
           ? SPECIE_RARE
           : [filtri.specie];
-  const taxa = chiavi.map((k) => TAXON_GBIF[k]).filter(Boolean);
+  const taxa = filtri.specie === 'selvatici' ? TAXA_SELVATICI_GBIF : chiavi.map((k) => TAXON_GBIF[k]).filter(Boolean);
   // mai una ricerca senza specie: scaricherebbe ogni essere vivente della zona
   if (!taxa.length) throw new Error(`Specie sconosciuta per GBIF: ${filtri.specie}`);
   for (const t of taxa) p.append('taxonKey', String(t));
@@ -102,6 +105,8 @@ export function interpretaGbif(json) {
         animale,
         specie: animale ? ANIMALI[animale] : o.vernacularName ?? o.species ?? o.scientificName ?? 'Specie non indicata',
         nomeScientifico: o.species ?? o.scientificName ?? '',
+        // per l'icona delle specie fuori dalla lista: uccello o mammifero
+        classe: o.class ?? null,
         data: o.eventDate ? String(o.eventDate).slice(0, 10) : null,
         lat: Number.isFinite(o.decimalLatitude) ? o.decimalLatitude : null,
         lon: Number.isFinite(o.decimalLongitude) ? o.decimalLongitude : null,

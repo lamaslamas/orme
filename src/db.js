@@ -283,7 +283,7 @@ export const leggiIntorno = async () => (await leggiDa('meta', 'intorno')) ?? nu
 
 // Sostituisce i percorsi della zona con quelli appena scaricati. Quelli con dati miei (salvati,
 // fatti, note) restano anche se escono dalla zona; una traccia che ho cambiato io non si tocca.
-export async function salvaIntorno({ centro, raggioKm, percorsi }) {
+export async function salvaIntorno({ centro, raggioKm, percorsi, versione = null }) {
   const [miei, tracce] = await Promise.all([tuttiDa('sentieri'), tuttiDa('tracce')]);
   const precedenti = new Map(miei.filter((s) => s.parco === ID_INTORNO).map((s) => [s.id, s]));
   const tracceSalvate = new Map(tracce.map((t) => [t.sentieroId, t]));
@@ -303,7 +303,7 @@ export async function salvaIntorno({ centro, raggioKm, percorsi }) {
     const t = tracceSalvate.get(sentiero.id);
     if (!t || t.dettagli?.intorno) tx.objectStore('tracce').put({ ...traccia, salvata: adesso });
   }
-  tx.objectStore('meta').put({ chiave: 'intorno', centro, raggioKm, aggiornato: adesso });
+  tx.objectStore('meta').put({ chiave: 'intorno', centro, raggioKm, versione, aggiornato: adesso });
   await fine(tx);
 }
 

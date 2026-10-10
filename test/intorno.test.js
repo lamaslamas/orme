@@ -15,10 +15,11 @@ const relazione = (id, tags, wayRef) => ({
       type: 'way',
       ref: wayRef,
       role: '',
+      // ogni relazione un po' spostata: geometrie uguali si terrebbero una volta sola
       geometry: [
-        { lat: 40.27, lon: 18.05 },
-        { lat: 40.28, lon: 18.06 },
-        { lat: 40.285, lon: 18.07 },
+        { lat: 40.27, lon: 18.05 + id / 10000 },
+        { lat: 40.28, lon: 18.06 + id / 10000 },
+        { lat: 40.285, lon: 18.07 + id / 10000 },
       ],
     },
   ],
@@ -29,9 +30,13 @@ const risposta = {
     relazione(1, { route: 'hiking', name: 'Cammino del Salento', cai_scale: 'T' }, 100),
     relazione(2, { route: 'mtb', name: 'Anello delle masserie' }, 101),
     relazione(3, { route: 'hiking', name: 'Già nei parchi' }, 102),
+    relazione(4, { route: 'bicycle', network: 'lcn', ref: 'CIE01', name: 'Ciclo Ionica - Anello 1' }, 103),
+    relazione(5, { route: 'foot', name: 'Percorso natura' }, 104),
     { type: 'way', id: 100, tags: { highway: 'track' } },
     { type: 'way', id: 101, tags: { highway: 'track' } },
     { type: 'way', id: 102, tags: { highway: 'path' } },
+    { type: 'way', id: 103, tags: { highway: 'tertiary' } },
+    { type: 'way', id: 104, tags: { highway: 'path' } },
   ],
 };
 
@@ -44,8 +49,8 @@ describe('Intorno a me: zona e ricerca', () => {
 
   it('la ricerca usa il raggio e chiede la geometria solo nel riquadro', () => {
     const q = queryIntorno(COPERTINO, 10);
-    expect(q).toContain('rel["route"="hiking"](around:10000,40.2700,18.0500)');
-    expect(q).toContain('rel["route"="mtb"]');
+    expect(q).toContain('rel["route"~"^(hiking|foot|walking)$"](around:10000,40.2700,18.0500)');
+    expect(q).toContain('rel["route"~"^(mtb|bicycle)$"]');
     expect(q).toMatch(/out geom\([\d.]+,[\d.]+,[\d.]+,[\d.]+\)/);
   });
 });
@@ -54,8 +59,11 @@ describe('Intorno a me: percorsi', () => {
   const percorsi = percorsiIntorno(risposta, COPERTINO, 10, { esistenti: new Set(['osm-sentiero-3']), oggi: '2026-10-09' });
 
   it('sentieri a piedi e itinerari MTB, separati dai parchi e senza doppioni', () => {
-    expect(percorsi.map((p) => p.sentiero.id)).toEqual(['intorno-osm-sentiero-1', 'intorno-osm-mtb-2']);
-    const [sentiero, mtb] = percorsi.map((p) => p.sentiero);
+    expect(percorsi.map((p) => p.sentiero.id)).toEqual(['intorno-osm-sentiero-1', 'intorno-osm-sentiero-5', 'intorno-osm-mtb-2', 'intorno-osm-mtb-4']);
+    const [sentiero, , mtb, ciclabile] = percorsi.map((p) => p.sentiero);
+    expect(ciclabile).toMatchObject({ nome: 'Ciclo Ionica - Anello 1 (CIE01)', tipoPercorso: 'itinerario_mtb' });
+    expect(ciclabile.attivita.mtb.motivi[0]).toMatch(/ciclabile/);
+    expect(mtb.nome).toMatch(/MTB/);
     expect(sentiero).toMatchObject({ parco: 'intorno', parchi: ['intorno'], tipoPercorso: 'sentiero', difficolta: 'T' });
     expect(mtb).toMatchObject({ tipoPercorso: 'itinerario_mtb' });
     expect(diUnParco(sentiero)).toBe(false);
@@ -78,8 +86,8 @@ describe('Intorno a me: percorsi', () => {
 
   it('nel raggio, dal più vicino', () => {
     const lontano = { sentiero: { id: 'x' }, traccia: { geojson: { type: 'MultiLineString', coordinates: [[[18.6, 40.0], [18.61, 40.01]]] } } };
-    const r = nelRaggio([lontano, ...percorsi], COPERTINO, 10);
-    expect(r.map((p) => p.sentiero.id)).toEqual(['intorno-osm-sentiero-1', 'intorno-osm-mtb-2']);
+    const r = nelRaggio([lontano, ...percorsi.slice(0, 1)], COPERTINO, 10);
+    expect(r.map((p) => p.sentiero.id)).toEqual(['intorno-osm-sentiero-1']);
     expect(r[0].distanzaM).toBeLessThan(50);
   });
 });
