@@ -96,7 +96,7 @@ export async function vistaIntorno(app) {
   const fermaGps = aggiungiGps(mappa, () => null);
   // qui la fauna si vede subito: heatmap accesa (si spegne dal pulsante "Fauna")
   stato.imposta({ livelli: { heatmap: true } });
-  const heat = aggiungiHeatmap(mappa, { intorno: true });
+  const heat = aggiungiHeatmap(mappa);
   const selettoreAnimali = app.querySelector('.animali-intorno');
   const invitoMeteo = app.querySelector('.invito-meteo');
   const livelloZona = L.layerGroup().addTo(mappa);

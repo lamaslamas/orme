@@ -7,7 +7,8 @@ export const STATO_INIZIALE = {
   specie: '', // chiave dell'animale ('' = nessuno)
   filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '' },
   // insieme: specie mostrate quando non è scelto un animale ('rare' = la lista, 'notevoli' = gli
-  // animali imperdibili); insiemeIntorno: lo stesso in "Intorno a me"
+  // animali imperdibili); insiemeIntorno: lo stesso fuori dalle
+  // pagine dei parchi (mappa, Pianifica, Intorno a me)
   heatmap: { insieme: 'rare', insiemeIntorno: 'notevoli', stagione: 'tutto', anni: 0, soloVerificate: true, correggiSforzo: false },
   livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true, distribuzione: true, panoramicita: false, rifugi: true, acqua: true },
   base: 'chiara', // chiara | topo | curve | satellite
