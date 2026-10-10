@@ -28,6 +28,7 @@ import {
   faunaDaRicalcolare,
   animaliDellaZona,
   VERSIONE_RICERCA,
+  retiAreeProtette,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
@@ -205,7 +206,8 @@ export async function vistaIntorno(app) {
   // Dislivelli: quote da Open-Meteo per i percorsi della zona che non le hanno ancora
   async function calcolaQuote() {
     const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
-    const daFare = tutti.filter((s) => s.parco === ID_INTORNO && tracce.get(s.id)?.geojson && !quoteDellaTraccia(s, tracce.get(s.id)));
+    // le reti di sentieri non hanno un giro: niente profilo
+    const daFare = tutti.filter((s) => s.parco === ID_INTORNO && s.tipoPercorso !== 'rete_sentieri' && tracce.get(s.id)?.geojson && !quoteDellaTraccia(s, tracce.get(s.id)));
     let fatti = 0;
     for (const s of daFare) {
       if (chiusa) return;
@@ -307,15 +309,17 @@ export async function vistaIntorno(app) {
       // Overpass a volte è occupato: un secondo tentativo dopo qualche secondo
       let json;
       try {
-        json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 90000 });
+        json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 120000 });
       } catch {
         if (chiusa) return;
         scriviStato('OpenStreetMap è occupato, riprovo…');
         await attendi(5000);
-        json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 90000 });
+        json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 120000 });
       }
       const esistenti = new Set((await tuttiISentieri()).filter((s) => s.parco !== ID_INTORNO).map((s) => s.id));
-      await salvaIntorno({ centro, raggioKm: raggio, versione: VERSIONE_RICERCA, percorsi: percorsiIntorno(json, centro, raggio, { esistenti }) });
+      // nella stessa risposta anche i sentieri non segnati delle aree protette
+      const reti = retiAreeProtette(json, centro, raggio);
+      await salvaIntorno({ centro, raggioKm: raggio, versione: VERSIONE_RICERCA, percorsi: [...percorsiIntorno(json, centro, raggio, { esistenti }), ...reti] });
       if (chiusa) return;
       zona = await leggiIntorno();
       disegnaZona();

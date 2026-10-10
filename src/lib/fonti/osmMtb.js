@@ -80,7 +80,8 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { ciclotur
     candidati.push({
       // una fonte per parco: se un parco oggi non risponde, gli altri si aggiornano lo stesso
       fonte: `${OSM_MTB.fonte}:${idParco}`,
-      tipo: 'itinerario_mtb',
+      // gli itinerari ciclabili si fanno anche a piedi: non sono "solo bici" come gli MTB
+      tipo: mtb ? 'itinerario_mtb' : 'itinerario_bici',
       chiave: `${idParco}:${c.idOsm}`,
       id: `osm-mtb-${c.idOsm}`,
       url,
@@ -95,7 +96,9 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { ciclotur
       animali: [],
       lunghezzaKm: km,
       attivita: {
-        trekking: { stato: 'da_verificare', motivi: ['Itinerario per bici: a piedi va verificato'] },
+        trekking: mtb
+          ? { stato: 'da_verificare', motivi: ['Itinerario per bici: a piedi va verificato'] }
+          : { stato: 'percorribile', motivi: ['Itinerario segnato su OpenStreetMap, su strade secondarie e sterrate'] },
         mtb: mtb
           ? { stato: 'percorribile', motivi: ['Itinerario MTB segnato su OpenStreetMap: verifica sempre le regole del Parco'] }
           : { stato: 'percorribile', motivi: ['Itinerario ciclabile segnato su OpenStreetMap: spesso su strade secondarie e sterrate'] },

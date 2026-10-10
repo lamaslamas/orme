@@ -69,7 +69,9 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
       area.on('click', (e) => {
         if (occupata()) return;
         selezione.clearLayers();
-        const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6 }).addTo(selezione);
+        // una rete di sentieri non ha partenza, arrivo né verso
+        const rete = traccia.dettagli?.rete;
+        const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6, ...(rete ? { frecce: false, estremi: false } : {}) }).addTo(selezione);
         let punto = e.latlng;
         if (inquadra) {
           primaDiInquadrare();

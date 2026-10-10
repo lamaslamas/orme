@@ -570,7 +570,7 @@ export async function vistaScheda(app, id) {
   const contenitoreMini = app.querySelector('#miniMappa');
   if (!contenitoreMini) return liberaFoto;
   const mini = creaMappa(contenitoreMini, { anteprima: true });
-  const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false }).addTo(mini);
+  const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false, estremi: !traccia.dettagli?.rete }).addTo(mini);
   mini.attenuaSentieri(true);
   requestAnimationFrame(() => {
     mini.invalidateSize();

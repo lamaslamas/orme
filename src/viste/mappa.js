@@ -89,7 +89,7 @@ export async function vistaMappa(app, id) {
     avviso.hidden = Boolean(traccia);
     avviso.textContent = 'Questo sentiero non ha ancora una traccia: i sentieri sulla mappa sono tutti quelli della zona.';
     if (!traccia) return;
-    const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORE_TRACCIA }).addTo(livelloTraccia);
+    const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORE_TRACCIA, ...(traccia.dettagli?.rete ? { frecce: false, estremi: false } : {}) }).addTo(livelloTraccia);
     if (inquadra) mappa.fitBounds(gruppo.getBounds(), { padding: [36, 36] });
     // il livello panoramicità segue la traccia attuale
     if (stato.leggi().livelli.panoramicita) panorama?.ridisegna();

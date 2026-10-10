@@ -13,6 +13,11 @@ export function quoteDellaTraccia(s, traccia) {
 }
 
 export function misureSentiero(s, traccia) {
+  // una rete di sentieri (aree protette): solo i km di sentieri, niente durata né dislivello di un giro
+  if (s.tipoPercorso === 'rete_sentieri') {
+    const km = Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : traccia?.geojson ? lunghezzaKm(traccia.geojson) : null;
+    return { km, kmCalcolati: false, salita: null, discesa: null, durataMin: null, durataStimata: false };
+  }
   const percorso = traccia?.geojson ? percorsoSentiero(traccia.geojson) : null;
   const daTraccia = percorso?.pezzi.length
     ? { km: lunghezzaKm({ coordinates: percorso.pezzi }), disl: dislivello(percorso.pezzi) }

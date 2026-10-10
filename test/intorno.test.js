@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riquadroIntorno, queryIntorno, percorsiIntorno, nelRaggio, puntiPerLeQuote, urlQuote, leggiQuote, profiloIntorno, haDatiMiei, testoDistanza, urlFaunaIntorno, faunaDaRicalcolare, animaliDellaZona } from '../src/lib/intorno.js';
+import { riquadroIntorno, queryIntorno, percorsiIntorno, nelRaggio, puntiPerLeQuote, urlQuote, leggiQuote, profiloIntorno, haDatiMiei, testoDistanza, queryAreeProtette, retiAreeProtette, urlFaunaIntorno, faunaDaRicalcolare, animaliDellaZona } from '../src/lib/intorno.js';
 import { diUnParco, parcoDa } from '../src/datiParchi.js';
 import { improntaTraccia } from '../src/lib/panorama.js';
 
@@ -61,7 +61,9 @@ describe('Intorno a me: percorsi', () => {
   it('sentieri a piedi e itinerari MTB, separati dai parchi e senza doppioni', () => {
     expect(percorsi.map((p) => p.sentiero.id)).toEqual(['intorno-osm-sentiero-1', 'intorno-osm-sentiero-5', 'intorno-osm-mtb-2', 'intorno-osm-mtb-4']);
     const [sentiero, , mtb, ciclabile] = percorsi.map((p) => p.sentiero);
-    expect(ciclabile).toMatchObject({ nome: 'Ciclo Ionica - Anello 1 (CIE01)', tipoPercorso: 'itinerario_mtb' });
+    expect(ciclabile).toMatchObject({ nome: 'Ciclo Ionica - Anello 1 (CIE01)', tipoPercorso: 'itinerario_bici' });
+    expect(ciclabile.attivita.trekking.stato).toBe('percorribile'); // si fa anche a piedi
+    expect(mtb).toMatchObject({ tipoPercorso: 'itinerario_mtb' });
     expect(ciclabile.attivita.mtb.motivi[0]).toMatch(/ciclabile/);
     expect(mtb.nome).toMatch(/MTB/);
     expect(sentiero).toMatchObject({ parco: 'intorno', parchi: ['intorno'], tipoPercorso: 'sentiero', difficolta: 'T' });
@@ -164,5 +166,68 @@ describe('Intorno a me: fauna', () => {
       { animale: 'riccio', percorsi: 1 },
     ]);
     expect(animaliDellaZona(sentieri, 1)).toHaveLength(1);
+  });
+});
+
+describe('Intorno a me: sentieri delle aree protette', () => {
+  const via = (id, highway, lon0) => ({
+    type: 'way',
+    id,
+    tags: { highway },
+    geometry: [
+      { lat: 40.25, lon: lon0 },
+      { lat: 40.26, lon: lon0 + 0.01 },
+      null, // tratto fuori dal riquadro
+      { lat: 40.27, lon: lon0 + 0.02 },
+      { lat: 40.28, lon: lon0 + 0.03 },
+    ],
+  });
+  const risposta = {
+    elements: [
+      { type: 'relation', id: 7072452, tags: { name: 'Parco di Porto Selvaggio' } },
+      via(1, 'path', 17.9),
+      via(2, 'track', 17.91),
+      { type: 'way', id: 99, tags: { name: 'Riserva piccola' } }, // area chiusa (una via sola)
+      via(3, 'path', 17.95),
+    ],
+  };
+
+  it('chiede le aree protette con i loro sentieri, solo nel riquadro', () => {
+    const q = queryAreeProtette(COPERTINO, 25);
+    expect(q).toContain('wr["leisure"="nature_reserve"]["name"](around:25000');
+    expect(q).toContain('map_to_area');
+    expect(q).toMatch(/out geom\([\d.,]+\)/);
+  });
+
+  it('una rete per area, con i km di sentieri e senza durata', async () => {
+    const reti = retiAreeProtette(risposta, COPERTINO, 25, { oggi: '2026-10-10' });
+    // prima l'area con meno vie (una riserva dentro un parco tiene le sue)
+    expect(reti.map((r) => r.sentiero.id)).toEqual(['intorno-rete-w99', 'intorno-rete-r7072452']);
+    const { sentiero, traccia } = reti[1];
+    expect(sentiero).toMatchObject({ nome: 'Sentieri · Parco di Porto Selvaggio', tipoPercorso: 'rete_sentieri', parco: 'intorno' });
+    expect(sentiero.descrizione).toMatch(/e carrarecce/);
+    expect(traccia.geojson.coordinates.length).toBe(4); // due vie, ciascuna spezzata dal buco
+    const { misureSentiero } = await import('../src/lib/riassunto.js');
+    const m = misureSentiero(sentiero, traccia);
+    expect(m.km).toBeGreaterThan(1);
+    expect(m.durataMin).toBeNull();
+    expect(m.salita).toBeNull();
+  });
+});
+
+describe('Intorno a me: una sola richiesta', () => {
+  it('percorsi prima del segnaposto, aree protette dopo', () => {
+    const json = {
+      elements: [
+        relazione(1, { route: 'hiking', name: 'Cammino' }, 100),
+        { type: 'way', id: 100, tags: { highway: 'track' } },
+        { type: 'areeprotette', id: 1, tags: {} },
+        { type: 'relation', id: 9, tags: { name: 'Riserva' } },
+        { type: 'way', id: 200, tags: { highway: 'path' }, geometry: [{ lat: 40.25, lon: 18.0 }, { lat: 40.26, lon: 18.01 }] },
+      ],
+    };
+    expect(queryIntorno(COPERTINO, 10)).toContain('make areeprotette');
+    expect(percorsiIntorno(json, COPERTINO, 10).map((p) => p.sentiero.id)).toEqual(['intorno-osm-sentiero-1']);
+    expect(retiAreeProtette(json, COPERTINO, 10).map((p) => p.sentiero.id)).toEqual(['intorno-rete-r9']);
   });
 });

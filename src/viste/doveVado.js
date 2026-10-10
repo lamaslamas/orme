@@ -208,7 +208,8 @@ export async function vistaDoveVado(app, zona = null) {
   function candidati() {
     const attivita = stato.leggi().attivita;
     return filtraPercorsi(preparati, { ...FILTRI_VUOTI }, attivita)
-      .filter((p) => p.sentiero.tipoPercorso !== 'uscita_guidata') // le uscite guidate hanno le loro date
+      // le uscite guidate hanno le loro date; le reti di sentieri non hanno un giro da giudicare
+      .filter((p) => !['uscita_guidata', 'rete_sentieri'].includes(p.sentiero.tipoPercorso))
       .filter((p) => inZona || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
       .map((p) => ({ ...p, vicini: puntiVicini(p) }))
       .filter((p) => (!scelte.notte || p.vicini.some(perLaNotte)) && (!scelte.acqua || p.vicini.some(conAcqua)))
