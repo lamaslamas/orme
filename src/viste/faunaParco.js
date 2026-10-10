@@ -5,6 +5,7 @@ import { ANIMALI } from '../lib/costanti.js';
 import { MINIMO_OSSERVAZIONI, MINIMO_PERSONE, mesiDaTesto } from '../lib/faunaPercorso.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
+import { iconaAnimale } from './icone.js';
 
 let datiInCorso = null;
 const caricaDati = () =>
@@ -56,7 +57,7 @@ export async function collegaFaunaParco(contenitore, parco, sentieri) {
         const mesi = mesiDaTesto(x.mesi);
         const dettaglio = `${x.osservazioni} osservazioni di ${x.persone} persone${x.mesi ? ` · soprattutto ${x.mesi}` : ''}${x.sfumate === x.osservazioni ? ' · posizioni sfumate' : ''}`;
         return `<li><button type="button" class="riga-fauna" data-animale-fauna="${x.animale}" title="${escapeHtml(dettaglio)}" aria-label="${escapeHtml(`${ANIMALI[x.animale]}: ${dettaglio}`)}">
-          <b class="fauna-nome">${escapeHtml(ANIMALI[x.animale])}</b>
+          <b class="fauna-nome">${iconaAnimale(x.animale)}${escapeHtml(ANIMALI[x.animale])}</b>
           <span class="fauna-grafico" aria-hidden="true">
             <span class="fauna-barra"><i style="width:${Math.max(4, Math.round((x.osservazioni / massimo) * 100))}%"></i></span>
             <span class="fauna-mesi">${Array.from({ length: 12 }, (_, m) => `<i class="${mesi.has(m + 1) ? 'si' : ''}"></i>`).join('')}</span>

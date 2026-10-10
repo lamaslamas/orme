@@ -73,7 +73,7 @@ function htmlFauna(s, traccia) {
   }
   // etichette leggere: icona, nome e mesi migliori, divise per dove sono state viste
   const etichetta = (a, mesi = '') =>
-    `<li class="animale-fauna"><span aria-hidden="true">${EMOJI_ANIMALI[a] ?? '🐾'}</span><b>${escapeHtml(ANIMALI[a] ?? a)}</b>${mesi ? `<span class="tenue">${escapeHtml(mesi)}</span>` : ''}</li>`;
+    `<li class="animale-fauna">${iconaAnimale(a)}<b>${escapeHtml(ANIMALI[a] ?? a)}</b>${mesi ? `<span class="tenue">${escapeHtml(mesi)}</span>` : ''}</li>`;
   const gruppo = (titolo, voci) => (voci.length ? `<p class="gruppo-fauna">${titolo}</p><ul class="elenco-fauna-leggero">${voci.join('')}</ul>` : '');
   const altri = inat.filter((x) => !associazioni.includes(x.animale));
   return `<section class="riquadro fauna">
@@ -192,7 +192,7 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { impostaBanner } from './banner.js';
 import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
-import { EMOJI_ANIMALI, ICONE } from './icone.js';
+import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA } from '../lib/faunaPercorso.js';

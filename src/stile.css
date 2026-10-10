@@ -1091,7 +1091,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .elenco-fauna-parco { list-style: none; margin: 8px 0; padding: 0; }
 .elenco-fauna-parco li + li { border-top: 1px solid var(--bordo); }
 .riga-fauna {
-  width: 100%; display: grid; grid-template-columns: 96px minmax(0, 1fr) 84px; align-items: center; gap: 10px; padding: 9px 2px; text-align: left;
+  width: 100%; display: grid; grid-template-columns: 128px minmax(0, 1fr) 76px; align-items: center; gap: 10px; padding: 9px 2px; text-align: left;
   border: none; background: none; font: inherit; font-size: 0.9rem; color: var(--testo); cursor: pointer;
 }
 .riga-fauna:hover .fauna-nome { color: var(--verde); }
@@ -1183,11 +1183,12 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* icone degli animali sopra la heatmap: spilli lilla (i rifugi e l'acqua sono cerchi pieni marroni e blu) */
 .icona-osservazione { background: none; border: none; }
 .icona-osservazione .spillo {
-  position: absolute; left: 2px; top: 0; width: 20px; height: 20px; display: grid; place-items: center;
-  background: #f1ecff; border: 2px solid #7c6cf0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  position: absolute; left: 2px; top: 0; width: 26px; height: 26px; display: grid; place-items: center;
+  background: #fff; border: 2px solid #7c6cf0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   box-shadow: 0 1px 3px rgba(37, 50, 56, 0.4);
 }
-.icona-osservazione .spillo > span { transform: rotate(45deg); font-size: 12px; line-height: 1; }
+.icona-osservazione .spillo > span { transform: rotate(45deg); line-height: 0; }
+.icona-osservazione .icona-animale { width: 18px; height: 18px; }
 .icona-osservazione .quante {
   position: absolute; left: 15px; top: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
   background: #5b4b9a; color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-weight: 700;
@@ -1504,3 +1505,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 }
 .avviso-breve { pointer-events: none; animation: avviso-breve 1.8s ease both; }
 @keyframes avviso-breve { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+/* icone degli animali (illustrazioni) */
+.icona-animale { width: 20px; height: 20px; flex: none; vertical-align: -4px; }
+.fauna-nome { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.fauna-nome .icona-animale { width: 22px; height: 22px; }
+.animale-fauna .icona-animale { width: 22px; height: 22px; }

@@ -16,7 +16,7 @@ import {
   urlTileGriglia,
   TUTTE_LE_SPECIE,
 } from '../lib/inaturalist.js';
-import { EMOJI_ANIMALI } from './icone.js';
+import { iconaAnimale } from './icone.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
 
 const COLORI_CLASSI = { 0: '#f3f4f6', 1: '#c4b5fd', 2: '#7c6cf0', 3: '#3c9a2a', 4: '#e2d600' };
@@ -234,14 +234,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
       // le posizioni approssimate (specie protette, atlanti) a parte, sbiadite e tratteggiate
       for (const g of raggruppa(oss)) {
-        const emoji = EMOJI_ANIMALI[g.animale] ?? '🐾';
         L.marker([g.lat, g.lon], {
           icon: L.divIcon({
             className: `icona-osservazione${g.sfumata ? ' sfumata' : ''}`,
-            html: `<span class="spillo"><span>${emoji}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
-            iconSize: [24, 30],
-            iconAnchor: [12, 30],
-            popupAnchor: [0, -28],
+            html: `<span class="spillo"><span>${iconaAnimale(g.animale)}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
+            iconSize: [30, 36],
+            iconAnchor: [15, 36],
+            popupAnchor: [0, -34],
           }),
           title: `${ANIMALI[g.animale]}: ${g.oss.length}`,
           keyboard: false,
