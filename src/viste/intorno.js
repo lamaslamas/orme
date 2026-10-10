@@ -95,9 +95,11 @@ export async function vistaIntorno(app) {
   const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'] });
   mappa.setView([42, 12.6], 5);
   const fermaGps = aggiungiGps(mappa, () => null);
-  // qui la fauna si vede subito: heatmap accesa (si spegne dal pulsante "Fauna")
+  // qui la fauna si vede subito: heatmap accesa (si spegne dal pulsante "Fauna"); uscendo torna
+  // com'era, così le altre mappe non la ereditano
+  const heatmapPrima = stato.leggi().livelli.heatmap;
   stato.imposta({ livelli: { heatmap: true } });
-  const heat = aggiungiHeatmap(mappa);
+  const heat = aggiungiHeatmap(mappa, { intorno: true });
   const selettoreAnimali = app.querySelector('.animali-intorno');
   const invitoMeteo = app.querySelector('.invito-meteo');
   const livelloZona = L.layerGroup().addTo(mappa);
@@ -393,6 +395,7 @@ export async function vistaIntorno(app) {
     fermaGps();
     heat.rimuovi();
     mappa.remove();
+    if (!heatmapPrima) stato.imposta({ livelli: { heatmap: false } });
   };
 }
 

@@ -37,12 +37,11 @@ export const SPIEGAZIONE_HEATMAP = `
   <p class="tenue">Dati © degli autori, con le licenze Creative Commons indicate su ogni osservazione. I tuoi avvistamenti personali non sono mai inclusi.</p>`;
 
 // Filtri della heatmap dallo stato condiviso: l'animale è lo stesso scelto nei filtri dei sentieri
-// parco: nella pagina di un parco di base le specie rare della lista; altrove (mappa, Pianifica,
-// Intorno a me) gli animali imperdibili, che le comprendono. Le due scelte si salvano a parte.
-const chiaveInsieme = (parco) => (parco ? 'insieme' : 'insiemeIntorno');
-export function filtriHeatmap(st = stato.leggi(), { parco = false } = {}) {
+// intorno: solo in "Intorno a me" anche gli animali imperdibili (la fauna più comune); altrove
+// sempre e solo le specie rare della lista
+export function filtriHeatmap(st = stato.leggi(), { intorno = false } = {}) {
   const h = st.heatmap ?? {};
-  const insieme = h[chiaveInsieme(parco)] ?? (parco ? 'rare' : 'notevoli');
+  const insieme = intorno ? h.insiemeIntorno ?? 'notevoli' : 'rare';
   // ("selvatici" era il nome di prima di "notevoli")
   const specie = st.specie && TAXON_GBIF[st.specie] ? st.specie : insieme === 'rare' ? 'rare' : 'notevoli';
   // solo i campi noti: valori estranei rimasti in memoria non devono cambiare la ricerca
@@ -75,18 +74,18 @@ async function cercaNomeItaliano(scientifico) {
   return NOMI_IT.get(scientifico);
 }
 
-function opzioniSpecie(scelta) {
+function opzioniSpecie(scelta, intorno) {
   const voci = [
     ['rare', 'Tutte le specie rare della lista'],
-    ['notevoli', 'Animali imperdibili (anche fuori dalla lista)'],
+    ...(intorno ? [['notevoli', 'Animali imperdibili (anche fuori dalla lista)']] : []),
     ...SPECIE_RARE.map((k) => [k, ANIMALI[k]]),
   ];
   return voci.map(([v, et]) => `<option value="${v}" ${scelta === v ? 'selected' : ''}>${escapeHtml(et)}</option>`).join('');
 }
 
 // occupata() dice se un altro strumento (misura, nuovo avvistamento) sta usando i tocchi
-export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false } = {}) {
-  let filtri = filtriHeatmap(stato.leggi(), { parco });
+export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false } = {}) {
+  let filtri = filtriHeatmap(stato.leggi(), { intorno });
   let richiestaZona = 0;
   let livello = null;
   let attiva = false;
@@ -363,7 +362,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
         <span><button type="button" class="info-heatmap" data-azione="info" aria-label="Come leggerla" title="Come leggerla">?</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
-        <select name="specie" aria-label="Specie">${opzioniSpecie(filtri.specie)}</select>
+        <select name="specie" aria-label="Specie">${opzioniSpecie(filtri.specie, intorno)}</select>
         <select name="stagione" aria-label="Periodo dell'anno">${Object.entries(STAGIONI)
           .map(([k, s]) => `<option value="${k}" ${filtri.stagione === k ? 'selected' : ''}>${s.nome}</option>`)
           .join('')}</select>
@@ -398,7 +397,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
       // un animale diventa la scelta di tutta l'app; "rare" toglie la scelta
       const v = e.target.value;
       if (TAXON_GBIF[v]) stato.imposta({ specie: v });
-      else stato.imposta({ specie: '', heatmap: { [chiaveInsieme(parco)]: v } });
+      else if (intorno) stato.imposta({ specie: '', heatmap: { insiemeIntorno: v } });
+      else stato.imposta({ specie: '' });
       return;
     }
     const valore = e.target.type === 'checkbox' ? e.target.checked : name === 'anni' ? Number(e.target.value) : e.target.value;
@@ -407,7 +407,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
 
   // ogni cambio di animale o di filtri sostituisce subito la heatmap precedente
   const scollega = stato.ascolta((nuovo) => {
-    const prossimi = filtriHeatmap(nuovo, { parco });
+    const prossimi = filtriHeatmap(nuovo, { intorno });
     const cambiati = JSON.stringify(prossimi) !== JSON.stringify(filtri);
     if (nuovo.livelli.heatmap !== attiva) nuovo.livelli.heatmap ? accendi() : spegni();
     if (!cambiati) return;

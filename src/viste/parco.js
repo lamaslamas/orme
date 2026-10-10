@@ -122,7 +122,7 @@ export async function vistaParco(app, id) {
   const fermaGps = aggiungiGps(mappa, () => null);
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
   aggiungiDistribuzione(mappa);
-  const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva(), parco: true });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
   const percorsi = L.layerGroup();
   const toccabili = percorsiToccabili(mappa, { occupata: () => avv.attiva() });
   disegnaPercorsi = () => {
