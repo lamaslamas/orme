@@ -77,7 +77,7 @@ async function cercaNomeItaliano(scientifico) {
 function opzioniSpecie(scelta) {
   const voci = [
     ['rare', 'Tutte le specie rare della lista'],
-    ['notevoli', 'Specie di pregio, per natura e foto (anche fuori dalla lista)'],
+    ['notevoli', 'Animali imperdibili (anche fuori dalla lista)'],
     ...SPECIE_RARE.map((k) => [k, ANIMALI[k]]),
   ];
   return voci.map(([v, et]) => `<option value="${v}" ${scelta === v ? 'selected' : ''}>${escapeHtml(et)}</option>`).join('');
@@ -242,7 +242,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       <ul>${righe}</ul>${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
   }
 
-  // osservazioni nel riquadro; con "specie di pregio" anche i mammiferi e uccelli minacciati (IUCN)
+  // osservazioni nel riquadro; con "animali imperdibili" anche i mammiferi e uccelli minacciati (IUCN)
   async function cercaOsservazioni(riquadro, limite) {
     const ricerche = [filtri, ...(filtri.specie === 'notevoli' ? [{ ...filtri, specie: 'minacciate' }] : [])];
     const risposte = await Promise.all(
@@ -271,7 +271,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     }
     const b = mappa.getBounds();
     try {
-      // con "specie di pregio" anche le specie fuori dalla lista di Orme
+      // con "animali imperdibili" anche le specie fuori dalla lista di Orme
       const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300);
       const oss = osservazioni.filter((o) => o.animale || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
       if (mia !== richiestaIcone) return;

@@ -48,7 +48,7 @@ export function parametriInat(filtri, oggi = new Date()) {
     // ricerca per gruppo (lungo i percorsi): nessun filtro di specie
     if (GRUPPI[filtri.gruppo]?.taxa) p.set('iconic_taxa', GRUPPI[filtri.gruppo].taxa);
   } else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
-  // specie di pregio: gli stessi gruppi di GBIF (TAXA_NOTEVOLI_GBIF), con gli id di iNaturalist
+  // animali imperdibili: gli stessi gruppi di GBIF (TAXA_NOTEVOLI_GBIF), con gli id di iNaturalist
   else if (filtri.specie === 'notevoli') p.set('taxon_id', TAXA_NOTEVOLI_INAT.join(','));
   else {
     const chiavi = filtri.specie === 'rare' ? SPECIE_RARE : [filtri.specie];

@@ -6,7 +6,7 @@ import { TAXON_GBIF, ANIMALI, SPECIE_SOLO_INTORNO } from './costanti.js';
 import { STAGIONI, SPECIE_RARE } from './inaturalist.js';
 
 export const API_GBIF = 'https://api.gbif.org/v1';
-// "Specie di pregio", preziose per naturalisti e fotografi (oltre a quelle della lista): mammiferi selvatici senza topi e ratti,
+// "Animali imperdibili", i più preziosi da vedere e fotografare (oltre a quelle della lista): mammiferi selvatici senza topi e ratti,
 // rapaci, grandi uccelli d'acqua e uccelli colorati o insoliti. Chiavi dell'elenco dei nomi di GBIF.
 export const TAXA_NOTEVOLI_GBIF = [
   // mammiferi: carnivori, ungulati, lagomorfi, pipistrelli, ricci, toporagni e talpe; dei roditori
@@ -33,7 +33,7 @@ export function parametriGbif(filtri = {}, oggi = new Date()) {
   const p = new URLSearchParams();
   // 'rare' = la lista della heatmap; 'tutte' = le specie dei parchi; 'intorno' = anche quelle di
   // "Intorno a me" (fenicottero, riccio…); altrimenti un animale
-  // 'notevoli' = le specie di pregio (gruppi qui sopra); 'minacciate' = mammiferi e uccelli a rischio
+  // 'notevoli' = gli animali imperdibili (gruppi qui sopra); 'minacciate' = mammiferi e uccelli a rischio
   const chiavi =
     filtri.specie === 'intorno'
       ? Object.keys(TAXON_GBIF)

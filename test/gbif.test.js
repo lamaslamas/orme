@@ -93,7 +93,7 @@ describe('GBIF: osservazioni', () => {
   });
 });
 
-describe('GBIF: specie di pregio', async () => {
+describe('GBIF: animali imperdibili', async () => {
   const { parametriGbif, interpretaGbif, iconaPerOsservazione, TAXA_NOTEVOLI_GBIF } = await import('../src/lib/gbif.js');
   const { parametriInat, TAXA_NOTEVOLI_INAT } = await import('../src/lib/inaturalist.js');
   it('cerca solo i gruppi scelti; le minacciate a parte, tra tutti i mammiferi e uccelli', () => {
