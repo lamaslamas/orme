@@ -464,13 +464,17 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       <button type="button" class="bottone pieno-largo" data-chiudi>Chiudi</button>`;
   }
 
+  // un tocco singolo apre le osservazioni; il doppio tocco serve a ingrandire e non apre niente
+  let attesaTocco = null;
   mappa.on('click', (e) => {
     if (!attiva || occupata()) return;
     // i tocchi sulle tracce aprono il loro riquadro, non l'elenco delle osservazioni
     if (e.originalEvent?.target?.classList?.contains('leaflet-interactive')) return;
     if (mappa.percorsoVicino?.(e.latlng)) return;
-    mostraZona(e);
+    clearTimeout(attesaTocco);
+    attesaTocco = setTimeout(() => mostraZona(e), 300);
   });
+  mappa.on('dblclick zoomstart', () => clearTimeout(attesaTocco));
 
   // se la heatmap era accesa nella schermata precedente, resta accesa
   if (stato.leggi().livelli.heatmap) accendi();
