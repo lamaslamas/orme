@@ -44,6 +44,7 @@ export async function vistaParco(app, id) {
       <p class="zona">${escapeHtml(parco.regioni.join(' · '))}</p>
       <h1>${escapeHtml(parco.nomeBreve)}</h1>
       <p class="tenue nome-esteso">${escapeHtml(parco.nome)}</p>
+      <p class="descrizione">${escapeHtml(parco.descrizione)}</p>
       <div class="numeri-grandi">
         <div class="numero"><b>${sentieri.length}</b><span>Sentieri</span></div>
         <div class="numero"><b>${conTraccia.length}</b><span>Con traccia</span></div>
@@ -53,8 +54,6 @@ export async function vistaParco(app, id) {
       <h2 class="titolo-sezione">Percorsi</h2>
       ${htmlSelettoreAttivita({ titolo: false })}
       <div id="elenco"></div>
-
-      <p class="descrizione">${escapeHtml(parco.descrizione)}</p>
 
       ${htmlFaunaParco()}
 
