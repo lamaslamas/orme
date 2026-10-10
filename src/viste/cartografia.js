@@ -168,6 +168,13 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
   mappa.aggiornaLegenda = () => {};
   if (anteprima) return mappa;
   L.control.scale({ imperial: false }).addTo(mappa);
+  // crediti: su telefono una riga sola, un tocco li mostra per intero (i link restano cliccabili)
+  const crediti = mappa.attributionControl?.getContainer();
+  crediti?.addEventListener('click', (e) => {
+    if (e.target.closest('a') && crediti.classList.contains('aperti')) return;
+    crediti.classList.toggle('aperti');
+    if (e.target.closest('a')) e.preventDefault();
+  });
   // rifugi e acqua: in tutte le mappe con il pannello dei livelli, prima del GPS
   const conPunti = [...livelli.filter((k) => k !== 'gps'), 'rifugi', 'acqua', ...livelli.filter((k) => k === 'gps')];
   aggiungiPannelloLivelli(mappa, ['sentieriOsm', ...conPunti]);

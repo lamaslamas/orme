@@ -1471,3 +1471,19 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .azioni-intorno .bottone { display: inline-flex; align-items: center; gap: 6px; }
 .azioni-intorno .bottone svg { width: 18px; height: 18px; }
 .nota-intorno { margin-top: 16px; }
+
+/* Pagina del parco su telefono: mappa più grande */
+@media (max-width: 1023.98px) {
+  .pagina-parco .parco-mappa, .parco-mappa:has(#mappaIntorno) { height: 50vh; height: 50dvh; min-height: 280px; max-height: 480px; }
+}
+/* Legenda della heatmap chiusa: una sola riga sottile (titolo, scala, ? e Filtri) */
+.pannello-heatmap.ridotto { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; font-size: 0.8rem; }
+.pannello-heatmap.ridotto .heat-testa { display: contents; }
+.pannello-heatmap.ridotto .heat-testa > b { order: 1; }
+.pannello-heatmap.ridotto .heat-legenda { order: 2; flex: 1; margin-top: 0; min-width: 0; }
+.pannello-heatmap.ridotto .heat-testa > span { order: 3; gap: 6px; }
+.pannello-heatmap.ridotto .chiudi-pannello { min-height: 26px; padding: 0 8px; }
+.info-heatmap { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--bordo); background: #fff; color: var(--verde); font-weight: 700; text-decoration: none !important; cursor: pointer; }
+@media (max-width: 1023.98px) {
+  .leaflet-control-attribution:not(.aperti) { max-width: calc(100vw - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+}

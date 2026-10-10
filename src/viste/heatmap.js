@@ -289,7 +289,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
   function disegnaPannello() {
     pannello.innerHTML = `
       <div class="heat-testa"><b>Fauna</b>
-        <span><button type="button" class="link" data-azione="info">Come leggerla</button>
+        <span><button type="button" class="info-heatmap" data-azione="info" aria-label="Come leggerla" title="Come leggerla">?</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
         <select name="specie" aria-label="Specie">${opzioniSpecie(filtri.specie)}</select>

@@ -237,6 +237,8 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
       if (ricerca) ricerca.value = '';
       aggiorna();
     },
+    // ridisegna l'elenco con gli stessi filtri (es. dopo uno spostamento della mappa)
+    ricalcola: () => alAggiornamento(filtri),
     scollega,
   };
 }

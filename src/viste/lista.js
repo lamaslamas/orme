@@ -119,7 +119,9 @@ function collegaSalvaDaLista() {
 // alRisultato(risultato): chiamata a ogni aggiornamento (es. per mostrare sulla mappa gli stessi percorsi)
 // serveUnFiltro: l'elenco compare solo dopo aver scelto almeno un filtro (pagina iniziale)
 // ordina(risultato): ordine diverso da quello normale; nota(percorso): testo breve sulla scheda
-export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false, ordina = null, nota = null } = {}) {
+// limita: { filtro(percorso), testo(n, totale) } = solo una parte nell'elenco (es. la zona inquadrata
+// sulla mappa); alRisultato riceve comunque tutti i percorsi filtrati
+export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false, ordina = null, nota = null, limita = null } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
     ${htmlFiltri(sentieri, filtri, { ricerca })}
@@ -184,7 +186,8 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
         attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''
       }`;
       alRisultato?.(risultato);
-      ultimoRisultato = risultato;
+      ultimoRisultato = limita ? risultato.filter(limita.filtro) : risultato;
+      if (limita && risultato.length) conteggio.innerHTML = limita.testo(ultimoRisultato.length, risultato.length);
       quanti = PAGINA;
       // nessun filtro scelto: invece di centinaia di percorsi, un invito a scegliere
       const scelti = Object.entries(filtri).filter(([k, v]) => v && !['soloBici', 'paese'].includes(k));
@@ -197,8 +200,10 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
         alRisultato?.([]);
         return;
       }
-      lista.innerHTML = risultato.length
+      lista.innerHTML = ultimoRisultato.length
         ? htmlPagina(0)
+        : risultato.length
+          ? '<li class="vuoto">Nessun percorso nella zona inquadrata: sposta la mappa o allontanati.</li>'
         : `<li class="vuoto">Nessun percorso corrisponde ai filtri${attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''}.
             <span class="suggerimenti-filtri">${suggerimenti()}</span>
             <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></li>`;

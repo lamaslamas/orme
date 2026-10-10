@@ -49,6 +49,11 @@ export async function vistaParco(app, id) {
         <div class="numero"><b>${conTraccia.length}</b><span>Con traccia</span></div>
         <div class="numero"><b>${fatti}</b><span>Fatti</span></div>
       </div>
+
+      <h2 class="titolo-sezione">Percorsi</h2>
+      ${htmlSelettoreAttivita({ titolo: false })}
+      <div id="elenco"></div>
+
       <p class="descrizione">${escapeHtml(parco.descrizione)}</p>
 
       ${htmlFaunaParco()}
@@ -64,10 +69,6 @@ export async function vistaParco(app, id) {
         <a class="bottone" href="#/parco/${encodeURIComponent(parco.id)}/importa">Importa sentieri da OSM</a>
         <a class="bottone" href="#/nuovo?parco=${encodeURIComponent(parco.id)}">Aggiungi sentiero</a>
       </div>
-
-      <h2 class="titolo-sezione">Percorsi</h2>
-      ${htmlSelettoreAttivita({ titolo: false })}
-      <div id="elenco"></div>
     </article>
   `;
 
@@ -76,15 +77,44 @@ export async function vistaParco(app, id) {
   // la mappa mostra gli stessi percorsi dell'elenco (modalità e filtri scelti)
   let ultimoRisultato = null;
   let disegnaPercorsi = () => {};
+  // l'elenco segue la mappa: solo i percorsi nella zona inquadrata (con "tutti" per vederli tutti)
+  let mappa = null;
+  let seguiMappa = true;
+  let chiaveDisegnata = null;
+  const riquadri = new Map(conTraccia.map((s) => [s.id, L.geoJSON(tracce.get(s.id).geojson).getBounds()]));
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, {
     parcoFisso: parco.id,
     alRisultato: (risultato) => {
+      // spostando la mappa i percorsi filtrati non cambiano: niente da ridisegnare
+      const chiave = risultato.map((p) => p.sentiero.id).join();
+      if (chiave === chiaveDisegnata) return;
+      chiaveDisegnata = chiave;
       ultimoRisultato = risultato;
       disegnaPercorsi();
     },
+    limita: {
+      filtro: (p) => !seguiMappa || !mappa || Boolean(riquadri.get(p.sentiero.id)?.intersects(mappa.getBounds())),
+      testo: (n, totale) =>
+        n < totale
+          ? `<b>${n}</b> nella zona inquadrata su ${totale} · <button type="button" class="link" data-azione="tutti-i-percorsi">mostra tutti</button>`
+          : `${totale} ${totale === 1 ? 'percorso' : 'percorsi'}`,
+    },
+  });
+  app.querySelector('#elenco').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-azione="tutti-i-percorsi"]')) return;
+    seguiMappa = false;
+    elenco.ricalcola();
   });
 
-  const mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
+  mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
+  let attesaVista = null;
+  mappa.on('moveend', () => {
+    clearTimeout(attesaVista);
+    attesaVista = setTimeout(() => {
+      seguiMappa = true;
+      elenco.ricalcola();
+    }, 200);
+  });
   // centratura immediata sul riquadro del parco; il confine, quando arriva, la affina
   mappa.fitBounds(
     [
@@ -150,6 +180,7 @@ export async function vistaParco(app, id) {
 
   return () => {
     chiusa = true;
+    clearTimeout(attesaVista);
     elenco.scollega();
     scollegaAnimali();
     scollegaAttivita();
