@@ -29,8 +29,9 @@ import {
   animaliDellaZona,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
-import { creaMappa, disegnaTraccia } from './mappa.js';
+import { creaMappa } from './mappa.js';
 import { COLORI_STATO } from './mappaGenerale.js';
+import { percorsiToccabili } from './toccaPercorso.js';
 import { montaElenco } from './lista.js';
 import { aggiungiGps } from './gps.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
@@ -105,13 +106,12 @@ export async function vistaIntorno(app) {
 
   let elenco = null;
   let ultimi = [];
+  const toccabili = percorsiToccabili(mappa, { occupata: () => sceltaSullaMappa });
   const disegnaPercorsi = (risultato) => {
     percorsi.clearLayers();
     for (const { sentiero: s, traccia } of risultato) {
       if (!traccia?.geojson) continue;
-      disegnaTraccia(traccia.geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 })
-        .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
-        .addTo(percorsi);
+      toccabili.disegna(percorsi, s, traccia, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 });
     }
     if (accesi && !mappa.hasLayer(percorsi)) percorsi.addTo(mappa);
   };

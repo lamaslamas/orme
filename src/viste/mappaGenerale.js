@@ -4,13 +4,13 @@ import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
-import { creaMappa, disegnaTraccia } from './mappa.js';
+import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { aggiungiDistribuzione } from './distribuzione.js';
-import { disegnaPercorso } from './disegnoTraccia.js';
+import { percorsiToccabili } from './toccaPercorso.js';
 import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import { stato } from '../stato.js';
@@ -38,16 +38,6 @@ export const COLORI_STATO = {
   da_fare: COLORI.traccia,
   fatto: COLORI.tracciaFatta,
 };
-
-function riquadroSentiero(s) {
-  const id = encodeURIComponent(s.id);
-  return `
-    <div class="popup-sentiero">
-      ${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}<b>${escapeHtml(s.nome)}</b>
-      <div class="tenue">${s.stato === 'fatto' ? 'Fatto' : 'Da fare'}</div>
-      <a href="#/sentiero/${id}">Apri la scheda</a> · <a href="#/sentiero/${id}/mappa">Mappa del sentiero</a>
-    </div>`;
-}
 
 const sopra = (x) => (x.sentiero.stato === 'fatto' ? 0 : 1);
 
@@ -81,7 +71,6 @@ export async function vistaMappaGenerale(app) {
   mappa.suLivello('confini', (acceso) => (acceso ? confini.addTo(mappa) : confini.remove()));
   const livello = L.layerGroup();
   mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));
-  const selezione = L.layerGroup().addTo(mappa);
   // area toccabile di ogni traccia: l'elenco dei risultati la "tocca" per evidenziarla
   const aree = new Map();
   // confine del parco scelto: sempre visibile e più marcato (si scarica se manca)
@@ -140,6 +129,13 @@ export async function vistaMappaGenerale(app) {
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
   const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
   const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
+  // tocco su una traccia: evidenziata, inquadrata (senza cambiare l'elenco) e con il suo riquadro
+  const toccabili = percorsiToccabili(mappa, {
+    occupata: () => misura.attiva() || avv.attiva() || Boolean(mappa.strumento),
+    inquadra: true,
+    primaDiInquadrare: () => (saltaSpostamento = true),
+    dopoInquadrare: () => (saltaSpostamento = false),
+  });
   aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() || Boolean(mappa.strumento) });
   // "Percorsi da qui": tra i percorsi con i filtri e la modalità scelti
@@ -202,7 +198,7 @@ export async function vistaMappaGenerale(app) {
 
     livello.clearLayers();
     aree.clear();
-    selezione.clearLayers();
+    toccabili.pulisci();
     mappa.closePopup();
     // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
     const ricerca = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
@@ -211,33 +207,9 @@ export async function vistaMappaGenerale(app) {
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
     for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
       const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
-      const linea = disegnaTraccia(traccia.geojson, ricerca ? { color: colore, weight: 3.5, opacity: 0.85 } : STILE_DISCRETO).addTo(livello);
-      // linea invisibile più larga: più facile da toccare con il dito
-      const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0 }).addTo(livello);
+      // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
+      const { linea, area } = toccabili.disegna(livello, sentiero, traccia, ricerca ? { color: colore, weight: 3.5, opacity: 0.85 } : STILE_DISCRETO, colore);
       aree.set(sentiero.id, area);
-      // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco):
-      // così durante la misura il tocco arriva allo strumento di misura
-      area.on('click', () => {
-        if (misura.attiva() || avv.attiva() || mappa.strumento) return;
-        // la traccia scelta si evidenzia con partenza, arrivo e verso di percorrenza
-        // e viene inquadrata, lasciando in alto lo spazio per il riquadro
-        selezione.clearLayers();
-        const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6 }).addTo(selezione);
-        saltaSpostamento = true;
-        mappa.fitBounds(evidenziata.getBounds(), {
-          paddingTopLeft: [40, 150],
-          paddingBottomRight: [40, 30],
-          maxZoom: 15,
-          animate: false,
-        });
-        saltaSpostamento = false; // senza animazione lo spostamento è già avvenuto
-        const limitiScelta = evidenziata.getBounds();
-        L.popup({ autoPan: false })
-          .setLatLng([limitiScelta.getNorth(), limitiScelta.getCenter().lng])
-          .setContent(riquadroSentiero(sentiero))
-          .on('remove', () => selezione.clearLayers())
-          .openOn(mappa);
-      });
       limiti.extend(linea.getBounds());
     }
     // a ogni cambio di filtri la mappa si sposta sui risultati (o sul parco scelto)

@@ -322,7 +322,10 @@ body.con-mappa main { max-width: none; padding: 0; }
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25); font-size: 0.8rem; line-height: 1.6;
 }
 .legenda .segno { display: inline-block; width: 18px; height: 4px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
-.popup-sentiero { line-height: 1.5; }
+.popup-sentiero { line-height: 1.4; display: grid; gap: 6px; min-width: 200px; max-width: 240px; }
+.popup-sentiero-nome { font-size: 0.95rem; }
+.popup-sentiero .dati-icone { font-size: 0.82rem; }
+.popup-sentiero .popup-apri { justify-content: center; text-align: center; color: #fff; text-decoration: none; min-height: 36px; margin-top: 2px; }
 .popup-sentiero .codice { font-size: 0.75rem; }
 .titolo-sezione { font-size: 1rem; margin: 4px 0 8px; }
 .senza-traccia { list-style: none; margin: 0; padding: 0; }

@@ -2,8 +2,9 @@ import L from 'leaflet';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { parcoDa } from '../datiParchi.js';
 import { escapeHtml } from '../lib/formato.js';
-import { creaMappa, disegnaTraccia } from './mappa.js';
+import { creaMappa } from './mappa.js';
 import { COLORI_STATO } from './mappaGenerale.js';
+import { percorsiToccabili } from './toccaPercorso.js';
 import { ottieniConfine, disegnaConfine } from './confine.js';
 import { montaElenco } from './lista.js';
 import { impostaBanner } from './banner.js';
@@ -123,13 +124,12 @@ export async function vistaParco(app, id) {
   aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
   const percorsi = L.layerGroup();
+  const toccabili = percorsiToccabili(mappa, { occupata: () => avv.attiva() });
   disegnaPercorsi = () => {
     percorsi.clearLayers();
     for (const { sentiero: s, traccia } of ultimoRisultato ?? conTraccia.map((x) => ({ sentiero: x, traccia: tracce.get(x.id) }))) {
       if (!traccia?.geojson) continue;
-      disegnaTraccia(traccia.geojson, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 })
-        .bindPopup(`<a href="#/sentiero/${encodeURIComponent(s.id)}">${escapeHtml(s.nome)}</a>`)
-        .addTo(percorsi);
+      toccabili.disegna(percorsi, s, traccia, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 });
     }
   };
   disegnaPercorsi();
