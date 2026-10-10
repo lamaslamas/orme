@@ -30,7 +30,6 @@ export async function vistaParco(app, id) {
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   const sentieri = tutti.filter((s) => (s.parchi ?? [s.parco]).includes(parco.id));
   const conTraccia = sentieri.filter((s) => tracce.has(s.id));
-  const fatti = sentieri.filter((s) => s.stato === 'fatto').length;
 
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Parchi</a>
@@ -41,14 +40,10 @@ export async function vistaParco(app, id) {
           .map((a) => `<button type="button" class="pillola ${stato.leggi().specie === a ? 'attiva' : ''}" data-animale="${a}">${ANIMALI[a]}</button>`)
           .join('')}
       </div>
-      <p class="zona">${escapeHtml(parco.regioni.join(' · '))}</p>
+      <p class="zona">${escapeHtml(parco.regioni.join(' · '))} · ${sentieri.length} sentieri</p>
       <h1>${escapeHtml(parco.nomeBreve)}</h1>
       <p class="tenue nome-esteso">${escapeHtml(parco.nome)}</p>
       <p class="descrizione">${escapeHtml(parco.descrizione)}</p>
-      <div class="numeri-grandi">
-        <div class="numero"><b>${sentieri.length}</b><span>Sentieri</span></div>
-        <div class="numero"><b>${conTraccia.length}</b><span>Con traccia</span></div>
-        <div class="numero"><b>${fatti}</b><span>Fatti</span></div>
       </div>
 
       <h2 class="titolo-sezione">Percorsi</h2>

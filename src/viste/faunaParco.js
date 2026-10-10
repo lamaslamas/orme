@@ -2,7 +2,7 @@
 // riepilogo calcolato ogni settimana in dati/fauna-parchi.json). Tre stati sempre espliciti:
 // dati disponibili, dati insufficienti, dati non ancora calcolati (o non raggiungibili).
 import { ANIMALI } from '../lib/costanti.js';
-import { MINIMO_OSSERVAZIONI, MINIMO_PERSONE } from '../lib/faunaPercorso.js';
+import { MINIMO_OSSERVAZIONI, MINIMO_PERSONE, mesiDaTesto } from '../lib/faunaPercorso.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 
@@ -46,23 +46,26 @@ export async function collegaFaunaParco(contenitore, parco, sentieri) {
   }
   const doveVista = (animale) => sentieri.filter((s) => (s.faunaInat?.specie ?? []).some((x) => x.animale === animale && x.livello === 'percorso')).length;
   const scarso = f.osservazioni < 50;
-  box.innerHTML = `${titolo}
-    <p class="stato-dati ${scarso ? 'stato-scarso' : 'stato-ok'}">${
-      scarso ? '<b>Pochi dati</b>: le osservazioni sono ancora poche, il quadro è parziale.' : '<b>Dati disponibili</b>'
-    } · ${f.osservazioni} osservazioni verificate su iNaturalist.${quando}</p>
+  const massimo = Math.max(...f.specie.map((x) => x.osservazioni));
+  // una riga per animale: barra delle osservazioni (rispetto al più osservato), mesi migliori, percorsi
+  box.innerHTML = `<div class="fauna-testa"><h2>Fauna del parco</h2><span class="tenue piccolo">${f.osservazioni} osservazioni · iNaturalist</span></div>
+    ${scarso ? '<p class="stato-dati stato-scarso"><b>Pochi dati</b>: il quadro è parziale.</p>' : ''}
     <ul class="elenco-fauna-parco">${f.specie
       .map((x) => {
         const n = doveVista(x.animale);
-        return `<li><button type="button" class="riga-fauna" data-animale-fauna="${x.animale}">
-          <b>${escapeHtml(ANIMALI[x.animale])}</b>
-          <span class="tenue">${x.osservazioni} osservazioni di ${x.persone} persone${x.mesi ? ` · soprattutto ${escapeHtml(x.mesi)}` : ''}${
-            x.sfumate === x.osservazioni ? ' · posizioni sfumate' : ''
-          }</span>
-          <span class="tenue piccolo">${n ? `osservato lungo ${n} ${n === 1 ? 'percorso' : 'percorsi'}` : 'nessun percorso con osservazioni precise'} ›</span>
+        const mesi = mesiDaTesto(x.mesi);
+        const dettaglio = `${x.osservazioni} osservazioni di ${x.persone} persone${x.mesi ? ` · soprattutto ${x.mesi}` : ''}${x.sfumate === x.osservazioni ? ' · posizioni sfumate' : ''}`;
+        return `<li><button type="button" class="riga-fauna" data-animale-fauna="${x.animale}" title="${escapeHtml(dettaglio)}" aria-label="${escapeHtml(`${ANIMALI[x.animale]}: ${dettaglio}`)}">
+          <b class="fauna-nome">${escapeHtml(ANIMALI[x.animale])}</b>
+          <span class="fauna-grafico" aria-hidden="true">
+            <span class="fauna-barra"><i style="width:${Math.max(4, Math.round((x.osservazioni / massimo) * 100))}%"></i></span>
+            <span class="fauna-mesi">${Array.from({ length: 12 }, (_, m) => `<i class="${mesi.has(m + 1) ? 'si' : ''}"></i>`).join('')}</span>
+          </span>
+          <span class="fauna-percorsi ${n ? '' : 'tenue'}">${n ? `${n} percorsi ›` : 'zona'}</span>
         </button></li>`;
       })
       .join('')}</ul>
-    <p class="tenue piccolo">Tocca un animale per vedere i percorsi e la heatmap. Non è un censimento: conta dove le persone osservano e fotografano.</p>`;
+    <p class="tenue piccolo">Barra: quante osservazioni · trattini: i mesi migliori (gen→dic). Tocca un animale per i percorsi e la heatmap.${quando}</p>`;
   box.addEventListener('click', (e) => {
     const a = e.target.closest('[data-animale-fauna]')?.dataset.animaleFauna;
     if (!a) return;
