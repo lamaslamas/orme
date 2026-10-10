@@ -1,8 +1,9 @@
 // "Dove vado domani?": scegli il giorno (oggi o domani) e l'app ordina i percorsi in base alle
 // previsioni di Open-Meteo alla partenza e in quota, alla durata e alle tue preferenze.
 // A Open-Meteo vanno solo coordinate e quote dei sentieri. Preferenze e scelte restano sul telefono.
-import { tuttiISentieri, tutteLeTracce } from '../db.js';
-import { PARCHI, parcoDa, diUnParco } from '../datiParchi.js';
+import { tuttiISentieri, tutteLeTracce, leggiIntorno } from '../db.js';
+import { PARCHI, parcoDa, diUnParco, ID_INTORNO } from '../datiParchi.js';
+import { nelRaggio } from '../lib/intorno.js';
 import { FILTRI_VUOTI } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
@@ -115,9 +116,15 @@ function htmlPreferenze(s) {
   </details>`;
 }
 
-export async function vistaDoveVado(app) {
-  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
-  const sentieri = tutti.filter(diUnParco);
+// zona: "intorno" = solo i percorsi di "Intorno a me" (anche quelli dei parchi nella zona)
+export async function vistaDoveVado(app, zona = null) {
+  const [tutti, tracce, intorno] = await Promise.all([tuttiISentieri(), tutteLeTracce(), zona === ID_INTORNO ? leggiIntorno() : null]);
+  const inZona = zona === ID_INTORNO;
+  const sentieri = inZona
+    ? intorno
+      ? nelRaggio(tutti.map((s) => ({ sentiero: s, traccia: tracce.get(s.id) })), intorno.centro, intorno.raggioKm).map((v) => v.sentiero)
+      : []
+    : tutti.filter(diUnParco);
   const preparati = preparaPercorsi(sentieri, tracce);
   let scelte = leggi(CHIAVE_SCELTE, { giorno: 1, durata: '', parco: '', notte: false, acqua: false });
   let soglie = leggi(CHIAVE_SOGLIE, SOGLIE_PREDEFINITE);
@@ -128,7 +135,7 @@ export async function vistaDoveVado(app) {
 
   app.innerHTML = `
     <div class="pagina-meteo">
-      <a class="indietro" href="#/pianifica">‹ Pianifica</a>
+      ${inZona ? '<a class="indietro" href="#/intorno">‹ Intorno a me</a>' : '<a class="indietro" href="#/pianifica">‹ Pianifica</a>'}
       <h1 class="titolo-pagina">Dove vado ${scelte.giorno ? 'domani' : 'oggi'}?</h1>
       <section class="pannello-scelte" aria-label="Scelte">
         <div class="scelte-riga">
@@ -145,13 +152,13 @@ export async function vistaDoveVado(app) {
             ${Object.entries(DURATE).map(([k, d]) => `<button type="button" class="pillola" data-durata="${k}">${d.nome}</button>`).join('')}
           </div>
         </div>
-        <div class="gruppo-scelta">
+        ${inZona ? '' : `<div class="gruppo-scelta">
           <span class="scelta-nome">${ICONE.parco}Parco</span>
           <div class="pillole" role="group" aria-label="Parco">
             <button type="button" class="pillola" data-parco="">Tutti</button>
             ${PARCHI.map((p) => `<button type="button" class="pillola" data-parco="${p.id}">${escapeHtml(p.nomeBreve)}</button>`).join('')}
           </div>
-        </div>
+        </div>`}
         <div class="gruppo-scelta">
           <span class="scelta-nome">${ICONE.segnaposto}Lungo il percorso</span>
           <div class="pillole" role="group" aria-label="Lungo il percorso">
@@ -202,7 +209,7 @@ export async function vistaDoveVado(app) {
     const attivita = stato.leggi().attivita;
     return filtraPercorsi(preparati, { ...FILTRI_VUOTI }, attivita)
       .filter((p) => p.sentiero.tipoPercorso !== 'uscita_guidata') // le uscite guidate hanno le loro date
-      .filter((p) => !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
+      .filter((p) => inZona || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
       .map((p) => ({ ...p, vicini: puntiVicini(p) }))
       .filter((p) => (!scelte.notte || p.vicini.some(perLaNotte)) && (!scelte.acqua || p.vicini.some(conAcqua)))
       .map((p) => ({ ...p, meteo: datiPerMeteo(p, attivita, quoteDellaTraccia(p.sentiero, p.traccia)) }))
@@ -262,7 +269,7 @@ export async function vistaDoveVado(app) {
     }
 
     // com'è la giornata in ciascun parco (solo quando non se ne è scelto uno)
-    const perParco = scelte.parco
+    const perParco = scelte.parco || inZona
       ? []
       : PARCHI.map((parco) => ({
           parco,

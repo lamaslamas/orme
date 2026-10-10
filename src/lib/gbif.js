@@ -2,7 +2,7 @@
 // atlanti, musei…), ognuna una sola volta. API libera, senza chiavi. Ogni osservazione ha la
 // sua licenza (CC0, CC BY o CC BY-NC) e la sua fonte, che l'app mostra quando la si apre.
 // Dei nomi degli osservatori si tiene solo un codice anonimo, per contare le persone diverse.
-import { TAXON_GBIF, ANIMALI } from './costanti.js';
+import { TAXON_GBIF, ANIMALI, SPECIE_SOLO_INTORNO } from './costanti.js';
 import { STAGIONI, SPECIE_RARE } from './inaturalist.js';
 
 export const API_GBIF = 'https://api.gbif.org/v1';
@@ -15,8 +15,16 @@ const PER_CHIAVE = new Map(Object.entries(TAXON_GBIF).map(([k, v]) => [v, k]));
 // Parametri comuni a mappe e ricerche. filtri: { specie: 'rare' | chiave animale, stagione, anni }
 export function parametriGbif(filtri = {}, oggi = new Date()) {
   const p = new URLSearchParams();
-  // 'rare' = la lista della heatmap; 'tutte' = tutte le specie di Orme; altrimenti un animale
-  const chiavi = filtri.specie === 'tutte' ? Object.keys(TAXON_GBIF) : !filtri.specie || filtri.specie === 'rare' ? SPECIE_RARE : [filtri.specie];
+  // 'rare' = la lista della heatmap; 'tutte' = le specie dei parchi; 'intorno' = anche quelle di
+  // "Intorno a me" (fenicottero, riccio…); altrimenti un animale
+  const chiavi =
+    filtri.specie === 'intorno'
+      ? Object.keys(TAXON_GBIF)
+      : filtri.specie === 'tutte'
+        ? Object.keys(TAXON_GBIF).filter((k) => !SPECIE_SOLO_INTORNO.includes(k))
+        : !filtri.specie || filtri.specie === 'rare'
+          ? SPECIE_RARE
+          : [filtri.specie];
   const taxa = chiavi.map((k) => TAXON_GBIF[k]).filter(Boolean);
   // mai una ricerca senza specie: scaricherebbe ogni essere vivente della zona
   if (!taxa.length) throw new Error(`Specie sconosciuta per GBIF: ${filtri.specie}`);

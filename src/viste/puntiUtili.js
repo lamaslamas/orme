@@ -1,6 +1,7 @@
 // Livelli "Rifugi e bivacchi" e "Acqua" (da OpenStreetMap, file dati/punti.json scaricato dal robot).
 // Due interruttori separati; le icone compaiono solo da vicino per non affollare la mappa.
 import L from 'leaflet';
+import { leggiPuntiIntorno } from '../db.js';
 import { escapeHtml } from '../lib/formato.js';
 import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 
@@ -19,21 +20,29 @@ const ICONE = {
 };
 
 let datiInCorso = null;
+// quelli dei parchi (file pubblico) più quelli di "Intorno a me" (salvati sul telefono)
 export function caricaPunti() {
-  datiInCorso ??= fetch(`${import.meta.env.BASE_URL}dati/punti.json`)
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null)
-    .then((d) => {
-      if (!d) {
-        datiInCorso = null; // si riprova la prossima volta
-        return null;
-      }
-      // un punto in due parchi (zone sovrapposte) si tiene una volta sola
-      const visti = new Map();
-      for (const { punti } of Object.values(d.parchi ?? {})) for (const p of punti) visti.set(p.id, p);
-      return [...visti.values()];
-    });
+  datiInCorso ??= Promise.all([
+    fetch(`${import.meta.env.BASE_URL}dati/punti.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null),
+    leggiPuntiIntorno().catch(() => []),
+  ]).then(([d, intorno]) => {
+    if (!d && !intorno.length) {
+      datiInCorso = null; // si riprova la prossima volta
+      return null;
+    }
+    // un punto in due zone sovrapposte si tiene una volta sola
+    const visti = new Map();
+    for (const { punti } of Object.values(d?.parchi ?? {})) for (const p of punti) visti.set(p.id, p);
+    for (const p of intorno) visti.set(p.id, p);
+    return [...visti.values()];
+  });
   return datiInCorso;
+}
+// dopo aver scaricato i punti di una zona nuova
+export function dimenticaPunti() {
+  datiInCorso = null;
 }
 
 export function htmlIconaPunto(tipo) {

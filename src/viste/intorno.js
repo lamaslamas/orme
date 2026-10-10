@@ -2,10 +2,15 @@
 // scaricati dal telefono da OpenStreetMap. Stessa lista, filtri e schede dei parchi, ma separata.
 // Il punto resta sul dispositivo: a OpenStreetMap e Open-Meteo vanno solo zona e tracce.
 import L from 'leaflet';
-import { tuttiISentieri, tutteLeTracce, leggiIntorno, salvaIntorno, salvaQuote } from '../db.js';
+import { tuttiISentieri, tutteLeTracce, leggiIntorno, salvaIntorno, aggiornaCalcolati, salvaPuntiIntorno, leggiPuntiIntorno } from '../db.js';
 import { ID_INTORNO, parcoDa } from '../datiParchi.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
+import { improntaTraccia } from '../lib/panorama.js';
+import { queryPuntiParco, puntiDallaRisposta } from '../lib/puntiUtili.js';
+import { interpretaGbif } from '../lib/gbif.js';
+import { faunaDalleOsservazioni, animaliPossibili } from '../lib/faunaPercorso.js';
+import { ANIMALI } from '../lib/costanti.js';
 import {
   RAGGI_INTORNO,
   RAGGIO_INTORNO,
@@ -17,6 +22,11 @@ import {
   leggiQuote,
   profiloIntorno,
   testoDistanza,
+  riquadroIntorno,
+  urlFaunaIntorno,
+  PAGINE_GBIF_MAX,
+  faunaDaRicalcolare,
+  animaliDellaZona,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
 import { creaMappa, disegnaTraccia } from './mappa.js';
@@ -25,6 +35,8 @@ import { montaElenco } from './lista.js';
 import { aggiungiGps } from './gps.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { ICONE } from './icone.js';
+import { aggiungiHeatmap } from './heatmap.js';
+import { dimenticaPunti } from './puntiUtili.js';
 
 const ZONA = '#e8590c';
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +58,7 @@ export async function vistaIntorno(app) {
   let sceltaSullaMappa = false;
   let chiusa = false;
   let occupata = false;
+  let animaleScelto = '';
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Intorno a me</h1>
@@ -61,10 +74,12 @@ export async function vistaIntorno(app) {
       </div>
     </section>
     <div class="anteprima-mappa parco-mappa"><div id="mappaIntorno"></div><p class="avviso-mappa" id="avvisoIntorno" hidden>Tocca la mappa nel punto da cui vuoi partire</p></div>
+    <div class="animali-parco animali-intorno" role="group" aria-label="Animali della zona" hidden></div>
+    <a class="invito-meteo" href="#/domani?zona=intorno" hidden><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Dove vado domani?</b><span class="tenue piccolo">I percorsi della zona secondo il meteo e la durata</span></span></a>
     <h2 class="titolo-sezione">Percorsi</h2>
     ${htmlSelettoreAttivita({ titolo: false })}
     <div id="elenco"></div>
-    <p class="tenue piccolo nota-intorno">Percorsi segnati su OpenStreetMap (ODbL), più quelli dei parchi che passano nella zona. Dislivelli: Open-Meteo. La tua posizione resta sul telefono.</p>
+    <p class="tenue piccolo nota-intorno">Percorsi, rifugi e acqua da OpenStreetMap (ODbL), più i percorsi dei parchi che passano nella zona. Dislivelli: Open-Meteo. Fauna: osservazioni GBIF. La tua posizione resta sul telefono.</p>
   `;
 
   const statoTesto = app.querySelector('.stato-intorno');
@@ -73,9 +88,12 @@ export async function vistaIntorno(app) {
   const contenitoreElenco = app.querySelector('#elenco');
   const scollegaAttivita = collegaSelettoreAttivita(app);
 
-  const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['percorsi', 'gps'] });
+  const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'] });
   mappa.setView([42, 12.6], 5);
   const fermaGps = aggiungiGps(mappa, () => null);
+  const heat = aggiungiHeatmap(mappa);
+  const selettoreAnimali = app.querySelector('.animali-intorno');
+  const invitoMeteo = app.querySelector('.invito-meteo');
   const livelloZona = L.layerGroup().addTo(mappa);
   const percorsi = L.layerGroup();
   let accesi = true;
@@ -120,7 +138,9 @@ export async function vistaIntorno(app) {
   async function mostraElenco() {
     elenco?.scollega();
     elenco = null;
+    invitoMeteo.hidden = !zona;
     if (!zona) {
+      selettoreAnimali.hidden = true;
       contenitoreElenco.innerHTML = '<p class="vuoto">Scegli da dove partire: la tua posizione o un punto sulla mappa.</p>';
       disegnaPercorsi([]);
       return;
@@ -134,7 +154,19 @@ export async function vistaIntorno(app) {
     );
     const distanze = new Map(vicini.map((v) => [v.sentiero.id, v.distanzaM]));
     ultimi = vicini;
+    // gli animali della zona: toccandone uno restano i percorsi dove è stato osservato
+    const animali = animaliDellaZona(vicini.map((v) => v.sentiero));
+    if (animaleScelto && !animali.some((a) => a.animale === animaleScelto)) animaleScelto = '';
+    selettoreAnimali.hidden = !animali.length;
+    selettoreAnimali.innerHTML = animali
+      .map(
+        ({ animale, percorsi: n }) =>
+          `<button type="button" class="pillola ${animaleScelto === animale ? 'attiva' : ''}" data-animale="${animale}" aria-pressed="${animaleScelto === animale}" title="${n} ${n === 1 ? 'percorso' : 'percorsi'}">${escapeHtml(ANIMALI[animale] ?? animale)}</button>`,
+      )
+      .join('');
+    const mostrati = animaleScelto ? vicini.filter((v) => animaliPossibili(v.sentiero).includes(animaleScelto)) : vicini;
     if (!vicini.length) {
+      selettoreAnimali.hidden = true;
       contenitoreElenco.innerHTML = `<p class="vuoto">Nessun percorso segnato su OpenStreetMap entro ${zona.raggioKm} km.${
         zona.raggioKm < RAGGI_INTORNO.at(-1) ? ' Prova con una distanza maggiore.' : ''
       }</p>`;
@@ -143,7 +175,7 @@ export async function vistaIntorno(app) {
     }
     elenco = montaElenco(
       contenitoreElenco,
-      vicini.map((v) => v.sentiero),
+      mostrati.map((v) => v.sentiero),
       tracce,
       {
         parcoFisso: ID_INTORNO,
@@ -192,7 +224,7 @@ export async function vistaIntorno(app) {
           await attendi(150); // con calma: Open-Meteo è gratuito
         }
         const profilo = profiloIntorno(g, memoria);
-        if (profilo) await salvaQuote(s.id, profilo);
+        if (profilo) await aggiornaCalcolati(s.id, { quote: profilo });
       } catch (e) {
         console.warn('Quote non calcolate', s.id, e);
         break; // si riprova alla prossima apertura
@@ -202,6 +234,63 @@ export async function vistaIntorno(app) {
     if (chiusa) return;
     if (fatti) await mostraElenco();
     scriviStato();
+  }
+
+  // Fauna: le osservazioni GBIF della zona, poi lo stesso calcolo dei parchi per ogni percorso
+  async function calcolaFauna() {
+    const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+    const daFare = tutti.filter((s) => s.parco === ID_INTORNO && tracce.get(s.id)?.geojson && faunaDaRicalcolare(s, tracce.get(s.id).geojson));
+    if (!daFare.length || !zona) return;
+    scriviStato('Cerco la fauna osservata nella zona…');
+    const osservazioni = [];
+    try {
+      for (let pagina = 0; pagina < PAGINE_GBIF_MAX; pagina++) {
+        const r = await fetch(urlFaunaIntorno(zona.centro, zona.raggioKm, pagina));
+        if (!r.ok) throw new Error(`GBIF ha risposto ${r.status}`);
+        const json = await r.json();
+        // solo i campi che servono: dell'osservatore resta un codice anonimo
+        for (const o of interpretaGbif(json)) osservazioni.push({ animale: o.animale, lat: o.lat, lon: o.lon, sfumata: o.sfumata, osservatore: o.osservatore, data: o.data });
+        if (chiusa) return;
+        if (json.endOfRecords || !json.results?.length) break;
+        await attendi(300); // con calma: GBIF è gratuito
+      }
+    } catch (e) {
+      console.warn('Fauna non calcolata', e);
+      scriviStato();
+      return; // si riprova alla prossima apertura
+    }
+    const oggi = new Date().toISOString().slice(0, 10);
+    for (const s of daFare) {
+      const g = tracce.get(s.id).geojson;
+      await aggiornaCalcolati(s.id, { faunaInat: { specie: faunaDalleOsservazioni(osservazioni, g), calcolato: oggi, impronta: improntaTraccia(g).split('-')[1] } });
+    }
+    if (chiusa) return;
+    await mostraElenco();
+    scriviStato();
+  }
+
+  // Rifugi, bivacchi e acqua della zona: servono alla scheda del sentiero e alla mappa
+  async function scaricaPunti(centro, km) {
+    const query = queryPuntiParco({ bbox: riquadroIntorno(centro, km) });
+    for (let tentativo = 1; tentativo <= 2 && !chiusa; tentativo++) {
+      try {
+        scriviStato('Cerco rifugi e acqua…');
+        await salvaPuntiIntorno(puntiDallaRisposta(await interrogaOverpass(query, { timeoutMs: 90000 })));
+        dimenticaPunti();
+        return;
+      } catch (e) {
+        console.warn('Rifugi e acqua non scaricati', e); // restano quelli di prima; si riprova
+        await attendi(5000);
+      }
+    }
+  }
+
+  // dopo lo scaricamento: dislivelli e fauna, uno dopo l'altro (servizi gratuiti, con calma)
+  async function completa() {
+    // zona salvata prima che ci fossero rifugi e acqua: si scaricano ora
+    if (zona && !(await leggiPuntiIntorno()).length) await scaricaPunti(zona.centro, zona.raggioKm);
+    await calcolaQuote();
+    if (!chiusa) await calcolaFauna();
   }
 
   async function scarica(centro) {
@@ -228,7 +317,8 @@ export async function vistaIntorno(app) {
       disegnaZona();
       await mostraElenco();
       scriviStato();
-      calcolaQuote();
+      await scaricaPunti(centro, raggio);
+      completa();
     } catch (e) {
       console.warn('Intorno a me', e);
       if (chiusa) return;
@@ -256,7 +346,10 @@ export async function vistaIntorno(app) {
   app.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.raggio) {
+    if (b.dataset.animale) {
+      animaleScelto = animaleScelto === b.dataset.animale ? '' : b.dataset.animale;
+      mostraElenco();
+    } else if (b.dataset.raggio) {
       raggio = Number(b.dataset.raggio);
       disegnaRaggio();
       if (zona && zona.raggioKm !== raggio) scarica(zona.centro);
@@ -281,13 +374,14 @@ export async function vistaIntorno(app) {
   });
   await mostraElenco();
   scriviStato();
-  if (zona) calcolaQuote();
+  if (zona) completa();
 
   return () => {
     chiusa = true;
     elenco?.scollega();
     scollegaAttivita();
     fermaGps();
+    heat.rimuovi();
     mappa.remove();
   };
 }

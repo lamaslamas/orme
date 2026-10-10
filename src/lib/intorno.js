@@ -7,6 +7,8 @@ import { nuovoRecord } from './importazione.js';
 import { profiloQuote } from './profiloQuote.js';
 import { improntaTraccia } from './panorama.js';
 import { percorsiDaQui } from './daQui.js';
+import { animaliPossibili } from './faunaPercorso.js';
+import { urlOsservazioniGbif } from './gbif.js';
 import { ID_INTORNO, INTORNO } from '../datiParchi.js';
 
 export const RAGGI_INTORNO = [10, 25, 50];
@@ -119,4 +121,26 @@ export function testoDistanza(m) {
   if (m < 1000) return `a ${Math.round(m / 100) * 100} m`;
   if (m < 10_000) return `a ${(m / 1000).toFixed(1).replace('.', ',')} km`;
   return `a ${Math.round(m / 1000)} km`;
+}
+
+// ---- Fauna (GBIF: iNaturalist, eBird, Observation.org…), con lo stesso metodo dei parchi ----
+export const PAGINE_GBIF_MAX = 20; // al massimo 6000 osservazioni per zona
+export const urlFaunaIntorno = (centro, km, pagina = 0) =>
+  urlOsservazioniGbif(riquadroIntorno(centro, km), { specie: 'intorno' }, { limite: 300, scarto: pagina * 300 });
+
+// La fauna di un percorso va ricalcolata se manca, se la traccia è cambiata o dopo un mese
+export function faunaDaRicalcolare(s, geojson, oggi = new Date()) {
+  const f = s.faunaInat;
+  if (!f?.calcolato || f.impronta !== improntaTraccia(geojson).split('-')[1]) return true;
+  return (oggi - new Date(f.calcolato)) / 86_400_000 >= 30;
+}
+
+// Gli animali della zona: quelli segnalati sul maggior numero di percorsi, al massimo "max"
+export function animaliDellaZona(sentieri, max = 6) {
+  const conta = new Map();
+  for (const s of sentieri) for (const a of animaliPossibili(s)) conta.set(a, (conta.get(a) ?? 0) + 1);
+  return [...conta]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max)
+    .map(([animale, percorsi]) => ({ animale, percorsi }));
 }

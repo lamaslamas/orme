@@ -55,7 +55,7 @@ const percorsi = [
   [/^\/backup\/?$/, vistaBackup],
   [/^\/altro\/?$/, vistaAltro],
   [/^\/pianifica\/?$/, vistaPianifica],
-  [/^\/domani\/?$/, vistaDoveVado],
+  [/^\/domani(?:\?zona=([^&]+))?$/, vistaDoveVado],
   [/^\/salvati\/?$/, vistaSalvati],
   [/^\/intorno\/?$/, vistaIntorno],
   [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],

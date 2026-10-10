@@ -9,7 +9,8 @@ export const areaParco = (parco) => (parco.osm.way ? 2400000000 + parco.osm.way 
 // Come limitare una ricerca al parco. Overpass non crea l'area da ogni linea chiusa
 // (per il Pollino resta vuota): in quel caso si usa il riquadro del parco.
 export function dentroIlParco(parco) {
-  if (parco.osm.way) {
+  // senza confine su OSM (es. la zona di "Intorno a me") si usa il riquadro
+  if (!parco.osm || parco.osm.way) {
     const [s, o, n, e] = parco.bbox;
     return { prima: '', filtro: `(${s},${o},${n},${e})` };
   }

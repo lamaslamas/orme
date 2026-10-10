@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { riquadroIntorno, queryIntorno, percorsiIntorno, nelRaggio, puntiPerLeQuote, urlQuote, leggiQuote, profiloIntorno, haDatiMiei, testoDistanza } from '../src/lib/intorno.js';
+import { riquadroIntorno, queryIntorno, percorsiIntorno, nelRaggio, puntiPerLeQuote, urlQuote, leggiQuote, profiloIntorno, haDatiMiei, testoDistanza, urlFaunaIntorno, faunaDaRicalcolare, animaliDellaZona } from '../src/lib/intorno.js';
 import { diUnParco, parcoDa } from '../src/datiParchi.js';
+import { improntaTraccia } from '../src/lib/panorama.js';
 
 const COPERTINO = [18.05, 40.27];
 
@@ -116,5 +117,44 @@ describe('Intorno a me: quote', () => {
 describe('Intorno a me: distanza', () => {
   it('in breve', () => {
     expect([40, 820, 3240, 18_400].map(testoDistanza)).toEqual(['qui', 'a 800 m', 'a 3,2 km', 'a 18 km']);
+  });
+});
+
+describe('Intorno a me: fauna', () => {
+  it('cerca su GBIF anche le specie fuori dai parchi, solo nella zona', () => {
+    const url = new URL(urlFaunaIntorno(COPERTINO, 10, 2));
+    const taxa = url.searchParams.getAll('taxonKey');
+    expect(taxa).toContain('4352332'); // fenicottero
+    expect(taxa).toContain('5219243'); // volpe
+    expect(url.searchParams.get('offset')).toBe('600');
+    expect(url.searchParams.get('decimalLatitude')).toMatch(/^40\.17\d*,40\.36/);
+  });
+
+  it('i parchi non cercano le specie di "Intorno a me"', async () => {
+    const { parametriGbif } = await import('../src/lib/gbif.js');
+    expect(parametriGbif({ specie: 'tutte' }).getAll('taxonKey')).not.toContain('4352332');
+  });
+
+  it('ricalcola se manca, se cambia la traccia o dopo un mese', () => {
+    const g = { type: 'MultiLineString', coordinates: [[[18.05, 40.27], [18.06, 40.28]]] };
+    const impronta = improntaTraccia(g).split('-')[1];
+    expect(faunaDaRicalcolare({}, g)).toBe(true);
+    expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-10-01', impronta: 'altra' } }, g, new Date('2026-10-05'))).toBe(true);
+    expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-10-01', impronta } }, g, new Date('2026-10-05'))).toBe(false);
+    expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-08-01', impronta } }, g, new Date('2026-10-05'))).toBe(true);
+  });
+
+  it('al massimo 6 animali, dai più diffusi', () => {
+    const sentieri = [
+      { faunaInat: { specie: [{ animale: 'volpe' }, { animale: 'fenicottero' }] } },
+      { faunaInat: { specie: [{ animale: 'volpe' }] } },
+      { animali: ['riccio'] },
+    ];
+    expect(animaliDellaZona(sentieri)).toEqual([
+      { animale: 'volpe', percorsi: 2 },
+      { animale: 'fenicottero', percorsi: 1 },
+      { animale: 'riccio', percorsi: 1 },
+    ]);
+    expect(animaliDellaZona(sentieri, 1)).toHaveLength(1);
   });
 });

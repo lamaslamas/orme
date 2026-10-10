@@ -1,6 +1,6 @@
 // Calcoli della pagina iniziale: ricerca di parchi e animali, schede delle specie,
 // percorsi di osservazione divisi per parco.
-import { ANIMALI } from './costanti.js';
+import { ANIMALI, SPECIE_SOLO_INTORNO } from './costanti.js';
 import { PARCHI } from '../datiParchi.js';
 import { normalizza } from './filtri.js';
 import { animaliPossibili, conFaunaLungoIlPercorso } from './faunaPercorso.js';
@@ -21,7 +21,7 @@ export function cercaParchiESpecie(testo) {
   };
   return {
     parchi: PARCHI.filter((p) => trova([p.nome, p.nomeBreve, ...p.regioni])).map((p) => p.id),
-    specie: Object.keys(ANIMALI).filter((k) => k !== 'altro' && trova([ANIMALI[k]])),
+    specie: Object.keys(ANIMALI).filter((k) => k !== 'altro' && !SPECIE_SOLO_INTORNO.includes(k) && trova([ANIMALI[k]])),
   };
 }
 

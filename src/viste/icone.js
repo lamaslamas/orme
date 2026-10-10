@@ -47,4 +47,8 @@ export const EMOJI_ANIMALI = {
   gufo_reale: '🦉',
   nibbio_reale: '🦅',
   cicogna_nera: '🐦',
+  fenicottero: '🦩',
+  falco_grillaio: '🦅',
+  riccio: '🦔',
+  tasso: '🦡',
 };

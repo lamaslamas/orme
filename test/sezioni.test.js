@@ -12,6 +12,9 @@ describe('barra in basso', () => {
     expect(sezioneDi('/avvistamenti')).toBe('parchi');
     expect(sezioneDi('/mappa')).toBe('mappa');
     expect(sezioneDi('/intorno')).toBe('intorno');
+    expect(sezioneDi('/domani?zona=intorno')).toBe('intorno');
+    expect(sezioneDi('/sentiero/intorno-osm-sentiero-1')).toBe('intorno');
+    expect(sezioneDi('/domani')).toBe('pianifica');
     expect(sezioneDi('/pianifica')).toBe('pianifica');
     expect(sezioneDi('/percorso/p1')).toBe('pianifica');
     expect(sezioneDi('/percorso-nuovo')).toBe('pianifica');

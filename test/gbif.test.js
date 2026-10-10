@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parametriGbif, urlTileGbif, urlOsservazioniGbif, interpretaGbif, nomeFonte, animaleGbif } from '../src/lib/gbif.js';
 import { faunaDalleOsservazioni, faunaDelParco } from '../src/lib/faunaPercorso.js';
-import { TAXON_GBIF } from '../src/lib/costanti.js';
+import { TAXON_GBIF, SPECIE_SOLO_INTORNO } from '../src/lib/costanti.js';
 import { SPECIE_RARE } from '../src/lib/inaturalist.js';
 
 const oggi = new Date('2026-10-09');
@@ -16,7 +16,8 @@ describe('GBIF: parametri e indirizzi', () => {
   });
 
   it('tutte le specie di Orme; mai una ricerca senza specie', () => {
-    expect(parametriGbif({ specie: 'tutte' }).getAll('taxonKey')).toHaveLength(Object.keys(TAXON_GBIF).length);
+    expect(parametriGbif({ specie: 'tutte' }).getAll('taxonKey')).toHaveLength(Object.keys(TAXON_GBIF).length - SPECIE_SOLO_INTORNO.length);
+    expect(parametriGbif({ specie: 'intorno' }).getAll('taxonKey')).toHaveLength(Object.keys(TAXON_GBIF).length);
     expect(() => parametriGbif({ specie: 'sconosciuta' })).toThrow();
   });
 

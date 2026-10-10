@@ -15,6 +15,11 @@ export const ANIMALI = {
   gufo_reale: 'Gufo reale',
   nibbio_reale: 'Nibbio reale',
   cicogna_nera: 'Cicogna nera',
+  // fuori dai parchi di montagna ("Intorno a me")
+  fenicottero: 'Fenicottero',
+  falco_grillaio: 'Falco grillaio',
+  riccio: 'Riccio',
+  tasso: 'Tasso',
   altro: 'Altro',
 };
 
@@ -35,6 +40,10 @@ export const HABITAT = {
   gufo_reale: 'Rupi e gole, attivo al crepuscolo',
   nibbio_reale: 'Campi aperti e valli, plana a lungo',
   cicogna_nera: 'Fiumi e boschi tranquilli',
+  fenicottero: 'Lagune, saline e stagni costieri',
+  falco_grillaio: 'Campagne aperte e centri storici dove nidifica',
+  riccio: 'Campagne, siepi e giardini, di notte',
+  tasso: 'Boschi, macchia e campagne con siepi',
 };
 
 // Specie su iNaturalist (id del taxon a livello di specie: in Appennino molte osservazioni
@@ -55,6 +64,10 @@ export const TAXON_INATURALIST = {
   gufo_reale: { id: 20059, nome: 'Bubo bubo' },
   nibbio_reale: { id: 5267, nome: 'Milvus milvus' },
   cicogna_nera: { id: 4736, nome: 'Ciconia nigra' },
+  fenicottero: { id: 73222, nome: 'Phoenicopterus roseus' },
+  falco_grillaio: { id: 59845, nome: 'Falco naumanni' },
+  riccio: { id: 43042, nome: 'Erinaceus europaeus' },
+  tasso: { id: 855297, nome: 'Meles meles' },
 };
 
 // Le stesse specie su GBIF (chiavi del suo elenco dei nomi). Camoscio: tutto il genere Rupicapra,
@@ -76,7 +89,14 @@ export const TAXON_GBIF = {
   gufo_reale: 5959092,
   nibbio_reale: 5229168,
   cicogna_nera: 2481909,
+  fenicottero: 4352332,
+  falco_grillaio: 9584698,
+  riccio: 5219616,
+  tasso: 2433875,
 };
+
+// Specie cercate solo in "Intorno a me": i dati dei parchi restano quelli di sempre
+export const SPECIE_SOLO_INTORNO = ['fenicottero', 'falco_grillaio', 'riccio', 'tasso'];
 
 export const STATI = {
   da_fare: 'Da fare',

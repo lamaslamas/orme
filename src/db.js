@@ -307,11 +307,15 @@ export async function salvaIntorno({ centro, raggioKm, percorsi }) {
   await fine(tx);
 }
 
-// Profilo delle quote calcolato sul telefono
-export async function salvaQuote(id, quote) {
+// Dati calcolati sul telefono (quote, fauna): si aggiungono al sentiero senza toccare il resto
+export async function aggiornaCalcolati(id, campi) {
   const s = await leggiDa('sentieri', id);
-  if (s) await scriviIn('sentieri', { ...s, quote });
+  if (s) await scriviIn('sentieri', { ...s, ...campi });
 }
+
+// Rifugi, bivacchi e acqua della zona (da OpenStreetMap, come quelli dei parchi)
+export const leggiPuntiIntorno = async () => (await leggiDa('meta', 'puntiIntorno'))?.punti ?? [];
+export const salvaPuntiIntorno = (punti) => scriviIn('meta', { chiave: 'puntiIntorno', punti, aggiornato: new Date().toISOString() });
 
 // --- Archivio pubblico ---
 
