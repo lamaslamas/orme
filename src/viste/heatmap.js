@@ -213,6 +213,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
   let richiestaIcone = 0;
   let attesaIcone = null;
   let iconeInfo = '';
+  let contoIcone = null; // gruppi di icone nella zona inquadrata (null = non ancora cercati)
   function raggruppa(oss) {
     const gruppi = new Map();
     for (const o of oss) {
@@ -268,6 +269,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
       icone.clearLayers();
       icone.remove();
       iconeInfo = attiva && !filtri.correggiSforzo ? 'Avvicinati per vedere le icone degli animali.' : '';
+      contoIcone = null;
+      scriviConto();
       return mappa.aggiornaLegenda?.();
     }
     const b = mappa.getBounds();
@@ -299,12 +302,31 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
           .addTo(icone);
       }
       icone.addTo(mappa);
+      contoIcone = icone.getLayers().length;
       const sfumate = oss.filter((o) => o.sfumata).length;
       iconeInfo = `${oss.length} osservazioni qui${sfumate ? `, di cui ${sfumate} con posizione approssimata (icone tratteggiate)` : ''}.`;
     } catch {
-      if (mia === richiestaIcone) iconeInfo = 'Icone degli animali non disponibili ora.';
+      if (mia === richiestaIcone) {
+        iconeInfo = 'Icone degli animali non disponibili ora.';
+        contoIcone = null;
+      }
     }
     mappa.aggiornaLegenda?.();
+    scriviConto();
+  }
+  // in breve nella barra della Fauna: cosa si vede qui (sempre visibile, anche con la barra chiusa)
+  function scriviConto() {
+    const el = pannello.querySelector('.heat-conto');
+    if (!el) return;
+    el.textContent = !attiva || filtri.correggiSforzo
+      ? ''
+      : mappa.getZoom() < ZOOM_ICONE
+        ? 'avvicinati per gli animali'
+        : contoIcone == null
+          ? ''
+          : contoIcone
+            ? `${contoIcone} ${contoIcone === 1 ? 'animale' : 'animali'} qui`
+            : 'nessun animale qui';
   }
   mappa.on('moveend', () => {
     clearTimeout(attesaIcone);
@@ -337,7 +359,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
 
   function disegnaPannello() {
     pannello.innerHTML = `
-      <div class="heat-testa"><b>Fauna</b>
+      <div class="heat-testa"><b>Fauna</b><span class="heat-conto" aria-live="polite"></span>
         <span><button type="button" class="info-heatmap" data-azione="info" aria-label="Come leggerla" title="Come leggerla">?</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
@@ -366,6 +388,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, parco = false }
       }
       <p class="misura-nota">Tocca una zona colorata o un'icona per vedere le osservazioni. Heatmap iNaturalist; icone ed elenchi da tutte le fonti (GBIF: iNaturalist, eBird, Observation.org…).</p>`;
     pannello.hidden = false;
+    scriviConto();
   }
 
   pannello.addEventListener('change', (e) => {

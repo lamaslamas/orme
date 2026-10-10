@@ -1510,3 +1510,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .fauna-nome { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .fauna-nome .icona-animale { width: 22px; height: 22px; }
 .animale-fauna .icona-animale { width: 22px; height: 22px; }
+.heat-conto { font-size: 0.75rem; color: var(--testo-tenue); white-space: nowrap; }
+.heat-conto:empty { display: none; }
+.pannello-heatmap.ridotto .heat-testa > .heat-conto { order: 1; gap: 0; }
