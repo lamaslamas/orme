@@ -9,6 +9,8 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
 
+const TOLLERANZA_PX = 24;
+
 export function riquadroSentiero(s, traccia) {
   const id = encodeURIComponent(s.id);
   const m = misureSentiero(s, traccia);
@@ -37,6 +39,23 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
     mappa.getPane('toccoPercorsi').style.zIndex = 445;
   }
   const renderer = L.svg({ pane: 'toccoPercorsi' });
+  // un tocco vicino a una traccia (anche non esattamente sopra) la sceglie: la più vicina entro
+  // TOLLERANZA_PX. Anche la heatmap lo chiede, per non aprire le osservazioni al suo posto.
+  const aree = new Set();
+  mappa.percorsoVicino = (latlng) => {
+    const p = mappa.latLngToLayerPoint(latlng);
+    let migliore = null;
+    for (const area of aree) {
+      if (!mappa.hasLayer(area)) continue;
+      const d = area.closestLayerPoint(p)?.distance ?? Infinity;
+      if (d <= TOLLERANZA_PX && (!migliore || d < migliore.d)) migliore = { area, d };
+    }
+    return migliore?.area ?? null;
+  };
+  mappa.on('click', (e) => {
+    if (occupata()) return;
+    mappa.percorsoVicino(e.latlng)?.fire('click', { latlng: e.latlng });
+  });
   return {
     // disegna la traccia nel livello indicato; restituisce { linea, area }
     // colore: quello dell'evidenziazione (se la linea è disegnata discreta, in grigio)
@@ -44,6 +63,8 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
       const linea = disegnaTraccia(traccia.geojson, { ...stile, interactive: false }).addTo(livello);
       // bubblingMouseEvents: il tocco sulla traccia non arriva alla mappa (niente elenco della heatmap)
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0, renderer, pane: 'toccoPercorsi', bubblingMouseEvents: false }).addTo(livello);
+      aree.add(area);
+      area.on('remove', () => aree.delete(area)).on('add', () => aree.add(area));
       // il riquadro si apre a mano (non con bindPopup, che fermerebbe il tocco agli strumenti)
       area.on('click', (e) => {
         if (occupata()) return;

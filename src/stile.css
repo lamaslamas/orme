@@ -1502,3 +1502,5 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 @media (max-width: 1023.98px) {
   .leaflet-control-attribution:not(.aperti) { max-width: calc(100vw - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 }
+.avviso-breve { pointer-events: none; animation: avviso-breve 1.8s ease both; }
+@keyframes avviso-breve { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }

@@ -378,13 +378,18 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     pannello.hidden = true;
   }
 
+  function avvisoBreve(testo) {
+    const el = L.DomUtil.create('p', 'avviso-mappa avviso-breve', mappa.getContainer());
+    el.textContent = testo;
+    setTimeout(() => el.remove(), 1800);
+  }
+
   async function mostraZona(e) {
     const mia = ++richiestaZona;
     const centro = mappa.latLngToContainerPoint(e.latlng);
     const no = mappa.containerPointToLatLng(centro.subtract([RAGGIO_TOCCO_PX, RAGGIO_TOCCO_PX]));
     const se = mappa.containerPointToLatLng(centro.add([RAGGIO_TOCCO_PX, RAGGIO_TOCCO_PX]));
-    foglio.innerHTML = '<div class="foglio-maniglia"></div><h2 class="foglio-titolo">Osservazioni in questa zona</h2><p class="messaggio">Cerco le osservazioni…</p>';
-    foglio.showModal();
+    // il pannello si apre solo se ci sono osservazioni: un tocco a vuoto mostra solo un avviso breve
     let elenco;
     try {
       const risposta = await fetch(urlOsservazioniGbif(riquadroAttorno(e.latlng, no, se), filtri, { limite: 30 }));
@@ -392,11 +397,16 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
       const json = await risposta.json();
       elenco = { totale: json.count ?? 0, osservazioni: interpretaGbif(json) };
     } catch (err) {
-      foglio.querySelector('.messaggio').innerHTML = `<span class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}).</span>`;
+      if (mia === richiestaZona) avvisoBreve(`Osservazioni non disponibili (${err.message})`);
       return;
     }
-    // una risposta arrivata dopo un cambio di animale non deve sovrascrivere quella nuova
-    if (!foglio.open || mia !== richiestaZona) return;
+    // una risposta arrivata dopo un altro tocco o un cambio di animale non conta più
+    if (mia !== richiestaZona || !attiva) return;
+    if (!elenco.osservazioni.length) {
+      avvisoBreve('Nessuna osservazione qui');
+      return;
+    }
+    foglio.showModal();
     foglio.innerHTML = `
       <div class="foglio-maniglia"></div>
       <h2 class="foglio-titolo">Osservazioni in questa zona</h2>
@@ -428,6 +438,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false } = {}) {
     if (!attiva || occupata()) return;
     // i tocchi sulle tracce aprono il loro riquadro, non l'elenco delle osservazioni
     if (e.originalEvent?.target?.classList?.contains('leaflet-interactive')) return;
+    if (mappa.percorsoVicino?.(e.latlng)) return;
     mostraZona(e);
   });
 
