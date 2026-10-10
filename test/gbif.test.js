@@ -93,15 +93,25 @@ describe('GBIF: osservazioni', () => {
   });
 });
 
-describe('GBIF: tutti i mammiferi e uccelli', async () => {
-  const { parametriGbif, interpretaGbif } = await import('../src/lib/gbif.js');
-  const { parametriInat } = await import('../src/lib/inaturalist.js');
-  it('cerca le due classi intere, anche le specie fuori dalla lista', () => {
-    expect(parametriGbif({ specie: 'selvatici' }).getAll('taxonKey')).toEqual(['359', '212']);
-    expect(parametriInat({ specie: 'selvatici' }).get('taxon_id')).toBe('40151,3');
+describe('GBIF: specie di pregio', async () => {
+  const { parametriGbif, interpretaGbif, iconaPerOsservazione, TAXA_NOTEVOLI_GBIF } = await import('../src/lib/gbif.js');
+  const { parametriInat, TAXA_NOTEVOLI_INAT } = await import('../src/lib/inaturalist.js');
+  it('cerca solo i gruppi scelti; le minacciate a parte, tra tutti i mammiferi e uccelli', () => {
+    const notevoli = parametriGbif({ specie: 'notevoli' }).getAll('taxonKey');
+    expect(notevoli).toContain('1450'); // gufi e civette
+    expect(notevoli).not.toContain('359'); // non tutti i mammiferi (niente topi e ratti)
+    expect(notevoli).toHaveLength(TAXA_NOTEVOLI_GBIF.length);
+    const minacciate = parametriGbif({ specie: 'minacciate' });
+    expect(minacciate.getAll('taxonKey')).toEqual(['359', '212']);
+    expect(minacciate.getAll('iucnRedListCategory')).toEqual(['NT', 'VU', 'EN', 'CR']);
+    expect(parametriInat({ specie: 'notevoli' }).get('taxon_id')).toBe(TAXA_NOTEVOLI_INAT.join(','));
   });
-  it('tiene la classe per scegliere l’icona', () => {
-    const [o] = interpretaGbif({ results: [{ key: 1, class: 'Aves', species: 'Upupa epops', decimalLatitude: 40, decimalLongitude: 18 }] });
-    expect(o).toMatchObject({ animale: null, classe: 'Aves', nomeScientifico: 'Upupa epops' });
+  it('sceglie l’icona più vicina per le specie fuori dalla lista', () => {
+    const [o] = interpretaGbif({ results: [{ key: 1, class: 'Aves', order: 'Accipitriformes', family: 'Accipitridae', species: 'Buteo buteo', decimalLatitude: 40, decimalLongitude: 18 }] });
+    expect(o).toMatchObject({ animale: null, classe: 'Aves', nomeScientifico: 'Buteo buteo' });
+    expect(iconaPerOsservazione(o)).toBe('aquila_reale');
+    expect(iconaPerOsservazione({ classe: 'Aves', famiglia: 'Upupidae' })).toBe('uccello');
+    expect(iconaPerOsservazione({ classe: 'Mammalia', famiglia: 'Hystricidae' })).toBe('mammifero');
+    expect(iconaPerOsservazione({ animale: 'lupo' })).toBe('lupo');
   });
 });

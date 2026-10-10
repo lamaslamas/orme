@@ -35,14 +35,21 @@ export const GRUPPI = {
   tutti: { nome: 'Tutti i gruppi', taxa: '' },
 };
 
+export const TAXA_NOTEVOLI_INAT = [
+  41573, 152870, 43094, 40268, 533971, 44167, 45933, 71385, 43791, // mammiferi
+  71261, 67570, 19350, // rapaci
+  4929, 4730, 23, 4255, 71361, 3727, // grandi uccelli d'acqua
+  20967, 2183, 2314, 2262, 17599, 71343, // colorati o insoliti
+];
+
 export function parametriInat(filtri, oggi = new Date()) {
   const p = new URLSearchParams();
   if (filtri.gruppo) {
     // ricerca per gruppo (lungo i percorsi): nessun filtro di specie
     if (GRUPPI[filtri.gruppo]?.taxa) p.set('iconic_taxa', GRUPPI[filtri.gruppo].taxa);
   } else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
-  // tutti i mammiferi (40151) e gli uccelli (3)
-  else if (filtri.specie === 'selvatici') p.set('taxon_id', '40151,3');
+  // specie di pregio: gli stessi gruppi di GBIF (TAXA_NOTEVOLI_GBIF), con gli id di iNaturalist
+  else if (filtri.specie === 'notevoli') p.set('taxon_id', TAXA_NOTEVOLI_INAT.join(','));
   else {
     const chiavi = filtri.specie === 'rare' ? SPECIE_RARE : [filtri.specie];
     const ids = chiavi.map((k) => TAXON_INATURALIST[k]?.id).filter(Boolean);

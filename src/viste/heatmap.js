@@ -4,7 +4,7 @@
 // Non usa mai i miei avvistamenti personali.
 import L from 'leaflet';
 import { ANIMALI, TAXON_GBIF } from '../lib/costanti.js';
-import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
+import { urlOsservazioniGbif, interpretaGbif, iconaPerOsservazione } from '../lib/gbif.js';
 import { stato } from '../stato.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
@@ -41,8 +41,9 @@ export const SPIEGAZIONE_HEATMAP = `
 const chiaveInsieme = (intorno) => (intorno ? 'insiemeIntorno' : 'insieme');
 export function filtriHeatmap(st = stato.leggi(), { intorno = false } = {}) {
   const h = st.heatmap ?? {};
-  const insieme = h[chiaveInsieme(intorno)] ?? (intorno ? 'selvatici' : 'rare');
-  const specie = st.specie && TAXON_GBIF[st.specie] ? st.specie : insieme === 'selvatici' ? 'selvatici' : 'rare';
+  const insieme = h[chiaveInsieme(intorno)] ?? (intorno ? 'notevoli' : 'rare');
+  // ("selvatici" era il nome di prima di "notevoli")
+  const specie = st.specie && TAXON_GBIF[st.specie] ? st.specie : insieme === 'rare' ? 'rare' : 'notevoli';
   // solo i campi noti: valori estranei rimasti in memoria non devono cambiare la ricerca
   return {
     specie,
@@ -76,7 +77,7 @@ async function cercaNomeItaliano(scientifico) {
 function opzioniSpecie(scelta) {
   const voci = [
     ['rare', 'Tutte le specie rare della lista'],
-    ['selvatici', 'Tutti i mammiferi e uccelli'],
+    ['notevoli', 'Specie di pregio, per natura e foto (anche fuori dalla lista)'],
     ...SPECIE_RARE.map((k) => [k, ANIMALI[k]]),
   ];
   return voci.map(([v, et]) => `<option value="${v}" ${scelta === v ? 'selected' : ''}>${escapeHtml(et)}</option>`).join('');
@@ -217,7 +218,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       const p = mappa.latLngToContainerPoint([o.lat, o.lon]);
       const specie = o.animale ?? o.nomeScientifico;
       const k = `${specie}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / 60)}|${Math.floor(p.y / 60)}`;
-      const g = gruppi.get(k) ?? { animale: o.animale, scientifico: o.nomeScientifico, nome: o.specie, classe: o.classe, sfumata: o.sfumata, oss: [] };
+      const g = gruppi.get(k) ?? { animale: o.animale, scientifico: o.nomeScientifico, nome: o.specie, icona: iconaPerOsservazione(o), sfumata: o.sfumata, oss: [] };
       g.oss.push(o);
       gruppi.set(k, g);
     }
@@ -241,6 +242,25 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       <ul>${righe}</ul>${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
   }
 
+  // osservazioni nel riquadro; con "specie di pregio" anche i mammiferi e uccelli minacciati (IUCN)
+  async function cercaOsservazioni(riquadro, limite) {
+    const ricerche = [filtri, ...(filtri.specie === 'notevoli' ? [{ ...filtri, specie: 'minacciate' }] : [])];
+    const risposte = await Promise.all(
+      ricerche.map(async (f) => {
+        const r = await fetch(urlOsservazioniGbif(riquadro, f, { limite }));
+        if (!r.ok) throw new Error(`GBIF ha risposto ${r.status}`);
+        return r.json();
+      }),
+    );
+    const viste = new Set();
+    const osservazioni = risposte
+      .flatMap((j) => interpretaGbif(j))
+      .filter((o) => !viste.has(o.id) && viste.add(o.id))
+      .sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    // il totale è approssimato: una specie minacciata può essere anche tra quelle degne di nota
+    return { totale: Math.max(...risposte.map((j) => j.count ?? 0)), osservazioni };
+  }
+
   async function aggiornaIcone() {
     const mia = ++richiestaIcone;
     if (!attiva || filtri.correggiSforzo || mappa.getZoom() < ZOOM_ICONE) {
@@ -251,10 +271,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     }
     const b = mappa.getBounds();
     try {
-      const r = await fetch(urlOsservazioniGbif([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], filtri, { limite: 300 }));
-      if (!r.ok) throw new Error(String(r.status));
-      // con "tutti i mammiferi e uccelli" anche le specie fuori dalla lista di Orme
-      const oss = interpretaGbif(await r.json()).filter((o) => o.animale || (filtri.specie === 'selvatici' && CLASSI.has(o.classe)));
+      // con "specie di pregio" anche le specie fuori dalla lista di Orme
+      const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300);
+      const oss = osservazioni.filter((o) => o.animale || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
       if (mia !== richiestaIcone) return;
       icone.clearLayers();
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
@@ -263,7 +282,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
         L.marker([g.lat, g.lon], {
           icon: L.divIcon({
             className: `icona-osservazione${g.sfumata ? ' sfumata' : ''}`,
-            html: `<span class="spillo"><span>${iconaAnimale(g.animale ?? (g.classe === 'Aves' ? 'uccello' : 'mammifero'))}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
+            html: `<span class="spillo"><span>${iconaAnimale(g.icona)}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
             iconSize: [30, 36],
             iconAnchor: [15, 36],
             popupAnchor: [0, -34],
@@ -422,10 +441,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     // il pannello si apre solo se ci sono osservazioni: un tocco a vuoto mostra solo un avviso breve
     let elenco;
     try {
-      const risposta = await fetch(urlOsservazioniGbif(riquadroAttorno(e.latlng, no, se), filtri, { limite: 30 }));
-      if (!risposta.ok) throw new Error(`GBIF ha risposto ${risposta.status}`);
-      const json = await risposta.json();
-      elenco = { totale: json.count ?? 0, osservazioni: interpretaGbif(json) };
+      elenco = await cercaOsservazioni(riquadroAttorno(e.latlng, no, se), 30);
     } catch (err) {
       if (mia === richiestaZona) avvisoBreve(`Osservazioni non disponibili (${err.message})`);
       return;

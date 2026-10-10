@@ -37,6 +37,7 @@ import { montaElenco } from './lista.js';
 import { aggiungiGps } from './gps.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { ICONE } from './icone.js';
+import { stato } from '../stato.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { dimenticaPunti } from './puntiUtili.js';
 
@@ -93,6 +94,8 @@ export async function vistaIntorno(app) {
   const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'] });
   mappa.setView([42, 12.6], 5);
   const fermaGps = aggiungiGps(mappa, () => null);
+  // qui la fauna si vede subito: heatmap accesa (si spegne dal pulsante "Fauna")
+  stato.imposta({ livelli: { heatmap: true } });
   const heat = aggiungiHeatmap(mappa, { intorno: true });
   const selettoreAnimali = app.querySelector('.animali-intorno');
   const invitoMeteo = app.querySelector('.invito-meteo');
