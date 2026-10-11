@@ -13,6 +13,7 @@ import { htmlProfiloPendenze } from './profilo.js';
 import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
+import { puntiPerIlPercorso } from './puntiPercorso.js';
 import L from 'leaflet';
 
 export async function vistaPercorso(app, id) {
@@ -112,7 +113,12 @@ export async function vistaPercorso(app, id) {
   const contenitore = app.querySelector('#miniMappa');
   if (!pezzi.length) return;
   // rifugi, bivacchi e acqua lungo il percorso, come nella scheda dei sentieri
-  mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), { type: 'MultiLineString', coordinates: pezzi });
+  // fuori dai parchi e da "Intorno a me" i punti si scaricano per la zona del percorso
+  const contenitorePunti = app.querySelector('#puntiLungo');
+  contenitorePunti.innerHTML = '<section class="riquadro punti-percorso"><h2>Rifugi e acqua lungo il percorso</h2><p class="tenue">Cerco lungo il percorso…</p></section>';
+  puntiPerIlPercorso(p.id, pezzi).then(({ punti, avviso }) => {
+    if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso });
+  });
   const mini = creaMappa(contenitore, { anteprima: true });
   const puntiNatura = L.layerGroup().addTo(mini);
   collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {

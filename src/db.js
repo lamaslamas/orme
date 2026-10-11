@@ -138,6 +138,13 @@ async function scriviIn(store, valore) {
   return valore;
 }
 
+async function eliminaDa(store, chiave) {
+  const db = await apriDb();
+  const tx = db.transaction(store, 'readwrite');
+  tx.objectStore(store).delete(chiave);
+  await fine(tx);
+}
+
 // --- Sentieri ---
 
 export const tuttiISentieri = async () => (await tuttiDa('sentieri')).map(completaSentiero);
@@ -249,7 +256,13 @@ export async function eliminaPercorso(id) {
   const tx = db.transaction('percorsi', 'readwrite');
   tx.objectStore('percorsi').delete(id);
   await fine(tx);
+  await eliminaDa('meta', `punti:${id}`);
 }
+
+// --- Rifugi e acqua scaricati per un percorso di Pianifica fuori dalle zone già coperte ---
+// impronta: della traccia, per riscaricare se il percorso cambia
+export const leggiPuntiPercorso = async (id) => (await leggiDa('meta', `punti:${id}`)) ?? null;
+export const salvaPuntiPercorso = (id, impronta, punti) => scriviIn('meta', { chiave: `punti:${id}`, impronta, punti, scaricato: new Date().toISOString() });
 
 // --- Terreno letto da OSM sul telefono (per le tracce senza il dato nell'archivio) ---
 export const leggiTerrenoSalvato = async (sentieroId) => (await leggiDa('meta', `terreno:${sentieroId}`)) ?? null;

@@ -165,9 +165,10 @@ export function aggiungiPuntiUtili(mappa) {
 }
 
 // Riquadro della scheda: rifugi, bivacchi e acqua vicino alla traccia
-export async function mostraPuntiLungoIlPercorso(contenitore, geojson) {
+// punti: già pronti (es. Pianifica, con quelli scaricati per la sua zona); avviso: nota in fondo
+export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: dati = null, avviso = '' } = {}) {
   if (!contenitore) return null;
-  const punti = await caricaPunti();
+  const punti = dati ?? (await caricaPunti());
   const titolo = '<h2>Rifugi e acqua lungo il percorso</h2>';
   if (!punti) {
     contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}<p class="stato-dati stato-assente">Dati non raggiungibili ora (sei offline?).</p></section>`;
@@ -187,8 +188,11 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson) {
             <span class="tenue piccolo">${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}${note.length ? ` · ${escapeHtml(note.join(' · '))}` : ''}</span></span></li>`;
         })
         .join('')}</ul>`
-        : `<p class="tenue">Niente entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia.</p>`
+        : avviso
+          ? ''
+          : `<p class="tenue">Niente entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia.</p>`
     }
+    ${avviso ? `<p class="stato-dati stato-assente">${escapeHtml(avviso)}</p>` : ''}
     <p class="tenue piccolo">OpenStreetMap · verifica sul posto</p>
   </section>`;
   return vicini;
