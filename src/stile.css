@@ -1491,7 +1491,17 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* --- Intorno a me --- */
 .zona-intorno { display: grid; gap: 10px; }
 .zona-intorno .stato-intorno { margin: 0; }
-.zona-intorno .scelta-raggio { justify-self: start; }
+.comandi-intorno { display: grid; gap: 10px; justify-items: start; }
+/* con una zona salvata: tutto su una riga, pulsanti a icona, stato in piccolo sotto */
+.titolo-intorno { font-size: 1.3rem; margin-bottom: 8px; }
+.zona-intorno.compatta { gap: 6px; padding: 10px 12px; }
+.zona-intorno.compatta .comandi-intorno { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.zona-intorno.compatta .segmenti .segmento { padding: 6px 9px; min-height: 36px; font-size: 0.85rem; white-space: nowrap; }
+.zona-intorno.compatta .segmenti { flex: none; }
+.zona-intorno.compatta .azioni-intorno { flex-wrap: nowrap; gap: 6px; }
+.zona-intorno.compatta .azioni-intorno .bottone { width: 40px; height: 40px; min-height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+.zona-intorno.compatta .azioni-intorno .bottone > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.zona-intorno.compatta .stato-intorno { font-size: 0.8rem; color: var(--testo-tenue); }
 .azioni-intorno { display: flex; flex-wrap: wrap; gap: 8px; }
 .azioni-intorno .bottone[hidden] { display: none; }
 .azioni-intorno .bottone { display: inline-flex; align-items: center; gap: 6px; }

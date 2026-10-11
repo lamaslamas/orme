@@ -95,17 +95,19 @@ export async function vistaIntorno(app) {
   let visteScelta = ritrovata?.viste ?? null; // id dei percorsi vicino alle osservazioni della specie scelta
 
   app.innerHTML = `
-    <h1 class="titolo-pagina">Intorno a me</h1>
-    <section class="riquadro zona-intorno">
-      <p class="stato-intorno"></p>
-      <div class="segmenti scelta-raggio" role="radiogroup" aria-label="Distanza">${RAGGI_INTORNO.map(
-        (r) => `<button type="button" role="radio" class="segmento" data-raggio="${r}">${r} km</button>`,
-      ).join('')}</div>
-      <div class="azioni-intorno">
-        <button type="button" class="bottone primario" data-azione="posizione">${ICONE.navigazione}Usa la mia posizione</button>
-        <button type="button" class="bottone" data-azione="mappa">${ICONE.segnaposto}Scegli sulla mappa</button>
-        <button type="button" class="bottone" data-azione="aggiorna" hidden>Aggiorna</button>
+    <h1 class="titolo-pagina titolo-intorno">Intorno a me</h1>
+    <section class="riquadro zona-intorno ${zona ? 'compatta' : ''}">
+      <div class="comandi-intorno">
+        <div class="segmenti scelta-raggio" role="radiogroup" aria-label="Distanza">${RAGGI_INTORNO.map(
+          (r) => `<button type="button" role="radio" class="segmento" data-raggio="${r}">${r} km</button>`,
+        ).join('')}</div>
+        <div class="azioni-intorno">
+          <button type="button" class="bottone primario" data-azione="posizione" aria-label="Usa la mia posizione" title="Usa la mia posizione">${ICONE.navigazione}<span>Usa la mia posizione</span></button>
+          <button type="button" class="bottone" data-azione="mappa" aria-label="Scegli sulla mappa" title="Scegli sulla mappa">${ICONE.segnaposto}<span>Scegli sulla mappa</span></button>
+          <button type="button" class="bottone" data-azione="aggiorna" aria-label="Aggiorna" title="Aggiorna" hidden>${ICONE.aggiorna}<span>Aggiorna</span></button>
+        </div>
       </div>
+      <p class="stato-intorno"></p>
     </section>
     <div class="anteprima-mappa parco-mappa"><div id="mappaIntorno"></div><p class="avviso-mappa" id="avvisoIntorno" hidden>Tocca la mappa nel punto da cui vuoi partire</p></div>
     <section class="cosa-vedere" hidden>
@@ -347,6 +349,8 @@ export async function vistaIntorno(app) {
       ? `<b>${ultimi.length} ${ultimi.length === 1 ? 'percorso' : 'percorsi'}</b> entro ${zona.raggioKm} km · aggiornati il ${escapeHtml(testoData(zona.aggiornato))}`
       : 'Trova i percorsi segnati vicino a te, dovunque ti trovi.';
     bottoneAggiorna.hidden = !zona;
+    // con una zona: comandi a icona su una riga, così la mappa si vede subito
+    app.querySelector('.zona-intorno').classList.toggle('compatta', Boolean(zona));
   }
 
   // Dislivelli: quote da Open-Meteo per i percorsi della zona che non le hanno ancora
