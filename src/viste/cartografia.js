@@ -252,7 +252,37 @@ function aggiungiPannelloLivelli(mappa, livelli) {
       return div;
     },
   });
-  new Controllo().addTo(mappa);
+  const controlloLivelli = new Controllo().addTo(mappa);
+  // un tocco sulla mappa (o uno spostamento) chiude il pannello dei livelli
+  const chiudi = () => {
+    if (pannello.hidden) return;
+    pannello.hidden = true;
+    controlloLivelli.getContainer().querySelector('.livelli-bottone')?.setAttribute('aria-expanded', 'false');
+  };
+  mappa.on('dragstart zoomstart', chiudi);
+  // il tocco che chiude il pannello serve solo a quello: non apre percorsi né osservazioni
+  const contenitore = mappa.getContainer();
+  let ignoraClic = false;
+  contenitore.addEventListener(
+    'pointerdown',
+    (e) => {
+      if (pannello.hidden || pannello.contains(e.target) || e.target.closest('.leaflet-control')) return;
+      chiudi();
+      ignoraClic = true;
+      setTimeout(() => (ignoraClic = false), 600);
+    },
+    true,
+  );
+  contenitore.addEventListener(
+    'click',
+    (e) => {
+      if (!ignoraClic) return;
+      ignoraClic = false;
+      e.stopPropagation();
+      e.preventDefault();
+    },
+    true,
+  );
 
   function disegna() {
     const s = stato.leggi();
