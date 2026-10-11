@@ -1,11 +1,12 @@
 // Importazione automatica nell'archivio pubblico (public/dati/archivio.json).
 // La esegue ogni giorno GitHub Actions (.github/workflows/archivio.yml); si può lanciare anche a mano:
 //   node scripts/importa-archivio.mjs            (tutte le fonti)
-//   node scripts/importa-archivio.mjs ecotur     (solo alcune: ecotur, wolf-howling, osm-mtb)
+//   node scripts/importa-archivio.mjs ecotur     (solo alcune: ecotur o un'altra associazione, wolf-howling, osm-mtb)
 // Ogni fonte è indipendente: se una non risponde, le altre si aggiornano lo stesso.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { unisciImportazione } from '../src/lib/importazione.js';
-import { ECOTUR, linkEscursioni, leggiPaginaEcotur } from '../src/lib/fonti/ecotur.js';
+import { ASSOCIAZIONI } from '../src/lib/fonti/associazioni.js';
+import { controllaFonte, controllaCandidato, attesaTraLePagine } from '../src/lib/fonti/schema.js';
 import { WOLF_HOWLING, linkNotizieWolfHowling, linkPdfWolfHowling, righeTabella, candidatiWolfHowling } from '../src/lib/fonti/wolfHowling.js';
 import { OSM_MTB, queryMtbParco, candidatiMtb, soloDentroIlConfine } from '../src/lib/fonti/osmMtb.js';
 import { OSM_SENTIERI, querySentieriParco, candidatiSentieri } from '../src/lib/fonti/osmSentieri.js';
@@ -45,15 +46,19 @@ async function regoleRobots(origine) {
   }
 }
 
-async function importaEcotur() {
-  const robots = await regoleRobots(new URL(ECOTUR.elenco).origin);
-  const attesa = Math.max(ECOTUR.attesaMs, robots.attesaMs);
-  if (!robots.consentito(ECOTUR.elenco)) throw new Error('robots.txt non consente la lettura');
-  const elenco = await scarica(ECOTUR.elenco);
-  const link = linkEscursioni(elenco);
+// Fonte "elenco + pagine" (schema comune: src/lib/fonti/schema.js): elenco delle uscite,
+// poi una pagina per volta, rispettando robots.txt e il Crawl-delay
+async function importaElencoPagine(def) {
+  const mancano = controllaFonte(def);
+  if (mancano.length) throw new Error(`definizione incompleta (${mancano.join(', ')})`);
+  const robots = await regoleRobots(new URL(def.elenco).origin);
+  const attesa = attesaTraLePagine(def, robots.attesaMs);
+  if (!robots.consentito(def.elenco)) throw new Error('robots.txt non consente la lettura');
+  const elenco = await scarica(def.elenco);
+  const link = def.link(elenco, def.elenco);
   if (!link.length) {
     const titolo = elenco.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
-    throw new Error(`nessuna escursione nell'elenco (pagina "${titolo.slice(0, 80)}", ${elenco.length} caratteri: ${elenco.replace(/\s+/g, " ").slice(0, 200)})`);
+    throw new Error(`nessuna uscita nell'elenco (pagina "${titolo.slice(0, 80)}", ${elenco.length} caratteri: ${elenco.replace(/\s+/g, ' ').slice(0, 200)})`);
   }
   const candidati = [];
   let completo = true;
@@ -61,11 +66,17 @@ async function importaEcotur() {
     if (!robots.consentito(url)) continue;
     await attendi(attesa);
     try {
-      const c = leggiPaginaEcotur(await scarica(url), url);
+      const c = def.leggi(await scarica(url), url);
       if (!c) completo = false; // pagina cambiata: non si segna nulla come sparito
-      else if (!c.segnaposto) candidati.push(c);
+      else if (!c.segnaposto) {
+        const problemi = controllaCandidato(c);
+        if (problemi.length) {
+          console.warn(`  ${def.fonte}: ${url} scartata (${problemi.join(', ')})`);
+          completo = false;
+        } else candidati.push(c);
+      }
     } catch (e) {
-      console.warn(`  ecotur: ${e.message}`);
+      console.warn(`  ${def.fonte}: ${e.message}`);
       completo = false;
     }
   }
@@ -135,7 +146,7 @@ async function importaDaOsm(parco, query, leggiCandidati) {
 }
 
 const FONTI = [
-  { fonte: ECOTUR.fonte, gruppo: 'ecotur', esegui: importaEcotur },
+  ...ASSOCIAZIONI.map((def) => ({ fonte: def.fonte, gruppo: def.fonte, esegui: () => importaElencoPagine(def) })),
   { fonte: WOLF_HOWLING.fonte, gruppo: 'wolf-howling', esegui: importaWolfHowling },
   ...PARCHI.map((p) => ({ fonte: `${OSM_MTB.fonte}:${p.id}`, gruppo: 'osm-mtb', esegui: () => importaDaOsm(p, queryMtbParco, candidatiMtb) })),
   ...PARCHI.filter((p) => OSM_SENTIERI.parchi.includes(p.id)).map((p) => ({

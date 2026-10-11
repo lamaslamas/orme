@@ -1,6 +1,7 @@
 // Ecotur (Pescasseroli, PNALM): elenco delle escursioni di un giorno e pagina di ciascuna.
 // Le pagine non hanno GPX: si importano come uscite guidate senza traccia.
-import { righeDaHtml, animaliNelTesto, misureDalTesto, periodoDalTesto, riassunto, togliDatiPersonali, slug } from '../importazione.js';
+import { righeDaHtml, periodoDalTesto } from '../importazione.js';
+import { candidatoUscita } from './schema.js';
 
 export const ECOTUR = {
   fonte: 'ecotur',
@@ -56,20 +57,9 @@ export function leggiPaginaEcotur(html, url) {
     .replace(/\s+\d{1,2}[.:]\d{2}\s*[ap]\.?m\.?.*$/i, '')
     .replace(/[,\s]+$/, '');
   const date = sezione(contenuto, 'dates', FINE_SEZIONE).join(' ');
-  return {
-    fonte: ECOTUR.fonte,
-    tipo: 'uscita_guidata',
-    chiave: url,
-    id: `ecotur-${slug(nome)}`,
-    url,
-    nome,
-    organizzatore: ECOTUR.organizzatore,
-    titoloFonte: `Ecotur – ${nome}`,
-    parco: ECOTUR.parco,
-    descrizione: riassunto(togliDatiPersonali(descrizione)),
-    animali: animaliNelTesto(`${nome}\n${testo}`),
-    partenza: riassunto(togliDatiPersonali(ritrovo), 120),
-    periodo: periodoDalTesto(date),
-    ...misureDalTesto(testo),
-  };
+  return candidatoUscita(ECOTUR, { url, nome, descrizione, testo, partenza: ritrovo, periodo: periodoDalTesto(date) });
 }
+
+// Ecotur come fonte "elenco + pagine" (schema comune: ./schema.js)
+ECOTUR.link = linkEscursioni;
+ECOTUR.leggi = leggiPaginaEcotur;
