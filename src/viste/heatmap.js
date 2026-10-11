@@ -292,8 +292,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     ]
       .filter((o) => o.lat != null && !viste.has(o.id) && viste.add(o.id))
       .sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    // il totale è approssimato (fonti diverse possono contare la stessa osservazione)
-    return { totale: Math.max(osservazioni.length, ...rGbif.map((j) => j.count ?? 0), ...rInat.map((j) => j.total_results ?? 0)), osservazioni };
+    // il totale: in Intorno a me quelle di iNaturalist (dal suo conteggio) più quelle delle altre fonti
+    // arrivate da GBIF; altrove il conteggio di GBIF. Non si contano due volte le stesse osservazioni.
+    const altreFonti = osservazioni.filter((o) => o.fonte !== 'iNaturalist').length;
+    const totale = intorno
+      ? Math.max(osservazioni.length, rInat.reduce((n, j) => n + (j.total_results ?? 0), 0) + altreFonti)
+      : Math.max(osservazioni.length, ...rGbif.map((j) => j.count ?? 0));
+    return { totale, osservazioni };
   }
 
   async function aggiornaIcone() {
@@ -526,7 +531,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       <div class="foglio-maniglia"></div>
       <h2 class="foglio-titolo">Osservazioni in questa zona</h2>
       <p class="tenue">${elenco.totale} ${elenco.totale === 1 ? 'osservazione' : 'osservazioni'}${
-        elenco.totale > elenco.osservazioni.length ? `, le ${elenco.osservazioni.length} più recenti` : ''
+        elenco.totale > elenco.osservazioni.length ? (elenco.osservazioni.length === 1 ? ', la più recente' : `, le ${elenco.osservazioni.length} più recenti`) : ''
       }. Le posizioni approssimate (specie protette, atlanti) possono essere lontane fino a ~10 km dal punto mostrato.</p>
       <ul class="elenco-oss">
         ${
@@ -558,9 +563,32 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     if (mappa.percorsoVicino?.(e.latlng)) return;
     // il tocco che ha chiuso il foglio del percorso (telefono) serve solo a quello
     if (mappa.foglioAppenaChiuso?.()) return;
+    // un tocco sull'icona di un animale apre solo il suo riquadro
+    if (e.originalEvent?.target?.closest?.('.leaflet-marker-icon, .leaflet-popup') || Date.now() - popupApertoAlle < 500) return;
+    // da vicino, con le icone sulla mappa: un tocco accanto a un'icona apre quella, non l'elenco
+    // della zona (la macchia della heatmap sta proprio sotto le icone)
+    const vicina = iconaVicina(e.latlng);
+    if (vicina) {
+      vicina.openPopup();
+      return;
+    }
     clearTimeout(attesaTocco);
     attesaTocco = setTimeout(() => mostraZona(e), 300);
   });
+  let popupApertoAlle = 0;
+  mappa.on('popupopen', () => (popupApertoAlle = Date.now()));
+  function iconaVicina(latlng, raggioPx = 30) {
+    if (!mappa.hasLayer(icone)) return null;
+    const p = mappa.latLngToContainerPoint(latlng);
+    let migliore = null;
+    icone.eachLayer((m) => {
+      // il segnaposto è sopra il punto: si misura dal centro dell'icona
+      const c = mappa.latLngToContainerPoint(m.getLatLng()).subtract([0, 20]);
+      const d = c.distanceTo(p);
+      if (d <= raggioPx && (!migliore || d < migliore.d)) migliore = { m, d };
+    });
+    return migliore?.m ?? null;
+  }
   mappa.on('dblclick zoomstart', () => clearTimeout(attesaTocco));
 
   // se la heatmap era accesa nella schermata precedente, resta accesa
