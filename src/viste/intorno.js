@@ -37,6 +37,7 @@ import {
   sceltaRitrovata,
   distanzaDiPartenza,
   testoPartenza,
+  suggerimentoPochi,
   retiAreeProtette,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
@@ -123,6 +124,7 @@ export async function vistaIntorno(app) {
     <a class="invito-meteo" href="#/domani?zona=intorno" hidden><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Dove vado domani?</b><span class="tenue piccolo">I percorsi della zona secondo il meteo e la durata</span></span></a>
     <h2 class="titolo-sezione">Percorsi</h2>
     ${htmlSelettoreAttivita({ titolo: false })}
+    <div class="pochi-percorsi riquadro" hidden></div>
     <div id="elenco"></div>
     <section class="aree-protette" hidden>
       <h2 class="titolo-sezione">Aree protette con sentieri non segnati</h2>
@@ -226,16 +228,17 @@ export async function vistaIntorno(app) {
     );
     // i percorsi segnati nella lista; le reti di sentieri non segnati delle aree protette a parte
     const vicini = nellaZona.filter((v) => v.sentiero.tipoPercorso !== 'rete_sentieri');
-    mostraAreeProtette(nellaZona.filter((v) => v.sentiero.tipoPercorso === 'rete_sentieri'));
+    const retiZona = nellaZona.filter((v) => v.sentiero.tipoPercorso === 'rete_sentieri');
+    mostraAreeProtette(retiZona);
+    mostraPochi(suggerimentoPochi(vicini.length, retiZona.length, zona.raggioKm));
     // distanza dalla partenza (estremo più vicino, o partenza dell'anello): ordine della lista e card
     const distanze = new Map(vicini.map((v) => [v.sentiero.id, distanzaDiPartenza(v.sentiero, v.traccia, zona.centro, v.distanzaM)]));
     ultimi = vicini.map((v) => ({ ...v, partenza: distanze.get(v.sentiero.id) }));
     // con un animale scelto restano i percorsi passati vicino a dove è stato visto
     const mostrati = visteScelta ? vicini.filter((v) => visteScelta.has(v.sentiero.id)) : vicini;
     if (!vicini.length) {
-      contenitoreElenco.innerHTML = `<p class="vuoto">Nessun percorso segnato su OpenStreetMap entro ${zona.raggioKm} km.${
-        zona.raggioKm < RAGGI_INTORNO.at(-1) ? ' Prova con una distanza maggiore.' : ''
-      }</p>`;
+      // il riquadro "pochi percorsi" sopra dice già cosa fare
+      contenitoreElenco.innerHTML = `<p class="vuoto">Nessun percorso segnato su OpenStreetMap entro ${zona.raggioKm} km.</p>`;
       disegnaPercorsi([]);
       return;
     }
@@ -257,6 +260,23 @@ export async function vistaIntorno(app) {
       },
     );
     if (scelta && !mostrati.length) contenitoreElenco.querySelector('.lista').innerHTML = `<li class="vuoto">Nessun percorso passa vicino a dove è stato visto: ${escapeHtml(scelta.nome)}. <button type="button" class="link" data-azione="togli-specie">Tutti i percorsi</button></li>`;
+  }
+
+  // pochi percorsi segnati: invito ad allargare il raggio e, se ci sono, le aree con sentieri non
+  // segnati portate sopra la lista
+  function mostraPochi(consiglio) {
+    const box = app.querySelector('.pochi-percorsi');
+    box.hidden = !consiglio;
+    // con pochi percorsi le aree protette salgono sopra la lista, altrimenti stanno sotto
+    if (consiglio?.aree) contenitoreElenco.before(sezioneAree);
+    else contenitoreElenco.after(sezioneAree);
+    if (!consiglio) return;
+    const { allarga, aree } = consiglio;
+    box.innerHTML = `<p><b>Pochi percorsi segnati entro ${zona.raggioKm} km.</b></p>
+      <div class="pochi-azioni">
+        ${allarga ? `<button type="button" class="bottone primario" data-raggio="${allarga}">Allarga a ${allarga} km</button>` : ''}
+        ${aree ? `<button type="button" class="bottone" data-azione="vedi-aree">${aree} ${aree === 1 ? 'area' : 'aree'} con sentieri non segnati ↓</button>` : ''}
+      </div>`;
   }
 
   function mostraAreeProtette(elenco) {
@@ -541,7 +561,9 @@ export async function vistaIntorno(app) {
   app.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.rete) {
+    if (b.dataset.azione === 'vedi-aree') {
+      sezioneAree.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (b.dataset.rete) {
       mostraRete(b.dataset.rete);
     } else if (b.dataset.taxon) {
       scegliSpecie({ inat: Number(b.dataset.taxon), nome: b.dataset.nome, scientifico: b.dataset.scientifico });

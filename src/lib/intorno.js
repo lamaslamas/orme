@@ -384,3 +384,12 @@ export function distanzaDiPartenza(sentiero, traccia, centro, vicinoM) {
 
 export const testoPartenza = ({ metri, partenza }) =>
   partenza ? (metri < 150 ? 'partenza qui' : `partenza ${testoDistanza(metri)}`) : testoDistanza(metri);
+
+// ---- Pochi percorsi segnati: cosa suggerire ----
+export const POCHI_PERCORSI = 5;
+// { allarga: raggio più grande o null, aree: quante aree con sentieri non segnati } oppure null
+export function suggerimentoPochi(percorsi, aree, km) {
+  if (percorsi >= POCHI_PERCORSI) return null;
+  const allarga = RAGGI_INTORNO.find((r) => r > km) ?? null;
+  return allarga || aree ? { allarga, aree } : null;
+}

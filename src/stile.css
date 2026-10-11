@@ -1657,3 +1657,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .anteprima-mappa:has(> .avviso-mappa:not([hidden])) .cerca-qui { top: 64px; }
 .avviso-mappa.avviso-breve { top: auto; bottom: 72px; }
 .invito-meteo[hidden] { display: none; }
+.pochi-percorsi { margin: 10px 0 12px; display: grid; gap: 8px; border-left: 4px solid var(--teal); }
+.pochi-percorsi p { margin: 0; }
+.pochi-percorsi[hidden] { display: none; }
+.pochi-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
+.pochi-azioni .bottone { min-height: 38px; font-size: 0.88rem; }

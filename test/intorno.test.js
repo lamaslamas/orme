@@ -319,3 +319,14 @@ describe('Intorno a me: distanza dalla partenza', async () => {
     expect(testoPartenza(d)).toBe('a 900 m');
   });
 });
+
+describe('Intorno a me: pochi percorsi', async () => {
+  const { suggerimentoPochi } = await import('../src/lib/intorno.js');
+  it('sotto i 5: allargare il raggio e/o guardare le aree con sentieri non segnati', () => {
+    expect(suggerimentoPochi(3, 2, 10)).toEqual({ allarga: 25, aree: 2 });
+    expect(suggerimentoPochi(0, 0, 25)).toEqual({ allarga: 50, aree: 0 });
+    expect(suggerimentoPochi(4, 1, 50)).toEqual({ allarga: null, aree: 1 });
+    expect(suggerimentoPochi(4, 0, 50)).toBeNull(); // niente da suggerire
+    expect(suggerimentoPochi(5, 3, 10)).toBeNull();
+  });
+});
