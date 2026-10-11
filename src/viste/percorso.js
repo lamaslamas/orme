@@ -117,7 +117,7 @@ export async function vistaPercorso(app, id) {
   const contenitorePunti = app.querySelector('#puntiLungo');
   contenitorePunti.innerHTML = '<section class="riquadro punti-percorso"><h2>Rifugi e acqua lungo il percorso</h2><p class="tenue">Cerco lungo il percorso…</p></section>';
   puntiPerIlPercorso(p.id, pezzi).then(({ punti, avviso }) => {
-    if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso });
+    if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso, pezzi });
   });
   const mini = creaMappa(contenitore, { anteprima: true });
   const puntiNatura = L.layerGroup().addTo(mini);

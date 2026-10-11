@@ -28,3 +28,20 @@ describe('copertura dei punti per un percorso di Pianifica', () => {
     expect(riquadroDeiPezzi([])).toBeNull();
   });
 });
+
+import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../src/lib/lungoIlPercorso.js';
+describe('punti lungo la traccia: al km X', () => {
+  // andata verso est, poi verso nord
+  const giro = [[[13.8, 41.8], [13.82, 41.8]], [[13.82, 41.8], [13.82, 41.82]]];
+  it('il km si conta nell\'ordine di percorrenza, anche tra pezzi diversi', () => {
+    const tot = lunghezzaDeiPezzi(giro);
+    expect(tot).toBeCloseTo(1.66 + 2.22, 1);
+    expect(kmLungoLaTraccia([13.81, 41.8005], giro)).toBeCloseTo(0.83, 1); // metà del primo pezzo
+    expect(kmLungoLaTraccia([13.8205, 41.81], giro)).toBeCloseTo(1.66 + 1.11, 1); // metà del secondo
+  });
+  it('tratto più lungo senza punti, partenza e arrivo compresi', () => {
+    expect(trattoPiuLungoSenza([2, 9], 12)).toEqual({ da: 2, a: 9, km: 7 });
+    expect(trattoPiuLungoSenza([], 5)).toEqual({ da: 0, a: 5, km: 5 });
+    expect(km1(12.44)).toBe('12,4');
+  });
+});

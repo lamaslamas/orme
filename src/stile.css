@@ -1675,3 +1675,4 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .probabili li > button { grid-column: 2; grid-row: 1 / span 2; }
 .annulla-conferma { display: block; margin-top: 4px; }
 .annulla-conferma .bottone { padding-left: 0; }
+.riassunto-lungo { margin: 4px 0 10px; padding-left: 18px; display: grid; gap: 4px; font-size: 0.92rem; }

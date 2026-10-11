@@ -3,7 +3,8 @@
 import L from 'leaflet';
 import { leggiPuntiIntorno } from '../db.js';
 import { escapeHtml } from '../lib/formato.js';
-import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
+import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
+import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 
 // da vicino le icone; da lontano pallini colorati (leggeri, su canvas) per avere il quadro d'insieme
 export const ZOOM_PUNTI = 12;
@@ -166,7 +167,8 @@ export function aggiungiPuntiUtili(mappa) {
 
 // Riquadro della scheda: rifugi, bivacchi e acqua vicino alla traccia
 // punti: già pronti (es. Pianifica, con quelli scaricati per la sua zona); avviso: nota in fondo
-export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: dati = null, avviso = '' } = {}) {
+// pezzi (Pianifica): traccia ordinata, per dire "al km X" e il tratto più lungo senza acqua
+export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: dati = null, avviso = '', pezzi = null } = {}) {
   if (!contenitore) return null;
   const punti = dati ?? (await caricaPunti());
   const titolo = '<h2>Rifugi e acqua lungo il percorso</h2>';
@@ -174,8 +176,10 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
     contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}<p class="stato-dati stato-assente">Dati non raggiungibili ora (sei offline?).</p></section>`;
     return null;
   }
-  const vicini = puntiLungoIlPercorso(punti, geojson);
+  let vicini = puntiLungoIlPercorso(punti, geojson);
+  if (pezzi) vicini = vicini.map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi) })).sort((a, b) => a.km - b.km);
   contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}
+    ${pezzi && !avviso ? htmlRiassuntoLungo(vicini, pezzi) : ''}
     ${
       vicini.length
         ? `
@@ -185,7 +189,7 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
           const note = noteDelPunto(p);
           return `<li><span class="punto-utile ${t.gruppo}${p.chiuso ? ' chiuso' : ''}">${htmlIconaPunto(p.tipo)}</span>
             <span><b>${escapeHtml(p.nome ?? t.nome)}</b>${p.nome ? ` <span class="tenue">· ${t.nome.toLowerCase()}</span>` : ''}
-            <span class="tenue piccolo">${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}${note.length ? ` · ${escapeHtml(note.join(' · '))}` : ''}</span></span></li>`;
+            <span class="tenue piccolo">${p.km != null ? `al km ${km1(p.km)} · ` : ''}${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}${note.length ? ` · ${escapeHtml(note.join(' · '))}` : ''}</span></span></li>`;
         })
         .join('')}</ul>`
         : avviso
@@ -196,4 +200,21 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
     <p class="tenue piccolo">OpenStreetMap · verifica sul posto</p>
   </section>`;
   return vicini;
+}
+
+// Riassunto per Pianifica: il tratto più lungo senza acqua e dove sono rifugi e bivacchi
+function htmlRiassuntoLungo(vicini, pezzi) {
+  const totale = lunghezzaDeiPezzi(pezzi);
+  const acqua = vicini.filter(conAcqua);
+  const senza = trattoPiuLungoSenza(acqua.map((p) => p.km), totale);
+  const notte = vicini.filter(perLaNotte);
+  const righe = [
+    acqua.length
+      ? `Tratto più lungo senza acqua: <b>${km1(senza.km)} km</b> <span class="tenue">(dal km ${km1(senza.da)} al km ${km1(senza.a)})</span>`
+      : `<b>Nessuna fonte d'acqua</b> lungo i ${km1(totale)} km: porta tutta l'acqua che serve`,
+    notte.length
+      ? `Rifugi e bivacchi: ${notte.map((p) => `km ${km1(p.km)} <span class="tenue">(${escapeHtml(p.nome ?? TIPI_PUNTO[p.tipo].nome)})</span>`).join(', ')}`
+      : 'Nessun rifugio o bivacco lungo il percorso',
+  ];
+  return `<ul class="riassunto-lungo">${righe.map((r) => `<li>${r}</li>`).join('')}</ul>`;
 }
