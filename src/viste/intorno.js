@@ -238,6 +238,8 @@ export async function vistaIntorno(app) {
       tracce,
       {
         parcoFisso: ID_INTORNO,
+        // lista più corta: i primi 15, poi "Mostra altri"
+        perPagina: 15,
         ordina: (r) => [...r].sort((a, b) => distanze.get(a.sentiero.id) - distanze.get(b.sentiero.id)),
         // per i percorsi dei parchi anche il nome del parco
         nota: (p) => [testoDistanza(distanze.get(p.sentiero.id)), p.sentiero.parco !== ID_INTORNO ? parcoDa(p.sentiero.parco)?.nomeBreve : ''].filter(Boolean).join(' · '),
