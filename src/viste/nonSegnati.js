@@ -1,4 +1,4 @@
-// Livello "Sentieri non segnati": spento di base. Acceso, da vicino compare "Cerca sentieri qui",
+// Livello "Sentieri non segnati": spento di base. Acceso, da vicino (zoom 13) compare "Cerca sentieri qui",
 // che chiede a OpenStreetMap solo la zona inquadrata; le zone già cercate restano finché la mappa
 // è aperta. Tratteggio marrone sottile, diverso dalle tracce viola dei percorsi segnati.
 import L from 'leaflet';
@@ -38,9 +38,10 @@ export function aggiungiNonSegnati(mappa) {
   function aggiornaBottone() {
     const vicino = mappa.getZoom() >= ZOOM_NON_SEGNATI;
     const giaCercata = cercate.some((b) => b.contains(mappa.getBounds()));
-    bottone.hidden = !acceso || (vicino && giaCercata && !inCorso);
-    bottone.disabled = !vicino || inCorso;
-    bottone.textContent = inCorso ? 'Cerco i sentieri…' : vicino ? 'Cerca sentieri qui' : 'Avvicinati per cercare i sentieri';
+    // solo da vicino e dove non si è già cercato: da lontano nessun messaggio in più sulla mappa
+    bottone.hidden = !acceso || !vicino || (giaCercata && !inCorso);
+    bottone.disabled = inCorso;
+    bottone.textContent = inCorso ? 'Cerco i sentieri…' : 'Cerca sentieri qui';
   }
 
   async function cerca() {

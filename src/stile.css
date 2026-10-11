@@ -1642,3 +1642,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 :root[data-scuro] .gps-stato.fuori { color: #f5c4b3; }
 /* la scala sopra la barra della fauna */
 .con-heatmap .leaflet-bottom.leaflet-left { bottom: 58px; }
+/* messaggi sulla mappa senza sovrapposizioni: se in alto c'è già un avviso, il pulsante dei
+   sentieri non segnati scende sotto; gli avvisi brevi stanno in basso, sopra la barra della fauna */
+.anteprima-mappa:has(> .avviso-mappa:not([hidden])) .cerca-qui { top: 64px; }
+.avviso-mappa.avviso-breve { top: auto; bottom: 72px; }
