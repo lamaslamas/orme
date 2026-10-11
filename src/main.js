@@ -204,7 +204,8 @@ caricaDatiIniziali()
   .then(() => {
     globalThis.__ormeFase = 'pagina mostrata';
     // la mappa vettoriale si scarica a riposo, così le mappe non aspettano (né mostrano ripieghi)
-    if (stato.leggi().base === 'chiara') (globalThis.requestIdleCallback ?? setTimeout)(() => preparaLibreria().catch(() => {}));
+    const base = stato.leggi().base;
+    if (base === 'chiara' || base === 'scura') (globalThis.requestIdleCallback ?? setTimeout)(() => preparaLibreria(base === 'scura' ? 'scuro' : 'chiaro').catch(() => {}));
   })
   .catch((errore) => {
     console.error('Avvio non riuscito', errore);

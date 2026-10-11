@@ -11,7 +11,7 @@ export const STATO_INIZIALE = {
   // "Intorno a me", l'unica sezione con gli imperdibili
   heatmap: { insieme: 'rare', insiemeIntorno: 'notevoli', stagione: 'tutto', anni: 0, soloVerificate: true, correggiSforzo: false },
   livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true, distribuzione: true, panoramicita: false, rifugi: true, acqua: true },
-  base: 'chiara', // chiara | topo | curve | satellite
+  base: 'chiara', // chiara | scura | topo | curve | satellite
 };
 
 function unisci(base, modifica) {

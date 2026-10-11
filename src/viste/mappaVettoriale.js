@@ -4,9 +4,8 @@
 // La libreria MapLibre si carica solo quando serve.
 import L from 'leaflet';
 
-// chiaro (liberty) o scuro (dark), secondo la modalità dell'app al momento di aprire la mappa
+// chiaro (liberty) o scuro (dark): sono due basi diverse della mappa, scelte nel pannello dei livelli
 const STILI = { chiaro: 'https://tiles.openfreemap.org/styles/liberty', scuro: 'https://tiles.openfreemap.org/styles/dark' };
-const stileAttuale = () => (document.documentElement.hasAttribute('data-scuro') ? STILI.scuro : STILI.chiaro);
 export const ATTR_VETTORIALE =
   '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, dati &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
@@ -19,8 +18,8 @@ function inItaliano(l) {
 }
 
 const stiliInCorso = new Map();
-function stili() {
-  const url = stileAttuale();
+function stili(variante = 'chiaro') {
+  const url = STILI[variante] ?? STILI.chiaro;
   if (!stiliInCorso.has(url)) stiliInCorso.set(url, scaricaStile(url));
   return stiliInCorso.get(url);
 }
@@ -40,19 +39,19 @@ function scaricaStile(url) {
 
 let libreriaInCorso = null;
 // Scarica in anticipo libreria e stile (all'avvio, a riposo): la prima mappa compare già pronta
-export function preparaLibreria() {
+export function preparaLibreria(variante = 'chiaro') {
   libreriaInCorso ??= Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')])
     .then(() => import('@maplibre/maplibre-gl-leaflet'))
     .catch((e) => {
       libreriaInCorso = null;
       throw e;
     });
-  return Promise.all([libreriaInCorso, stili()]).then(([, s]) => s);
+  return Promise.all([libreriaInCorso, stili(variante)]).then(([, s]) => s);
 }
 
 // Restituisce { base, etichette } come livelli Leaflet, oppure lancia un errore (offline, niente WebGL)
-export async function creaBaseVettoriale() {
-  const { base, etichette } = await preparaLibreria();
+export async function creaBaseVettoriale(variante = 'chiaro') {
+  const { base, etichette } = await preparaLibreria(variante);
   return {
     base: L.maplibreGL({ style: base, attributionControl: { customAttribution: ATTR_VETTORIALE } }),
     etichette: L.maplibreGL({ style: etichette, pane: 'etichette', attributionControl: false, interactive: false }),

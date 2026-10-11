@@ -1579,8 +1579,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 :root[data-scuro] .panorama-numeri div, :root[data-scuro] .carta-specie-zona .specie-icona { background: #243034; }
 :root[data-scuro] .barra-criterio, :root[data-scuro] .fauna-barra, :root[data-scuro] .fauna-mesi i { background: #2c3a3e; }
 :root[data-scuro] .ris-foto, :root[data-scuro] .miniatura.vuota { background: linear-gradient(135deg, #1f2e2a, #173a31); }
-/* le mappe raster (dettagliata, curve, satellite) restano come sono: si abbassa solo un po' la luce */
-:root[data-scuro] .leaflet-tile-pane .leaflet-layer { filter: brightness(0.82) contrast(1.05); }
+/* le mappe restano quelle scelte nel pannello dei livelli (c'è anche la base Scura) */
 :root[data-scuro] .chip { background: rgba(155, 184, 165, 0.16); color: var(--testo); }
 :root[data-scuro] .miniatura, :root[data-scuro] .anteprima-mappa, :root[data-scuro] .copertina { background: linear-gradient(160deg, #1d2c29, #163a31); }
 :root[data-scuro] .difficolta-copertina.difficolta-T, :root[data-scuro] .difficolta-copertina.difficolta-E { color: #97c459; }

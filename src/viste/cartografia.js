@@ -14,7 +14,12 @@ const CENTRO_PREDEFINITO = [41.79, 13.85];
 export const BASI = {
   chiara: {
     nome: 'Chiara',
-    vettoriale: true, // MapLibre + OpenFreeMap, caricata solo quando serve
+    vettoriale: 'chiaro', // MapLibre + OpenFreeMap, caricata solo quando serve
+  },
+  // indipendente dalla modalità scura dell'app: si sceglie qui, tra le basi
+  scura: {
+    nome: 'Scura',
+    vettoriale: 'scuro',
   },
   topo: {
     nome: 'Dettagliata (OSM)',
@@ -126,13 +131,14 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   mappa.getPane('etichette').style.pointerEvents = 'none';
   const etichette = Object.fromEntries(Object.entries(BASI).filter(([, b]) => b.etichette).map(([k, b]) => [k, b.etichette()]));
 
-  // base vettoriale: si crea alla prima richiesta; se non si può (offline, niente WebGL) si usa la dettagliata
-  let vettoriale = null;
-  const preparaVettoriale = () =>
-    (vettoriale ??= creaBaseVettoriale()
+  // basi vettoriali (chiara e scura): si creano alla prima richiesta; se non si può (offline, niente
+  // WebGL) si usa la dettagliata
+  const vettoriali = {};
+  const preparaVettoriale = (k) =>
+    (vettoriali[k] ??= creaBaseVettoriale(BASI[k].vettoriale)
       .then((v) => {
-        basi.chiara = v.base;
-        etichette.chiara = v.etichette;
+        basi[k] = v.base;
+        etichette[k] = v.etichette;
         return true;
       })
       .catch((e) => {
@@ -147,9 +153,9 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   async function applicaBase(chiave) {
     let k = BASI[chiave] ? chiave : 'chiara';
     const mia = ++richiesta;
-    if (k === 'chiara' && !basi.chiara) {
+    if (BASI[k].vettoriale && !basi[k]) {
       // si aspetta la vettoriale (di solito già scaricata all'avvio): la dettagliata solo se non si può
-      if (!(await preparaVettoriale())) k = 'topo';
+      if (!(await preparaVettoriale(k))) k = 'topo';
       if (mia !== richiesta || rimossa) return; // nel frattempo è cambiata la scelta o la mappa è chiusa
     }
     mostraBase(k);
