@@ -346,7 +346,8 @@ export async function vistaIntorno(app) {
       return;
     }
     statoTesto.innerHTML = zona
-      ? `<b>${ultimi.length} ${ultimi.length === 1 ? 'percorso' : 'percorsi'}</b> entro ${zona.raggioKm} km · aggiornati il ${escapeHtml(testoData(zona.aggiornato))}`
+      ? // il numero dei percorsi è solo nella lista: lì segue modalità (trekking, MTB…) e filtri
+        `Entro ${zona.raggioKm} km · aggiornati il ${escapeHtml(testoData(zona.aggiornato))}`
       : 'Trova i percorsi segnati vicino a te, dovunque ti trovi.';
     bottoneAggiorna.hidden = !zona;
     // con una zona: comandi a icona su una riga, così la mappa si vede subito
