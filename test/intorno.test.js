@@ -262,3 +262,19 @@ describe('Intorno a me: cosa vedere qui', async () => {
     expect(percorsiDoveVisto([p], [{ lat: 40.001, lon: 18.005, sfumata: true }])).toEqual([]);
   });
 });
+
+describe('Intorno a me: quando riscaricare', async () => {
+  const { serveScaricare } = await import('../src/lib/intorno.js');
+  const zona = { centro: COPERTINO, raggioKm: 25, versione: 3, aggiornato: '2026-10-08T10:00:00Z' };
+  const oggi = new Date('2026-10-10T10:00:00Z');
+  it('non riscarica se ci si sposta di poco e la zona è recente', () => {
+    expect(serveScaricare(zona, [18.06, 40.28], 25, { versione: 3, oggi })).toBe(false);
+  });
+  it('riscarica se ci si sposta, cambia raggio o ricerca, o dopo una settimana', () => {
+    expect(serveScaricare(zona, [18.2, 40.4], 25, { versione: 3, oggi })).toBe(true);
+    expect(serveScaricare(zona, COPERTINO, 50, { versione: 3, oggi })).toBe(true);
+    expect(serveScaricare(zona, COPERTINO, 25, { versione: 4, oggi })).toBe(true);
+    expect(serveScaricare(zona, COPERTINO, 25, { versione: 3, oggi: new Date('2026-10-20T10:00:00Z') })).toBe(true);
+    expect(serveScaricare(null, COPERTINO, 25, { versione: 3, oggi })).toBe(true);
+  });
+});

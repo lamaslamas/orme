@@ -3,7 +3,7 @@
 // data per scontata). Il punto resta sul dispositivo: alle fonti va solo la zona da cercare.
 import { candidatiSentieri } from './fonti/osmSentieri.js';
 import { candidatiMtb, ritagliaESemplifica } from './fonti/osmMtb.js';
-import { lunghezzaKm } from './geo.js';
+import { lunghezzaKm, distanzaKm } from './geo.js';
 import { nuovoRecord } from './importazione.js';
 import { profiloQuote } from './profiloQuote.js';
 import { improntaTraccia } from './panorama.js';
@@ -347,4 +347,15 @@ export function percorsiDoveVisto(percorsi, osservazioni, raggioM = RAGGIO_AVVIS
     const mLon = m / Math.cos((s * Math.PI) / 180);
     return punti.some(([x, y]) => x >= o - mLon && x <= e + mLon && y >= s - m && y <= n + m && distanzaDallaTracciaM([x, y], g) <= raggioM);
   });
+}
+
+// ---- Quando riscaricare la zona ----
+export const RINNOVA_GIORNI = 7;
+export const SPOSTAMENTO_KM = 3;
+// zona: quella salvata; centro e km: quelli richiesti ora. 'niente' = va bene così (al massimo si
+// aggiorna il centro), 'scarica' = serve una ricerca nuova
+export function serveScaricare(zona, centro, km, { versione, oggi = new Date() } = {}) {
+  if (!zona || zona.versione !== versione || zona.raggioKm !== km) return true;
+  if (distanzaKm(zona.centro, centro) > SPOSTAMENTO_KM) return true;
+  return (oggi - new Date(zona.aggiornato)) / 86_400_000 > RINNOVA_GIORNI;
 }

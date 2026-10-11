@@ -215,6 +215,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   const ZOOM_ICONE = 12;
   const icone = L.layerGroup();
   let richiestaIcone = 0;
+  // richiesta in corso (si annulla se la mappa si sposta di nuovo) e zona già coperta dalle icone
+  let controlloIcone = null;
+  let coperto = null; // { limiti, zoom, chiave }
   let attesaIcone = null;
   let iconeInfo = '';
   let contoIcone = null; // gruppi di icone nella zona inquadrata (null = non ancora cercati)
@@ -259,12 +262,12 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   // osservazioni nel riquadro; con "animali imperdibili" anche i mammiferi e uccelli minacciati (IUCN)
   // In Intorno a me anche iNaturalist direttamente: la heatmap è sua e su GBIF arrivano solo le
   // osservazioni con licenza aperta (altrimenti in certe macchie non comparirebbe nessuna icona).
-  async function cercaOsservazioni(riquadro, limite) {
+  async function cercaOsservazioni(riquadro, limite, segnale) {
     const extra = filtri.specie === 'notevoli' && !filtri.taxon && conMinacciate(filtri) && taxaDeiGruppi(filtri, 'gbif').length;
     const gbif = [filtri, ...(extra ? [{ ...filtri, specie: 'minacciate' }] : [])];
     const inat = intorno ? [filtri, ...(extra ? [{ ...filtri, gruppi: ['rare'] }] : [])] : [];
     const prendi = async (url, fonte) => {
-      const r = await fetch(url);
+      const r = await fetch(url, { signal: segnale });
       if (!r.ok) throw new Error(`${fonte} ha risposto ${r.status}`);
       return r.json();
     };
@@ -290,15 +293,24 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     if (!attiva || filtri.correggiSforzo || mappa.getZoom() < ZOOM_ICONE) {
       icone.clearLayers();
       icone.remove();
+      coperto = null;
+      controlloIcone?.abort();
       iconeInfo = attiva && !filtri.correggiSforzo ? 'Avvicinati per vedere le icone degli animali.' : '';
       contoIcone = null;
       scriviConto();
       return mappa.aggiornaLegenda?.();
     }
-    const b = mappa.getBounds();
+    // spostamento piccolo dentro la zona già caricata (stesso zoom e filtri): le icone ci sono già
+    const vista = mappa.getBounds();
+    const chiave = JSON.stringify(filtri);
+    if (coperto && coperto.chiave === chiave && coperto.zoom === mappa.getZoom() && coperto.limiti.contains(vista) && mappa.hasLayer(icone)) return;
+    // si chiede un po' più della zona visibile: i piccoli spostamenti restano coperti
+    const b = vista.pad(0.25);
+    controlloIcone?.abort();
+    controlloIcone = new AbortController();
     try {
       // con "animali imperdibili" anche le specie fuori dalla lista di Orme
-      const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300);
+      const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300, controlloIcone.signal);
       const oss = osservazioni.filter((o) => o.animale || filtri.taxon || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
       if (mia !== richiestaIcone) return;
       icone.clearLayers();
@@ -324,10 +336,12 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
           .addTo(icone);
       }
       icone.addTo(mappa);
+      coperto = { limiti: b, zoom: mappa.getZoom(), chiave };
       contoIcone = icone.getLayers().length;
       const sfumate = oss.filter((o) => o.sfumata).length;
       iconeInfo = `${oss.length} osservazioni qui${sfumate ? `, di cui ${sfumate} con posizione approssimata (icone tratteggiate)` : ''}.`;
-    } catch {
+    } catch (e) {
+      if (e?.name === 'AbortError') return; // superata da uno spostamento più recente
       if (mia === richiestaIcone) {
         iconeInfo = 'Icone degli animali non disponibili ora.';
         contoIcone = null;

@@ -2,7 +2,7 @@
 // scaricati dal telefono da OpenStreetMap. Stessa lista, filtri e schede dei parchi, ma separata.
 // Il punto resta sul dispositivo: a OpenStreetMap e Open-Meteo vanno solo zona e tracce.
 import L from 'leaflet';
-import { tuttiISentieri, tutteLeTracce, leggiIntorno, salvaIntorno, aggiornaCalcolati, salvaPuntiIntorno, leggiPuntiIntorno } from '../db.js';
+import { tuttiISentieri, tutteLeTracce, leggiIntorno, spostaCentroIntorno, salvaIntorno, aggiornaCalcolati, salvaPuntiIntorno, leggiPuntiIntorno } from '../db.js';
 import { ID_INTORNO, parcoDa } from '../datiParchi.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
@@ -33,6 +33,7 @@ import {
   urlOsservazioniSpecie,
   percorsiDoveVisto,
   VERSIONE_RICERCA,
+  serveScaricare,
   retiAreeProtette,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
@@ -478,7 +479,15 @@ export async function vistaIntorno(app) {
       modoMappa(false);
       scriviStato('Cerco la tua posizione…');
       try {
-        scarica(await posizioneAttuale());
+        const qui = await posizioneAttuale();
+        // a pochi km dalla zona già scaricata (e recente): niente attesa, cambiano solo le distanze
+        if (!serveScaricare(zona, qui, raggio, { versione: VERSIONE_RICERCA })) {
+          await spostaCentroIntorno(qui);
+          zona = await leggiIntorno();
+          disegnaZona();
+          await mostraElenco();
+          scriviStato();
+        } else scarica(qui);
       } catch (err) {
         scriviStato(`<span class="errore">${escapeHtml(err.message)}</span>`);
       }
@@ -497,7 +506,9 @@ export async function vistaIntorno(app) {
   mostraSpecie();
   scriviStato();
   // zona scaricata con una ricerca più vecchia: si aggiorna da sola
-  if (zona && zona.versione !== VERSIONE_RICERCA) scarica(zona.centro);
+  // ricerca cambiata o zona vecchia di oltre una settimana: si aggiorna da sola, intanto si vede
+  // quella salvata
+  if (zona && serveScaricare(zona, zona.centro, zona.raggioKm, { versione: VERSIONE_RICERCA })) scarica(zona.centro);
   else if (zona) completa();
 
   return () => {

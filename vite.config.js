@@ -69,6 +69,24 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: { cacheName: 'foto-commons', expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 90 }, cacheableResponse: { statuses: [0, 200] } },
           },
+          // osservazioni e specie di iNaturalist e GBIF: subito quelle salvate (al massimo di un giorno),
+          // intanto si chiedono quelle nuove. Riaprendo una zona già vista, animali e icone ci sono già.
+          {
+            urlPattern: /^https:\/\/api\.inaturalist\.org\/v1\/(observations|taxa)/,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'inaturalist-dati', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+          {
+            urlPattern: /^https:\/\/api\.gbif\.org\/v1\/occurrence\/search/,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'gbif-dati', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 }, cacheableResponse: { statuses: [0, 200] } },
+          },
+          // foto delle osservazioni e delle specie (iNaturalist): non cambiano
+          {
+            urlPattern: /^https:\/\/(inaturalist-open-data\.s3\.amazonaws\.com|static\.inaturalist\.org)\//,
+            handler: 'CacheFirst',
+            options: { cacheName: 'foto-inaturalist', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 }, cacheableResponse: { statuses: [0, 200] } },
+          },
           // heatmap iNaturalist: si aggiorna spesso, la teniamo solo un giorno
           {
             urlPattern: /^https:\/\/api\.inaturalist\.org\/v1\/heatmap\//,
