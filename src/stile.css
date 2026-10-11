@@ -1190,7 +1190,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .icona-osservazione { background: none; border: none; }
 .icona-osservazione .spillo {
   position: absolute; left: 2px; top: 0; width: 26px; height: 26px; display: grid; place-items: center;
-  background: var(--scheda-piena); border: 2px solid #7c6cf0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  /* sempre chiaro, anche in modalità scura: le icone degli animali si leggono meglio */
+  background: #fff; border: 2px solid #7c6cf0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
   box-shadow: 0 1px 3px rgba(37, 50, 56, 0.4);
 }
 .icona-osservazione .spillo > span { transform: rotate(45deg); line-height: 0; }
@@ -1576,7 +1577,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 :root[data-scuro] .leaflet-control-attribution { background: rgba(16, 23, 26, 0.75) !important; color: var(--testo-tenue); }
 :root[data-scuro] .leaflet-control-scale-line { background: rgba(16, 23, 26, 0.7); color: var(--testo); border-color: var(--testo-tenue); }
 :root[data-scuro] input, :root[data-scuro] select, :root[data-scuro] textarea { background: var(--scheda-piena); color: var(--testo); border-color: var(--bordo); }
-:root[data-scuro] .panorama-numeri div, :root[data-scuro] .carta-specie-zona .specie-icona { background: #243034; }
+:root[data-scuro] .panorama-numeri div { background: #243034; }
 :root[data-scuro] .barra-criterio, :root[data-scuro] .fauna-barra, :root[data-scuro] .fauna-mesi i { background: #2c3a3e; }
 :root[data-scuro] .ris-foto, :root[data-scuro] .miniatura.vuota { background: linear-gradient(135deg, #1f2e2a, #173a31); }
 /* le mappe restano quelle scelte nel pannello dei livelli (c'è anche la base Scura) */
