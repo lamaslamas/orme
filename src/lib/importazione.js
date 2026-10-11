@@ -218,7 +218,7 @@ export function nuovoRecord(c, oggi) {
     descrizione: c.descrizione ?? '',
     animali: c.animali ?? [],
     escursione: guidata
-      ? { associazione: c.organizzatore, nomeUscita: c.nome, periodo: c.periodo ?? '', fonte: c.organizzatore, url: c.url, date: c.date ?? [] }
+      ? { associazione: c.organizzatore, nomeUscita: c.nome, periodo: c.periodo ?? '', fonte: c.organizzatore, url: c.url, date: c.date ?? [], ...(c.testoLuoghi ? { testoLuoghi: c.testoLuoghi } : {}) }
       : null,
     lunghezzaKm: c.lunghezzaKm ?? null,
     dislivelloM: c.dislivelloM ?? null,
@@ -297,6 +297,8 @@ export function aggiornaRecord(record, c, oggi) {
     if (c.periodo && (creato || !e.periodo)) e.periodo = c.periodo;
     if (c.date?.length) e.date = [...new Set([...(e.date ?? []), ...c.date])].sort();
     if (creato && primaria) Object.assign(e, { url: c.url, nomeUscita: c.nome });
+    // testo nell'altra lingua (solo per i luoghi dei "Sentieri probabili"): se oggi non è stato letto resta quello di prima
+    if (creato && primaria && c.testoLuoghi) e.testoLuoghi = c.testoLuoghi;
     r.escursione = e;
   }
   // un sentiero scritto a mano senza traccia riceve quella OSM (le tracce dell'utente restano prioritarie sul telefono)

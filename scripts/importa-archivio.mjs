@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { unisciImportazione } from '../src/lib/importazione.js';
 import { ASSOCIAZIONI } from '../src/lib/fonti/associazioni.js';
-import { controllaFonte, controllaCandidato, attesaTraLePagine } from '../src/lib/fonti/schema.js';
+import { controllaFonte, controllaCandidato, attesaTraLePagine, testoLuoghi } from '../src/lib/fonti/schema.js';
 import { WOLF_HOWLING, linkNotizieWolfHowling, linkPdfWolfHowling, righeTabella, candidatiWolfHowling } from '../src/lib/fonti/wolfHowling.js';
 import { OSM_MTB, queryMtbParco, candidatiMtb, soloDentroIlConfine } from '../src/lib/fonti/osmMtb.js';
 import { OSM_SENTIERI, querySentieriParco, candidatiSentieri } from '../src/lib/fonti/osmSentieri.js';
@@ -66,7 +66,19 @@ async function importaElencoPagine(def) {
     if (!robots.consentito(url)) continue;
     await attendi(attesa);
     try {
-      const c = def.leggi(await scarica(url), url);
+      const html = await scarica(url);
+      const c = def.leggi(html, url);
+      // pagina in un'altra lingua (es. italiano), con la stessa attesa: solo per i nomi dei luoghi
+      const tradotta = c && !c.segnaposto ? def.traduzione?.link(html, url) : null;
+      if (tradotta && robots.consentito(tradotta)) {
+        await attendi(attesa);
+        try {
+          const testo = testoLuoghi(def.traduzione.testo(await scarica(tradotta)));
+          if (testo) c.testoLuoghi = testo;
+        } catch (e) {
+          console.warn(`  ${def.fonte}: versione tradotta non letta (${e.message})`);
+        }
+      }
       if (!c) completo = false; // pagina cambiata: non si segna nulla come sparito
       else if (!c.segnaposto) {
         const problemi = controllaCandidato(c);

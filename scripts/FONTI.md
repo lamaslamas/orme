@@ -31,6 +31,7 @@ Ogni fonte restituisce candidati nello schema comune di `src/lib/fonti/schema.js
    `{ fonte, organizzatore, parco, elenco, attesaMs, link(html, base), leggi(html, url) }`.
    - `link` restituisce gli indirizzi delle pagine;
    - `leggi` restituisce `candidatoUscita(def, { url, nome, descrizione, testo, partenza, periodo })`. Restituisce `null` se la pagina ha una forma inattesa, o `{ segnaposto: true }` per una pagina ancora vuota.
+   - Facoltativo, `traduzione: { link(html, url), testo(html) }`: legge anche la pagina in un'altra lingua, con la stessa attesa tra le pagine. Il testo serve solo a trovare i nomi dei luoghi per i "Sentieri probabili". Esempio: Ecotur, dove le pagine inglesi non hanno il programma e quelle italiane sì.
 2. Aggiungi la definizione in `src/lib/fonti/associazioni.js`.
 3. Salva un esempio di pagina in `test/fixtures/` e scrivi un test, come quello di Ecotur in `test/importazione.test.js`.
 4. Prova solo quella fonte:

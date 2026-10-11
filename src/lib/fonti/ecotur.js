@@ -60,6 +60,42 @@ export function leggiPaginaEcotur(html, url) {
   return candidatoUscita(ECOTUR, { url, nome, descrizione, testo, partenza: ritrovo, periodo: periodoDalTesto(date) });
 }
 
+// Versione italiana della pagina (link con hreflang="it"): ha il "Programma" con i nomi dei luoghi,
+// che quella inglese spesso non ha. Serve solo per i "Sentieri probabili".
+export function linkItaliano(html, base) {
+  const m = String(html ?? '').match(/<a\b[^>]*href="([^"]+)"[^>]*hreflang="it"|<a\b[^>]*hreflang="it"[^>]*href="([^"]+)"/i);
+  const href = m?.[1] ?? m?.[2];
+  if (!href || !/\/it\/escursioni\//.test(href)) return null;
+  try {
+    return new URL(href.replace(/&amp;/g, '&'), base).href;
+  } catch {
+    return null;
+  }
+}
+
+// Titoli delle sezioni italiane: si tengono solo la presentazione e il "Programma"
+// (mai ritrovo, come raggiungerci, prezzi: il ritrovo è l'ufficio di Ecotur)
+const SEZIONI_IT = ['programma', 'equipaggiamento', 'ritrovo', 'come raggiungerci', 'quando', 'partenza', 'rientro', 'date', 'vedi il calendario', 'difficoltà', 'grado', 'interesse', 'quota', 'la quota comprende', 'la quota non comprende', 'prenota / chiedi informazioni', 'prenota online ora!'];
+export function testoItalianoEcotur(html) {
+  const righe = righeDaHtml(html);
+  const inizio = righe.findIndex((r) => r === 'Escursioni');
+  if (inizio < 0) return '';
+  const tenute = [];
+  let sezione = 'presentazione';
+  for (const r of righe.slice(inizio + 1)) {
+    if (/^guarda i nostri video/i.test(r)) break;
+    const t = r.toLowerCase();
+    if (SEZIONI_IT.includes(t)) {
+      sezione = t;
+      continue;
+    }
+    if (sezione === 'presentazione' || sezione === 'programma') tenute.push({ sezione, r });
+  }
+  // prima il programma (è lì che ci sono i luoghi), poi la presentazione: il testo salvato è breve
+  return [...tenute.filter((x) => x.sezione === 'programma'), ...tenute.filter((x) => x.sezione !== 'programma')].map((x) => x.r).join('\n');
+}
+
 // Ecotur come fonte "elenco + pagine" (schema comune: ./schema.js)
 ECOTUR.link = linkEscursioni;
 ECOTUR.leggi = leggiPaginaEcotur;
+ECOTUR.traduzione = { link: linkItaliano, testo: testoItalianoEcotur };

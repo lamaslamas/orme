@@ -1,7 +1,7 @@
 // Luoghi delle uscite senza traccia (per i "Sentieri probabili"): i nomi di luogo nel testo
 // dell'uscita cercati su OpenStreetMap (Nominatim) solo dentro il riquadro del parco, per evitare
 // omonimi. Una richiesta al secondo, come chiede la policy di Nominatim; ogni uscita si rifà
-// solo se il testo cambia. Il punto di ritrovo non si usa se è l'ufficio dell'associazione.
+// solo se cambiano i nomi da cercare. Il punto di ritrovo non si usa se è l'ufficio dell'associazione.
 //   node scripts/luoghi-uscite.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -30,13 +30,15 @@ let cambiati = 0;
 for (const s of archivio.percorsi) {
   if (s.traccia || !eUscita(s)) continue;
   const testo = testoDellUscita(s);
-  const firma = impronta(testo);
+  const nomi = luoghiNelTesto(testo).slice(0, MAX_LUOGHI);
+  // si rifà solo se cambiano i nomi da cercare (testo nuovo o regole migliorate)
+  const firma = impronta(nomi.join('|'));
   if (s.luoghi?.impronta === firma) continue;
   const riquadri = (s.parchi ?? [s.parco]).map((id) => PARCHI.find((p) => p.id === id)?.bbox).filter(Boolean);
   if (!riquadri.length) continue;
   const punti = [];
   try {
-    for (const nome of luoghiNelTesto(testo).slice(0, MAX_LUOGHI)) {
+    for (const nome of nomi) {
       for (const bbox of riquadri) {
         await attendi(1100);
         const p = await cerca(nome, bbox);

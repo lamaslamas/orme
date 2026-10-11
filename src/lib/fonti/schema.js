@@ -5,11 +5,13 @@
 // Una fonte "elenco + pagine" (come Ecotur) si descrive con:
 //   { fonte, organizzatore, parco, elenco, attesaMs, link(html, base) → [url], leggi(html, url) → candidato | null | { segnaposto: true } }
 // e la legge scripts/importa-archivio.mjs con robots.txt, Crawl-delay e un'attesa minima tra le pagine.
+// Facoltativo: traduzione: { link(html, url) → url | null, testo(html) → testo } per leggere anche la
+// pagina in un'altra lingua (es. l'italiano di Ecotur): il testo va in testoLuoghi, solo per i luoghi.
 import { animaliNelTesto, misureDalTesto, periodoDalTesto, riassunto, togliDatiPersonali, slug } from '../importazione.js';
 
 // Campi del candidato: obbligatori e facoltativi
 export const CAMPI_OBBLIGATORI = ['fonte', 'tipo', 'chiave', 'id', 'url', 'nome', 'organizzatore', 'parco'];
-export const CAMPI_FACOLTATIVI = ['titoloFonte', 'descrizione', 'animali', 'partenza', 'paese', 'periodo', 'date', 'lunghezzaKm', 'dislivelloM', 'durataMin', 'difficolta', 'traccia'];
+export const CAMPI_FACOLTATIVI = ['testoLuoghi', 'titoloFonte', 'descrizione', 'animali', 'partenza', 'paese', 'periodo', 'date', 'lunghezzaKm', 'dislivelloM', 'durataMin', 'difficolta', 'traccia'];
 
 const ATTESA_MINIMA_MS = 5_000; // tra una pagina e l'altra, anche se robots.txt non chiede nulla
 
@@ -42,8 +44,8 @@ export function candidatoUscita(def, { url, nome, descrizione = '', testo = '', 
 // Problemi di un candidato (vuoto se va bene): campi mancanti o dati personali rimasti
 export function controllaCandidato(c) {
   const problemi = CAMPI_OBBLIGATORI.filter((k) => !c?.[k]).map((k) => `manca ${k}`);
-  const testi = ['nome', 'descrizione', 'partenza'].map((k) => c?.[k] ?? '').join(' ');
-  if (togliDatiPersonali(testi) !== testi) problemi.push('contiene email o telefoni');
+  const testi = ['nome', 'descrizione', 'partenza', 'testoLuoghi'].map((k) => c?.[k]).filter(Boolean);
+  if (testi.some((t) => togliDatiPersonali(t) !== t)) problemi.push('contiene email o telefoni');
   return problemi;
 }
 
@@ -54,5 +56,8 @@ export function controllaFonte(def) {
   if (typeof def?.leggi !== 'function') mancano.push('leggi');
   return mancano;
 }
+
+// Testo della pagina tradotta, pulito, per i nomi dei luoghi
+export const testoLuoghi = (testo) => riassunto(togliDatiPersonali(testo), 1200);
 
 export const attesaTraLePagine = (def, robotsMs = 0) => Math.max(ATTESA_MINIMA_MS, def.attesaMs ?? 0, robotsMs);

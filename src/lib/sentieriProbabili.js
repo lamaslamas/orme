@@ -20,7 +20,9 @@ const NON_LUOGHI = new Set(
     'january february march april may june july august september october november december ' +
     'ecotur pnfc pnalm cai guida guide ritrovo info prenotazione prenotazioni sentiero sentieri percorso km ' +
     'anello natura facile occhi ululati ululato tornano avete trovarsi esperienza educazione pomeriggio canis centro visite ' +
-    'where hike autumn kingdom naples papal states fox child discovering tracks colors flavors excursion evening'
+    'where hike autumn kingdom naples papal states fox child discovering tracks colors flavors excursion evening ' +
+    'dopo dove questa questo queste breve rientro colori sulle sullo consigliamo anche appennino alpi programma pranzo cena ' +
+    'stati uniti canada italia regno napoli stato pontificio volpe bambino'
   ).split(' '),
 );
 // parole che, prima di un nome, indicano un luogo (Monte Amaro, Rifugio Casaponte…)
@@ -81,7 +83,8 @@ function partenzaUtile(s) {
 
 // Testo dell'uscita da cui leggere i luoghi (anche per il robot)
 export function testoDellUscita(s) {
-  return [s.nome, s.escursione?.nomeUscita, s.zona, s.partenza?.paese, partenzaUtile(s), s.descrizione].filter(Boolean).join('. ');
+  // testoLuoghi: la pagina in italiano quando quella letta è in inglese (Ecotur)
+  return [s.nome, s.escursione?.nomeUscita, s.zona, s.partenza?.paese, partenzaUtile(s), s.descrizione, s.escursione?.testoLuoghi].filter(Boolean).join('. ');
 }
 
 const parchiDi = (s) => s.parchi ?? [s.parco].filter(Boolean);

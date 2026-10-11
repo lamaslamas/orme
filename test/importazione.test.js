@@ -450,3 +450,28 @@ describe('sentieri OSM e sentieri scritti a mano', () => {
     expect(archivio.percorsi.find((p) => p.id === 'b5-b4').traccia.dettagli.relazioniOsm).toEqual([10, 11]); // la sua resta
   });
 });
+
+import { linkItaliano, testoItalianoEcotur, ECOTUR } from '../src/lib/fonti/ecotur.js';
+import { testoLuoghi } from '../src/lib/fonti/schema.js';
+import { luoghiNelTesto, testoDellUscita } from '../src/lib/sentieriProbabili.js';
+describe('Ecotur in italiano (solo per i luoghi)', () => {
+  it('trova la versione italiana dalla pagina inglese', () => {
+    expect(linkItaliano(fixture('ecotur-lupo.html'), 'https://www.ecotur.org/en/excursions/On_the_tracks_of_the_wolf.xhtml')).toBe('https://www.ecotur.org/it/escursioni/Sulle_tracce_del_lupo.xhtml');
+    expect(linkItaliano('<a href="/en/x.xhtml">x</a>', 'https://www.ecotur.org/')).toBeNull();
+    expect(ECOTUR.traduzione.link).toBe(linkItaliano);
+  });
+
+  it('tiene presentazione e programma, mai ritrovo, prezzi o il piè di pagina', () => {
+    const t = testoItalianoEcotur(fixture('ecotur-autunno-it.html'));
+    expect(t).toMatch(/Passo del Diavolo/);
+    expect(t).not.toMatch(/Via Piave|€|Autostrada|Scopri il Rifugio/);
+    expect(luoghiNelTesto(t)).toEqual(expect.arrayContaining(['Passo del Diavolo']));
+    expect(testoItalianoEcotur(fixture('ecotur-lupo-it.html'))).not.toMatch(/Via Piave/);
+  });
+
+  it('il testo italiano entra nei luoghi dell\'uscita', () => {
+    const testo = testoLuoghi(testoItalianoEcotur(fixture('ecotur-autunno-it.html')));
+    const uscita = { nome: 'Autumn colors and flavors', escursione: { associazione: 'Ecotur', testoLuoghi: testo } };
+    expect(luoghiNelTesto(testoDellUscita(uscita))).toEqual(expect.arrayContaining(['Passo del Diavolo']));
+  });
+});
