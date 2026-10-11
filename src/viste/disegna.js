@@ -38,7 +38,7 @@ export async function vistaDisegna(app, id = null) {
 
   // heatmap della fauna e distribuzione ufficiale per scegliere dove passare; i tocchi sulla
   // mappa restano ai punti del percorso (la heatmap si guarda, non apre i dettagli)
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'gps'] });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'gps'], ricorda: 'pianifica' });
   const fermaGps = aggiungiGps(mappa, () => null);
   aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa, { occupata: () => true });

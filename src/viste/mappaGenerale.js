@@ -64,7 +64,7 @@ export async function vistaMappaGenerale(app) {
     </section>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'], ricorda: 'mappa' });
   const confini = L.layerGroup();
   // confini di tutti i parchi (dal telefono o dal file dell'app, senza aspettare Overpass)
   for (const parco of PARCHI) ottieniConfine(parco).then((c) => disegnaConfine(c).addTo(confini)).catch(() => {});

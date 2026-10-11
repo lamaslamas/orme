@@ -62,6 +62,7 @@ function posizioneAttuale() {
 }
 
 const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
+let sceltaRicordata = null; // { zona, specie, viste }
 function leggiGruppi() {
   try {
     const g = JSON.parse(localStorage.getItem(CHIAVE_GRUPPI) ?? 'null');
@@ -86,8 +87,9 @@ export async function vistaIntorno(app) {
   let occupata = false;
   // "Cosa vedere qui": gruppi che mi interessano (sul telefono), specie scelta e dove è stata vista
   let gruppi = leggiGruppi();
-  let scelta = null; // { inat, nome, scientifico }
-  let visteScelta = null; // id dei percorsi vicino alle osservazioni della specie scelta
+  // la specie scelta resta tornando da un sentiero (finché non cambia la zona)
+  let scelta = sceltaRicordata?.zona === JSON.stringify(zona?.centro) ? sceltaRicordata.specie : null; // { inat, nome, scientifico }
+  let visteScelta = scelta ? sceltaRicordata.viste : null; // id dei percorsi vicino alle osservazioni della specie scelta
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Intorno a me</h1>
@@ -124,8 +126,8 @@ export async function vistaIntorno(app) {
   const contenitoreElenco = app.querySelector('#elenco');
   const scollegaAttivita = collegaSelettoreAttivita(app);
 
-  const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'] });
-  mappa.setView([42, 12.6], 5);
+  const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'], ricorda: 'intorno' });
+  if (!mappa.vistaRitrovata) mappa.setView([42, 12.6], 5);
   const fermaGps = aggiungiGps(mappa, () => null);
   // qui la fauna si vede subito: heatmap accesa (si spegne dal pulsante "Fauna"); uscendo torna
   // com'era, così le altre mappe non la ereditano
@@ -281,6 +283,7 @@ export async function vistaIntorno(app) {
       }
     }
     if (chiusa) return;
+    sceltaRicordata = scelta ? { zona: JSON.stringify(zona.centro), specie: scelta, viste: visteScelta } : null;
     await mostraElenco();
     mostraSpecie();
   }
@@ -418,6 +421,7 @@ export async function vistaIntorno(app) {
       // zona nuova: la specie scelta prima non vale più
       scelta = null;
       visteScelta = null;
+      sceltaRicordata = null;
       heat.ricarica();
       disegnaZona();
       await mostraElenco();
@@ -462,6 +466,7 @@ export async function vistaIntorno(app) {
       salvaGruppi(gruppi);
       scelta = null;
       visteScelta = null;
+      sceltaRicordata = null;
       heat.ricarica();
       mostraElenco();
       mostraSpecie();

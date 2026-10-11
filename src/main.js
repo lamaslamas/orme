@@ -98,8 +98,18 @@ function misuraTestata() {
 window.addEventListener('resize', misuraTestata);
 new ResizeObserver(misuraTestata).observe(document.querySelector('.cima'));
 
+// Posizione della pagina per ogni schermata: tornando indietro si ritrova il punto della lista
+const posizioni = new Map();
+let percorsoMostrato = null;
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
 async function mostra() {
   const percorso = location.hash.replace(/^#/, '') || '/';
+  // stessa schermata ridisegnata (es. archivio arrivato dopo): si resta dove si è
+  const stessa = percorsoMostrato === percorso;
+  const yAttuale = window.scrollY;
+  if (percorsoMostrato != null && !stessa) posizioni.set(percorsoMostrato, yAttuale);
+  percorsoMostrato = percorso;
   aggiornaBarraSchede(percorso);
   // ogni schermata legata a un parco imposta poi le sue regole
   impostaBanner(null);
@@ -111,6 +121,9 @@ async function mostra() {
       try {
         pulisciVistaPrecedente = await vista(app, ...trovato.slice(1).map(decodeURIComponent));
         animaIngresso();
+        // la schermata già vista torna dov'era; una nuova parte dall'inizio
+        const y = stessa ? yAttuale : posizioni.get(percorso) ?? 0;
+        requestAnimationFrame(() => window.scrollTo(0, y));
       } catch (errore) {
         console.error(errore);
         app.innerHTML = `<p class="errore">Qualcosa è andato storto: ${escapeHtml(errore.message)}</p>`;
@@ -121,10 +134,7 @@ async function mostra() {
   app.innerHTML = '<p class="vuoto">Pagina non trovata. <a href="#/">Torna alla lista</a></p>';
 }
 
-window.addEventListener('hashchange', () => {
-  mostra();
-  window.scrollTo(0, 0);
-});
+window.addEventListener('hashchange', () => mostra());
 
 // Chiede al browser di non cancellare i dati quando lo spazio scarseggia
 navigator.storage?.persist?.().catch(() => {});

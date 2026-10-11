@@ -68,7 +68,30 @@ const ICONA_LIVELLI =
   '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m3 13 9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
 
 // anteprima: mappa ferma, senza comandi. livelli: chiavi dei livelli offerti da questa mappa.
-export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {}) {
+// Vista di ogni mappa (centro e zoom) per la sessione: tornando su una pagina la mappa è dov'era
+const CHIAVE_VISTE = 'orme.viste';
+function leggiViste() {
+  try {
+    return JSON.parse(sessionStorage.getItem(CHIAVE_VISTE) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function salvaVista(chiave, mappa) {
+  const viste = leggiViste();
+  const c = mappa.getCenter();
+  viste[chiave] = { centro: [Math.round(c.lat * 1e5) / 1e5, Math.round(c.lng * 1e5) / 1e5], zoom: mappa.getZoom() };
+  try {
+    sessionStorage.setItem(CHIAVE_VISTE, JSON.stringify(viste));
+  } catch {
+    // memoria piena o non disponibile: la vista non si ricorda
+  }
+}
+
+// ricorda: chiave per ritrovare la vista (es. "mappa", "parco:pnalm"). Se c'è una vista salvata, le
+// inquadrature automatiche dell'apertura (fitBounds sul parco, sulla zona…) non la spostano:
+// si riattivano alla prima mossa di chi usa la mappa, o dopo qualche secondo.
+export function creaMappa(contenitore, { anteprima = false, livelli = [], ricorda = null } = {}) {
   const basi = Object.fromEntries(Object.entries(BASI).filter(([, b]) => b.crea).map(([k, b]) => [k, b.crea()]));
   // sentieri di Waymarked: tenui e solo da vicino (a scala regionale o nazionale fanno solo confusione)
   const sentieri = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
@@ -83,6 +106,19 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [] } = {})
   // canvas: molto più veloce con centinaia di tracce (i tocchi sulle linee funzionano lo stesso)
   // minZoom esplicito: senza, Leaflet prende quello dei livelli (Waymarked parte da 11) e impedisce di allontanarsi
   const mappa = L.map(contenitore, { ...ferma, preferCanvas: true, minZoom: 5, maxZoom: 19 }).setView(CENTRO_PREDEFINITO, 11);
+  const vistaSalvata = ricorda && !anteprima ? leggiViste()[ricorda] : null;
+  mappa.vistaRitrovata = Boolean(vistaSalvata);
+  if (vistaSalvata) {
+    mappa.setView(vistaSalvata.centro, vistaSalvata.zoom, { animate: false });
+    const inquadra = mappa.fitBounds.bind(mappa);
+    let bloccata = true;
+    const libera = () => (bloccata = false);
+    setTimeout(libera, 4000);
+    // qualunque tocco, clic o rotella sulla mappa: da lì in poi le inquadrature tornano normali
+    for (const evento of ['pointerdown', 'wheel']) mappa.getContainer().addEventListener(evento, libera, { once: true, passive: true });
+    mappa.fitBounds = (...argomenti) => (bloccata ? mappa : inquadra(...argomenti));
+  }
+  if (ricorda && !anteprima) mappa.on('moveend', () => salvaVista(ricorda, mappa));
   // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi
   // (non toccabili), sopra ancora pin e riquadri
   mappa.createPane('etichette');

@@ -101,7 +101,7 @@ export async function vistaParco(app, id) {
     elenco.ricalcola();
   });
 
-  mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'] });
+  mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'], ricorda: `parco:${parco.id}` });
   let attesaVista = null;
   mappa.on('moveend', () => {
     clearTimeout(attesaVista);
@@ -110,6 +110,8 @@ export async function vistaParco(app, id) {
       elenco.ricalcola();
     }, 200);
   });
+  // mappa ritrovata dov'era (tornando da un sentiero): l'elenco segue subito quella zona
+  if (mappa.vistaRitrovata) requestAnimationFrame(() => !chiusa && elenco.ricalcola());
   // centratura immediata sul riquadro del parco; il confine, quando arriva, la affina
   mappa.fitBounds(
     [
