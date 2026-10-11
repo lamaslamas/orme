@@ -278,3 +278,19 @@ describe('Intorno a me: quando riscaricare', async () => {
     expect(serveScaricare(null, COPERTINO, 25, { versione: 3, oggi })).toBe(true);
   });
 });
+
+describe('Intorno a me: specie ricordata', async () => {
+  const { sceltaRitrovata } = await import('../src/lib/intorno.js');
+  const zona = { centro: COPERTINO };
+  const ricordata = { zona: JSON.stringify(COPERTINO), specie: { inat: 4255, nome: 'Fenicottero' }, viste: new Set(['a']) };
+  it('primo accesso: niente zona e niente specie ricordata (prima la pagina si rompeva)', () => {
+    expect(sceltaRitrovata(null, null)).toBeNull();
+    expect(sceltaRitrovata(undefined, undefined)).toBeNull();
+    expect(sceltaRitrovata(ricordata, null)).toBeNull();
+    expect(sceltaRitrovata(null, zona)).toBeNull();
+  });
+  it('zona diversa: la specie non vale più; stessa zona: resta', () => {
+    expect(sceltaRitrovata(ricordata, { centro: [16, 41] })).toBeNull();
+    expect(sceltaRitrovata(ricordata, zona)?.specie.nome).toBe('Fenicottero');
+  });
+});

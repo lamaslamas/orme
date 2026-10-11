@@ -34,6 +34,7 @@ import {
   percorsiDoveVisto,
   VERSIONE_RICERCA,
   serveScaricare,
+  sceltaRitrovata,
   retiAreeProtette,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
@@ -89,8 +90,9 @@ export async function vistaIntorno(app) {
   // "Cosa vedere qui": gruppi che mi interessano (sul telefono), specie scelta e dove è stata vista
   let gruppi = leggiGruppi();
   // la specie scelta resta tornando da un sentiero (finché non cambia la zona)
-  let scelta = sceltaRicordata?.zona === JSON.stringify(zona?.centro) ? sceltaRicordata.specie : null; // { inat, nome, scientifico }
-  let visteScelta = scelta ? sceltaRicordata.viste : null; // id dei percorsi vicino alle osservazioni della specie scelta
+  const ritrovata = sceltaRitrovata(sceltaRicordata, zona);
+  let scelta = ritrovata?.specie ?? null; // { inat, nome, scientifico }
+  let visteScelta = ritrovata?.viste ?? null; // id dei percorsi vicino alle osservazioni della specie scelta
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Intorno a me</h1>

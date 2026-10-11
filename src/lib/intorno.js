@@ -359,3 +359,10 @@ export function serveScaricare(zona, centro, km, { versione, oggi = new Date() }
   if (distanzaKm(zona.centro, centro) > SPOSTAMENTO_KM) return true;
   return (oggi - new Date(zona.aggiornato)) / 86_400_000 > RINNOVA_GIORNI;
 }
+
+// La specie scelta in "Cosa vedere qui" resta tornando da un sentiero, ma solo se la zona è la stessa.
+// ricordata: { zona, specie, viste } | null; zona: quella salvata ({ centro }) | null
+export function sceltaRitrovata(ricordata, zona) {
+  if (!ricordata?.specie || !zona?.centro) return null;
+  return ricordata.zona === JSON.stringify(zona.centro) ? ricordata : null;
+}
