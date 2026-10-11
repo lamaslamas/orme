@@ -86,6 +86,20 @@ export function testoDellUscita(s) {
 
 const parchiDi = (s) => s.parchi ?? [s.parco].filter(Boolean);
 
+// Tappa di un percorso lungo a più giorni (E1, GEA, Sentiero Italia, cammini, alte vie…). I sentieri
+// numerati che solo nominano un percorso lungo ("Sentiero 72: … – innesto Sentiero Italia") non lo sono.
+const PERCORSI_LUNGHI = /\b(tappa|e1|gea|grande escursione appenninica|sentiero italia|cammino|alta via|grande circuito|via di (san )?francesco|via francigena|sentiero delle foreste sacre|grande traversata|viae sancti romualdi)\b/i;
+export function tappaDiPercorsoLungo(s) {
+  if (/^sentiero\s+\d/i.test(s?.nome ?? '')) return false;
+  return PERCORSI_LUNGHI.test([s?.nome, ...(s?.codici ?? [])].filter(Boolean).join(' '));
+}
+
+// Uscita su più giorni: lunga, o il testo lo dice (weekend, "3 giorni", tappe…)
+export function uscitaDiPiuGiorni(u) {
+  if (u?.lunghezzaKm > LUNGO_KM || u?.durataMin > 10 * 60) return true;
+  return /\b(\d+|due|tre|quattro|cinque)\s+giorni\b|più giorni|weekend|fine settimana|\b\d+\s+days\b|multi-?day|\btappe\b/i.test(testoDellUscita(u));
+}
+
 // uscita: il sentiero senza traccia; percorsi: [{ sentiero, traccia }] con traccia;
 // luoghi: [{ nome, lat, lon }] trovati dal robot sulla mappa (s.luoghi?.punti)
 export function sentieriProbabili(uscita, percorsi, { luoghi = uscita.luoghi?.punti ?? [] } = {}) {
@@ -93,11 +107,14 @@ export function sentieriProbabili(uscita, percorsi, { luoghi = uscita.luoghi?.pu
   const nomi = luoghiNelTesto(testo);
   const codici = new Set(codiciNelTesto(testo));
   const parchi = new Set(parchiDi(uscita));
+  const piuGiorni = uscitaDiPiuGiorni(uscita);
   const risultati = [];
   for (const { sentiero: s, traccia } of percorsi) {
     if (s.id === uscita.id || !traccia?.geojson || !parchiDi(s).some((p) => parchi.has(p))) continue;
     // le uscite sono a piedi: niente itinerari MTB, altre uscite o reti di sentieri
     if (['itinerario_mtb', 'uscita_guidata', 'rete_sentieri'].includes(s.tipoPercorso)) continue;
+    // un'uscita di un giorno (o mezza giornata) non segue la tappa di un cammino di più giorni
+    if (!piuGiorni && tappaDiPercorsoLungo(s)) continue;
     const motivi = [];
     let punti = 0;
     const doveCercare = normalizza([s.nome, s.zona, s.partenza?.paese, s.partenza?.descrizione].filter(Boolean).join(' '));

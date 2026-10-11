@@ -73,3 +73,25 @@ describe('conferma di un sentiero probabile', () => {
     expect((await db.leggiTraccia(uscita.id)).dettagli.conferma.sentiero).toBe('a');
   });
 });
+
+import { tappaDiPercorsoLungo, uscitaDiPiuGiorni } from '../src/lib/sentieriProbabili.js';
+describe('tappe di percorsi lunghi', () => {
+  it('riconosce le tappe, non i sentieri che solo nominano un percorso lungo', () => {
+    expect(tappaDiPercorsoLungo({ nome: 'E1 Toscana 19 Badia Prataglia - Chiusi della Verna' })).toBe(true);
+    expect(tappaDiPercorsoLungo({ nome: 'Grande Escursione Appenninica - Tappa 4' })).toBe(true);
+    expect(tappaDiPercorsoLungo({ nome: 'Sentiero Italia CAI: Pescasseroli – Alvito' })).toBe(true);
+    expect(tappaDiPercorsoLungo({ nome: 'Cammino di San Vicinio: Tappa 4' })).toBe(true);
+    expect(tappaDiPercorsoLungo({ nome: 'Sentiero 043: Corezzo – Sentiero Italia presso poggio Magiovanna' })).toBe(false);
+    expect(tappaDiPercorsoLungo({ nome: 'Sentiero 051: Chiusi della Verna – Santuario' })).toBe(false);
+  });
+
+  it('esclude le tappe per le uscite di un giorno, le tiene per quelle di più giorni', () => {
+    const tappa = percorso('t', 'E1 Toscana 19 Badia Prataglia - Chiusi della Verna', [[11.9, 43.69], [11.91, 43.7]]);
+    const locale = percorso('l', 'Sentiero 051: Chiusi della Verna – Santuario', [[11.9, 43.69], [11.91, 43.7]]);
+    expect(sentieriProbabili(uscita, [tappa, locale]).map((c) => c.id)).toEqual(['l']);
+    const weekend = { ...uscita, descrizione: `${uscita.descrizione} Trekking di un weekend, 2 giorni.` };
+    expect(uscitaDiPiuGiorni(weekend)).toBe(true);
+    expect(uscitaDiPiuGiorni(uscita)).toBe(false);
+    expect(sentieriProbabili(weekend, [tappa, locale]).map((c) => c.id)).toContain('t');
+  });
+});
