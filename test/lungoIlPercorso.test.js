@@ -93,3 +93,30 @@ describe('percorsi su più giorni', () => {
     expect(r[1].distanzaM).toBe(0);
   });
 });
+
+import { misureDeiPezzi } from '../src/lib/lungoIlPercorso.js';
+import { misureSentiero } from '../src/lib/riassunto.js';
+import { improntaTraccia } from '../src/lib/panorama.js';
+describe('un solo calcolo della durata', () => {
+  // saliscendi irregolare su due pezzi, con oscillazioni sotto soglia
+  const quota = (i) => 900 + Math.round(300 * Math.sin(i / 5)) + (i % 3) * 4;
+  const pezzi = [
+    Array.from({ length: 30 }, (_, i) => [13.6 + i * 0.004, 41.8, quota(i)]),
+    Array.from({ length: 30 }, (_, i) => [13.72 + i * 0.004, 41.8 + i * 0.001, quota(i + 30)]),
+  ];
+  it('Pianifica: la durata in alto è uguale all\'arrivo di "Su più giorni"', () => {
+    expect(Math.round(profiloTempi(pezzi).min.at(-1))).toBe(misureDeiPezzi(pezzi).durataMin);
+    const senza = pezzi.map((l) => l.map(([x, y]) => [x, y]));
+    expect(misureDeiPezzi(senza).conQuote).toBe(false);
+    expect(Math.round(profiloTempi(senza).min.at(-1))).toBe(misureDeiPezzi(senza).durataMin);
+  });
+  it('scheda dei sentieri: la durata usa le quote del profilo calcolato, se è di questa traccia', () => {
+    const geojson = { type: 'MultiLineString', coordinates: pezzi.map((l) => l.map(([x, y]) => [x, y])) };
+    const impronta = improntaTraccia(geojson).split('-')[1];
+    const conProfilo = misureSentiero({ quote: { impronta, salita: 800, discesa: 600 } }, { geojson });
+    const senzaProfilo = misureSentiero({}, { geojson });
+    expect(conProfilo.durataMin).toBe(stimaDurataMin(conProfilo.km, { salita: 800, discesa: 600 }));
+    expect(conProfilo.durataMin).toBeGreaterThan(senzaProfilo.durataMin);
+    expect(misureSentiero({ quote: { impronta: 'altra', salita: 800, discesa: 600 } }, { geojson }).durataMin).toBe(senzaProfilo.durataMin);
+  });
+});

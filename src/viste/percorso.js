@@ -1,9 +1,6 @@
 // Scheda di un percorso della sezione Pianifica
 import { leggiPercorso, salvaPercorso, eliminaPercorso } from '../db.js';
 import { percorsoSentiero, estremiTraccia } from '../lib/tracce.js';
-import { lunghezzaKm } from '../lib/geo.js';
-import { dislivello } from '../lib/quote.js';
-import { stimaDurataMin } from '../lib/durata.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
@@ -14,8 +11,20 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
-import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO } from './piuGiorni.js';
+import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO, quoteDisponibili } from './piuGiorni.js';
+import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
 import L from 'leaflet';
+
+function htmlNumeri(misure, fonte) {
+  return `${numeriGrandi(misure)}
+      ${
+        !misure.conQuote
+          ? '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'
+          : fonte === 'open-meteo'
+            ? '<p class="tenue piccolo">Dislivello e durata dalle quote di Open-Meteo.</p>'
+            : ''
+      }`;
+}
 
 export async function vistaPercorso(app, id) {
   const p = await leggiPercorso(id);
@@ -24,9 +33,9 @@ export async function vistaPercorso(app, id) {
     return;
   }
   const pezzi = percorsoSentiero(p.geojson).pezzi;
-  const km = lunghezzaKm({ coordinates: pezzi });
-  const disl = dislivello(pezzi);
-  const misure = { km, salita: disl?.salita ?? null, durataMin: stimaDurataMin(km, disl), durataStimata: true };
+  // un solo calcolo per tutta la pagina: con le quote della traccia o, se salvate, di Open-Meteo
+  const quote = quoteDisponibili(p, pezzi);
+  const misure = misureDeiPezzi(quote?.pezzi ?? pezzi);
   const e = estremiTraccia(p.geojson);
   const idUrl = encodeURIComponent(p.id);
 
@@ -36,9 +45,8 @@ export async function vistaPercorso(app, id) {
       <a class="anteprima-mappa" href="#/percorso/${idUrl}/disegna" aria-label="Apri la mappa del percorso"><div id="miniMappa"></div></a>
       <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
       <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : 'Da file GPX'}</p>
-      ${numeriGrandi(misure)}
-      ${disl ? '' : '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'}
-      ${htmlProfiloPendenze(pezzi)}
+      <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte)}</div>
+      ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
       <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
       ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
       ${pezzi.length && misure.durataMin > ORE_AL_GIORNO[0] * 60 ? htmlPiuGiorni() : ''}
@@ -123,7 +131,12 @@ export async function vistaPercorso(app, id) {
     if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso, pezzi });
   });
   // su più giorni: dove finisce ogni giornata e dove dormire
-  collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso);
+  collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso, {
+    conQuote: (pq) => {
+      const numeri = app.querySelector('#numeriPercorso');
+      if (numeri) numeri.innerHTML = htmlNumeri(misureDeiPezzi(pq), 'open-meteo');
+    },
+  });
   const mini = creaMappa(contenitore, { anteprima: true });
   const puntiNatura = L.layerGroup().addTo(mini);
   collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {

@@ -2,8 +2,9 @@
 // I punti scaricati dal robot coprono i parchi (dentro il confine) e la zona di "Intorno a me":
 // se il percorso esce da queste zone servono i punti della sua zona, chiesti a OpenStreetMap.
 import { puntoNelPoligono } from './confini.js';
-import { distanzaKm, distanzaDallaTracciaM } from './geo.js';
-import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH } from './durata.js';
+import { distanzaKm, distanzaDallaTracciaM, lunghezzaKm } from './geo.js';
+import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH, stimaDurataMin } from './durata.js';
+import { dislivello, SOGLIA_RUMORE_M } from './quote.js';
 
 export const PASSO_COPERTURA_M = 500;
 export const MARGINE_RIQUADRO_M = 1000;
@@ -101,10 +102,11 @@ export const km1 = (x) => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',')
 
 // --- Percorsi su più giorni ---
 
-const SOGLIA_QUOTA_M = 10; // come per il dislivello: sotto questa variazione è rumore
 
 // Km e minuti progressivi a ogni punto della traccia, con il metodo CAI (src/lib/durata.js)
-// applicato ai valori progressivi: così l'ultimo punto dà la stessa durata della scheda.
+// applicato ai valori progressivi. Salite e discese si contano come in dislivello() (stessa
+// soglia, ogni pezzo per conto suo, resto finale compreso): l'ultimo punto dà la stessa durata
+// di misureDeiPezzi, quella in alto nella pagina.
 // Senza quote su tutti i punti il tempo è proporzionale ai km (4 km/h).
 export function profiloTempi(pezzi) {
   const punti = (pezzi ?? []).flat();
@@ -114,24 +116,39 @@ export function profiloTempi(pezzi) {
   let fatti = 0;
   let salita = 0;
   let discesa = 0;
-  let rif = conQuote ? punti[0][2] : 0;
-  let i = 0;
+  const tempo = () => {
+    const orePiano = fatti / VELOCITA_PIANO_KMH;
+    const oreDisl = conQuote ? salita / SALITA_MH + discesa / DISCESA_MH : 0;
+    return (Math.max(orePiano, oreDisl) + Math.min(orePiano, oreDisl) / 2) * 60;
+  };
   for (const linea of pezzi ?? []) {
-    for (let j = 0; j < linea.length; j++, i++) {
+    let rif = conQuote ? linea[0]?.[2] : 0;
+    for (let j = 0; j < linea.length; j++) {
       if (j > 0) fatti += distanzaKm(linea[j - 1], linea[j]);
       if (conQuote) {
         const d = linea[j][2] - rif;
-        if (d >= SOGLIA_QUOTA_M) salita += d;
-        if (d <= -SOGLIA_QUOTA_M) discesa -= d;
-        if (Math.abs(d) >= SOGLIA_QUOTA_M) rif = linea[j][2];
+        if (d >= SOGLIA_RUMORE_M) (salita += d), (rif = linea[j][2]);
+        else if (d <= -SOGLIA_RUMORE_M) (discesa -= d), (rif = linea[j][2]);
+        // fine del pezzo: il resto sotto soglia conta comunque, come in dislivello()
+        if (j === linea.length - 1) {
+          const resto = linea[j][2] - rif;
+          if (resto > 0) salita += resto;
+          else discesa -= resto;
+        }
       }
-      const orePiano = fatti / VELOCITA_PIANO_KMH;
-      const oreDisl = conQuote ? salita / SALITA_MH + discesa / DISCESA_MH : 0;
       km.push(fatti);
-      min.push((Math.max(orePiano, oreDisl) + Math.min(orePiano, oreDisl) / 2) * 60);
+      min.push(tempo());
     }
   }
   return { punti, km, min, conQuote };
+}
+
+// Numeri della pagina di un percorso di Pianifica (km, dislivello, durata) dai pezzi:
+// lo stesso calcolo di "Su più giorni"
+export function misureDeiPezzi(pezzi) {
+  const km = lunghezzaKm({ coordinates: pezzi });
+  const disl = dislivello(pezzi);
+  return { km, salita: disl?.salita ?? null, discesa: disl?.discesa ?? null, durataMin: stimaDurataMin(km, disl), durataStimata: true, conQuote: Boolean(disl) };
 }
 
 // Dove si arriva dopo "minuti" di cammino: km e punto, interpolando tra due punti della traccia

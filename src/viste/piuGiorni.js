@@ -28,11 +28,18 @@ async function parcoNazionaleIn([lon, lat]) {
   return PARCHI.find((p) => p.nazionale && (confini[p.id]?.length ? puntoNelPoligono([lon, lat], confini[p.id]) : lat >= p.bbox[0] && lat <= p.bbox[2] && lon >= p.bbox[1] && lon <= p.bbox[3])) ?? null;
 }
 
-// Pezzi con le quote: della traccia, salvate prima, o chieste ora a Open-Meteo
-async function pezziConQuote(percorso, pezzi) {
+// Pezzi con le quote già disponibili: della traccia o salvate prima da Open-Meteo (null se mancano)
+export function quoteDisponibili(percorso, pezzi) {
   if (profiloTempi(pezzi).conQuote) return { pezzi, fonte: 'traccia' };
   const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
-  if (percorso.quoteOpenMeteo?.impronta === impronta) return { pezzi: percorso.quoteOpenMeteo.coordinates, fonte: 'open-meteo' };
+  return percorso.quoteOpenMeteo?.impronta === impronta ? { pezzi: percorso.quoteOpenMeteo.coordinates, fonte: 'open-meteo' } : null;
+}
+
+// Pezzi con le quote: già disponibili o chieste ora a Open-Meteo
+async function pezziConQuote(percorso, pezzi) {
+  const pronte = quoteDisponibili(percorso, pezzi);
+  if (pronte) return pronte;
+  const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
   try {
     const conQuote = await aggiungiQuote({ type: 'MultiLineString', coordinates: pezzi }, { passoM: 200 });
     // si rilegge il percorso: nel frattempo potrei averne cambiato nome o note
@@ -53,7 +60,8 @@ function htmlRifugio(p) {
 }
 
 // punti: promessa di { punti, avviso }, gli stessi del riquadro "Rifugi e acqua"
-export function collegaPiuGiorni(sezione, percorso, pezzi, punti) {
+// conQuote(pezzi): chiamata quando arrivano le quote da Open-Meteo (per aggiornare i numeri in alto)
+export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = () => {} } = {}) {
   if (!sezione) return;
   const risultato = sezione.querySelector('.giorni-risultato');
   let richiesta = 0;
@@ -75,6 +83,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti) {
       if (!pronti && mia === richiesta) risultato.innerHTML = '<p class="tenue">Cerco i rifugi di questa zona…</p>';
     });
     const [{ pezzi: pq, fonte }, { punti: tutti, avviso }] = await Promise.all([quote, punti]);
+    if (fonte === 'open-meteo') conQuote(pq);
     if (mia !== richiesta || !risultato.isConnected) return;
     const serie = profiloTempi(pq);
     const fini = finiGiornata(serie, ore);
