@@ -30,6 +30,11 @@ jobs:
       - run: npm ci
       - name: Leggi le fonti
         run: node scripts/importa-archivio.mjs
+      # luoghi delle uscite senza traccia (Nominatim, solo nel riquadro del parco), per i "Sentieri probabili"
+      - name: Trova i luoghi delle uscite
+        run: node scripts/luoghi-uscite.mjs
+        continue-on-error: true
+        timeout-minutes: 10
       # indice panoramico: solo per i percorsi nuovi o con la traccia cambiata
       - name: Calcola l'indice panoramico
         run: node scripts/calcola-panorama.mjs

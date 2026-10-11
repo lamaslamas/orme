@@ -15,6 +15,7 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
+import { htmlProbabili, collegaProbabili, serveProbabili, testoConferma } from './sentieriProbabili.js';
 
 const STATI_VERIFICA = {
   verificato: 'Verificato',
@@ -162,6 +163,7 @@ function descriviStatoTraccia(stato, traccia) {
       ? 'Serve un GPX: questo sentiero non ha un codice da cercare su OpenStreetMap.'
       : 'Nessuna traccia salvata.';
   }
+  if (traccia.dettagli?.conferma) return testoConferma(traccia);
   const fonte =
     traccia.origine === 'gpx'
       ? `Dal tuo file GPX${traccia.dettagli?.nomeFile ? ` “${escapeHtml(traccia.dettagli.nomeFile)}”` : ''}.`
@@ -346,6 +348,7 @@ export async function vistaScheda(app, id) {
           <button type="button" class="bottone" id="caricaGpx">Carica il mio GPX</button>
         </div>
         <input type="file" id="fileGpxScheda" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
+        ${serveProbabili(s, traccia) ? htmlProbabili() : ''}
       </section>
       ${s.descrizione ? `<p class="descrizione">${escapeHtml(s.descrizione)}</p>` : ''}
 
@@ -454,6 +457,8 @@ export async function vistaScheda(app, id) {
     clearTimeout(salva.timer);
     salva.timer = setTimeout(() => (avviso.hidden = true), 1500);
   }
+
+  collegaProbabili(app, s, traccia, () => vistaScheda(app, id));
 
   app.querySelector('#usaSuggerimento')?.addEventListener('click', async () => {
     const proposti = valoriSuggeriti(traccia.dettagli.suggerimentoBici);

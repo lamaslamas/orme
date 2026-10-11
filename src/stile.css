@@ -1664,3 +1664,14 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .pochi-percorsi[hidden] { display: none; }
 .pochi-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
 .pochi-azioni .bottone { min-height: 38px; font-size: 0.88rem; }
+
+/* Sentieri probabili per le uscite senza traccia */
+.probabili { margin-top: 12px; border-top: 1px solid var(--bordo, rgba(0, 0, 0, 0.1)); padding-top: 10px; }
+.probabili h3 { margin: 0 0 2px; font-size: 1rem; }
+.probabili ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.probabili li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; }
+.probabili li > a { font-weight: 600; color: inherit; text-decoration: none; }
+.probabili li > .tenue { grid-column: 1; }
+.probabili li > button { grid-column: 2; grid-row: 1 / span 2; }
+.annulla-conferma { display: block; margin-top: 4px; }
+.annulla-conferma .bottone { padding-left: 0; }
