@@ -12,6 +12,7 @@ import { numeriGrandi, htmlPortamiAllaPartenza } from './scheda.js';
 import { htmlProfiloPendenze } from './profilo.js';
 import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
+import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import L from 'leaflet';
 
 export async function vistaPercorso(app, id) {
@@ -37,6 +38,7 @@ export async function vistaPercorso(app, id) {
       ${disl ? '' : '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'}
       ${htmlProfiloPendenze(pezzi)}
       <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
+      ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
       ${pezzi.length ? htmlNaturaPercorso() : ''}
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
       <section class="riquadro">
@@ -109,6 +111,8 @@ export async function vistaPercorso(app, id) {
 
   const contenitore = app.querySelector('#miniMappa');
   if (!pezzi.length) return;
+  // rifugi, bivacchi e acqua lungo il percorso, come nella scheda dei sentieri
+  mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), { type: 'MultiLineString', coordinates: pezzi });
   const mini = creaMappa(contenitore, { anteprima: true });
   const puntiNatura = L.layerGroup().addTo(mini);
   collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {
