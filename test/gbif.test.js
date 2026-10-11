@@ -74,7 +74,8 @@ describe('GBIF: osservazioni', () => {
     });
     expect(larga.sfumata).toBe(true);
     expect(senza.sfumata).toBe(true);
-    expect(inat).toMatchObject({ sfumata: false, fonte: 'iNaturalist', url: 'https://www.inaturalist.org/observations/5' });
+    // il link va alla pagina su GBIF; quella originale resta a parte
+    expect(inat).toMatchObject({ sfumata: false, fonte: 'iNaturalist', url: 'https://www.gbif.org/occurrence/1', originale: 'https://www.inaturalist.org/observations/5' });
   });
 
   it('nomi brevi delle fonti', () => {

@@ -133,7 +133,10 @@ export function interpretaGbif(json) {
         fonte: nomeFonte(o.datasetName),
         licenza: licenzaBreve(o.license),
         foto: foto ? { url: foto.identifier, attribuzione: [foto.rightsHolder ?? foto.creator, licenzaBreve(foto.license)].filter(Boolean).join(' · '), licenza: licenzaBreve(foto.license) } : null,
-        url: /^https?:\/\//.test(o.references ?? '') ? o.references : `https://www.gbif.org/occurrence/${o.key}`,
+        // la pagina su GBIF (di solito senza verifiche "non sei un robot"); quella originale a parte
+        url: `https://www.gbif.org/occurrence/${o.key}`,
+        originale: /^https?:\/\//.test(o.references ?? '') ? o.references : null,
+        luogo: o.locality ?? o.verbatimLocality ?? null,
         // solo per contare le persone diverse: un codice anonimo, mai il nome
         osservatore: o.recordedBy ? codiceAnonimo(o.recordedBy) : null,
       };

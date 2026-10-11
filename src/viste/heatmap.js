@@ -241,23 +241,31 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     }));
   }
   function popupGruppo(g) {
-    // la foto (piccola) accanto a ogni osservazione che ne ha una: un tocco la apre a schermo
-    // pieno, con autore e licenza
-    const fotoDi = (o) =>
-      o.foto
-        ? `<button type="button" class="foto-oss" data-foto="${escapeHtml(JSON.stringify({ url: o.foto.url.replace(/\/(square|small)\./, '/medium.'), autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: nomeGruppo(g) }))}" aria-label="Apri la foto"><img src="${escapeHtml(o.foto.url)}" alt="" width="44" height="44" loading="lazy" /></button>`
-        : '';
-    const righe = g.oss
-      .slice(0, 5)
+    const data = (o) => (o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata');
+    const datiFoto = (o) =>
+      escapeHtml(JSON.stringify({ url: o.foto.url.replace(/\/(square|small)\./, '/medium.'), autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: nomeGruppo(g) }));
+    const link = (o) => `<a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">${o.fonte === 'iNaturalist' ? 'su iNaturalist' : 'dettagli'} ↗</a>`;
+    // la più recente con foto in evidenza (foto grande, autore, data e luogo): quasi sempre basta
+    // questo, senza aprire siti esterni; le altre in breve, con una foto piccola se c'è
+    const prima = g.oss.find((o) => o.foto) ?? g.oss[0];
+    const altre = g.oss.filter((o) => o !== prima).slice(0, 4);
+    const evidenza = `<div class="oss-evidenza">
+        ${prima.foto ? `<button type="button" class="foto-oss grande" data-foto="${datiFoto(prima)}" aria-label="Apri la foto"><img src="${escapeHtml(prima.foto.url.replace(/\/square\./, '/small.'))}" alt="" loading="lazy" /></button>` : ''}
+        <span>${data(prima)}${prima.luogo ? ` · ${escapeHtml(prima.luogo.slice(0, 60))}` : ''}</span>
+        <span class="tenue piccolo">${escapeHtml(prima.fonte)}${prima.foto?.attribuzione ? ` · foto ${escapeHtml(prima.foto.attribuzione.replace(/^\(c\)\s*/i, '© ').slice(0, 60))}` : ''} · ${link(prima)}</span>
+      </div>`;
+    const righe = altre
       .map(
         (o) =>
-          `<li>${fotoDi(o)}<span>${o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata'} · ${escapeHtml(o.fonte)} · <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">apri ↗</a></span></li>`,
+          `<li>${o.foto ? `<button type="button" class="foto-oss" data-foto="${datiFoto(o)}" aria-label="Apri la foto"><img src="${escapeHtml(o.foto.url)}" alt="" width="44" height="44" loading="lazy" /></button>` : ''}<span>${data(o)} · ${escapeHtml(o.fonte)} · ${link(o)}</span></li>`,
       )
       .join('');
     return `<div class="popup-oss"><b>${escapeHtml(nomeGruppo(g))}</b>${g.animale ? '' : ` <i class="tenue">${escapeHtml(g.scientifico)}</i>`} · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
       ${g.sfumata ? '<p class="tenue piccolo">Posizione approssimata (fino a ~20 km per le specie protette): qui è solo la zona.</p>' : ''}
-      <ul>${righe}</ul>${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
+      ${evidenza}
+      ${righe ? `<ul>${righe}</ul>` : ''}${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
   }
+
 
   // osservazioni nel riquadro; con "animali imperdibili" anche i mammiferi e uccelli minacciati (IUCN)
   // In Intorno a me anche iNaturalist direttamente: la heatmap è sua e su GBIF arrivano solo le

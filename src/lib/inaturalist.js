@@ -146,6 +146,7 @@ export function interpretaOsservazioni(json) {
       foto: foto?.license_code ? { url: foto.url, attribuzione: foto.attribution ?? '', licenza: foto.license_code } : null,
       licenza: o.license_code ?? null,
       url: o.uri ?? `https://www.inaturalist.org/observations/${o.id}`,
+      luogo: o.place_guess ?? null,
       verificata: o.quality_grade === 'research',
       // solo per contare le persone diverse: un codice anonimo, mai il nome
       osservatore: o.user?.id != null ? codiceAnonimo(o.user.id) : null,
