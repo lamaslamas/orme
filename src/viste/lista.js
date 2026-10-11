@@ -5,6 +5,7 @@ import { stato } from '../stato.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { testoUscita } from '../lib/filtri.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi, definizioni } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
 import { parcoDa, PARCHI } from '../datiParchi.js';
@@ -57,7 +58,7 @@ const DIFFICOLTA_BREVE = { T: 'T · turistico', E: 'E · escursionistico', EE: '
 // difficoltà e pulsante salva sopra; sotto nome, tre numeri con icona, fauna e poche etichette
 // nota: testo breve accanto al parco (es. la distanza in "Intorno a me")
 // stagione: fauna "nel periodo attuale" (dal filtro)
-export function schedaInLista(s, traccia, mostraParco = true, compat = null, nota = '', { stagione = false } = {}) {
+export function schedaInLista(s, traccia, mostraParco = true, compat = null, nota = '', { stagione = false, uscita = false } = {}) {
   const m = misureSentiero(s, traccia);
   const tipo = s.accesso?.tipo || 'nessuno';
   const foto = copertina(s, traccia);
@@ -89,6 +90,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
           <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>
           ${parchi ? `<span class="carta-parco-nome">${escapeHtml(parchi)}</span>` : ''}
           ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
+          ${uscita && testoUscita(s) ? `<span class="riga-uscita">${ICONE.calendario}${escapeHtml(testoUscita(s))}</span>` : ''}
           ${htmlFaunaBreve(s, { compatta: true, stagione })}
           ${etichette ? `<span class="chips">${etichette}</span>` : ''}
         </span>
@@ -146,7 +148,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   let ultimoRisultato = [];
   let quanti = PAGINA;
   const htmlPagina = (da) => {
-    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '', { stagione: filtri.stagione === 'adesso' })).join('');
+    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '', { stagione: filtri.stagione === 'adesso', uscita: filtri.uscite === 'si' })).join('');
     const resto = ultimoRisultato.length - quanti;
     return pezzo + (resto > 0 ? `<li class="altri"><button type="button" class="bottone pieno-largo" data-azione="altri">Mostra altri ${Math.min(PAGINA, resto)} (ne restano ${resto})</button></li>` : '');
   };

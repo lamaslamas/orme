@@ -2,7 +2,7 @@ import { ANIMALI } from './costanti.js';
 import { PARCHI, ID_INTORNO } from '../datiParchi.js';
 import { animaliPossibili, possibilitaFauna } from './faunaPercorso.js';
 
-export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '', uscite: '' };
 
 export function normalizza(s) {
   return String(s ?? '')
@@ -10,6 +10,22 @@ export function normalizza(s) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .trim();
+}
+
+// Uscita di un'associazione o di una guida: con un nome e chi la organizza (non basta un articolo
+// o un avviso del parco che parla del sentiero)
+export function eUscita(s) {
+  if (s?.tipoPercorso === 'uscita_guidata') return true;
+  const e = s?.escursione;
+  return Boolean(e?.nomeUscita && (e.associazione || s.organizzatori?.length));
+}
+
+// Riga breve dell'uscita per la card: nome, chi la organizza, periodo
+export function testoUscita(s) {
+  if (!eUscita(s)) return '';
+  const e = s.escursione ?? {};
+  const chi = e.associazione || s.organizzatori?.[0] || '';
+  return [e.nomeUscita && e.nomeUscita !== s.nome ? e.nomeUscita : '', chi, e.periodo].filter(Boolean).join(' · ');
 }
 
 export function filtraSentieri(sentieri, filtri) {
@@ -29,6 +45,7 @@ export function filtraSentieri(sentieri, filtri) {
       const livello = possibilitaFauna(s, new Date().getMonth() + 1, { stagione: filtri.stagione === 'adesso' })?.livello;
       if (filtri.fauna === 'frequenti' ? livello !== 'frequenti' : !['frequenti', 'possibili'].includes(livello)) return false;
     }
+    if (filtri.uscite && !eUscita(s)) return false;
     if (filtri.bici && (s.bici?.consentita || 'da_verificare') !== filtri.bici) return false;
     if (filtri.paese && normalizza(s.partenza?.paese) !== normalizza(filtri.paese)) return false;
     // indice panoramico minimo: i percorsi senza indice restano fuori

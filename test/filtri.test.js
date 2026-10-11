@@ -122,3 +122,23 @@ describe('scorciatoie: fauna e percorsi facili', () => {
     expect(ids({ difficolta: 'EE' })).toEqual(['possibile']);
   });
 });
+
+import { eUscita, testoUscita } from '../src/lib/filtri.js';
+describe('uscite delle associazioni', () => {
+  const ecotur = { nome: 'Altopiano della Cicerana', escursione: { associazione: 'Ecotur', nomeUscita: "Alla scoperta dell'orso", periodo: 'Ottobre' } };
+  const parco = { nome: 'Corezzo – Bellaria', organizzatori: ['Parco Foreste Casentinesi'], escursione: { associazione: '', nomeUscita: 'Wolf howling', periodo: 'Novembre – gennaio' } };
+  const articolo = { nome: 'Monte Amaro', escursione: { associazione: '', nomeUscita: '', fonte: 'Montagna.tv' } };
+  const guidata = { nome: 'Val Fondillo', tipoPercorso: 'uscita_guidata', organizzatori: ['Ecotur'], escursione: { associazione: 'Ecotur', nomeUscita: 'Val Fondillo', periodo: 'Settembre' } };
+
+  it('uscita = nome dell\'uscita più chi la organizza; un articolo non basta', () => {
+    expect([ecotur, parco, articolo, guidata, {}].map(eUscita)).toEqual([true, true, false, true, false]);
+    expect(filtraSentieri([ecotur, parco, articolo, guidata], { ...FILTRI_VUOTI, uscite: 'si' })).toHaveLength(3);
+  });
+
+  it('riga della card: nome (se diverso dal sentiero), associazione, periodo', () => {
+    expect(testoUscita(ecotur)).toBe("Alla scoperta dell'orso · Ecotur · Ottobre");
+    expect(testoUscita(parco)).toBe('Wolf howling · Parco Foreste Casentinesi · Novembre – gennaio');
+    expect(testoUscita(guidata)).toBe('Ecotur · Settembre');
+    expect(testoUscita(articolo)).toBe('');
+  });
+});

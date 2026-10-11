@@ -2,7 +2,7 @@
 // dal basso con tutte le voci), scorciatoie a icone e filtri attivi da togliere con un tocco.
 // I filtri scelti valgono per tutte le schermate.
 import { ANIMALI, STATI, ACCESSI, DIFFICOLTA } from '../lib/costanti.js';
-import { FILTRI_VUOTI } from '../lib/filtri.js';
+import { FILTRI_VUOTI, eUscita } from '../lib/filtri.js';
 import { escapeHtml } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { stato } from '../stato.js';
@@ -57,6 +57,7 @@ export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
       voci: [['adesso', 'Nel periodo attuale (questo mese e quelli accanto)']],
       breve: () => 'Periodo attuale',
     },
+    { chiave: 'uscite', titolo: 'Uscite', voci: [['si', 'Uscite delle associazioni e delle guide']], breve: () => 'Uscite delle associazioni' },
     ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['tutti', 'Anche i sentieri da verificare']], breve: () => 'Anche da verificare' }] : []),
     ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),
     {
@@ -103,6 +104,8 @@ export const SCORCIATOIE = [
   { chiave: 'panorama', valore: '50', nome: 'Panoramici', icona: 'sole' },
   { chiave: 'durata', valore: '0-120', nome: 'Fino a 2 h', icona: 'orologio' },
   { chiave: 'difficolta', valore: 'facili', nome: 'Facili', icona: 'montagna' },
+  // solo dove ci sono uscite in elenco
+  { chiave: 'uscite', valore: 'si', nome: 'Uscite delle associazioni', icona: 'calendario', solo: (sentieri) => sentieri.some(eUscita) },
 ];
 
 // ricerca=false: la casella di ricerca è altrove (es. in cima alla pagina iniziale)
@@ -149,7 +152,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
       b.textContent = scelti.length;
     });
     contenitore.querySelectorAll('.pulsante-filtri').forEach((b) => b.classList.toggle('attivo', scelti.length > 0));
-    scorciatoie.innerHTML = SCORCIATOIE.map(
+    scorciatoie.innerHTML = SCORCIATOIE.filter((sc) => !sc.solo || scorciatoiaAttiva(sc) || sc.solo(sentieri)).map(
       (sc) => `<button type="button" class="chip-scorciatoia ${scorciatoiaAttiva(sc) ? 'attiva' : ''}" data-scorciatoia="${sc.chiave}" aria-pressed="${scorciatoiaAttiva(sc)}">${ICONE[sc.icona]}<span>${escapeHtml(sc.nome)}</span></button>`,
     ).join('');
     // i filtri attivi che non sono già una scorciatoia accesa: piccole etichette da togliere
