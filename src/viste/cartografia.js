@@ -212,13 +212,20 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   mappa.aggiornaLegenda = () => {};
   if (anteprima) return mappa;
   L.control.scale({ imperial: false }).addTo(mappa);
-  // crediti: su telefono una riga sola, un tocco li mostra per intero (i link restano cliccabili)
+  // crediti: un piccolo "©" nell'angolo che li apre con un tocco (i link restano cliccabili).
+  // All'apertura della mappa si vedono per qualche secondo, poi si richiudono da soli.
   const crediti = mappa.attributionControl?.getContainer();
-  crediti?.addEventListener('click', (e) => {
-    if (e.target.closest('a') && crediti.classList.contains('aperti')) return;
-    crediti.classList.toggle('aperti');
-    if (e.target.closest('a')) e.preventDefault();
-  });
+  if (crediti) {
+    crediti.classList.add('aperti');
+    crediti.setAttribute('title', 'Crediti della mappa');
+    const chiudiCrediti = setTimeout(() => crediti.classList.remove('aperti'), 4000);
+    crediti.addEventListener('click', (e) => {
+      clearTimeout(chiudiCrediti);
+      if (e.target.closest('a') && crediti.classList.contains('aperti')) return;
+      crediti.classList.toggle('aperti');
+      if (e.target.closest('a')) e.preventDefault();
+    });
+  }
   // rifugi e acqua: in tutte le mappe con il pannello dei livelli, prima del GPS
   const conPunti = [...livelli.filter((k) => k !== 'gps'), 'rifugi', 'acqua', ...livelli.filter((k) => k === 'gps')];
   aggiungiPannelloLivelli(mappa, ['sentieriOsm', 'nonSegnati', ...conPunti]);

@@ -628,7 +628,7 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .heat-filtri .intera-riga { grid-column: 1 / -1; }
 .griglia-legenda b { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
 .griglia-legenda b.insufficiente { background: #9ca3af; opacity: 0.6; margin-left: 8px; }
-.pannello-heatmap { left: 54px; }
+.pannello-heatmap { left: 8px; right: 8px; }
 .mappa-alta { height: 64vh; height: 64dvh; }
 .legenda-pendenze { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0; font-size: 0.75rem; color: var(--testo-tenue); }
 .legenda-pendenze i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
@@ -1510,9 +1510,14 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .pannello-heatmap.ridotto .heat-testa > span { order: 3; gap: 6px; }
 .pannello-heatmap.ridotto .chiudi-pannello { min-height: 26px; padding: 0 8px; }
 .info-heatmap { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--bordo); background: var(--scheda-piena); color: var(--verde-testo); font-weight: 700; text-decoration: none !important; cursor: pointer; }
-@media (max-width: 1023.98px) {
-  .leaflet-control-attribution:not(.aperti) { max-width: calc(100vw - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+/* crediti chiusi: solo un "©" tondo nell'angolo; aperti: per intero */
+.leaflet-control-attribution { cursor: pointer; }
+.leaflet-control-attribution:not(.aperti) {
+  width: 22px; height: 22px; padding: 0 !important; margin: 0 6px 6px 0 !important; border-radius: 50%; overflow: hidden;
+  font-size: 0 !important; display: grid; place-items: center; background: rgba(var(--chiaro-rgb), 0.85) !important;
 }
+.leaflet-control-attribution:not(.aperti)::before { content: '©'; font-size: 13px; color: var(--testo); }
+.leaflet-control-attribution.aperti { max-width: calc(100vw - 24px); border-radius: 8px 0 0 0; }
 .avviso-breve { pointer-events: none; animation: avviso-breve 1.8s ease both; }
 @keyframes avviso-breve { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 /* icone degli animali (illustrazioni) */
@@ -1630,3 +1635,10 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .lista-aree { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .carta-area { width: 100%; display: grid; gap: 2px; text-align: left; padding: 10px 14px; border: 1px solid var(--bordo); border-left: 4px solid #8a5a2b; border-radius: 0 12px 12px 0; background: var(--scheda-piena); color: var(--testo); font: inherit; cursor: pointer; }
 .carta-area.scelta { box-shadow: 0 0 0 2px #8a5a2b inset; }
+/* lo stato del GPS sopra la barra della fauna, non sotto */
+.con-heatmap .gps-stato { bottom: 72px; }
+:root[data-scuro] .gps-bottone.segue { background: #1e3a5f !important; color: #93c5fd; }
+:root[data-scuro] .gps-bottone.attivo { color: #93c5fd; }
+:root[data-scuro] .gps-stato.fuori { color: #f5c4b3; }
+/* la scala sopra la barra della fauna */
+.con-heatmap .leaflet-bottom.leaflet-left { bottom: 58px; }
