@@ -173,11 +173,15 @@ export async function vistaIntorno(app) {
       return v ? testoDistanza(v.distanzaM) : '';
     },
   });
+  // area toccabile di ogni traccia sulla mappa: le card della lista la "toccano" per evidenziarla
+  const aree = new Map();
   const disegnaPercorsi = (risultato) => {
     percorsi.clearLayers();
+    aree.clear();
     for (const { sentiero: s, traccia } of risultato) {
       if (!traccia?.geojson) continue;
-      toccabili.disegna(percorsi, s, traccia, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 });
+      const { area } = toccabili.disegna(percorsi, s, traccia, { color: COLORI_STATO[s.stato] ?? COLORI_STATO.da_fare, weight: 3.5, opacity: 0.85 });
+      aree.set(s.id, area);
     }
     if (accesi && !mappa.hasLayer(percorsi)) percorsi.addTo(mappa);
   };
@@ -509,6 +513,27 @@ export async function vistaIntorno(app) {
     modoMappa(false);
     scarica([Math.round(e.latlng.lng * 1e4) / 1e4, Math.round(e.latlng.lat * 1e4) / 1e4]);
   });
+
+  // tocco su una card: invece di aprire subito la scheda, la mappa va sul sentiero e lo evidenzia;
+  // la scheda si apre dal foglio (telefono) o dal riquadro (computer). Il pulsante Salva resta com'è.
+  contenitoreElenco.addEventListener(
+    'click',
+    (e) => {
+      const carta = e.target.closest('a.carta-percorso');
+      if (!carta || e.ctrlKey || e.metaKey) return;
+      const id = decodeURIComponent(carta.getAttribute('href').replace('#/sentiero/', ''));
+      const area = aree.get(id);
+      if (!area || !mappa.hasLayer(area)) return; // percorsi spenti sulla mappa: si apre la scheda
+      e.preventDefault();
+      e.stopPropagation();
+      app.querySelector('#mappaIntorno').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      mappa.sbloccaInquadrature?.();
+      const limiti = area.getBounds();
+      mappa.fitBounds(limiti, { padding: [30, 30], maxZoom: 15, animate: false });
+      area.fire('click', { latlng: limiti.getCenter() });
+    },
+    true,
+  );
 
   app.addEventListener('click', async (e) => {
     const b = e.target.closest('button');

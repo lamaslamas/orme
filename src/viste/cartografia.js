@@ -124,6 +124,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     // qualunque tocco, clic o rotella sulla mappa: da lì in poi le inquadrature tornano normali
     for (const evento of ['pointerdown', 'wheel']) mappa.getContainer().addEventListener(evento, libera, { once: true, passive: true });
     mappa.fitBounds = (...argomenti) => (bloccata ? mappa : inquadra(...argomenti));
+    // una scelta fatta fuori dalla mappa (es. una card della lista) la deve poter spostare subito
+    mappa.sbloccaInquadrature = libera;
   }
   if (ricorda && !anteprima) mappa.on('moveend', () => salvaVista(ricorda, mappa));
   // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi
