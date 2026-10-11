@@ -4,6 +4,7 @@
 import { candidatiSentieri } from './fonti/osmSentieri.js';
 import { candidatiMtb, ritagliaESemplifica } from './fonti/osmMtb.js';
 import { lunghezzaKm, distanzaKm } from './geo.js';
+import { estremiTraccia } from './tracce.js';
 import { nuovoRecord } from './importazione.js';
 import { profiloQuote } from './profiloQuote.js';
 import { improntaTraccia } from './panorama.js';
@@ -366,3 +367,20 @@ export function sceltaRitrovata(ricordata, zona) {
   if (!ricordata?.specie || !zona?.centro) return null;
   return ricordata.zona === JSON.stringify(zona.centro) ? ricordata : null;
 }
+
+// ---- Distanza dalla partenza ----
+// Percorso lineare: dal più vicino dei due estremi (su OpenStreetMap il verso è spesso casuale e si
+// può partire da tutte e due le parti); anello: dal suo punto di partenza; partenza indicata a mano:
+// da quella. Reti di sentieri non segnati e percorsi senza estremi: dal punto più vicino (vicinoM).
+// Restituisce { metri, partenza: true|false }.
+export function distanzaDiPartenza(sentiero, traccia, centro, vicinoM) {
+  const p = sentiero?.partenza;
+  if (Number.isFinite(p?.lat) && Number.isFinite(p?.lon)) return { metri: distanzaKm(centro, [p.lon, p.lat]) * 1000, partenza: true };
+  const e = sentiero?.tipoPercorso !== 'rete_sentieri' && traccia?.geojson ? estremiTraccia(traccia.geojson) : null;
+  if (!e) return { metri: vicinoM, partenza: false };
+  const metri = e.anello ? distanzaKm(centro, e.inizio) * 1000 : Math.min(distanzaKm(centro, e.inizio), distanzaKm(centro, e.fine)) * 1000;
+  return { metri, partenza: true };
+}
+
+export const testoPartenza = ({ metri, partenza }) =>
+  partenza ? (metri < 150 ? 'partenza qui' : `partenza ${testoDistanza(metri)}`) : testoDistanza(metri);

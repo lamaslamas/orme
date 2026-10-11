@@ -35,6 +35,8 @@ import {
   VERSIONE_RICERCA,
   serveScaricare,
   sceltaRitrovata,
+  distanzaDiPartenza,
+  testoPartenza,
   retiAreeProtette,
 } from '../lib/intorno.js';
 import { escapeHtml, data as testoData } from '../lib/formato.js';
@@ -170,7 +172,7 @@ export async function vistaIntorno(app) {
     // nel foglio del telefono anche la distanza da te
     nota: (s) => {
       const v = ultimi.find((x) => x.sentiero.id === s.id);
-      return v ? testoDistanza(v.distanzaM) : '';
+      return v ? testoPartenza(v.partenza) : '';
     },
   });
   // area toccabile di ogni traccia sulla mappa: le card della lista la "toccano" per evidenziarla
@@ -225,8 +227,9 @@ export async function vistaIntorno(app) {
     // i percorsi segnati nella lista; le reti di sentieri non segnati delle aree protette a parte
     const vicini = nellaZona.filter((v) => v.sentiero.tipoPercorso !== 'rete_sentieri');
     mostraAreeProtette(nellaZona.filter((v) => v.sentiero.tipoPercorso === 'rete_sentieri'));
-    const distanze = new Map(vicini.map((v) => [v.sentiero.id, v.distanzaM]));
-    ultimi = vicini;
+    // distanza dalla partenza (estremo più vicino, o partenza dell'anello): ordine della lista e card
+    const distanze = new Map(vicini.map((v) => [v.sentiero.id, distanzaDiPartenza(v.sentiero, v.traccia, zona.centro, v.distanzaM)]));
+    ultimi = vicini.map((v) => ({ ...v, partenza: distanze.get(v.sentiero.id) }));
     // con un animale scelto restano i percorsi passati vicino a dove è stato visto
     const mostrati = visteScelta ? vicini.filter((v) => visteScelta.has(v.sentiero.id)) : vicini;
     if (!vicini.length) {
@@ -244,9 +247,9 @@ export async function vistaIntorno(app) {
         parcoFisso: ID_INTORNO,
         // lista più corta: i primi 15, poi "Mostra altri"
         perPagina: 15,
-        ordina: (r) => [...r].sort((a, b) => distanze.get(a.sentiero.id) - distanze.get(b.sentiero.id)),
+        ordina: (r) => [...r].sort((a, b) => distanze.get(a.sentiero.id).metri - distanze.get(b.sentiero.id).metri),
         // per i percorsi dei parchi anche il nome del parco
-        nota: (p) => [testoDistanza(distanze.get(p.sentiero.id)), p.sentiero.parco !== ID_INTORNO ? parcoDa(p.sentiero.parco)?.nomeBreve : ''].filter(Boolean).join(' · '),
+        nota: (p) => [testoPartenza(distanze.get(p.sentiero.id)), p.sentiero.parco !== ID_INTORNO ? parcoDa(p.sentiero.parco)?.nomeBreve : ''].filter(Boolean).join(' · '),
         alRisultato: disegnaPercorsi,
         limita: scelta
           ? { filtro: () => true, testo: (n) => `<b>${n}</b> ${n === 1 ? 'percorso' : 'percorsi'} vicino a dove è stato visto: ${escapeHtml(scelta.nome)} · <button type="button" class="link" data-azione="togli-specie">tutti</button>` }

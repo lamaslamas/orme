@@ -294,3 +294,28 @@ describe('Intorno a me: specie ricordata', async () => {
     expect(sceltaRitrovata(ricordata, zona)?.specie.nome).toBe('Fenicottero');
   });
 });
+
+describe('Intorno a me: distanza dalla partenza', async () => {
+  const { distanzaDiPartenza, testoPartenza } = await import('../src/lib/intorno.js');
+  const centro = [18.0, 40.0];
+  // lineare: da 40,00 (vicino) a 40,09 (lontano, ~10 km)
+  const lineare = { geojson: { type: 'MultiLineString', coordinates: [[[18.0, 40.09], [18.0, 40.05], [18.0, 40.01]]] } };
+  it('lineare: dal più vicino dei due estremi, anche se è la "fine" della traccia', () => {
+    const d = distanzaDiPartenza({}, lineare, centro, 0);
+    expect(d.partenza).toBe(true);
+    expect(d.metri).toBeGreaterThan(1000);
+    expect(d.metri).toBeLessThan(1200);
+    expect(testoPartenza(d)).toBe('partenza a 1,1 km');
+  });
+  it('anello: dal punto di partenza; partenza a mano: da quella', () => {
+    const anello = { geojson: { type: 'MultiLineString', coordinates: [[[18.0, 40.02], [18.02, 40.03], [18.0, 40.04], [18.0, 40.02]]] } };
+    expect(Math.round(distanzaDiPartenza({}, anello, centro, 0).metri / 100)).toBe(22);
+    expect(Math.round(distanzaDiPartenza({ partenza: { lat: 40.0, lon: 18.0 } }, lineare, centro, 0).metri)).toBe(0);
+    expect(testoPartenza({ metri: 40, partenza: true })).toBe('partenza qui');
+  });
+  it('reti di sentieri non segnati: dal punto più vicino', () => {
+    const d = distanzaDiPartenza({ tipoPercorso: 'rete_sentieri' }, lineare, centro, 900);
+    expect(d).toEqual({ metri: 900, partenza: false });
+    expect(testoPartenza(d)).toBe('a 900 m');
+  });
+});
