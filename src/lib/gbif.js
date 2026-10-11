@@ -2,26 +2,14 @@
 // atlanti, musei…), ognuna una sola volta. API libera, senza chiavi. Ogni osservazione ha la
 // sua licenza (CC0, CC BY o CC BY-NC) e la sua fonte, che l'app mostra quando la si apre.
 // Dei nomi degli osservatori si tiene solo un codice anonimo, per contare le persone diverse.
-import { TAXON_GBIF, ANIMALI, SPECIE_SOLO_INTORNO } from './costanti.js';
+import { TAXON_GBIF, ANIMALI, SPECIE_SOLO_INTORNO, CLASSI_FAUNA } from './costanti.js';
+import { taxaDeiGruppi } from './gruppiFauna.js';
 import { STAGIONI, SPECIE_RARE } from './inaturalist.js';
 
 export const API_GBIF = 'https://api.gbif.org/v1';
-// "Animali imperdibili", i più preziosi da vedere e fotografare (oltre a quelle della lista): mammiferi selvatici senza topi e ratti,
-// rapaci, grandi uccelli d'acqua e uccelli colorati o insoliti. Chiavi dell'elenco dei nomi di GBIF.
-export const TAXA_NOTEVOLI_GBIF = [
-  // mammiferi: carnivori, ungulati, lagomorfi, pipistrelli, ricci, toporagni e talpe; dei roditori
-  // solo istrici, scoiattoli, ghiri e castori
-  732, 731, 785, 734, 5722, 5534, 9469, 9705, 9456, 3240562, 5493,
-  // rapaci diurni e notturni
-  7191147, 7191407, 1450,
-  // aironi e garzette, cicogne, gru, fenicotteri, cavalieri d'Italia e avocette, ibis e spatole
-  3685, 9289, 9313, 5269, 4287244, 5288,
-  // upupa, gruccioni, martin pescatore, ghiandaia marina, picchi, rigogolo
-  5293, 9320, 2984, 9307, 9333, 5708,
-];
-// le specie minacciate (Lista Rossa IUCN) tra tutti i mammiferi e uccelli si aggiungono a parte
-export const CLASSI_GBIF = [359, 212];
-export const CATEGORIE_MINACCIATE = ['NT', 'VU', 'EN', 'CR'];
+// specie minacciate (Lista Rossa IUCN) tra mammiferi e uccelli: in "Intorno a me" si aggiungono a parte
+export { CATEGORIE_RARE as CATEGORIE_MINACCIATE } from './costanti.js';
+import { CATEGORIE_RARE } from './costanti.js';
 export const MAPPE_GBIF = 'https://api.gbif.org/v2/map/occurrence/adhoc';
 // oltre questa incertezza la posizione vale solo per la zona (come le posizioni sfumate)
 export const INCERTEZZA_MAX_M = 1000;
@@ -42,9 +30,19 @@ export function parametriGbif(filtri = {}, oggi = new Date()) {
         : !filtri.specie || filtri.specie === 'rare'
           ? SPECIE_RARE
           : [filtri.specie];
-  const taxa =
-    filtri.specie === 'notevoli' ? TAXA_NOTEVOLI_GBIF : filtri.specie === 'minacciate' ? CLASSI_GBIF : chiavi.map((k) => TAXON_GBIF[k]).filter(Boolean);
-  if (filtri.specie === 'minacciate') for (const c of CATEGORIE_MINACCIATE) p.append('iucnRedListCategory', c);
+  // una specie scelta in "Cosa vedere qui" (anche fuori dalla lista di Orme): per nome scientifico
+  if (filtri.taxon?.scientifico) p.set('scientificName', filtri.taxon.scientifico);
+  const notevoli = filtri.specie === 'notevoli' ? taxaDeiGruppi(filtri, 'gbif') : [];
+  // solo "rare" tra i gruppi: le minacciate tra mammiferi e uccelli
+  const minacciate = filtri.specie === 'minacciate' || (filtri.specie === 'notevoli' && !notevoli.length);
+  const taxa = filtri.taxon?.scientifico
+    ? CLASSI_FAUNA.gbif
+    : minacciate
+      ? CLASSI_FAUNA.gbif
+      : filtri.specie === 'notevoli'
+        ? notevoli
+        : chiavi.map((k) => TAXON_GBIF[k]).filter(Boolean);
+  if (minacciate && !filtri.taxon) for (const c of CATEGORIE_RARE) p.append('iucnRedListCategory', c);
   // mai una ricerca senza specie: scaricherebbe ogni essere vivente della zona
   if (!taxa.length) throw new Error(`Specie sconosciuta per GBIF: ${filtri.specie}`);
   for (const t of taxa) p.append('taxonKey', String(t));
@@ -147,5 +145,5 @@ export function interpretaGbif(json) {
 const ICONA_FAMIGLIA = { Phoenicopteridae: 'fenicottero', Erinaceidae: 'riccio', Mustelidae: 'tasso', Canidae: 'volpe', Cervidae: 'cervo', Suidae: 'cinghiale', Felidae: 'gatto_selvatico', Ciconiidae: 'cicogna_nera' };
 const ICONA_ORDINE = { Accipitriformes: 'aquila_reale', Falconiformes: 'falco_grillaio', Strigiformes: 'gufo_reale' };
 export function iconaPerOsservazione(o) {
-  return o.animale ?? ICONA_FAMIGLIA[o.famiglia] ?? ICONA_ORDINE[o.ordine] ?? (o.classe === 'Aves' ? 'uccello' : 'mammifero');
+  return o.icona ?? o.animale ?? ICONA_FAMIGLIA[o.famiglia] ?? ICONA_ORDINE[o.ordine] ?? (o.classe === 'Aves' ? 'uccello' : 'mammifero');
 }

@@ -1,6 +1,7 @@
 // iNaturalist: heatmap e osservazioni. Dati © osservatori iNaturalist, licenze Creative Commons.
 // Per le specie protette iNaturalist sfuma la posizione in un quadrato di circa 20 km.
-import { TAXON_INATURALIST, ANIMALI } from './costanti.js';
+import { TAXON_INATURALIST, ANIMALI, CLASSI_FAUNA, CATEGORIE_RARE, ESCLUSI_DALLE_RARE } from './costanti.js';
+import { taxaDeiGruppi } from './gruppiFauna.js';
 
 export const API_INATURALIST = 'https://api.inaturalist.org/v1';
 
@@ -35,21 +36,29 @@ export const GRUPPI = {
   tutti: { nome: 'Tutti i gruppi', taxa: '' },
 };
 
-export const TAXA_NOTEVOLI_INAT = [
-  41573, 152870, 43094, 40268, 533971, 44167, 45933, 71385, 43791, // mammiferi
-  71261, 67570, 19350, // rapaci
-  4929, 4730, 23, 4255, 71361, 3727, // grandi uccelli d'acqua
-  20967, 2183, 2314, 2262, 17599, 71343, // colorati o insoliti
-];
+
+// Specie "rare" tra mammiferi e uccelli (vedi CATEGORIE_RARE)
+export function parametriRare(p) {
+  p.set('taxon_id', CLASSI_FAUNA.inat.join(','));
+  p.set('csi', CATEGORIE_RARE.join(','));
+  p.set('without_taxon_id', ESCLUSI_DALLE_RARE.inat.join(','));
+  return p;
+}
 
 export function parametriInat(filtri, oggi = new Date()) {
   const p = new URLSearchParams();
   if (filtri.gruppo) {
     // ricerca per gruppo (lungo i percorsi): nessun filtro di specie
     if (GRUPPI[filtri.gruppo]?.taxa) p.set('iconic_taxa', GRUPPI[filtri.gruppo].taxa);
-  } else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
-  // animali imperdibili: gli stessi gruppi di GBIF (TAXA_NOTEVOLI_GBIF), con gli id di iNaturalist
-  else if (filtri.specie === 'notevoli') p.set('taxon_id', TAXA_NOTEVOLI_INAT.join(','));
+  } else if (filtri.taxon?.inat) p.set('taxon_id', String(filtri.taxon.inat)); // una specie scelta in "Cosa vedere qui"
+  else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
+  // "Intorno a me": i gruppi scelti (rapaci, uccelli d'acqua, mammiferi); con solo "rare", le
+  // specie minacciate tra mammiferi e uccelli
+  else if (filtri.specie === 'notevoli') {
+    const ids = taxaDeiGruppi(filtri, 'inat');
+    if (ids.length) p.set('taxon_id', ids.join(','));
+    else parametriRare(p);
+  }
   else {
     const chiavi = filtri.specie === 'rare' ? SPECIE_RARE : [filtri.specie];
     const ids = chiavi.map((k) => TAXON_INATURALIST[k]?.id).filter(Boolean);
@@ -88,6 +97,29 @@ export function urlOsservazioni(riquadro, filtri, { perPagina = 30, pagina = 1, 
 const NOMI_IT = new Map(Object.entries(TAXON_INATURALIST).map(([k, t]) => [t.id, ANIMALI[k]]));
 const CHIAVI = new Map(Object.entries(TAXON_INATURALIST).map(([k, t]) => [t.id, k]));
 
+// Icona per una specie di iNaturalist: la sua, se è nella lista di Orme, oppure quella del gruppo
+const ICONA_TAXON = new Map([
+  [71261, 'aquila_reale'], // rapaci diurni
+  [67570, 'falco_grillaio'], // falchi
+  [19350, 'gufo_reale'], // gufi e civette
+  [4255, 'fenicottero'],
+  [4730, 'cicogna_nera'],
+  [43011, 'riccio'],
+  [41770, 'tasso'], // mustelidi
+  [42043, 'volpe'], // canidi
+  [42158, 'cervo'],
+  [42118, 'cinghiale'],
+  [41944, 'gatto_selvatico'],
+  [41636, 'orso'],
+  [42241, 'camoscio'], // bovidi
+]);
+export function iconaDaAntenati(taxon = {}) {
+  const antenati = [taxon.id, ...[...(taxon.ancestor_ids ?? [])].reverse()];
+  for (const id of antenati) if (CHIAVI.has(id)) return CHIAVI.get(id);
+  for (const id of antenati) if (ICONA_TAXON.has(id)) return ICONA_TAXON.get(id);
+  return taxon.iconic_taxon_name === 'Aves' ? 'uccello' : 'mammifero';
+}
+
 // Dalla risposta API agli elementi da mostrare (nessun nome di osservatore salvato)
 export function interpretaOsservazioni(json) {
   return (json?.results ?? []).map((o) => {
@@ -99,6 +131,10 @@ export function interpretaOsservazioni(json) {
     return {
       id: o.id,
       animale: antenati.map((id) => CHIAVI.get(id)).find(Boolean) ?? null,
+      // per le icone e il filtro delle mappe (come le osservazioni GBIF)
+      icona: iconaDaAntenati(t),
+      classe: t.iconic_taxon_name ?? null,
+      fonte: 'iNaturalist',
       specie: nomeIt ?? t.preferred_common_name ?? t.name ?? 'Specie non indicata',
       nomeScientifico: t.name ?? '',
       data: o.observed_on ?? null,

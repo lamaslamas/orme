@@ -93,25 +93,30 @@ describe('GBIF: osservazioni', () => {
   });
 });
 
-describe('GBIF: animali imperdibili', async () => {
-  const { parametriGbif, interpretaGbif, iconaPerOsservazione, TAXA_NOTEVOLI_GBIF } = await import('../src/lib/gbif.js');
-  const { parametriInat, TAXA_NOTEVOLI_INAT } = await import('../src/lib/inaturalist.js');
-  it('cerca solo i gruppi scelti; le minacciate a parte, tra tutti i mammiferi e uccelli', () => {
-    const notevoli = parametriGbif({ specie: 'notevoli' }).getAll('taxonKey');
-    expect(notevoli).toContain('1450'); // gufi e civette
-    expect(notevoli).not.toContain('359'); // non tutti i mammiferi (niente topi e ratti)
-    expect(notevoli).toHaveLength(TAXA_NOTEVOLI_GBIF.length);
-    const minacciate = parametriGbif({ specie: 'minacciate' });
-    expect(minacciate.getAll('taxonKey')).toEqual(['359', '212']);
-    expect(minacciate.getAll('iucnRedListCategory')).toEqual(['NT', 'VU', 'EN', 'CR']);
-    expect(parametriInat({ specie: 'notevoli' }).get('taxon_id')).toBe(TAXA_NOTEVOLI_INAT.join(','));
+describe('Fauna di Intorno a me: gruppi scelti', async () => {
+  const { parametriGbif, interpretaGbif, iconaPerOsservazione } = await import('../src/lib/gbif.js');
+  const { parametriInat, iconaDaAntenati } = await import('../src/lib/inaturalist.js');
+  it('cerca solo i gruppi scelti; con solo "Rare" le minacciate tra mammiferi e uccelli', () => {
+    const rapaci = parametriGbif({ specie: 'notevoli', gruppi: ['rapaci'] }).getAll('taxonKey');
+    expect(rapaci).toEqual(['7191147', '7191407', '1450']);
+    expect(parametriInat({ specie: 'notevoli', gruppi: ['rapaci', 'acqua'] }).get('taxon_id')).toBe('71261,67570,19350,4929,4730,23,4255,71361,3727');
+    const rare = parametriGbif({ specie: 'notevoli', gruppi: ['rare'] });
+    expect(rare.getAll('taxonKey')).toEqual(['359', '212']);
+    expect(rare.getAll('iucnRedListCategory')).toEqual(['VU', 'EN', 'CR']);
+    const rareInat = parametriInat({ specie: 'notevoli', gruppi: ['rare'] });
+    expect([rareInat.get('taxon_id'), rareInat.get('csi'), rareInat.get('without_taxon_id')]).toEqual(['40151,3', 'VU,EN,CR', '7251,2715']);
+  });
+  it('una specie scelta: per nome su GBIF, per id su iNaturalist', () => {
+    const taxon = { inat: 4255, scientifico: 'Phoenicopterus roseus' };
+    expect(parametriGbif({ specie: 'notevoli', taxon }).get('scientificName')).toBe('Phoenicopterus roseus');
+    expect(parametriInat({ specie: 'notevoli', taxon }).get('taxon_id')).toBe('4255');
   });
   it('sceglie l’icona più vicina per le specie fuori dalla lista', () => {
     const [o] = interpretaGbif({ results: [{ key: 1, class: 'Aves', order: 'Accipitriformes', family: 'Accipitridae', species: 'Buteo buteo', decimalLatitude: 40, decimalLongitude: 18 }] });
-    expect(o).toMatchObject({ animale: null, classe: 'Aves', nomeScientifico: 'Buteo buteo' });
     expect(iconaPerOsservazione(o)).toBe('aquila_reale');
-    expect(iconaPerOsservazione({ classe: 'Aves', famiglia: 'Upupidae' })).toBe('uccello');
     expect(iconaPerOsservazione({ classe: 'Mammalia', famiglia: 'Hystricidae' })).toBe('mammifero');
-    expect(iconaPerOsservazione({ animale: 'lupo' })).toBe('lupo');
+    expect(iconaDaAntenati({ id: 1, ancestor_ids: [3, 4929], iconic_taxon_name: 'Aves' })).toBe('uccello');
+    expect(iconaDaAntenati({ id: 2, ancestor_ids: [3, 71261] })).toBe('aquila_reale');
+    expect(iconaDaAntenati({ id: 42048 })).toBe('lupo');
   });
 });

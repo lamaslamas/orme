@@ -231,3 +231,34 @@ describe('Intorno a me: una sola richiesta', () => {
     expect(retiAreeProtette(json, COPERTINO, 10).map((p) => p.sentiero.id)).toEqual(['intorno-rete-r9']);
   });
 });
+
+describe('Intorno a me: cosa vedere qui', async () => {
+  const { ricercheSpecieDellaZona, specieDellaZona, percorsiDoveVisto } = await import('../src/lib/intorno.js');
+  it('una ricerca per i gruppi e una per le minacciate', () => {
+    const r = ricercheSpecieDellaZona(COPERTINO, 25, ['rapaci', 'rare']);
+    expect(r).toHaveLength(2);
+    expect(new URL(r[0]).searchParams.get('taxon_id')).toBe('71261,67570,19350');
+    expect(new URL(r[1]).searchParams.get('csi')).toBe('VU,EN,CR');
+    expect(ricercheSpecieDellaZona(COPERTINO, 25, [])).toEqual([]);
+  });
+  it('specie senza doppioni, dalla più osservata; foto solo con licenza libera', () => {
+    const taxon = (id, name, comune, licenza) => ({ id, name, preferred_common_name: comune, ancestor_ids: [3, 71261], iconic_taxon_name: 'Aves', default_photo: { square_url: `https://foto/${id}`, license_code: licenza } });
+    const s = specieDellaZona([
+      { results: [{ count: 88, taxon: taxon(1, 'Buteo buteo', 'poiana comune', 'cc-by-nc') }, { count: 229, taxon: taxon(2, 'Falco tinnunculus', 'gheppio', 'cc-by') }] },
+      { results: [{ count: 88, taxon: taxon(1, 'Buteo buteo', 'poiana comune', 'cc-by-nc') }] },
+    ]);
+    expect(s.map((x) => [x.nome, x.osservazioni])).toEqual([['Gheppio', 229], ['Poiana comune', 88]]);
+    expect(s[0].foto.url).toBe('https://foto/2');
+    expect(s[1].foto).toBeNull(); // licenza NC: si usa l'icona
+    expect(s[1].icona).toBe('aquila_reale');
+    // le rare (ultima risposta) vengono prima anche se meno osservate
+    const conRare = specieDellaZona([{ results: [{ count: 229, taxon: taxon(2, 'Falco tinnunculus', 'gheppio', 'cc-by') }] }, { results: [{ count: 5, taxon: taxon(3, 'Ichthyaetus audouinii', 'gabbiano corso', null) }] }], 8, { rare: [1] });
+    expect(conRare.map((x) => [x.nome, x.rara])).toEqual([['Gabbiano corso', true], ['Gheppio', false]]);
+  });
+  it('percorsi passati vicino alle osservazioni precise', () => {
+    const p = { sentiero: { id: 'a' }, traccia: { geojson: { type: 'MultiLineString', coordinates: [[[18.0, 40.0], [18.01, 40.0]]] } } };
+    expect(percorsiDoveVisto([p], [{ lat: 40.005, lon: 18.005 }]).map((x) => x.sentiero.id)).toEqual(['a']);
+    expect(percorsiDoveVisto([p], [{ lat: 40.05, lon: 18.005 }])).toEqual([]);
+    expect(percorsiDoveVisto([p], [{ lat: 40.001, lon: 18.005, sfumata: true }])).toEqual([]);
+  });
+});

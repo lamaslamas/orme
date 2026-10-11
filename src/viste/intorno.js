@@ -9,8 +9,10 @@ import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { queryPuntiParco, puntiDallaRisposta } from '../lib/puntiUtili.js';
 import { interpretaGbif } from '../lib/gbif.js';
-import { faunaDalleOsservazioni, animaliPossibili } from '../lib/faunaPercorso.js';
-import { ANIMALI } from '../lib/costanti.js';
+import { faunaDalleOsservazioni } from '../lib/faunaPercorso.js';
+import { GRUPPI_FAUNA, GRUPPI_FAUNA_PREDEFINITI } from '../lib/costanti.js';
+import { interpretaOsservazioni } from '../lib/inaturalist.js';
+import { iconaAnimale } from './icone.js';
 import {
   RAGGI_INTORNO,
   RAGGIO_INTORNO,
@@ -26,7 +28,10 @@ import {
   urlFaunaIntorno,
   PAGINE_GBIF_MAX,
   faunaDaRicalcolare,
-  animaliDellaZona,
+  ricercheSpecieDellaZona,
+  specieDellaZona,
+  urlOsservazioniSpecie,
+  percorsiDoveVisto,
   VERSIONE_RICERCA,
   retiAreeProtette,
 } from '../lib/intorno.js';
@@ -56,13 +61,33 @@ function posizioneAttuale() {
   });
 }
 
+const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
+function leggiGruppi() {
+  try {
+    const g = JSON.parse(localStorage.getItem(CHIAVE_GRUPPI) ?? 'null');
+    return Array.isArray(g) ? g.filter((x) => GRUPPI_FAUNA[x]) : [...GRUPPI_FAUNA_PREDEFINITI];
+  } catch {
+    return [...GRUPPI_FAUNA_PREDEFINITI];
+  }
+}
+function salvaGruppi(g) {
+  try {
+    localStorage.setItem(CHIAVE_GRUPPI, JSON.stringify(g));
+  } catch {
+    // memoria non disponibile: la scelta vale per questa visita
+  }
+}
+
 export async function vistaIntorno(app) {
   let zona = await leggiIntorno();
   let raggio = zona?.raggioKm ?? RAGGIO_INTORNO;
   let sceltaSullaMappa = false;
   let chiusa = false;
   let occupata = false;
-  let animaleScelto = '';
+  // "Cosa vedere qui": gruppi che mi interessano (sul telefono), specie scelta e dove è stata vista
+  let gruppi = leggiGruppi();
+  let scelta = null; // { inat, nome, scientifico }
+  let visteScelta = null; // id dei percorsi vicino alle osservazioni della specie scelta
 
   app.innerHTML = `
     <h1 class="titolo-pagina">Intorno a me</h1>
@@ -78,7 +103,14 @@ export async function vistaIntorno(app) {
       </div>
     </section>
     <div class="anteprima-mappa parco-mappa"><div id="mappaIntorno"></div><p class="avviso-mappa" id="avvisoIntorno" hidden>Tocca la mappa nel punto da cui vuoi partire</p></div>
-    <div class="animali-parco animali-intorno" role="group" aria-label="Animali della zona" hidden></div>
+    <section class="cosa-vedere" hidden>
+      <h2 class="titolo-sezione">Cosa vedere qui</h2>
+      <div class="gruppi-fauna" role="group" aria-label="Animali che ti interessano">${Object.entries(GRUPPI_FAUNA)
+        .map(([k, g]) => `<button type="button" class="chip-scorciatoia" data-gruppo="${k}">${escapeHtml(g.nome)}</button>`)
+        .join('')}</div>
+      <ul class="specie-zona"></ul>
+      <p class="tenue piccolo nota-specie">Tocca un animale: la mappa mostra dove è stato visto e la lista i percorsi lì vicino.</p>
+    </section>
     <a class="invito-meteo" href="#/domani?zona=intorno" hidden><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Dove vado domani?</b><span class="tenue piccolo">I percorsi della zona secondo il meteo e la durata</span></span></a>
     <h2 class="titolo-sezione">Percorsi</h2>
     ${htmlSelettoreAttivita({ titolo: false })}
@@ -99,8 +131,12 @@ export async function vistaIntorno(app) {
   // com'era, così le altre mappe non la ereditano
   const heatmapPrima = stato.leggi().livelli.heatmap;
   stato.imposta({ livelli: { heatmap: true } });
-  const heat = aggiungiHeatmap(mappa, { intorno: true });
-  const selettoreAnimali = app.querySelector('.animali-intorno');
+  const heat = aggiungiHeatmap(mappa, {
+    intorno: true,
+    personalizza: () => ({ gruppi, ...(scelta ? { taxon: { inat: scelta.inat, scientifico: scelta.scientifico } } : {}) }),
+  });
+  const cosaVedere = app.querySelector('.cosa-vedere');
+  const elencoSpecie = app.querySelector('.specie-zona');
   const invitoMeteo = app.querySelector('.invito-meteo');
   const livelloZona = L.layerGroup().addTo(mappa);
   const percorsi = L.layerGroup();
@@ -147,7 +183,7 @@ export async function vistaIntorno(app) {
     elenco = null;
     invitoMeteo.hidden = !zona;
     if (!zona) {
-      selettoreAnimali.hidden = true;
+      cosaVedere.hidden = true;
       contenitoreElenco.innerHTML = '<p class="vuoto">Scegli da dove partire: la tua posizione o un punto sulla mappa.</p>';
       disegnaPercorsi([]);
       return;
@@ -161,19 +197,9 @@ export async function vistaIntorno(app) {
     );
     const distanze = new Map(vicini.map((v) => [v.sentiero.id, v.distanzaM]));
     ultimi = vicini;
-    // gli animali della zona: toccandone uno restano i percorsi dove è stato osservato
-    const animali = animaliDellaZona(vicini.map((v) => v.sentiero));
-    if (animaleScelto && !animali.some((a) => a.animale === animaleScelto)) animaleScelto = '';
-    selettoreAnimali.hidden = !animali.length;
-    selettoreAnimali.innerHTML = animali
-      .map(
-        ({ animale, percorsi: n }) =>
-          `<button type="button" class="pillola ${animaleScelto === animale ? 'attiva' : ''}" data-animale="${animale}" aria-pressed="${animaleScelto === animale}" title="${n} ${n === 1 ? 'percorso' : 'percorsi'}">${escapeHtml(ANIMALI[animale] ?? animale)}</button>`,
-      )
-      .join('');
-    const mostrati = animaleScelto ? vicini.filter((v) => animaliPossibili(v.sentiero).includes(animaleScelto)) : vicini;
+    // con un animale scelto restano i percorsi passati vicino a dove è stato visto
+    const mostrati = visteScelta ? vicini.filter((v) => visteScelta.has(v.sentiero.id)) : vicini;
     if (!vicini.length) {
-      selettoreAnimali.hidden = true;
       contenitoreElenco.innerHTML = `<p class="vuoto">Nessun percorso segnato su OpenStreetMap entro ${zona.raggioKm} km.${
         zona.raggioKm < RAGGI_INTORNO.at(-1) ? ' Prova con una distanza maggiore.' : ''
       }</p>`;
@@ -190,8 +216,73 @@ export async function vistaIntorno(app) {
         // per i percorsi dei parchi anche il nome del parco
         nota: (p) => [testoDistanza(distanze.get(p.sentiero.id)), p.sentiero.parco !== ID_INTORNO ? parcoDa(p.sentiero.parco)?.nomeBreve : ''].filter(Boolean).join(' · '),
         alRisultato: disegnaPercorsi,
+        limita: scelta
+          ? { filtro: () => true, testo: (n) => `<b>${n}</b> ${n === 1 ? 'percorso' : 'percorsi'} vicino a dove è stato visto: ${escapeHtml(scelta.nome)} · <button type="button" class="link" data-azione="togli-specie">tutti</button>` }
+          : null,
       },
     );
+    if (scelta && !mostrati.length) contenitoreElenco.querySelector('.lista').innerHTML = `<li class="vuoto">Nessun percorso passa vicino a dove è stato visto: ${escapeHtml(scelta.nome)}. <button type="button" class="link" data-azione="togli-specie">Tutti i percorsi</button></li>`;
+  }
+
+  // "Cosa vedere qui": le specie più osservate nella zona, nei gruppi scelti
+  let richiestaSpecie = 0;
+  async function mostraSpecie() {
+    for (const b of app.querySelectorAll('[data-gruppo]')) {
+      const on = gruppi.includes(b.dataset.gruppo);
+      b.classList.toggle('attiva', on);
+      b.setAttribute('aria-pressed', String(on));
+    }
+    if (!zona) return;
+    cosaVedere.hidden = false;
+    const mia = ++richiestaSpecie;
+    const ricerche = ricercheSpecieDellaZona(zona.centro, zona.raggioKm, gruppi);
+    if (!ricerche.length) {
+      elencoSpecie.innerHTML = '<li class="tenue">Scegli almeno un gruppo di animali.</li>';
+      return;
+    }
+    elencoSpecie.innerHTML = '<li class="tenue">Cerco gli animali della zona…</li>';
+    let specie;
+    try {
+      const risposte = await Promise.all(ricerche.map(async (u) => (await fetch(u)).json()));
+      specie = specieDellaZona(risposte, undefined, { rare: gruppi.includes('rare') ? [risposte.length - 1] : [] });
+    } catch {
+      if (mia === richiestaSpecie) elencoSpecie.innerHTML = '<li class="tenue">Animali non disponibili ora (sei offline?).</li>';
+      return;
+    }
+    if (mia !== richiestaSpecie || chiusa) return;
+    elencoSpecie.innerHTML = specie.length
+      ? specie
+          .map(
+            (x) => `<li><button type="button" class="carta-specie-zona ${scelta?.inat === x.inat ? 'scelta' : ''}" data-taxon="${x.inat}" data-nome="${escapeHtml(x.nome)}" data-scientifico="${escapeHtml(x.scientifico)}" aria-pressed="${scelta?.inat === x.inat}" aria-label="${escapeHtml(`${x.nome}, ${x.osservazioni} osservazioni${x.rara ? ', specie rara' : ''}`)}" title="${escapeHtml(x.scientifico)}">
+              ${x.foto ? `<img src="${escapeHtml(x.foto.url)}" alt="" loading="lazy" />` : `<span class="specie-icona">${iconaAnimale(x.icona)}</span>`}
+              <b>${escapeHtml(x.nome)}</b>${x.rara ? '<span class="specie-rara">rara</span>' : ''}
+              <span class="tenue">${x.osservazioni} ${x.osservazioni === 1 ? 'osservazione' : 'osservazioni'}</span>
+            </button></li>`,
+          )
+          .join('')
+      : '<li class="tenue">Nessuna osservazione di questi animali nella zona.</li>';
+  }
+
+  async function scegliSpecie(x) {
+    scelta = scelta?.inat === x?.inat ? null : x;
+    visteScelta = null;
+    heat.ricarica();
+    if (scelta) {
+      // la mappa sulla zona e la fauna accesa: si vede subito dove è stato visto
+      if (!stato.leggi().livelli.heatmap) stato.imposta({ livelli: { heatmap: true } });
+      disegnaZona();
+      try {
+        const oss = interpretaOsservazioni(await (await fetch(urlOsservazioniSpecie(zona.centro, zona.raggioKm, scelta.inat))).json());
+        const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+        const percorsi = nelRaggio(tutti.map((s) => ({ sentiero: s, traccia: tracce.get(s.id) })), zona.centro, zona.raggioKm);
+        visteScelta = new Set(percorsiDoveVisto(percorsi, oss).map((p) => p.sentiero.id));
+      } catch {
+        visteScelta = null;
+      }
+    }
+    if (chiusa) return;
+    await mostraElenco();
+    mostraSpecie();
   }
 
   function scriviStato(testo) {
@@ -324,8 +415,13 @@ export async function vistaIntorno(app) {
       await salvaIntorno({ centro, raggioKm: raggio, versione: VERSIONE_RICERCA, percorsi: [...percorsiIntorno(json, centro, raggio, { esistenti }), ...reti] });
       if (chiusa) return;
       zona = await leggiIntorno();
+      // zona nuova: la specie scelta prima non vale più
+      scelta = null;
+      visteScelta = null;
+      heat.ricarica();
       disegnaZona();
       await mostraElenco();
+      mostraSpecie();
       scriviStato();
       await scaricaPunti(centro, raggio);
       completa();
@@ -356,9 +452,19 @@ export async function vistaIntorno(app) {
   app.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.animale) {
-      animaleScelto = animaleScelto === b.dataset.animale ? '' : b.dataset.animale;
+    if (b.dataset.taxon) {
+      scegliSpecie({ inat: Number(b.dataset.taxon), nome: b.dataset.nome, scientifico: b.dataset.scientifico });
+    } else if (b.dataset.azione === 'togli-specie') {
+      scegliSpecie(null);
+    } else if (b.dataset.gruppo) {
+      const g = b.dataset.gruppo;
+      gruppi = gruppi.includes(g) ? gruppi.filter((x) => x !== g) : [...gruppi, g];
+      salvaGruppi(gruppi);
+      scelta = null;
+      visteScelta = null;
+      heat.ricarica();
       mostraElenco();
+      mostraSpecie();
     } else if (b.dataset.raggio) {
       raggio = Number(b.dataset.raggio);
       disegnaRaggio();
@@ -383,6 +489,7 @@ export async function vistaIntorno(app) {
     disegnaZona();
   });
   await mostraElenco();
+  mostraSpecie();
   scriviStato();
   // zona scaricata con una ricerca più vecchia: si aggiorna da sola
   if (zona && zona.versione !== VERSIONE_RICERCA) scarica(zona.centro);

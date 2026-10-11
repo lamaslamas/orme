@@ -10,6 +10,11 @@ import { improntaTraccia } from './panorama.js';
 import { percorsiDaQui } from './daQui.js';
 import { animaliPossibili } from './faunaPercorso.js';
 import { urlOsservazioniGbif } from './gbif.js';
+import { API_INATURALIST, parametriInat, parametriRare, iconaDaAntenati } from './inaturalist.js';
+export { iconaDaAntenati };
+import { CLASSI_FAUNA, ANIMALI, TAXON_INATURALIST } from './costanti.js';
+import { taxaDeiGruppi, conMinacciate } from './gruppiFauna.js';
+import { distanzaDallaTracciaM } from './geo.js';
 import { ID_INTORNO, INTORNO } from '../datiParchi.js';
 
 export const RAGGI_INTORNO = [10, 25, 50];
@@ -259,4 +264,87 @@ export function retiAreeProtette(json, centro, km, { oggi = new Date().toISOStri
     });
   }
   return risultati;
+}
+
+// ---- "Cosa vedere qui": le specie più osservate nella zona, nei gruppi scelti (iNaturalist) ----
+export const SPECIE_IN_EVIDENZA = 8;
+const LICENZE_LIBERE = new Set(['cc0', 'cc-by', 'cc-by-sa']);
+
+// Specie con il numero di osservazioni verificate nel raggio; minacciate: le specie a rischio
+// tra mammiferi e uccelli (si cercano a parte e si uniscono)
+export function urlSpecieDellaZona(centro, km, gruppi, { minacciate = false } = {}) {
+  const p = new URLSearchParams();
+  const [lon, lat] = centro;
+  p.set('lat', lat.toFixed(4));
+  p.set('lng', lon.toFixed(4));
+  p.set('radius', String(km));
+  if (minacciate) parametriRare(p);
+  else p.set('taxon_id', taxaDeiGruppi({ gruppi }, 'inat').join(','));
+  p.set('quality_grade', 'research');
+  p.set('locale', 'it');
+  p.set('per_page', String(SPECIE_IN_EVIDENZA));
+  return `${API_INATURALIST}/observations/species_counts?${p}`;
+}
+// la ricerca delle rare, se c'è, è l'ultima
+export const ricercheSpecieDellaZona = (centro, km, gruppi) => [
+  ...(taxaDeiGruppi({ gruppi }, 'inat').length ? [urlSpecieDellaZona(centro, km, gruppi)] : []),
+  ...(conMinacciate({ gruppi }) ? [urlSpecieDellaZona(centro, km, gruppi, { minacciate: true })] : []),
+];
+
+const maiuscola = (t) => (t ? t.replace(/^./, (c) => c.toUpperCase()) : t);
+
+// Risposte di species_counts → [{ inat, nome, scientifico, osservazioni, foto, icona }], senza doppioni,
+// dalla più osservata. Foto solo con licenza libera (come le altre foto di Orme), altrimenti l'icona.
+// rare: quali risposte sono quelle delle specie rare (hanno un posto riservato in testa)
+export const POSTI_RARE = 3;
+export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [] } = {}) {
+  const perId = new Map();
+  const idRare = new Set(risposte.filter((_, i) => rare.includes(i)).flatMap((j) => (j?.results ?? []).map((r) => r.taxon?.id)));
+  for (const r of risposte.flatMap((j) => j?.results ?? [])) {
+    const t = r.taxon ?? {};
+    if (!t.id || perId.has(t.id)) continue;
+    const foto = t.default_photo;
+    const animale = Object.entries(TAXON_INATURALIST).find(([, x]) => x.id === t.id)?.[0];
+    perId.set(t.id, {
+      inat: t.id,
+      nome: animale ? ANIMALI[animale] : maiuscola(t.preferred_common_name) || t.name,
+      scientifico: t.name,
+      osservazioni: r.count ?? 0,
+      foto: foto && LICENZE_LIBERE.has(foto.license_code) ? { url: foto.square_url ?? foto.url, attribuzione: foto.attribution ?? '', licenza: foto.license_code } : null,
+      icona: iconaDaAntenati(t),
+      rara: idRare.has(t.id),
+    });
+  }
+  const perConteggio = (a, b) => b.osservazioni - a.osservazioni;
+  const tutte = [...perId.values()];
+  const inTesta = tutte.filter((x) => x.rara).sort(perConteggio).slice(0, POSTI_RARE);
+  return [...inTesta, ...tutte.filter((x) => !inTesta.includes(x)).sort(perConteggio)].slice(0, max);
+}
+
+// Osservazioni di una specie nella zona (per i percorsi dove è stata vista)
+export function urlOsservazioniSpecie(centro, km, inat) {
+  const p = parametriInat({ taxon: { inat }, soloVerificate: true });
+  const [lon, lat] = centro;
+  p.set('lat', lat.toFixed(4));
+  p.set('lng', lon.toFixed(4));
+  p.set('radius', String(km));
+  p.set('per_page', '200');
+  return `${API_INATURALIST}/observations?${p}`;
+}
+
+// Percorsi che passano entro raggioM da almeno un'osservazione (posizioni precise soltanto)
+export const RAGGIO_AVVISTAMENTO_M = 1000;
+export function percorsiDoveVisto(percorsi, osservazioni, raggioM = RAGGIO_AVVISTAMENTO_M) {
+  const punti = osservazioni.filter((o) => !o.sfumata && Number.isFinite(o.lat) && Number.isFinite(o.lon)).map((o) => [o.lon, o.lat]);
+  if (!punti.length) return [];
+  const m = raggioM / 111_000;
+  return percorsi.filter((p) => {
+    const g = p.traccia?.geojson;
+    if (!g?.coordinates?.length) return false;
+    // prima il riquadro della traccia (veloce), poi la distanza vera
+    let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const l of g.coordinates) for (const [x, y] of l) [o, s, e, n] = [Math.min(o, x), Math.min(s, y), Math.max(e, x), Math.max(n, y)];
+    const mLon = m / Math.cos((s * Math.PI) / 180);
+    return punti.some(([x, y]) => x >= o - mLon && x <= e + mLon && y >= s - m && y <= n + m && distanzaDallaTracciaM([x, y], g) <= raggioM);
+  });
 }

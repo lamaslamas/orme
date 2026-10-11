@@ -3,8 +3,9 @@
 // elenco delle osservazioni toccando una zona. La correzione per lo sforzo usa la griglia di iNaturalist.
 // Non usa mai i miei avvistamenti personali.
 import L from 'leaflet';
-import { ANIMALI, TAXON_GBIF } from '../lib/costanti.js';
+import { ANIMALI, TAXON_GBIF, ESCLUSI_DALLE_RARE } from '../lib/costanti.js';
 import { urlOsservazioniGbif, interpretaGbif, iconaPerOsservazione } from '../lib/gbif.js';
+import { conMinacciate, taxaDeiGruppi } from '../lib/gruppiFauna.js';
 import { stato } from '../stato.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
@@ -15,6 +16,8 @@ import {
   riquadroAttorno,
   urlTileGriglia,
   TUTTE_LE_SPECIE,
+  urlOsservazioni,
+  interpretaOsservazioni,
 } from '../lib/inaturalist.js';
 import { iconaAnimale } from './icone.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
@@ -59,7 +62,7 @@ const CLASSI = new Set(['Mammalia', 'Aves']);
 // Nome italiano delle specie fuori dalla lista (da iNaturalist, una volta sola per specie)
 const NOMI_IT = new Map();
 function nomeGruppo(g) {
-  return g.animale ? ANIMALI[g.animale] : NOMI_IT.get(g.scientifico) || g.nome || g.scientifico;
+  return g.animale ? ANIMALI[g.animale] : NOMI_IT.get(g.scientifico) || (g.nome !== g.scientifico ? g.nome : '') || g.scientifico;
 }
 async function cercaNomeItaliano(scientifico) {
   if (!scientifico || NOMI_IT.has(scientifico)) return NOMI_IT.get(scientifico);
@@ -84,8 +87,10 @@ function opzioniSpecie(scelta, intorno) {
 }
 
 // occupata() dice se un altro strumento (misura, nuovo avvistamento) sta usando i tocchi
-export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false } = {}) {
-  let filtri = filtriHeatmap(stato.leggi(), { intorno });
+// personalizza(): campi in più per i filtri (in Intorno a me: gruppi scelti, specie scelta)
+export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false, personalizza = () => ({}) } = {}) {
+  const calcolaFiltri = (st) => ({ ...filtriHeatmap(st, { intorno }), ...personalizza() });
+  let filtri = calcolaFiltri(stato.leggi());
   let richiestaZona = 0;
   let livello = null;
   let attiva = false;
@@ -220,6 +225,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       const specie = o.animale ?? o.nomeScientifico;
       const k = `${specie}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / 60)}|${Math.floor(p.y / 60)}`;
       const g = gruppi.get(k) ?? { animale: o.animale, scientifico: o.nomeScientifico, nome: o.specie, icona: iconaPerOsservazione(o), sfumata: o.sfumata, oss: [] };
+      // il nome italiano viene da iNaturalist (GBIF di solito ha solo quello scientifico)
+      if (o.fonte === 'iNaturalist' && o.specie) g.nome = o.specie;
       g.oss.push(o);
       gruppi.set(k, g);
     }
@@ -244,22 +251,32 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   }
 
   // osservazioni nel riquadro; con "animali imperdibili" anche i mammiferi e uccelli minacciati (IUCN)
+  // In Intorno a me anche iNaturalist direttamente: la heatmap è sua e su GBIF arrivano solo le
+  // osservazioni con licenza aperta (altrimenti in certe macchie non comparirebbe nessuna icona).
   async function cercaOsservazioni(riquadro, limite) {
-    const ricerche = [filtri, ...(filtri.specie === 'notevoli' ? [{ ...filtri, specie: 'minacciate' }] : [])];
-    const risposte = await Promise.all(
-      ricerche.map(async (f) => {
-        const r = await fetch(urlOsservazioniGbif(riquadro, f, { limite }));
-        if (!r.ok) throw new Error(`GBIF ha risposto ${r.status}`);
-        return r.json();
-      }),
-    );
+    const extra = filtri.specie === 'notevoli' && !filtri.taxon && conMinacciate(filtri) && taxaDeiGruppi(filtri, 'gbif').length;
+    const gbif = [filtri, ...(extra ? [{ ...filtri, specie: 'minacciate' }] : [])];
+    const inat = intorno ? [filtri, ...(extra ? [{ ...filtri, gruppi: ['rare'] }] : [])] : [];
+    const prendi = async (url, fonte) => {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`${fonte} ha risposto ${r.status}`);
+      return r.json();
+    };
+    const [rGbif, rInat] = await Promise.all([
+      Promise.all(gbif.map((f) => prendi(urlOsservazioniGbif(riquadro, f, { limite }), 'GBIF'))),
+      Promise.all(inat.map((f) => prendi(urlOsservazioni(riquadro, { ...f, soloVerificate: true }, { perPagina: Math.min(200, limite) }), 'iNaturalist'))),
+    ]);
     const viste = new Set();
-    const osservazioni = risposte
-      .flatMap((j) => interpretaGbif(j))
-      .filter((o) => !viste.has(o.id) && viste.add(o.id))
+    const osservazioni = [
+      ...rInat.flatMap((j) => interpretaOsservazioni(j)).map((o) => ({ ...o, id: `inat-${o.id}` })),
+      // da GBIF le altre fonti (eBird, Observation.org…): quelle di iNaturalist ci sono già
+      // (passeriformi e piccioni non sono in nessun gruppo: vengono solo dalle "rare" e restano fuori)
+      ...rGbif.flatMap((j) => interpretaGbif(j)).filter((o) => !intorno || (o.fonte !== 'iNaturalist' && !ESCLUSI_DALLE_RARE.ordini.includes(o.ordine))),
+    ]
+      .filter((o) => o.lat != null && !viste.has(o.id) && viste.add(o.id))
       .sort((a, b) => String(b.data).localeCompare(String(a.data)));
-    // il totale è approssimato: una specie minacciata può essere anche tra quelle degne di nota
-    return { totale: Math.max(...risposte.map((j) => j.count ?? 0)), osservazioni };
+    // il totale è approssimato (fonti diverse possono contare la stessa osservazione)
+    return { totale: Math.max(osservazioni.length, ...rGbif.map((j) => j.count ?? 0), ...rInat.map((j) => j.total_results ?? 0)), osservazioni };
   }
 
   async function aggiornaIcone() {
@@ -276,7 +293,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     try {
       // con "animali imperdibili" anche le specie fuori dalla lista di Orme
       const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300);
-      const oss = osservazioni.filter((o) => o.animale || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
+      const oss = osservazioni.filter((o) => o.animale || filtri.taxon || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
       if (mia !== richiestaIcone) return;
       icone.clearLayers();
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
@@ -362,7 +379,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
         <span><button type="button" class="info-heatmap" data-azione="info" aria-label="Come leggerla" title="Come leggerla">?</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
-        <select name="specie" aria-label="Specie">${opzioniSpecie(filtri.specie, intorno)}</select>
+        ${intorno ? '' : `<select name="specie" aria-label="Specie">${opzioniSpecie(filtri.specie, intorno)}</select>`}
         <select name="stagione" aria-label="Periodo dell'anno">${Object.entries(STAGIONI)
           .map(([k, s]) => `<option value="${k}" ${filtri.stagione === k ? 'selected' : ''}>${s.nome}</option>`)
           .join('')}</select>
@@ -407,7 +424,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
 
   // ogni cambio di animale o di filtri sostituisce subito la heatmap precedente
   const scollega = stato.ascolta((nuovo) => {
-    const prossimi = filtriHeatmap(nuovo, { intorno });
+    const prossimi = calcolaFiltri(nuovo);
     const cambiati = JSON.stringify(prossimi) !== JSON.stringify(filtri);
     if (nuovo.livelli.heatmap !== attiva) nuovo.livelli.heatmap ? accendi() : spegni();
     if (!cambiati) return;
@@ -521,6 +538,12 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
 
   return {
     attiva: () => attiva,
+    // dopo un cambio dei campi di personalizza(): heatmap e icone si ridisegnano
+    ricarica() {
+      filtri = calcolaFiltri(stato.leggi());
+      richiestaZona++;
+      if (attiva) disegnaLivello();
+    },
     rimuovi() {
       scollega();
       foglio.remove();

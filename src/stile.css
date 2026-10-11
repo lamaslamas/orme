@@ -1513,3 +1513,21 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .heat-conto { font-size: 0.75rem; color: var(--testo-tenue); white-space: nowrap; }
 .heat-conto:empty { display: none; }
 .pannello-heatmap.ridotto .heat-testa > .heat-conto { order: 1; gap: 0; }
+
+/* Intorno a me: "Cosa vedere qui" */
+.cosa-vedere { margin: 14px 0 4px; }
+.cosa-vedere .titolo-sezione { margin-bottom: 6px; }
+.gruppi-fauna { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.specie-zona { list-style: none; margin: 0; padding: 2px 0 6px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; }
+.specie-zona li { flex: none; scroll-snap-align: start; }
+.carta-specie-zona {
+  width: 112px; display: grid; justify-items: center; gap: 4px; padding: 8px 6px 10px; text-align: center;
+  border: 1px solid var(--bordo); border-radius: 14px; background: var(--scheda); font: inherit; font-size: 0.8rem; color: var(--testo); cursor: pointer;
+}
+.carta-specie-zona b { font-size: 0.85rem; line-height: 1.2; }
+.carta-specie-zona img, .carta-specie-zona .specie-icona { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+.carta-specie-zona .specie-icona { display: grid; place-items: center; background: #f1efe8; }
+.carta-specie-zona .specie-icona .icona-animale { width: 38px; height: 38px; }
+.carta-specie-zona.scelta { border-color: var(--verde); box-shadow: 0 0 0 2px var(--verde) inset; }
+.nota-specie { margin-top: 2px !important; }
+.specie-rara { font-size: 0.68rem; font-weight: 700; color: #993c1d; background: #faece7; border-radius: 999px; padding: 1px 7px; }
