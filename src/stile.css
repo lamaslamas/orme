@@ -1591,6 +1591,10 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 :root[data-scuro] .leaflet-container, :root[data-scuro] .mappa, :root[data-scuro] .parco-mappa { background: #1a2326; }
 :root[data-scuro] .leaflet-bar a, :root[data-scuro] .leaflet-bar a:hover { background: var(--scheda-piena); color: var(--testo); border-color: var(--bordo); }
 :root[data-scuro] .leaflet-popup-content-wrapper, :root[data-scuro] .leaflet-popup-tip { background: var(--scheda-piena); color: var(--testo); }
+/* barra in basso delle schede (Salva, Mappa, Esporta GPX…): su telefono segue il tema; da computer è già senza sfondo */
+@media (max-width: 1023.98px) {
+  :root[data-scuro] .barra-azioni { background: var(--vetro-forte); border-top: var(--bordo-vetro); }
+}
 :root[data-scuro] .leaflet-control-attribution { background: rgba(16, 23, 26, 0.75) !important; color: var(--testo-tenue); }
 :root[data-scuro] .leaflet-control-scale-line { background: rgba(16, 23, 26, 0.7); color: var(--testo); border-color: var(--testo-tenue); }
 :root[data-scuro] input, :root[data-scuro] select, :root[data-scuro] textarea { background: var(--scheda-piena); color: var(--testo); border-color: var(--bordo); }
