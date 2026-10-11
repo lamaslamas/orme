@@ -4,7 +4,9 @@
 // La libreria MapLibre si carica solo quando serve.
 import L from 'leaflet';
 
-const STILE = 'https://tiles.openfreemap.org/styles/liberty';
+// chiaro (liberty) o scuro (dark), secondo la modalità dell'app al momento di aprire la mappa
+const STILI = { chiaro: 'https://tiles.openfreemap.org/styles/liberty', scuro: 'https://tiles.openfreemap.org/styles/dark' };
+const stileAttuale = () => (document.documentElement.hasAttribute('data-scuro') ? STILI.scuro : STILI.chiaro);
 export const ATTR_VETTORIALE =
   '<a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, dati &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
 
@@ -16,9 +18,14 @@ function inItaliano(l) {
   return { ...l, layout: { ...l.layout, 'text-field': NOME_ITALIANO } };
 }
 
-let stiliInCorso = null;
+const stiliInCorso = new Map();
 function stili() {
-  stiliInCorso ??= fetch(STILE)
+  const url = stileAttuale();
+  if (!stiliInCorso.has(url)) stiliInCorso.set(url, scaricaStile(url));
+  return stiliInCorso.get(url);
+}
+function scaricaStile(url) {
+  return fetch(url)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`stile: risposta ${r.status}`))))
     .then((s) => ({
       base: { ...s, layers: s.layers.filter((l) => l.type !== 'symbol') },
@@ -26,10 +33,9 @@ function stili() {
       etichette: { ...s, layers: s.layers.filter((l) => l.type === 'symbol').map(inItaliano) },
     }))
     .catch((e) => {
-      stiliInCorso = null;
+      stiliInCorso.delete(url);
       throw e;
     });
-  return stiliInCorso;
 }
 
 let libreriaInCorso = null;

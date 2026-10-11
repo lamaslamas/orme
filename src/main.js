@@ -25,6 +25,7 @@ import { impostaBanner } from './viste/banner.js';
 import { preparaLibreria } from './viste/mappaVettoriale.js';
 import { collegaVisore } from './viste/visore.js';
 import { preparaInstallazione } from './viste/installa.js';
+import { preparaTema } from './viste/tema.js';
 import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi } from './lib/sezioni.js';
@@ -32,6 +33,7 @@ import { sezioneDi } from './lib/sezioni.js';
 const app = document.getElementById('app');
 collegaVisore();
 preparaInstallazione();
+preparaTema();
 // quando arriva una versione nuova dell'app (il service worker prende il controllo), la pagina si
 // ricarica una volta: altrimenti resterebbe la grafica vecchia fino alla prossima apertura
 if (navigator.serviceWorker?.controller) {

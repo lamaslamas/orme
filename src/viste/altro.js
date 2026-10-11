@@ -4,6 +4,7 @@ import { parcoDa } from '../datiParchi.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { escapeHtml } from '../lib/formato.js';
 import { collegaInstalla } from './installa.js';
+import { leggiTema, impostaTema } from './tema.js';
 
 export async function vistaAltro(app) {
   const archivio = await infoArchivio();
@@ -16,6 +17,20 @@ export async function vistaAltro(app) {
       <li><a href="#/nuovo"><b>Aggiungi un sentiero</b><span>Inserisci a mano un nuovo sentiero</span></a></li>
       <li><a href="#/giro-nuovo"><b>Nuovo giro</b><span>Combina più sentieri in un unico percorso</span></a></li>
     </ul>
+
+    <section class="riquadro aspetto">
+      <h2>Aspetto</h2>
+      <div class="segmenti" role="radiogroup" aria-label="Modalità chiara o scura">
+        ${[
+          ['auto', 'Automatico'],
+          ['chiaro', 'Chiaro'],
+          ['scuro', 'Scuro'],
+        ]
+          .map(([v, et]) => `<button type="button" role="radio" class="segmento" data-tema="${v}">${et}</button>`)
+          .join('')}
+      </div>
+      <p class="tenue piccolo">Automatico segue l'impostazione del telefono. Le mappe già aperte cambiano alla prossima apertura.</p>
+    </section>
 
     <section class="riquadro">
       <h2>Regole del Parco</h2>
@@ -49,5 +64,19 @@ export async function vistaAltro(app) {
       <p class="tenue piccolo">Icone degli animali: <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noopener">Fluent Emoji</a> © Microsoft, licenza MIT.</p>
     </section>
   `;
+  const segna = () => {
+    for (const b of app.querySelectorAll('[data-tema]')) {
+      const scelto = b.dataset.tema === leggiTema();
+      b.classList.toggle('attivo', scelto);
+      b.setAttribute('aria-checked', String(scelto));
+    }
+  };
+  app.querySelector('.aspetto').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tema]')?.dataset.tema;
+    if (!t) return;
+    impostaTema(t);
+    segna();
+  });
+  segna();
   return collegaInstalla(app);
 }
