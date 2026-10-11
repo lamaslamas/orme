@@ -129,3 +129,20 @@ export function noteDelPunto(p) {
   if (p.privato) note.push('accesso privato');
   return note;
 }
+
+// Acqua in tre categorie (più "potabile" quando OSM lo dice):
+// potabile · potabilità non indicata · da trattare (segnata non potabile) · stagionale (può seccarsi)
+export const CATEGORIE_ACQUA = {
+  potabile: { nome: 'potabile', plurale: 'potabili' },
+  non_indicata: { nome: 'potabilità non indicata', plurale: 'potabilità non indicata' },
+  da_trattare: { nome: 'da trattare', plurale: 'da trattare' },
+  stagionale: { nome: 'stagionale, può seccarsi', plurale: 'stagionali, possono seccarsi' },
+};
+export function categoriaAcqua(p) {
+  if (TIPI_PUNTO[p?.tipo]?.gruppo !== 'acqua') return null;
+  if (p.potabile === false) return 'da_trattare';
+  if (p.stagionale) return 'stagionale';
+  return p.potabile === true ? 'potabile' : 'non_indicata';
+}
+// Fonti su cui contare per il tratto senza acqua: potabili e con potabilità non indicata
+export const acquaSuCuiContare = (p) => ['potabile', 'non_indicata'].includes(categoriaAcqua(p));

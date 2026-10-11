@@ -3,7 +3,7 @@
 import L from 'leaflet';
 import { leggiPuntiIntorno } from '../db.js';
 import { escapeHtml } from '../lib/formato.js';
-import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
+import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 
 // da vicino le icone; da lontano pallini colorati (leggeri, su canvas) per avere il quadro d'insieme
@@ -202,19 +202,32 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
   return vicini;
 }
 
-// Riassunto per Pianifica: il tratto più lungo senza acqua e dove sono rifugi e bivacchi
+// Riassunto per Pianifica: acqua per categoria, il tratto più lungo senza acqua (su fonti potabili
+// o con potabilità non indicata, segnalando quando dipende da queste) e dove sono rifugi e bivacchi
 function htmlRiassuntoLungo(vicini, pezzi) {
   const totale = lunghezzaDeiPezzi(pezzi);
-  const acqua = vicini.filter(conAcqua);
+  const acqua = vicini.filter(acquaSuCuiContare);
   const senza = trattoPiuLungoSenza(acqua.map((p) => p.km), totale);
+  const soloPotabili = trattoPiuLungoSenza(vicini.filter((p) => categoriaAcqua(p) === 'potabile').map((p) => p.km), totale);
+  const conta = new Map();
+  for (const p of vicini) if (categoriaAcqua(p)) conta.set(categoriaAcqua(p), (conta.get(categoriaAcqua(p)) ?? 0) + 1);
+  const categorie = Object.entries(CATEGORIE_ACQUA)
+    .filter(([k]) => conta.get(k))
+    .map(([k, c]) => `${conta.get(k)} ${conta.get(k) === 1 ? c.nome : c.plurale}`)
+    .join(' · ');
   const notte = vicini.filter(perLaNotte);
   const righe = [
+    categorie ? `Acqua: ${escapeHtml(categorie)}` : '',
     acqua.length
-      ? `Tratto più lungo senza acqua: <b>${km1(senza.km)} km</b> <span class="tenue">(dal km ${km1(senza.da)} al km ${km1(senza.a)})</span>`
-      : `<b>Nessuna fonte d'acqua</b> lungo i ${km1(totale)} km: porta tutta l'acqua che serve`,
+      ? `Tratto più lungo senza acqua: <b>${km1(senza.km)} km</b> <span class="tenue">(dal km ${km1(senza.da)} al km ${km1(senza.a)})</span>${
+          soloPotabili.km - senza.km >= 0.1
+            ? `<br /><span class="tenue piccolo">Conta su fonti con potabilità non indicata: con sola acqua potabile sono ${km1(soloPotabili.km)} km.</span>`
+            : ''
+        }`
+      : `<b>Nessuna fonte d'acqua sicura</b> lungo i ${km1(totale)} km: porta tutta l'acqua che serve`,
     notte.length
       ? `Rifugi e bivacchi: ${notte.map((p) => `km ${km1(p.km)} <span class="tenue">(${escapeHtml(p.nome ?? TIPI_PUNTO[p.tipo].nome)})</span>`).join(', ')}`
       : 'Nessun rifugio o bivacco lungo il percorso',
-  ];
+  ].filter(Boolean);
   return `<ul class="riassunto-lungo">${righe.map((r) => `<li>${r}</li>`).join('')}</ul>`;
 }

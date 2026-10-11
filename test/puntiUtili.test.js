@@ -77,3 +77,19 @@ describe('punti utili (rifugi e acqua)', () => {
     expect(conAcqua({ tipo: 'fonte', potabile: false })).toBe(false);
   });
 });
+
+import { categoriaAcqua, acquaSuCuiContare } from '../src/lib/puntiUtili.js';
+describe('acqua in categorie', () => {
+  it('potabile, non indicata, da trattare, stagionale', () => {
+    expect(categoriaAcqua({ tipo: 'fontanella', potabile: true })).toBe('potabile');
+    expect(categoriaAcqua({ tipo: 'fonte' })).toBe('non_indicata');
+    expect(categoriaAcqua({ tipo: 'fonte', potabile: false })).toBe('da_trattare');
+    expect(categoriaAcqua({ tipo: 'fonte', stagionale: true })).toBe('stagionale');
+    expect(categoriaAcqua({ tipo: 'fonte', potabile: false, stagionale: true })).toBe('da_trattare');
+    expect(categoriaAcqua({ tipo: 'rifugio' })).toBeNull();
+  });
+  it('per il tratto senza acqua contano solo potabili e non indicate', () => {
+    const fonti = [{ tipo: 'fontanella', potabile: true }, { tipo: 'fonte' }, { tipo: 'fonte', potabile: false }, { tipo: 'fonte', stagionale: true }];
+    expect(fonti.map(acquaSuCuiContare)).toEqual([true, true, false, false]);
+  });
+});
