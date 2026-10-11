@@ -118,6 +118,11 @@ export async function vistaIntorno(app) {
     <h2 class="titolo-sezione">Percorsi</h2>
     ${htmlSelettoreAttivita({ titolo: false })}
     <div id="elenco"></div>
+    <section class="aree-protette" hidden>
+      <h2 class="titolo-sezione">Aree protette con sentieri non segnati</h2>
+      <p class="tenue piccolo">Sentieri e carrarecce disegnati su OpenStreetMap senza un percorso segnato: tocca un'area per vederli sulla mappa e scegliere tu il giro.</p>
+      <ul class="lista-aree"></ul>
+    </section>
     <p class="tenue piccolo nota-intorno">Percorsi, rifugi e acqua da OpenStreetMap (ODbL), più i percorsi dei parchi che passano nella zona. Dislivelli: Open-Meteo. Fauna: osservazioni GBIF. La tua posizione resta sul telefono.</p>
   `;
 
@@ -125,6 +130,10 @@ export async function vistaIntorno(app) {
   const avviso = app.querySelector('#avvisoIntorno');
   const bottoneAggiorna = app.querySelector('[data-azione="aggiorna"]');
   const contenitoreElenco = app.querySelector('#elenco');
+  const sezioneAree = app.querySelector('.aree-protette');
+  const listaAree = app.querySelector('.lista-aree');
+  let reteMostrata = null;
+  let reti = [];
   const scollegaAttivita = collegaSelettoreAttivita(app);
 
   const mappa = creaMappa(app.querySelector('#mappaIntorno'), { livelli: ['heatmap', 'percorsi', 'gps'], ricorda: 'intorno' });
@@ -200,11 +209,14 @@ export async function vistaIntorno(app) {
     }
     const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
     if (chiusa) return;
-    const vicini = nelRaggio(
+    const nellaZona = nelRaggio(
       tutti.map((s) => ({ sentiero: s, traccia: tracce.get(s.id) })),
       zona.centro,
       zona.raggioKm,
     );
+    // i percorsi segnati nella lista; le reti di sentieri non segnati delle aree protette a parte
+    const vicini = nellaZona.filter((v) => v.sentiero.tipoPercorso !== 'rete_sentieri');
+    mostraAreeProtette(nellaZona.filter((v) => v.sentiero.tipoPercorso === 'rete_sentieri'));
     const distanze = new Map(vicini.map((v) => [v.sentiero.id, v.distanzaM]));
     ultimi = vicini;
     // con un animale scelto restano i percorsi passati vicino a dove è stato visto
@@ -232,6 +244,34 @@ export async function vistaIntorno(app) {
       },
     );
     if (scelta && !mostrati.length) contenitoreElenco.querySelector('.lista').innerHTML = `<li class="vuoto">Nessun percorso passa vicino a dove è stato visto: ${escapeHtml(scelta.nome)}. <button type="button" class="link" data-azione="togli-specie">Tutti i percorsi</button></li>`;
+  }
+
+  function mostraAreeProtette(elenco) {
+    reti = elenco;
+    sezioneAree.hidden = !elenco.length;
+    listaAree.innerHTML = elenco
+      .map(
+        ({ sentiero: s, distanzaM }) => `<li><button type="button" class="carta-area ${reteMostrata === s.id ? 'scelta' : ''}" data-rete="${escapeHtml(s.id)}" aria-pressed="${reteMostrata === s.id}">
+          <b>${escapeHtml(s.nome.replace(/^Sentieri · /, ''))}</b>
+          <span class="tenue">${String(s.lunghezzaKm ?? '').replace('.', ',')} km di sentieri · ${escapeHtml(testoDistanza(distanzaM))}</span>
+        </button></li>`,
+      )
+      .join('');
+  }
+
+  // un'area toccata: i suoi sentieri sulla mappa (tratteggio marrone), inquadrati
+  const livelloRete = L.layerGroup().addTo(mappa);
+  function mostraRete(id) {
+    livelloRete.clearLayers();
+    reteMostrata = reteMostrata === id ? null : id;
+    const r = reti.find((x) => x.sentiero.id === reteMostrata);
+    if (r?.traccia?.geojson) {
+      const linee = r.traccia.geojson.coordinates.map((l) => l.map(([lon, lat]) => [lat, lon]));
+      const gruppo = L.polyline(linee, { color: '#8a5a2b', weight: 2.5, dashArray: '6 5', opacity: 0.95, interactive: false }).addTo(livelloRete);
+      mappa.fitBounds(gruppo.getBounds(), { padding: [20, 20] });
+      app.querySelector('#mappaIntorno').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    mostraAreeProtette(reti);
   }
 
   // "Cosa vedere qui": le specie più osservate nella zona, nei gruppi scelti
@@ -464,7 +504,9 @@ export async function vistaIntorno(app) {
   app.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.taxon) {
+    if (b.dataset.rete) {
+      mostraRete(b.dataset.rete);
+    } else if (b.dataset.taxon) {
       scegliSpecie({ inat: Number(b.dataset.taxon), nome: b.dataset.nome, scientifico: b.dataset.scientifico });
     } else if (b.dataset.azione === 'togli-specie') {
       scegliSpecie(null);

@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { stato } from '../stato.js';
 import { creaBaseVettoriale } from './mappaVettoriale.js';
 import { aggiungiPuntiUtili } from './puntiUtili.js';
+import { aggiungiNonSegnati } from './nonSegnati.js';
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
@@ -66,6 +67,7 @@ export const NOMI_LIVELLI = {
   rifugi: 'Rifugi e bivacchi',
   acqua: 'Acqua',
   sentieriOsm: 'Sentieri segnati',
+  nonSegnati: 'Sentieri non segnati',
   gps: 'Posizione GPS',
 };
 
@@ -219,8 +221,9 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   });
   // rifugi e acqua: in tutte le mappe con il pannello dei livelli, prima del GPS
   const conPunti = [...livelli.filter((k) => k !== 'gps'), 'rifugi', 'acqua', ...livelli.filter((k) => k === 'gps')];
-  aggiungiPannelloLivelli(mappa, ['sentieriOsm', ...conPunti]);
+  aggiungiPannelloLivelli(mappa, ['sentieriOsm', 'nonSegnati', ...conPunti]);
   aggiungiPuntiUtili(mappa);
+  aggiungiNonSegnati(mappa);
   return mappa;
 }
 

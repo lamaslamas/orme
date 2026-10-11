@@ -1616,3 +1616,17 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 @media (min-width: 1024px) { .foglio-percorso { display: none; } }
 .avviso-vuoto-mappa { top: auto; bottom: 64px; left: 50%; transform: translateX(-50%); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
 .avviso-vuoto-mappa[hidden] { display: none; }
+
+/* Sentieri non segnati: pulsante "Cerca sentieri qui" in cima alla mappa */
+.cerca-qui {
+  position: absolute; z-index: 820; top: 12px; left: 50%; transform: translateX(-50%);
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--bordo); background: var(--scheda-piena); color: var(--testo);
+  font: inherit; font-size: 0.85rem; font-weight: 700; box-shadow: var(--ombra); cursor: pointer; white-space: nowrap;
+}
+.cerca-qui:disabled { cursor: default; color: var(--testo-tenue); font-weight: 600; }
+.cerca-qui[hidden] { display: none; }
+.popup-non-segnato { display: grid; gap: 3px; min-width: 180px; }
+.aree-protette { margin-top: 18px; }
+.lista-aree { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.carta-area { width: 100%; display: grid; gap: 2px; text-align: left; padding: 10px 14px; border: 1px solid var(--bordo); border-left: 4px solid #8a5a2b; border-radius: 0 12px 12px 0; background: var(--scheda-piena); color: var(--testo); font: inherit; cursor: pointer; }
+.carta-area.scelta { box-shadow: 0 0 0 2px #8a5a2b inset; }
