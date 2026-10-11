@@ -12,7 +12,7 @@ import { caricaPunti } from './puntiUtili.js';
 export const AVVISO_MANCANTI = 'Dati su rifugi e acqua non scaricati per questa zona.';
 
 let confini = null;
-const caricaConfini = () =>
+export const caricaConfini = () =>
   (confini ??= fetch(`${import.meta.env.BASE_URL}dati/confini.json`)
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => d?.confini ?? {})

@@ -2,7 +2,8 @@
 // I punti scaricati dal robot coprono i parchi (dentro il confine) e la zona di "Intorno a me":
 // se il percorso esce da queste zone servono i punti della sua zona, chiesti a OpenStreetMap.
 import { puntoNelPoligono } from './confini.js';
-import { distanzaKm } from './geo.js';
+import { distanzaKm, distanzaDallaTracciaM } from './geo.js';
+import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH } from './durata.js';
 
 export const PASSO_COPERTURA_M = 500;
 export const MARGINE_RIQUADRO_M = 1000;
@@ -97,3 +98,70 @@ export function trattoPiuLungoSenza(kmPunti, totaleKm) {
 
 // "12,4"
 export const km1 = (x) => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',');
+
+// --- Percorsi su più giorni ---
+
+const SOGLIA_QUOTA_M = 10; // come per il dislivello: sotto questa variazione è rumore
+
+// Km e minuti progressivi a ogni punto della traccia, con il metodo CAI (src/lib/durata.js)
+// applicato ai valori progressivi: così l'ultimo punto dà la stessa durata della scheda.
+// Senza quote su tutti i punti il tempo è proporzionale ai km (4 km/h).
+export function profiloTempi(pezzi) {
+  const punti = (pezzi ?? []).flat();
+  const conQuote = punti.length > 1 && punti.every((p) => Number.isFinite(p[2]));
+  const km = [];
+  const min = [];
+  let fatti = 0;
+  let salita = 0;
+  let discesa = 0;
+  let rif = conQuote ? punti[0][2] : 0;
+  let i = 0;
+  for (const linea of pezzi ?? []) {
+    for (let j = 0; j < linea.length; j++, i++) {
+      if (j > 0) fatti += distanzaKm(linea[j - 1], linea[j]);
+      if (conQuote) {
+        const d = linea[j][2] - rif;
+        if (d >= SOGLIA_QUOTA_M) salita += d;
+        if (d <= -SOGLIA_QUOTA_M) discesa -= d;
+        if (Math.abs(d) >= SOGLIA_QUOTA_M) rif = linea[j][2];
+      }
+      const orePiano = fatti / VELOCITA_PIANO_KMH;
+      const oreDisl = conQuote ? salita / SALITA_MH + discesa / DISCESA_MH : 0;
+      km.push(fatti);
+      min.push((Math.max(orePiano, oreDisl) + Math.min(orePiano, oreDisl) / 2) * 60);
+    }
+  }
+  return { punti, km, min, conQuote };
+}
+
+// Dove si arriva dopo "minuti" di cammino: km e punto, interpolando tra due punti della traccia
+function alMinuto(serie, minuti) {
+  const { punti, km, min } = serie;
+  const i = min.findIndex((m) => m >= minuti);
+  if (i <= 0) return i === 0 ? { km: 0, punto: punti[0] } : null;
+  const f = (minuti - min[i - 1]) / (min[i] - min[i - 1] || 1);
+  const [a, b] = [punti[i - 1], punti[i]];
+  return { km: km[i - 1] + (km[i] - km[i - 1]) * f, punto: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f] };
+}
+
+const RESTO_MIN = 30; // meno di mezz'ora rimasta: si arriva in giornata
+
+// Fine di ogni giornata con "ore" di cammino al giorno (l'ultima giornata finisce all'arrivo)
+export function finiGiornata(serie, ore) {
+  const totale = serie.min.at(-1) ?? 0;
+  const fini = [];
+  for (let g = 1; g * ore * 60 < totale - RESTO_MIN; g++) fini.push({ giorno: g, minuti: g * ore * 60, ...alMinuto(serie, g * ore * 60) });
+  return fini;
+}
+
+// Rifugi e bivacchi per la notte vicino a un punto di fine giornata ({ km, punto }): entro raggioM
+// dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
+export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = 1000, finestraKm = 3, perLaNotte = () => true } = {}) {
+  const geojson = { type: 'MultiLineString', coordinates: pezzi };
+  const vicino = (finestraKm * 1000 + raggioM) / 1000; // in linea d'aria, per scartare subito i lontani
+  return punti
+    .filter((p) => perLaNotte(p) && distanzaKm([p.lon, p.lat], fine.punto) <= vicino)
+    .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi), distanzaM: Math.round(distanzaDallaTracciaM([p.lon, p.lat], geojson)) }))
+    .filter((p) => p.km != null && Math.abs(p.km - fine.km) <= finestraKm && p.distanzaM <= raggioM)
+    .sort((a, b) => Math.abs(a.km - fine.km) - Math.abs(b.km - fine.km));
+}

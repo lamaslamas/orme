@@ -7,6 +7,7 @@ export const REGOLA_GENERALE =
 export const PARCHI = [
   {
     id: 'pnalm',
+    nazionale: true, // regole nazionali sul pernottamento (Pianifica, più giorni)
     nome: "Parco Nazionale d'Abruzzo, Lazio e Molise",
     nomeBreve: 'PNALM',
     regioni: ['Abruzzo', 'Lazio', 'Molise'],
@@ -23,6 +24,7 @@ export const PARCHI = [
   },
   {
     id: 'foreste-casentinesi',
+    nazionale: true,
     nome: 'Parco Nazionale delle Foreste Casentinesi, Monte Falterona e Campigna',
     nomeBreve: 'Foreste Casentinesi',
     regioni: ['Toscana', 'Emilia-Romagna'],
@@ -39,6 +41,7 @@ export const PARCHI = [
   },
   {
     id: 'appennino-lucano',
+    nazionale: true,
     nome: "Parco Nazionale dell'Appennino Lucano – Val d'Agri – Lagonegrese",
     nomeBreve: 'Appennino Lucano',
     regioni: ['Basilicata'],
@@ -55,6 +58,7 @@ export const PARCHI = [
   },
   {
     id: 'pollino',
+    nazionale: true,
     nome: 'Parco Nazionale del Pollino',
     nomeBreve: 'Pollino',
     regioni: ['Basilicata', 'Calabria'],
@@ -91,6 +95,7 @@ export const PARCHI = [
   },
   {
     id: 'majella',
+    nazionale: true,
     nome: 'Parco Nazionale della Majella',
     nomeBreve: 'Majella',
     regioni: ['Abruzzo'],

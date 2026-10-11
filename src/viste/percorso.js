@@ -14,6 +14,7 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
+import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO } from './piuGiorni.js';
 import L from 'leaflet';
 
 export async function vistaPercorso(app, id) {
@@ -40,6 +41,7 @@ export async function vistaPercorso(app, id) {
       ${htmlProfiloPendenze(pezzi)}
       <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
       ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
+      ${pezzi.length && misure.durataMin > ORE_AL_GIORNO[0] * 60 ? htmlPiuGiorni() : ''}
       ${pezzi.length ? htmlNaturaPercorso() : ''}
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
       <section class="riquadro">
@@ -116,9 +118,12 @@ export async function vistaPercorso(app, id) {
   // fuori dai parchi e da "Intorno a me" i punti si scaricano per la zona del percorso
   const contenitorePunti = app.querySelector('#puntiLungo');
   contenitorePunti.innerHTML = '<section class="riquadro punti-percorso"><h2>Rifugi e acqua lungo il percorso</h2><p class="tenue">Cerco lungo il percorso…</p></section>';
-  puntiPerIlPercorso(p.id, pezzi).then(({ punti, avviso }) => {
+  const puntiDelPercorso = puntiPerIlPercorso(p.id, pezzi);
+  puntiDelPercorso.then(({ punti, avviso }) => {
     if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso, pezzi });
   });
+  // su più giorni: dove finisce ogni giornata e dove dormire
+  collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso);
   const mini = creaMappa(contenitore, { anteprima: true });
   const puntiNatura = L.layerGroup().addTo(mini);
   collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {
