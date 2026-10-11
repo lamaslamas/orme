@@ -12,17 +12,21 @@ import { ICONE } from './icone.js';
 // I filtri vivono nello stato condiviso: parco e animale sono gli stessi della
 // heatmap e restano scelti passando da una sezione all'altra.
 // In "Intorno a me" (una zona, non un parco) parco e animale dei parchi non valgono e non si toccano.
+// "Nel periodo attuale" in Intorno a me è acceso di base e si ricorda a parte (stagioneIntorno).
 export function leggiFiltri(parcoFisso = null) {
   const st = stato.leggi();
   const zona = parcoDa(parcoFisso)?.zona;
-  return { ...FILTRI_VUOTI, ...st.filtri, parco: parcoFisso ?? st.parco, animale: zona ? '' : st.specie };
+  const base = { ...FILTRI_VUOTI, ...st.filtri, parco: parcoFisso ?? st.parco, animale: zona ? '' : st.specie };
+  return zona ? { ...base, stagione: st.stagioneIntorno === 'no' ? '' : 'adesso' } : base;
 }
 
 function salvaFiltri(filtri) {
   const { parco, animale, ...altri } = filtri;
   const voci = Object.fromEntries(Object.keys(stato.leggi().filtri).map((k) => [k, altri[k] ?? '']));
-  if (parcoDa(parco)?.zona) stato.imposta({ filtri: voci });
-  else stato.imposta({ parco: parco ?? '', specie: animale ?? '', filtri: voci });
+  if (parcoDa(parco)?.zona) {
+    voci.stagione = stato.leggi().filtri.stagione ?? '';
+    stato.imposta({ filtri: voci, stagioneIntorno: filtri.stagione ? 'si' : 'no' });
+  } else stato.imposta({ parco: parco ?? '', specie: animale ?? '', filtri: voci });
 }
 
 // Animali da proporre: quelli del parco scelto, oppure di tutti i parchi
@@ -46,6 +50,12 @@ export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
         ['possibili', 'Con fauna (almeno possibili)'],
       ],
       breve: (v) => (v === 'frequenti' ? 'Ricchi di fauna' : 'Con fauna'),
+    },
+    {
+      chiave: 'stagione',
+      titolo: 'Periodo degli avvistamenti',
+      voci: [['adesso', 'Nel periodo attuale (questo mese e quelli accanto)']],
+      breve: () => 'Periodo attuale',
     },
     ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['tutti', 'Anche i sentieri da verificare']], breve: () => 'Anche da verificare' }] : []),
     ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),

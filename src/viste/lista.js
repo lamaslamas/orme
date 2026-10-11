@@ -56,7 +56,8 @@ const DIFFICOLTA_BREVE = { T: 'T · turistico', E: 'E · escursionistico', EE: '
 // Scheda di un percorso in lista: copertina (foto lungo il sentiero o disegno della traccia),
 // difficoltà e pulsante salva sopra; sotto nome, tre numeri con icona, fauna e poche etichette
 // nota: testo breve accanto al parco (es. la distanza in "Intorno a me")
-export function schedaInLista(s, traccia, mostraParco = true, compat = null, nota = '') {
+// stagione: fauna "nel periodo attuale" (dal filtro)
+export function schedaInLista(s, traccia, mostraParco = true, compat = null, nota = '', { stagione = false } = {}) {
   const m = misureSentiero(s, traccia);
   const tipo = s.accesso?.tipo || 'nessuno';
   const foto = copertina(s, traccia);
@@ -88,7 +89,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
           <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>
           ${parchi ? `<span class="carta-parco-nome">${escapeHtml(parchi)}</span>` : ''}
           ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
-          ${htmlFaunaBreve(s, { compatta: true })}
+          ${htmlFaunaBreve(s, { compatta: true, stagione })}
           ${etichette ? `<span class="chips">${etichette}</span>` : ''}
         </span>
       </a>
@@ -145,7 +146,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   let ultimoRisultato = [];
   let quanti = PAGINA;
   const htmlPagina = (da) => {
-    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '')).join('');
+    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '', { stagione: filtri.stagione === 'adesso' })).join('');
     const resto = ultimoRisultato.length - quanti;
     return pezzo + (resto > 0 ? `<li class="altri"><button type="button" class="bottone pieno-largo" data-azione="altri">Mostra altri ${Math.min(PAGINA, resto)} (ne restano ${resto})</button></li>` : '');
   };

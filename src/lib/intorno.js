@@ -148,6 +148,7 @@ export const urlFaunaIntorno = (centro, km, pagina = 0) =>
 export function faunaDaRicalcolare(s, geojson, oggi = new Date()) {
   const f = s.faunaInat;
   if (!f?.calcolato || f.impronta !== improntaTraccia(geojson).split('-')[1]) return true;
+  if ((f.specie ?? []).some((x) => !Array.isArray(x.perMese))) return true; // calcolata prima dei conteggi mensili
   return (oggi - new Date(f.calcolato)) / 86_400_000 >= 30;
 }
 

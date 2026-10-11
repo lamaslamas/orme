@@ -2,7 +2,7 @@ import { ANIMALI } from './costanti.js';
 import { PARCHI, ID_INTORNO } from '../datiParchi.js';
 import { animaliPossibili, possibilitaFauna } from './faunaPercorso.js';
 
-export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '' };
 
 export function normalizza(s) {
   return String(s ?? '')
@@ -25,7 +25,8 @@ export function filtraSentieri(sentieri, filtri) {
     if (filtri.difficolta === 'facili' ? !['T', 'E'].includes(s.difficolta) : filtri.difficolta && (s.difficolta || 'nessuna') !== filtri.difficolta) return false;
     // fauna: "frequenti" solo avvistamenti frequenti; "possibili" anche quelli possibili
     if (filtri.fauna) {
-      const livello = possibilitaFauna(s)?.livello;
+      // "nel periodo attuale": solo le osservazioni di questo mese e di quelli accanto
+      const livello = possibilitaFauna(s, new Date().getMonth() + 1, { stagione: filtri.stagione === 'adesso' })?.livello;
       if (filtri.fauna === 'frequenti' ? livello !== 'frequenti' : !['frequenti', 'possibili'].includes(livello)) return false;
     }
     if (filtri.bici && (s.bici?.consentita || 'da_verificare') !== filtri.bici) return false;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { faunaDalleOsservazioni, animaleDelTaxon, animaliPossibili, possibilitaFauna } from '../src/lib/faunaPercorso.js';
+import { faunaDalleOsservazioni, animaleDelTaxon, animaliPossibili, possibilitaFauna, mesiVicini, periodoMigliore } from '../src/lib/faunaPercorso.js';
 
 const traccia = { type: 'MultiLineString', coordinates: [[[13.8, 42], [13.82, 42]]] };
 const oss = (taxon, lat, lon, utente, { obscured = false, data = '2025-09-12', qualita = 'research' } = {}) => ({
@@ -25,10 +25,12 @@ describe('animali lungo il percorso da iNaturalist', () => {
       ],
       traccia,
     );
-    expect(r).toEqual([
+    expect(r).toMatchObject([
       { animale: 'cervo', livello: 'percorso', osservazioni: 3, persone: 2, mesi: 'set–ott' },
       { animale: 'orso', livello: 'zona', osservazioni: 3, persone: 3, mesi: 'set' },
     ]);
+    // conteggi mese per mese, per il filtro "nel periodo attuale"
+    expect(r[0].perMese[8] + r[0].perMese[9]).toBe(3);
   });
 
   it('gli animali del percorso uniscono associazioni e iNaturalist', () => {
@@ -80,5 +82,43 @@ describe('possibilità di vedere fauna', () => {
     const giugno = possibilitaFauna(s, 6);
     expect(giugno.specie).toEqual(['orso', 'lupo', 'cervo']);
     expect(giugno.nelPeriodo).toBe(true);
+  });
+});
+
+describe('fauna nel periodo attuale', () => {
+  const mesi = (m) => Array.from({ length: 12 }, (_, i) => m[i + 1] ?? 0);
+  // 10 osservazioni in estate, 2 a gennaio, su 4 km
+  const s = {
+    faunaInat: {
+      km: 4,
+      specie: [
+        { animale: 'cervo', livello: 'percorso', osservazioni: 10, mesi: 'giu–ago', perMese: mesi({ 6: 4, 7: 3, 8: 3 }) },
+        { animale: 'volpe', livello: 'percorso', osservazioni: 2, mesi: 'gen', perMese: mesi({ 1: 2 }) },
+      ],
+    },
+  };
+
+  it('il mese e quelli accanto, anche a cavallo dell\'anno', () => {
+    expect([...mesiVicini(1)].sort((a, b) => a - b)).toEqual([1, 2, 12]);
+    expect([...mesiVicini(12)].sort((a, b) => a - b)).toEqual([1, 11, 12]);
+  });
+
+  it('periodo migliore dai conteggi mensili', () => {
+    expect(periodoMigliore(s.faunaInat.specie)).toMatch(/giu|lug/);
+  });
+
+  it('con la stagione il giudizio conta solo i mesi vicini', () => {
+    expect(possibilitaFauna(s, 7).livello).toBe('frequenti');
+    expect(possibilitaFauna(s, 7, { stagione: true })).toMatchObject({ livello: 'frequenti', stagione: true });
+    const inverno = possibilitaFauna(s, 1, { stagione: true });
+    expect(inverno.livello).toBe('possibili');
+    expect(inverno.specie).toEqual(['volpe']);
+    expect(possibilitaFauna(s, 4, { stagione: true })).toBeNull();
+  });
+
+  it('dati senza conteggi mensili: valgono i mesi migliori', () => {
+    const vecchio = { faunaInat: { specie: [{ animale: 'cervo', livello: 'percorso', osservazioni: 20, mesi: 'giu' }] } };
+    expect(possibilitaFauna(vecchio, 7, { stagione: true })?.specie).toEqual(['cervo']);
+    expect(possibilitaFauna(vecchio, 2, { stagione: true })).toBeNull();
   });
 });

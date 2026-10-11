@@ -63,7 +63,8 @@ export function faunaDalleOsservazioni(risultati, geojson) {
     const livello = ok(a.percorso) ? 'percorso' : ok(a.zona) ? 'zona' : null;
     if (!livello) continue;
     const l = a[livello];
-    specie.push({ animale, livello, osservazioni: l.n, persone: l.persone.size, mesi: mesiMigliori(l.mesi) });
+    // perMese: osservazioni di ogni mese (gen…dic), per il giudizio "nel periodo attuale"
+    specie.push({ animale, livello, osservazioni: l.n, persone: l.persone.size, mesi: mesiMigliori(l.mesi), perMese: l.mesi });
   }
   return specie.sort((x, y) => (x.livello === y.livello ? y.osservazioni - x.osservazioni : x.livello === 'percorso' ? -1 : 1));
 }
@@ -142,10 +143,36 @@ export const DENSITA_RICCO = 1.5; // osservazioni per km
 export const MINIMO_RICCO = 8; // osservazioni in tutto lungo il percorso
 export const MINIMO_RICCO_SENZA_KM = 15; // se la lunghezza non si conosce
 
+// Il mese e quelli accanto (dicembre e febbraio per gennaio)
+export function mesiVicini(mese) {
+  return new Set([((mese + 10) % 12) + 1, mese, (mese % 12) + 1]);
+}
+
+// Osservazioni di una specie nei mesi scelti: dai conteggi mensili; se mancano (dati calcolati
+// prima), tutte se i mesi migliori cadono nel periodo, altrimenti nessuna
+function nelPeriodo(x, mesi) {
+  if (Array.isArray(x.perMese)) return [...mesi].reduce((n, m) => n + (x.perMese[m - 1] ?? 0), 0);
+  return [...mesiDaTesto(x.mesi)].some((m) => mesi.has(m)) ? x.osservazioni : 0;
+}
+
+// Periodo migliore per vedere fauna lungo il percorso ("mag–set"), dai conteggi mensili
+// delle specie lungo la traccia (o nella zona se lungo la traccia non ce ne sono)
+export function periodoMigliore(specie) {
+  const base = specie.some((x) => x.livello === 'percorso') ? specie.filter((x) => x.livello === 'percorso') : specie;
+  const conMesi = base.filter((x) => Array.isArray(x.perMese));
+  if (conMesi.length) return mesiMigliori(Array.from({ length: 12 }, (_, i) => conMesi.reduce((n, x) => n + (x.perMese[i] ?? 0), 0)));
+  return [...base].sort((a, b) => b.osservazioni - a.osservazioni)[0]?.mesi ?? '';
+}
+
 // km: lunghezza del percorso (di base quella salvata con la fauna o nel sentiero)
-export function possibilitaFauna(s, mese = null, { km = null } = {}) {
-  const inat = s?.faunaInat?.specie ?? [];
+// stagione: il giudizio conta solo le osservazioni del mese e di quelli accanto
+export function possibilitaFauna(s, mese = null, { km = null, stagione = false } = {}) {
+  const tutte = s?.faunaInat?.specie ?? [];
   const associazioni = s?.animali ?? [];
+  if (!tutte.length && !associazioni.length) return null;
+  const periodo = periodoMigliore(tutte);
+  const mesi = stagione && mese ? mesiVicini(mese) : null;
+  const inat = mesi ? tutte.map((x) => ({ ...x, osservazioni: nelPeriodo(x, mesi) })).filter((x) => x.osservazioni > 0) : tutte;
   if (!inat.length && !associazioni.length) return null;
   const lungo = inat.filter((x) => x.livello === 'percorso');
   const totale = lungo.reduce((n, x) => n + (x.osservazioni ?? 0), 0);
@@ -160,5 +187,5 @@ export function possibilitaFauna(s, mese = null, { km = null } = {}) {
     ...inat.map((x) => ({ animale: x.animale, peso: (x.livello === 'percorso' ? 2 : 1) + Math.min(x.osservazioni, 50) / 100, mese: nelMese(x) })),
   ].sort((a, b) => b.mese - a.mese || b.peso - a.peso);
   const specie = [...new Set(ordinate.map((x) => x.animale))].slice(0, 3);
-  return { livello, specie, nelPeriodo: ordinate.some((x) => x.mese) };
+  return { livello, specie, nelPeriodo: ordinate.some((x) => x.mese), periodo, stagione: Boolean(mesi) };
 }

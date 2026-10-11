@@ -152,6 +152,8 @@ describe('Intorno a me: fauna', () => {
     expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-10-01', impronta: 'altra' } }, g, new Date('2026-10-05'))).toBe(true);
     expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-10-01', impronta } }, g, new Date('2026-10-05'))).toBe(false);
     expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-08-01', impronta } }, g, new Date('2026-10-05'))).toBe(true);
+    // calcolata prima dei conteggi mese per mese
+    expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-10-01', impronta, specie: [{ animale: 'volpe', mesi: 'mag' }] } }, g, new Date('2026-10-05'))).toBe(true);
   });
 
   it('al massimo 6 animali, dai più diffusi', () => {

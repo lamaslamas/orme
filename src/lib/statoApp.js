@@ -5,7 +5,9 @@ export const STATO_INIZIALE = {
   attivita: 'trekking', // trekking | mtb | emtb
   parco: '',
   specie: '', // chiave dell'animale ('' = nessuno)
-  filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '' },
+  filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '' },
+  // "nel periodo attuale" in Intorno a me: acceso di base ('' = come di base, 'no' = spento)
+  stagioneIntorno: '',
   // insieme: specie mostrate quando non è scelto un animale ('rare' = la lista, 'notevoli' = gli
   // animali imperdibili); insiemeIntorno: la scelta in
   // "Intorno a me", l'unica sezione con gli imperdibili

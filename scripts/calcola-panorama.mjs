@@ -243,7 +243,9 @@ for (const p of archivio.percorsi) {
   const geometria = improntaTraccia(g).split('-')[1];
   const f = p.faunaInat;
   // si ricalcola se cambia la traccia o una volta al mese
-  if (!tutti && !soloFauna && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
+  // anche se mancano i conteggi mese per mese (dati calcolati prima del filtro "nel periodo attuale")
+  const senzaMesi = (f?.specie ?? []).some((x) => !Array.isArray(x.perMese));
+  if (!tutti && !soloFauna && !senzaMesi && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
   try {
     const tutteLeOss = (await Promise.all((p.parchi ?? [p.parco]).map(osservazioniDelParco))).flat();
     // con i km della traccia: il livello "Ricco di fauna" pesa le osservazioni sulla lunghezza
