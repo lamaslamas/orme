@@ -7,6 +7,7 @@ import { ID_INTORNO, parcoDa } from '../datiParchi.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { improntaTraccia } from '../lib/panorama.js';
+import { lunghezzaKm } from '../lib/geo.js';
 import { queryPuntiParco, puntiDallaRisposta } from '../lib/puntiUtili.js';
 import { interpretaGbif } from '../lib/gbif.js';
 import { faunaDalleOsservazioni } from '../lib/faunaPercorso.js';
@@ -448,7 +449,7 @@ export async function vistaIntorno(app) {
     const oggi = new Date().toISOString().slice(0, 10);
     for (const s of daFare) {
       const g = tracce.get(s.id).geojson;
-      await aggiornaCalcolati(s.id, { faunaInat: { specie: faunaDalleOsservazioni(osservazioni, g), calcolato: oggi, impronta: improntaTraccia(g).split('-')[1] } });
+      await aggiornaCalcolati(s.id, { faunaInat: { specie: faunaDalleOsservazioni(osservazioni, g), calcolato: oggi, impronta: improntaTraccia(g).split('-')[1], km: Math.round(lunghezzaKm(g) * 10) / 10 } });
     }
     if (chiusa) return;
     await mostraElenco();

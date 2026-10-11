@@ -16,6 +16,7 @@ import { faunaDalleOsservazioni, faunaDelParco } from '../src/lib/faunaPercorso.
 import { urlOsservazioniGbif, interpretaGbif } from '../src/lib/gbif.js';
 import { PARCHI } from '../src/datiParchi.js';
 import { profiloQuote } from '../src/lib/profiloQuote.js';
+import { lunghezzaKm } from '../src/lib/geo.js';
 import { existsSync } from 'node:fs';
 
 const FILE = 'public/dati/archivio.json';
@@ -245,7 +246,8 @@ for (const p of archivio.percorsi) {
   if (!tutti && !soloFauna && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
   try {
     const tutteLeOss = (await Promise.all((p.parchi ?? [p.parco]).map(osservazioniDelParco))).flat();
-    p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, impronta: geometria };
+    // con i km della traccia: il livello "Ricco di fauna" pesa le osservazioni sulla lunghezza
+    p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, impronta: geometria, km: Math.round(lunghezzaKm(g) * 10) / 10 };
     faune++;
   } catch (e) {
     console.warn(`  fauna ${p.id}: ${e.message}`);

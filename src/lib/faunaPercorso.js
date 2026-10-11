@@ -135,13 +135,24 @@ export const POSSIBILITA_FAUNA = {
   possibili: 'Fauna possibile',
   occasionali: 'Fauna nella zona',
 };
-export function possibilitaFauna(s, mese = null) {
+// "Ricco di fauna": osservazioni lungo il percorso pesate sui km (un sentiero di 26 km ne accumula
+// più di uno di 3 km), con un minimo assoluto. Le soglie di qualità per specie (3 osservazioni di
+// almeno 2 persone) sono già nel calcolo di faunaInat.
+export const DENSITA_RICCO = 1.5; // osservazioni per km
+export const MINIMO_RICCO = 8; // osservazioni in tutto lungo il percorso
+export const MINIMO_RICCO_SENZA_KM = 15; // se la lunghezza non si conosce
+
+// km: lunghezza del percorso (di base quella salvata con la fauna o nel sentiero)
+export function possibilitaFauna(s, mese = null, { km = null } = {}) {
   const inat = s?.faunaInat?.specie ?? [];
   const associazioni = s?.animali ?? [];
   if (!inat.length && !associazioni.length) return null;
   const lungo = inat.filter((x) => x.livello === 'percorso');
+  const totale = lungo.reduce((n, x) => n + (x.osservazioni ?? 0), 0);
+  const lunghezza = km ?? s.faunaInat?.km ?? (Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : null);
+  const ricco = lunghezza ? totale >= MINIMO_RICCO && totale / Math.max(lunghezza, 1) >= DENSITA_RICCO : totale >= MINIMO_RICCO_SENZA_KM;
   let livello = 'occasionali';
-  if (lungo.some((x) => x.osservazioni >= 10) || lungo.length >= 3 || (s.osservazione && associazioni.length)) livello = 'frequenti';
+  if (ricco || (s.osservazione && associazioni.length)) livello = 'frequenti';
   else if (lungo.length || associazioni.length || inat.some((x) => x.osservazioni >= 15)) livello = 'possibili';
   const nelMese = (x) => (mese ? mesiDaTesto(x.mesi).has(mese) : false);
   const ordinate = [

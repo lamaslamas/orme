@@ -53,8 +53,21 @@ describe('fauna del parco', () => {
 describe('possibilità di vedere fauna', () => {
   const sp = (animale, livello, osservazioni, mesi = '') => ({ animale, livello, osservazioni, mesi });
 
+  it('"ricco di fauna" pesa le osservazioni sui km, con un minimo assoluto', () => {
+    const lungo = (km, n) => ({ faunaInat: { km, specie: [sp('cervo', 'percorso', n)] } });
+    expect(possibilitaFauna(lungo(3, 9)).livello).toBe('frequenti'); // 3 per km
+    expect(possibilitaFauna(lungo(26, 20)).livello).toBe('possibili'); // 20 su 26 km: meno di 1 per km
+    expect(possibilitaFauna(lungo(2, 6)).livello).toBe('possibili'); // denso ma sotto il minimo di 8
+    // senza km: la lunghezza del sentiero, altrimenti un minimo più alto
+    expect(possibilitaFauna({ lunghezzaKm: 4, faunaInat: { specie: [sp('cervo', 'percorso', 9)] } }).livello).toBe('frequenti');
+    expect(possibilitaFauna({ faunaInat: { specie: [sp('cervo', 'percorso', 12)] } }).livello).toBe('possibili');
+    expect(possibilitaFauna({ faunaInat: { specie: [sp('cervo', 'percorso', 15)] } }).livello).toBe('frequenti');
+    // la lunghezza si può passare (es. dalla traccia)
+    expect(possibilitaFauna(lungo(26, 20), null, { km: 10 }).livello).toBe('frequenti');
+  });
+
   it('frequenti, possibili, occasionali', () => {
-    expect(possibilitaFauna({ faunaInat: { specie: [sp('cervo', 'percorso', 12)] } }).livello).toBe('frequenti');
+    expect(possibilitaFauna({ faunaInat: { km: 5, specie: [sp('cervo', 'percorso', 12)] } }).livello).toBe('frequenti');
     expect(possibilitaFauna({ faunaInat: { specie: [sp('cervo', 'percorso', 4)] } }).livello).toBe('possibili');
     expect(possibilitaFauna({ faunaInat: { specie: [sp('orso', 'zona', 5)] } }).livello).toBe('occasionali');
     expect(possibilitaFauna({ osservazione: true, animali: ['lupo'] }).livello).toBe('frequenti');
