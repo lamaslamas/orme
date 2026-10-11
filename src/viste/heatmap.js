@@ -238,11 +238,17 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     }));
   }
   function popupGruppo(g) {
+    // la foto (piccola) accanto a ogni osservazione che ne ha una: un tocco la apre a schermo
+    // pieno, con autore e licenza
+    const fotoDi = (o) =>
+      o.foto
+        ? `<button type="button" class="foto-oss" data-foto="${escapeHtml(JSON.stringify({ url: o.foto.url.replace(/\/(square|small)\./, '/medium.'), autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: nomeGruppo(g) }))}" aria-label="Apri la foto"><img src="${escapeHtml(o.foto.url)}" alt="" width="44" height="44" loading="lazy" /></button>`
+        : '';
     const righe = g.oss
       .slice(0, 5)
       .map(
         (o) =>
-          `<li>${o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata'} · ${escapeHtml(o.fonte)} · <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">apri ↗</a></li>`,
+          `<li>${fotoDi(o)}<span>${o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata'} · ${escapeHtml(o.fonte)} · <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">apri ↗</a></span></li>`,
       )
       .join('');
     return `<div class="popup-oss"><b>${escapeHtml(nomeGruppo(g))}</b>${g.animale ? '' : ` <i class="tenue">${escapeHtml(g.scientifico)}</i>`} · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}

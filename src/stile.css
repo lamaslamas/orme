@@ -1195,7 +1195,10 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 }
 .icona-osservazione.sfumata .spillo { border-style: dashed; background: rgba(241, 236, 255, 0.75); }
 .icona-osservazione.sfumata .spillo > span { opacity: 0.6; }
-.popup-oss ul { margin: 6px 0 0; padding-left: 16px; font-size: 0.85rem; }
+.popup-oss ul { margin: 6px 0 0; padding: 0; list-style: none; font-size: 0.85rem; display: grid; gap: 6px; }
+.popup-oss li { display: flex; align-items: center; gap: 8px; }
+.foto-oss { flex: none; padding: 0; border: none; background: none; cursor: zoom-in; border-radius: 8px; overflow: hidden; width: 44px; height: 44px; }
+.foto-oss img { width: 44px; height: 44px; object-fit: cover; display: block; }
 .popup-oss p { margin: 4px 0 0; }
 /* con il pulsante Fauna in alto a destra, il pannello dei livelli si apre sotto di esso */
 .leaflet-container:has(.heat-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
