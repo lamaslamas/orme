@@ -1,0 +1,154 @@
+// Su telefono: toccando un percorso sulla mappa si alza un foglio dal basso, sopra la mappa.
+// Ridotto: nome, numeri, fauna e Salva / Portami / Apri la scheda. Trascinato in su: anche foto,
+// difficoltà, avvertenze, rifugi e acqua, panorama. In giù (o un tocco sulla mappa) si chiude.
+import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { misureSentiero } from '../lib/riassunto.js';
+import { ACCESSI } from '../lib/costanti.js';
+import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
+import { puntiLungoIlPercorso, riassuntoPunti } from '../lib/puntiUtili.js';
+import { leggiSentiero, salvaSentiero } from '../db.js';
+import { htmlFaunaBreve } from './faunaBreve.js';
+import { copertina } from './daVedere.js';
+import { caricaPunti } from './puntiUtili.js';
+import { ICONE } from './icone.js';
+
+export const suTelefono = () => Boolean(globalThis.matchMedia?.('(max-width: 1023.98px)').matches);
+
+const DIFFICOLTA = { T: 'T · turistico', E: 'E · escursionistico', EE: 'EE · esperti', EEA: 'EEA · attrezzatura' };
+const SOGLIA_PX = 50; // trascinamento oltre il quale il foglio cambia altezza
+
+export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '' } = {}) {
+  const foglio = document.createElement('section');
+  foglio.className = 'foglio-percorso';
+  foglio.hidden = true;
+  foglio.setAttribute('aria-label', 'Percorso scelto');
+  document.body.appendChild(foglio);
+  let attuale = null; // { sentiero, traccia }
+
+  function altezza(aperto) {
+    foglio.classList.toggle('aperto', aperto);
+    foglio.querySelector('.foglio-maniglia-zona')?.setAttribute('aria-expanded', String(aperto));
+  }
+
+  function chiudi() {
+    if (foglio.hidden) return;
+    foglio.hidden = true;
+    altezza(false);
+    attuale = null;
+    allaChiusura();
+  }
+
+  async function dettagli(s, traccia) {
+    const el = foglio.querySelector('.foglio-dettagli');
+    const foto = copertina(s, traccia);
+    const tipo = s.accesso?.tipo || 'nessuno';
+    const etichette = [
+      s.difficolta ? `<span class="chip">${escapeHtml(DIFFICOLTA[s.difficolta] ?? s.difficolta)}</span>` : '',
+      tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${escapeHtml(ACCESSI[tipo])}</span>` : '',
+      s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : '',
+    ].join('');
+    el.innerHTML = `
+      ${foto ? `<img class="foglio-foto" src="${escapeHtml(foto.url)}" alt="" loading="lazy" />` : ''}
+      ${etichette ? `<div class="chips">${etichette}</div>` : ''}
+      <p class="foglio-righe"><span class="punti-foglio tenue">Rifugi e acqua: …</span>${
+        s.panorama ? `<span>${ICONE.sole}Panorama ${s.panorama.punteggio}/100</span>` : ''
+      }</p>`;
+    // rifugi e acqua lungo il percorso (dati già sul telefono)
+    const punti = await caricaPunti();
+    if (attuale?.sentiero.id !== s.id) return;
+    const vicini = punti && traccia?.geojson ? puntiLungoIlPercorso(punti, traccia.geojson) : [];
+    const testo = el.querySelector('.punti-foglio');
+    if (testo) testo.innerHTML = `${ICONE.goccia}${vicini.length ? escapeHtml(riassuntoPunti(vicini)) : 'Niente rifugi né acqua vicino'}`;
+  }
+
+  function mostra(s, traccia) {
+    attuale = { sentiero: s, traccia };
+    const m = misureSentiero(s, traccia);
+    const id = encodeURIComponent(s.id);
+    const punto = puntoDiPartenza(s, traccia);
+    const dati = [
+      m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
+      m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+      m.durataMin != null ? `<span>${ICONE.orologio}${m.durataStimata ? '~' : ''}${durata(m.durataMin)}</span>` : '',
+      nota(s) ? `<span>${escapeHtml(nota(s))}</span>` : '',
+    ].join('');
+    foglio.innerHTML = `
+      <button type="button" class="foglio-maniglia-zona" aria-label="Apri o riduci" aria-expanded="false"><span class="foglio-maniglia"></span></button>
+      <div class="foglio-corpo">
+        <p class="foglio-nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}<b>${escapeHtml(s.nome)}</b></p>
+        ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
+        ${htmlFaunaBreve(s, { compatta: true })}
+        <div class="foglio-dettagli"></div>
+        <div class="foglio-azioni">
+          <button type="button" class="bottone ${s.salvato ? 'salvato' : ''}" data-azione="salva" aria-pressed="${Boolean(s.salvato)}">${ICONE.segnalibro}<span>${s.salvato ? 'Salvato' : 'Salva'}</span></button>
+          ${punto ? `<button type="button" class="bottone" data-azione="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
+          <a class="bottone primario" href="#/sentiero/${id}">Apri la scheda</a>
+        </div>
+        ${
+          punto
+            ? `<div class="foglio-portami" hidden>
+          <a class="bottone" href="${linkGoogleMaps(punto, 'auto')}" target="_blank" rel="noopener">In auto</a>
+          <a class="bottone" href="${linkGoogleMaps(punto, 'piedi')}" target="_blank" rel="noopener">A piedi</a>
+          <a class="bottone testo" href="${linkGeo(punto)}">Altra app</a>
+        </div>`
+            : ''
+        }
+      </div>`;
+    foglio.hidden = false;
+    altezza(false);
+    dettagli(s, traccia);
+  }
+
+  foglio.addEventListener('click', async (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.classList.contains('foglio-maniglia-zona')) altezza(!foglio.classList.contains('aperto'));
+    else if (b.dataset.azione === 'portami') foglio.querySelector('.foglio-portami').hidden = !foglio.querySelector('.foglio-portami').hidden;
+    else if (b.dataset.azione === 'salva' && attuale) {
+      const s = await leggiSentiero(attuale.sentiero.id);
+      if (!s) return;
+      const salvato = s.salvato ? null : new Date().toISOString().slice(0, 10);
+      await salvaSentiero({ ...s, salvato });
+      attuale.sentiero = { ...attuale.sentiero, salvato };
+      b.classList.toggle('salvato', Boolean(salvato));
+      b.setAttribute('aria-pressed', String(Boolean(salvato)));
+      b.querySelector('span').textContent = salvato ? 'Salvato' : 'Salva';
+    }
+  });
+
+  // trascinamento verticale dalla parte alta del foglio: su = aperto, giù = ridotto o chiuso
+  let inizio = null;
+  foglio.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('.foglio-maniglia-zona, .foglio-nome')) return;
+    inizio = { y: e.clientY, aperto: foglio.classList.contains('aperto') };
+    foglio.setPointerCapture?.(e.pointerId);
+  });
+  foglio.addEventListener('pointermove', (e) => {
+    if (!inizio) return;
+    const dy = e.clientY - inizio.y;
+    foglio.style.transform = `translateY(${Math.max(inizio.aperto ? 0 : -40, dy)}px)`;
+  });
+  const fine = (e) => {
+    if (!inizio) return;
+    const dy = e.clientY - inizio.y;
+    foglio.style.transform = '';
+    if (dy < -SOGLIA_PX) altezza(true);
+    else if (dy > SOGLIA_PX) inizio.aperto ? altezza(false) : chiudi();
+    inizio = null;
+  };
+  foglio.addEventListener('pointerup', fine);
+  foglio.addEventListener('pointercancel', fine);
+
+  // un tocco su un punto vuoto della mappa chiude il foglio e serve solo a quello (la heatmap
+  // non apre le osservazioni); un tocco vicino a una traccia apre quella
+  mappa.foglioAppenaChiuso = () => Date.now() - chiusoAlle < 500;
+  let chiusoAlle = 0;
+  mappa.on('click', (e) => {
+    if (foglio.hidden || mappa.percorsoVicino?.(e.latlng)) return;
+    chiusoAlle = Date.now();
+    chiudi();
+  });
+  mappa.on('unload', () => foglio.remove());
+
+  return { mostra, chiudi, aperto: () => !foglio.hidden };
+}

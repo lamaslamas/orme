@@ -152,7 +152,14 @@ export async function vistaIntorno(app) {
 
   let elenco = null;
   let ultimi = [];
-  const toccabili = percorsiToccabili(mappa, { occupata: () => sceltaSullaMappa });
+  const toccabili = percorsiToccabili(mappa, {
+    occupata: () => sceltaSullaMappa,
+    // nel foglio del telefono anche la distanza da te
+    nota: (s) => {
+      const v = ultimi.find((x) => x.sentiero.id === s.id);
+      return v ? testoDistanza(v.distanzaM) : '';
+    },
+  });
   const disegnaPercorsi = (risultato) => {
     percorsi.clearLayers();
     for (const { sentiero: s, traccia } of risultato) {

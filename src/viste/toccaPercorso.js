@@ -8,6 +8,7 @@ import { disegnaTraccia } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
+import { creaFoglioPercorso, suTelefono } from './foglioPercorso.js';
 
 const TOLLERANZA_PX = 24;
 
@@ -30,8 +31,12 @@ export function riquadroSentiero(s, traccia) {
 
 // occupata(): true mentre uno strumento (misura, avvistamento…) usa i tocchi sulla mappa
 // inquadra: la traccia toccata viene inquadrata (mappa principale)
-export function percorsiToccabili(mappa, { occupata = () => false, inquadra = false, primaDiInquadrare = () => {}, dopoInquadrare = () => {} } = {}) {
+// nota(sentiero): testo in più nel foglio del telefono (es. la distanza in Intorno a me)
+export function percorsiToccabili(mappa, { occupata = () => false, inquadra = false, primaDiInquadrare = () => {}, dopoInquadrare = () => {}, nota = () => '' } = {}) {
   const selezione = L.layerGroup().addTo(mappa);
+  // su telefono il percorso toccato si apre nel foglio dal basso, su computer nel riquadro sulla mappa
+  let foglio = null;
+  const foglioPercorso = () => (foglio ??= creaFoglioPercorso(mappa, { allaChiusura: () => selezione.clearLayers(), nota }));
   // le aree toccabili stanno in un livello SVG sopra le tracce e i pallini di rifugi e acqua (su
   // canvas, che altrimenti prenderebbero il tocco): in SVG rispondono solo vicino alla linea
   if (!mappa.getPane('toccoPercorsi')) {
@@ -73,6 +78,17 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
         const rete = traccia.dettagli?.rete;
         const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6, ...(rete ? { frecce: false, estremi: false } : {}) }).addTo(selezione);
         let punto = e.latlng;
+        if (suTelefono()) {
+          foglioPercorso().mostra(sentiero, traccia);
+          // il percorso si vede tutto, sopra il foglio
+          primaDiInquadrare();
+          // in basso si lascia libera solo la parte di mappa coperta dal foglio (mappe a tutto schermo)
+          const r = mappa.getContainer().getBoundingClientRect();
+          const coperta = Math.max(30, Math.min(r.height * 0.6, r.bottom - (window.innerHeight - 240)));
+          mappa.fitBounds(evidenziata.getBounds(), { paddingTopLeft: [30, 50], paddingBottomRight: [30, coperta], maxZoom: 15, animate: false });
+          dopoInquadrare();
+          return;
+        }
         if (inquadra) {
           primaDiInquadrare();
           mappa.fitBounds(evidenziata.getBounds(), { paddingTopLeft: [40, 150], paddingBottomRight: [40, 30], maxZoom: 15, animate: false });

@@ -1587,3 +1587,30 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 :root[data-scuro] .difficolta-copertina.difficolta-EE { color: #ef9f27; }
 :root[data-scuro] .difficolta-copertina.difficolta-EEA { color: #f09595; }
 :root[data-scuro] .fauna-frequenti .icona, :root[data-scuro] .fauna-frequenti b { color: #97c459; }
+
+/* --- Foglio del percorso (telefono): dal basso, sopra la mappa e sopra la barra --- */
+.foglio-percorso {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); z-index: 1090;
+  max-height: 38vh; overflow: hidden; display: flex; flex-direction: column;
+  background: var(--scheda-piena); border-top: 1px solid var(--bordo); border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18); transition: max-height var(--morbido), transform var(--veloce);
+  touch-action: none;
+}
+.foglio-percorso.aperto { max-height: calc(100dvh - var(--altezza-barra) - 120px); }
+.foglio-percorso[hidden] { display: none; }
+.foglio-maniglia-zona { flex: none; display: grid; place-items: center; height: 22px; width: 100%; border: none; background: none; cursor: grab; }
+.foglio-maniglia-zona .foglio-maniglia { width: 40px; height: 4px; border-radius: 2px; background: var(--testo-tenue); opacity: 0.5; margin: 0; }
+.foglio-corpo { padding: 0 16px 14px; display: grid; gap: 8px; overflow-y: auto; touch-action: pan-y; }
+.foglio-nome { margin: 0; font-size: 1.02rem; line-height: 1.3; }
+.foglio-dettagli { display: none; gap: 8px; }
+.foglio-percorso.aperto .foglio-dettagli { display: grid; }
+.foglio-foto { width: 100%; height: 150px; object-fit: cover; border-radius: 14px; }
+.foglio-righe { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.85rem; }
+.foglio-righe span { display: inline-flex; align-items: center; gap: 5px; }
+.foglio-righe .icona { width: 15px; height: 15px; }
+.foglio-azioni { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; }
+.foglio-azioni .bottone { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 12px; text-decoration: none; white-space: nowrap; font-size: 0.9rem; }
+.foglio-azioni .bottone .icona { width: 17px; height: 17px; }
+.foglio-portami { display: flex; gap: 8px; flex-wrap: wrap; }
+.foglio-portami[hidden] { display: none; }
+@media (min-width: 1024px) { .foglio-percorso { display: none; } }

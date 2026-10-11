@@ -556,6 +556,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     // i tocchi sulle tracce aprono il loro riquadro, non l'elenco delle osservazioni
     if (e.originalEvent?.target?.classList?.contains('leaflet-interactive')) return;
     if (mappa.percorsoVicino?.(e.latlng)) return;
+    // il tocco che ha chiuso il foglio del percorso (telefono) serve solo a quello
+    if (mappa.foglioAppenaChiuso?.()) return;
     clearTimeout(attesaTocco);
     attesaTocco = setTimeout(() => mostraZona(e), 300);
   });
