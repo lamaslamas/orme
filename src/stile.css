@@ -1614,3 +1614,5 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .foglio-portami { display: flex; gap: 8px; flex-wrap: wrap; }
 .foglio-portami[hidden] { display: none; }
 @media (min-width: 1024px) { .foglio-percorso { display: none; } }
+.avviso-vuoto-mappa { top: auto; bottom: 64px; left: 50%; transform: translateX(-50%); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.avviso-vuoto-mappa[hidden] { display: none; }

@@ -35,7 +35,7 @@ export async function vistaParco(app, id) {
   app.innerHTML = `
     <a class="indietro" href="#/">‹ Parchi</a>
     <article class="pagina-parco">
-      <div class="anteprima-mappa parco-mappa"><div id="mappaParco"></div><p class="avviso-mappa" id="statoConfine">Carico il confine del parco…</p></div>
+      <div class="anteprima-mappa parco-mappa"><div id="mappaParco"></div><p class="avviso-mappa" id="statoConfine">Carico il confine del parco…</p><p class="avviso-mappa avviso-vuoto-mappa" id="nessunPercorso" hidden></p></div>
       <div class="animali-parco" role="group" aria-label="Animali del parco">
         ${parco.animali
           .map((a) => `<button type="button" class="pillola ${stato.leggi().specie === a ? 'attiva' : ''}" data-animale="${a}">${ANIMALI[a]}</button>`)
@@ -86,6 +86,7 @@ export async function vistaParco(app, id) {
       chiaveDisegnata = chiave;
       ultimoRisultato = risultato;
       disegnaPercorsi();
+      avvisoVuoto(risultato.length);
     },
     limita: {
       filtro: (p) => !seguiMappa || !mappa || Boolean(riquadri.get(p.sentiero.id)?.intersects(mappa.getBounds())),
@@ -94,6 +95,23 @@ export async function vistaParco(app, id) {
           ? `<b>${n}</b> nella zona inquadrata su ${totale} · <button type="button" class="link" data-azione="tutti-i-percorsi">mostra tutti</button>`
           : `${totale} ${totale === 1 ? 'percorso' : 'percorsi'}`,
     },
+  });
+  // nessun percorso con i filtri scelti (es. un animale mai visto lungo i sentieri del parco):
+  // la mappa vuota sembrerebbe un errore, quindi lo si dice e si offre di togliere il filtro
+  function avvisoVuoto(n) {
+    const el = app.querySelector('#nessunPercorso');
+    if (!el) return;
+    const specie = stato.leggi().specie;
+    el.hidden = n > 0 || !sentieri.length;
+    if (el.hidden) return;
+    el.innerHTML = specie
+      ? `Nessun percorso con osservazioni di ${escapeHtml((ANIMALI[specie] ?? specie).toLowerCase())} · <button type="button" class="link" data-azione="togli-animale">mostra tutti</button>`
+      : 'Nessun percorso con questi filtri · <button type="button" class="link" data-azione="togli-filtri">togli i filtri</button>';
+  }
+  app.querySelector('#nessunPercorso').addEventListener('click', (e) => {
+    const azione = e.target.closest('[data-azione]')?.dataset.azione;
+    if (azione === 'togli-animale') stato.imposta({ specie: '' });
+    if (azione === 'togli-filtri') elenco.azzera();
   });
   app.querySelector('#elenco').addEventListener('click', (e) => {
     if (!e.target.closest('[data-azione="tutti-i-percorsi"]')) return;
