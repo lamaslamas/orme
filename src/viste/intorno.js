@@ -559,6 +559,8 @@ export async function vistaIntorno(app) {
     true,
   );
 
+  // #app resta lo stesso fra le schermate: il listener si toglie uscendo
+  const ascoltoClic = new AbortController();
   app.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
@@ -604,10 +606,11 @@ export async function vistaIntorno(app) {
       modoMappa(!sceltaSullaMappa);
       app.querySelector('#mappaIntorno').scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else if (b.dataset.azione === 'aggiorna' && zona) scarica(zona.centro);
-  });
+  }, { signal: ascoltoClic.signal });
 
   disegnaRaggio();
   requestAnimationFrame(() => {
+    if (chiusa) return; // usciti prima del primo frame (scheda in secondo piano): la mappa non c'è più
     mappa.invalidateSize();
     disegnaZona();
   });
@@ -622,6 +625,7 @@ export async function vistaIntorno(app) {
 
   return () => {
     chiusa = true;
+    ascoltoClic.abort();
     elenco?.scollega();
     scollegaAttivita();
     fermaGps();

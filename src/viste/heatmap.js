@@ -94,6 +94,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   let richiestaZona = 0;
   let livello = null;
   let attiva = false;
+  // mappa tolta (uscendo dalla schermata): niente più livelli da aggiungere
+  let rimossa = false;
+  mappa.on('unload', () => (rimossa = true));
 
   mappa.vociLegenda?.push(() =>
     stato.leggi().livelli.heatmap
@@ -183,7 +186,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       if (mia === richiestaGriglia && testoGriglia()) testoGriglia().textContent = `Correzione non disponibile (${e.message}).`;
       return;
     }
-    if (mia !== richiestaGriglia || !attiva || !filtri.correggiSforzo) return;
+    if (rimossa || mia !== richiestaGriglia || !attiva || !filtri.correggiSforzo) return;
     griglia ??= L.layerGroup().addTo(mappa);
     griglia.clearLayers();
     for (const c of celle) {
@@ -325,7 +328,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       // con "animali imperdibili" anche le specie fuori dalla lista di Orme
       const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300, controlloIcone.signal);
       const oss = osservazioni.filter((o) => o.animale || filtri.taxon || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
-      if (mia !== richiestaIcone) return;
+      if (rimossa || mia !== richiestaIcone) return;
       icone.clearLayers();
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
       // le posizioni approssimate (specie protette, atlanti) a parte, sbiadite e tratteggiate
@@ -384,6 +387,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   mappa.vociLegenda?.push(() => (stato.leggi().livelli.heatmap && iconeInfo ? `<p class="voce-legenda tenue piccolo">Icone: ${escapeHtml(iconeInfo)}</p>` : ''));
 
   function disegnaLivello() {
+    if (rimossa) return;
     aggiornaIcone();
     livello?.remove();
     livello = null;
@@ -598,11 +602,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     attiva: () => attiva,
     // dopo un cambio dei campi di personalizza(): heatmap e icone si ridisegnano
     ricarica() {
+      if (rimossa) return;
       filtri = calcolaFiltri(stato.leggi());
       richiestaZona++;
       if (attiva) disegnaLivello();
     },
     rimuovi() {
+      rimossa = true;
       scollega();
       foglio.remove();
     },
