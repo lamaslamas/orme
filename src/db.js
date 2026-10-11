@@ -320,7 +320,8 @@ export const salvaPuntiIntorno = (punti) => scriviIn('meta', { chiave: 'puntiInt
 // --- Archivio pubblico ---
 
 // Unisce l'archivio scaricato con i miei dati: solo i campi che non ho modificato
-export async function sincronizzaArchivio(archivio) {
+// firma: ETag (o data) del file scaricato, per non riscaricarlo quando non è cambiato
+export async function sincronizzaArchivio(archivio, { firma = null } = {}) {
   controllaArchivio(archivio);
   const [miei, basi, tracce] = await Promise.all([tuttiDa('sentieri'), tuttiDa('archivio'), tuttiDa('tracce')]);
   const piano = pianoSincronizzazione(archivio, {
@@ -334,7 +335,7 @@ export async function sincronizzaArchivio(archivio) {
   for (const s of piano.sentieri) tx.objectStore('sentieri').put(completaSentiero({ ...s, creato: s.creato ?? adesso, modificato: adesso }));
   for (const t of piano.tracce) tx.objectStore('tracce').put({ ...t, salvata: adesso });
   for (const b of piano.basi) tx.objectStore('archivio').put(b);
-  tx.objectStore('meta').put({ chiave: 'archivio', aggiornato: archivio.aggiornato, sincronizzato: adesso });
+  tx.objectStore('meta').put({ chiave: 'archivio', aggiornato: archivio.aggiornato, sincronizzato: adesso, firma });
   await fine(tx);
   return { sentieri: piano.sentieri.length, tracce: piano.tracce.length };
 }

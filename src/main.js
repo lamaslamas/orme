@@ -1,7 +1,7 @@
 import '@fontsource-variable/manrope';
 import '@fontsource-variable/inter';
 import './stile.css';
-import { caricaDatiIniziali, sincronizzaArchivio } from './db.js';
+import { caricaDatiIniziali, sincronizzaArchivio, infoArchivio } from './db.js';
 import { vistaHome } from './viste/home.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
@@ -164,10 +164,15 @@ async function aggiornaArchivio() {
   const controllo = new AbortController();
   // l'archivio si scarica in background: anche su reti lente si aspetta fino a 30 secondi
   const limite = setTimeout(() => controllo.abort(), 30000);
+  const url = `${import.meta.env.BASE_URL}dati/archivio.json`;
   try {
-    const risposta = await fetch(`${import.meta.env.BASE_URL}dati/archivio.json`, { signal: controllo.signal });
+    // prima solo l'impronta del file (pochi byte): se è quella dell'ultima volta, niente da scaricare
+    const [info, testa] = await Promise.all([infoArchivio(), fetch(url, { method: 'HEAD', cache: 'no-store', signal: controllo.signal }).catch(() => null)]);
+    const firma = testa?.ok ? (testa.headers.get('etag') ?? testa.headers.get('last-modified')) : null;
+    if (firma && info?.firma === firma) return false;
+    const risposta = await fetch(url, { signal: controllo.signal });
     if (!risposta.ok) return false;
-    const esito = await sincronizzaArchivio(await risposta.json());
+    const esito = await sincronizzaArchivio(await risposta.json(), { firma });
     return esito.sentieri + esito.tracce > 0;
   } catch (e) {
     console.warn('Archivio non aggiornato', e);
@@ -182,9 +187,12 @@ caricaDatiIniziali()
   .then(() => {
     globalThis.__ormeFase = 'archivio';
     const download = aggiornaArchivio();
-    // al massimo 2,5 secondi di attesa; poi si mostra la pagina e si aggiorna quando arriva
+    // archivio già sul telefono: la pagina si mostra subito e si aggiorna se arriva qualcosa di nuovo;
+    // la prima volta si aspetta al massimo 2,5 secondi
     // (il download va incartato in un oggetto, altrimenti la gara lo aspetterebbe comunque)
-    return Promise.race([download.then(() => 'fatto'), new Promise((r) => setTimeout(() => r({ download }), 2500))]);
+    return infoArchivio()
+      .catch(() => null)
+      .then((info) => Promise.race([download.then(() => 'fatto'), new Promise((r) => setTimeout(() => r({ download }), info ? 0 : 2500))]));
   })
   .then((archivio) => {
     if (archivio !== 'fatto') archivio.download.then((cambiato) => cambiato && mostra());
