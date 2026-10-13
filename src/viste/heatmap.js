@@ -20,9 +20,8 @@ import {
   interpretaOsservazioni,
 } from '../lib/inaturalist.js';
 import { iconaAnimale, urlIconaAnimale } from './icone.js';
-import { SegnoSuTela, telaSegni, immagine } from './segniSuTela.js';
+import { SegnoSuTela, telaSegni, immagine, segnoPronto } from './segniSuTela.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
-import { cronometra } from '../lib/misura.js';
 
 const COLORI_CLASSI = { 0: '#f3f4f6', 1: '#c4b5fd', 2: '#7c6cf0', 3: '#3c9a2a', 4: '#e2d600' };
 const MASSIMO_TILE = 12;
@@ -210,12 +209,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     if (testoGriglia()) testoGriglia().textContent = `${valide} celle con dati sufficienti, ${celle.length - valide} con dati scarsi.`;
   }
 
-  let attesa = null;
-  mappa.on('moveend', () => {
-    if (!attiva || !filtri.correggiSforzo) return;
-    clearTimeout(attesa);
-    attesa = setTimeout(cronometra('fauna: griglia', disegnaGriglia), 600);
-  });
+  mappa.dopoIlMovimento('fauna: griglia', () => attiva && filtri.correggiSforzo && disegnaGriglia(), { priorita: 6 });
 
   // Da vicino: un'icona per ogni osservazione con posizione esatta (le sfumate delle specie
   // protette no: indicherebbero un punto falso). Toccando l'icona si vede l'animale; il tocco
@@ -226,7 +220,6 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   // richiesta in corso (si annulla se la mappa si sposta di nuovo) e zona già coperta dalle icone
   let controlloIcone = null;
   let coperto = null; // { limiti, zoom, chiave }
-  let attesaIcone = null;
   let iconeInfo = '';
   let contoIcone = null; // gruppi di icone nella zona inquadrata (null = non ancora cercati)
   function raggruppa(oss) {
@@ -255,7 +248,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   function disegnoSpillo(g, tela) {
     const url = urlIconaAnimale(g.icona);
     const n = g.oss.length;
-    return (ctx, x, y) => {
+    const spillo = (ctx, x, y, img) => {
       const cy = y - 22;
       ctx.save();
       ctx.beginPath();
@@ -273,7 +266,6 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       if (g.sfumata) ctx.setLineDash([4, 3]);
       ctx.stroke();
       ctx.setLineDash([]);
-      const img = immagine(url, tela);
       if (img) {
         ctx.globalAlpha = g.sfumata ? 0.6 : 1;
         ctx.drawImage(img, x - 9, cy - 9, 18, 18);
@@ -294,6 +286,12 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
         ctx.fillText(testo, x + w / 2, y - 34);
       }
       ctx.restore();
+    };
+    // immagine pronta (ombra compresa) appena l'icona dell'animale è caricata; prima, senza icona
+    return (ctx, x, y) => {
+      const img = immagine(url, tela);
+      if (!img) return spillo(ctx, x, y, null);
+      segnoPronto(`${url}|${g.sfumata ? 1 : 0}|${n}`, [70, 48], [20, 44], (c, ax, ay) => spillo(c, ax, ay, img))(ctx, x, y);
     };
   }
 
@@ -425,11 +423,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
             ? `${contoIcone} ${contoIcone === 1 ? 'animale' : 'animali'} qui`
             : 'nessun animale qui';
   }
-  const iconeMisurate = cronometra('fauna: icone', () => aggiornaIcone());
-  mappa.on('moveend', () => {
-    clearTimeout(attesaIcone);
-    attesaIcone = setTimeout(iconeMisurate, 500);
-  });
+  mappa.dopoIlMovimento('fauna: icone', () => aggiornaIcone(), { priorita: 3 });
   mappa.vociLegenda?.push(() => (stato.leggi().livelli.heatmap && iconeInfo ? `<p class="voce-legenda tenue piccolo">Icone: ${escapeHtml(iconeInfo)}</p>` : ''));
 
   function disegnaLivello() {

@@ -81,3 +81,22 @@ export function disegnaTracciati(ctx, parti, x, y, lato, colore) {
   }
   ctx.restore();
 }
+
+// Immagine pronta di un segno (con ombra, bordi, testo): si disegna una volta e poi si copia. Sul
+// telefono ridisegnare ombre sfocate a ogni movimento costava decine di millisecondi.
+// disegna(ctx, x, y): disegna il segno con il punto in (x, y); ancora: [x, y] del punto nell'immagine
+const pronti = new Map();
+export function segnoPronto(chiave, [larghezza, altezza], ancora, disegna) {
+  let c = pronti.get(chiave);
+  if (!c) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    c = document.createElement('canvas');
+    c.width = Math.ceil(larghezza * dpr);
+    c.height = Math.ceil(altezza * dpr);
+    const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
+    disegna(ctx, ancora[0], ancora[1]);
+    pronti.set(chiave, c);
+  }
+  return (ctx, x, y) => ctx.drawImage(c, x - ancora[0], y - ancora[1], larghezza, altezza);
+}
