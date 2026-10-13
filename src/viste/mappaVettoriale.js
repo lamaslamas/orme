@@ -30,6 +30,10 @@ function scaricaStile(url) {
     });
 }
 
+// Densità al massimo 2: sui telefoni con schermo a densità 3 o più MapLibre disegnerebbe più del
+// doppio dei pixel a ogni fotogramma, con una differenza appena visibile
+const DENSITA = () => Math.min(window.devicePixelRatio || 1, 2);
+
 let libreriaInCorso = null;
 // Scarica in anticipo libreria e stile (all'avvio, a riposo): la prima mappa compare già pronta
 export function preparaLibreria(variante = 'chiaro') {
@@ -47,7 +51,7 @@ export function preparaLibreria(variante = 'chiaro') {
 // non si può (offline, niente WebGL)
 export async function creaBaseVettoriale(variante = 'chiaro', { sentieri = true } = {}) {
   const { base } = await preparaLibreria(variante);
-  const livello = L.maplibreGL({ style: stileUnico(base, { scuro: variante === 'scuro', sentieri }), attributionControl: { customAttribution: ATTR_VETTORIALE } });
+  const livello = L.maplibreGL({ style: stileUnico(base, { scuro: variante === 'scuro', sentieri }), pixelRatio: DENSITA(), attributionControl: { customAttribution: ATTR_VETTORIALE } });
   livello.on('add', () => registraMappaGl('base', livello.getMaplibreMap?.()));
   return livello;
 }
@@ -63,7 +67,7 @@ export function mostraSentieri(gl, acceso) {
 // Livello Leaflet con tutti i sentieri, per qualunque base (anche quelle a immagini)
 export async function creaSentieriVettoriali(scuro = false) {
   const { base } = await preparaLibreria(scuro ? 'scuro' : 'chiaro');
-  const livello = L.maplibreGL({ style: stileSentieri(base.sources, scuro), pane: 'sentieriVettoriali', attributionControl: false, interactive: false });
+  const livello = L.maplibreGL({ style: stileSentieri(base.sources, scuro), pane: 'sentieriVettoriali', pixelRatio: DENSITA(), attributionControl: false, interactive: false });
   // un problema dello stile o delle tile non deve passare in silenzio
   livello.on('add', () => livello.getMaplibreMap?.()?.on('error', (e) => console.warn('Sentieri vettoriali', e.error?.message ?? e)));
   livello.on('add', () => registraMappaGl('sentieri', livello.getMaplibreMap?.()));
