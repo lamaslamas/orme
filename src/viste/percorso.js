@@ -14,10 +14,15 @@ import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO, quoteDisponibili } from './piuGiorni.js';
 import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { testoFonteQuote } from './quote.js';
+import { misureAR, misureScelte, eAnelloPezzi } from '../lib/andataRitorno.js';
+import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
 import L from 'leaflet';
 
-function htmlNumeri(misure, fonte) {
-  return `${numeriGrandi(misure)}
+// numeri in alto: lo stesso calcolo del blocco Andata e ritorno, secondo la scelta
+function htmlNumeri(misure, fonte, ar = null, modo = modoScelto()) {
+  const scelte = ar ? { ...misureScelte(ar, modo), durataStimata: true, conQuote: misure.conQuote } : misure;
+  const didascalia = ar ? `<p class="tenue piccolo nota-numeri">${ar.anello ? 'Giro ad anello' : modo === 'ar' ? 'Andata e ritorno' : 'Solo andata'} · metodo CAI</p>` : '';
+  return `${numeriGrandi(scelte)}${didascalia}
       ${
         !misure.conQuote
           ? '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'
@@ -36,7 +41,13 @@ export async function vistaPercorso(app, id) {
   const pezzi = percorsoSentiero(p.geojson).pezzi;
   // un solo calcolo per tutta la pagina: con le quote della traccia o, se salvate, di Open-Meteo
   const quote = quoteDisponibili(p, pezzi);
-  const misure = misureDeiPezzi(quote?.pezzi ?? pezzi);
+  let misure = misureDeiPezzi(quote?.pezzi ?? pezzi);
+  // andata e ritorno (o il giro, se è un anello) con il metodo CAI nei due sensi
+  const arDa = (m) => (pezzi.length ? misureAR({ km: Math.round(m.km * 10) / 10, salita: m.salita, discesa: m.discesa }, { anello: eAnelloPezzi(pezzi) }) : null);
+  let ar = arDa(misure);
+  let fonteQuote = quote?.fonte;
+  // "Su più giorni" se la camminata scelta supera la giornata più corta
+  const serveGiorni = (modo) => ar && misureScelte(ar, modo).durataMin > ORE_AL_GIORNO[0] * 60;
   const e = estremiTraccia(p.geojson);
   const idUrl = encodeURIComponent(p.id);
 
@@ -46,11 +57,12 @@ export async function vistaPercorso(app, id) {
       <a class="anteprima-mappa" href="#/percorso/${idUrl}/disegna" aria-label="Apri la mappa del percorso"><div id="miniMappa"></div></a>
       <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
       <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : 'Da file GPX'}</p>
-      <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte)}</div>
+      <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar)}</div>
+      ${ar ? htmlAndataRitorno(ar) : ''}
       ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
       <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
       ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
-      ${pezzi.length && misure.durataMin > ORE_AL_GIORNO[0] * 60 ? htmlPiuGiorni() : ''}
+      ${pezzi.length ? `<div id="contenitoreGiorni" ${serveGiorni(modoScelto()) ? '' : 'hidden'}>${htmlPiuGiorni()}</div>` : ''}
       ${pezzi.length ? htmlNaturaPercorso() : ''}
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
       <section class="riquadro">
@@ -131,11 +143,40 @@ export async function vistaPercorso(app, id) {
   puntiDelPercorso.then(({ punti, avviso }) => {
     if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso, pezzi });
   });
+  // andata e ritorno: la scelta cambia i numeri in alto e "Su più giorni"
+  const collegaAR = () => collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
+    ar,
+    partenza: e ? e.inizio : null,
+    alCambioModo: (modo) => {
+      app.querySelector('#numeriPercorso').innerHTML = htmlNumeri(misure, fonteQuote, ar, modo);
+      const giorni = app.querySelector('#contenitoreGiorni');
+      if (giorni) {
+        giorni.hidden = !serveGiorni(modo);
+        // le giornate calcolate prima valevano per l'altra scelta
+        giorni.querySelector('.giorni-risultato').innerHTML = '';
+        giorni.querySelectorAll('[data-ore]').forEach((b) => {
+          b.classList.remove('attiva');
+          b.setAttribute('aria-pressed', 'false');
+        });
+      }
+    },
+  });
+  collegaAR();
   // su più giorni: dove finisce ogni giornata e dove dormire
   collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso, {
+    modo: modoScelto,
     conQuote: (pq, fonte) => {
+      misure = misureDeiPezzi(pq);
+      ar = arDa(misure);
+      fonteQuote = fonte;
       const numeri = app.querySelector('#numeriPercorso');
-      if (numeri) numeri.innerHTML = htmlNumeri(misureDeiPezzi(pq), fonte);
+      if (numeri) numeri.innerHTML = htmlNumeri(misure, fonte, ar);
+      // anche il blocco Andata e ritorno, ora con le quote
+      const blocco = app.querySelector('.andata-ritorno');
+      if (blocco && ar) {
+        blocco.outerHTML = htmlAndataRitorno(ar);
+        collegaAR();
+      }
     },
   });
   const mini = creaMappa(contenitore, { anteprima: true });

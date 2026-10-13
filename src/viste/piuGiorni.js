@@ -5,7 +5,8 @@
 import { salvaPercorso, leggiPercorso } from '../db.js';
 import { quoteDeiPezzi, quoteDeiPunti, testoFonteQuote } from './quote.js';
 import { improntaTraccia } from '../lib/panorama.js';
-import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1, quotaPiuVicina, testoDislivelloRifugio } from '../lib/lungoIlPercorso.js';
+import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1, quotaPiuVicina, testoDislivelloRifugio, lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
+import { pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
 import { perLaNotte, TIPI_PUNTO } from '../lib/puntiUtili.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { escapeHtml, durata } from '../lib/formato.js';
@@ -77,7 +78,8 @@ async function conDislivello(rifugi, pq) {
 
 // punti: promessa di { punti, avviso }, gli stessi del riquadro "Rifugi e acqua"
 // conQuote(pezzi): chiamata quando arrivano le quote da Open-Meteo (per aggiornare i numeri in alto)
-export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = () => {} } = {}) {
+// modo(): 'andata' o 'ar' (Andata e ritorno: dopo l'andata la stessa traccia al contrario)
+export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = () => {}, modo = () => 'andata' } = {}) {
   if (!sezione) return;
   const risultato = sezione.querySelector('.giorni-risultato');
   let richiesta = 0;
@@ -101,8 +103,11 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
     const [{ pezzi: pq, fonte }, { punti: tutti, avviso }] = await Promise.all([quote, punti]);
     if (fonte === 'tinitaly' || fonte === 'open-meteo') conQuote(pq, fonte);
     if (mia !== richiesta || !risultato.isConnected) return;
-    const serie = profiloTempi(pq);
+    // con Andata e ritorno le giornate continuano sul ritorno; i rifugi di una giornata che finisce
+    // sul ritorno si cercano nel punto equivalente dell'andata
+    const serie = profiloTempi(pezziScelti(pq, modo()));
     const fini = finiGiornata(serie, ore);
+    const kmAndata = lunghezzaDeiPezzi(pq);
     if (!fini.length) {
       risultato.innerHTML = `<p>Si fa in una giornata: circa ${escapeHtml(durata(Math.round(serie.min.at(-1))))} di cammino.</p>`;
       return;
@@ -110,7 +115,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
     const giorni = await Promise.all(
       fini.map(async (f) => ({
         ...f,
-        rifugi: await conDislivello(rifugiPerLaNotte(tutti ?? [], pezzi, f, { perLaNotte }).slice(0, 4), pq),
+        rifugi: await conDislivello(rifugiPerLaNotte(tutti ?? [], pezzi, fineSullAndata(f, kmAndata), { perLaNotte }).slice(0, 4), pq),
         parco: await parcoNazionaleIn(f.punto),
       })),
     );
