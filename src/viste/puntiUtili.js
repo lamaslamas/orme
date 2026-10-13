@@ -5,6 +5,11 @@ import { leggiPuntiIntorno, leggiCellaPunti, salvaCellaPunti } from '../db.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { zoneCoperte } from './copertura.js';
+import { puntiDelRobot } from './puntiRobot.js';
+
+const senzaDoppioni = (punti) => [...new Map(punti.map((p) => [p.id, p])).values()];
+// da questo zoom i quadrati del robot (file piccoli); le celle da Overpass solo da zoom 13
+const ZOOM_ROBOT = 11;
 import { escapeHtml } from '../lib/formato.js';
 import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta, inCentroAbitato } from '../lib/puntiUtili.js';
 import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
@@ -149,13 +154,23 @@ export function aggiungiPuntiUtili(mappa) {
   // da OpenStreetMap (salvati sul telefono per 30 giorni). Una richiesta alla volta.
   let inCorso = false;
   async function caricaCelle() {
-    if (rimossa || inCorso || mappa.getZoom() < ZOOM_CELLE || !(accesi.rifugi || accesi.acqua)) return;
+    if (rimossa || inCorso || mappa.getZoom() < ZOOM_ROBOT || !(accesi.rifugi || accesi.acqua)) return;
     const b = mappa.getBounds();
-    const celle = celleNelRiquadro([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]);
-    if (!celle.length) return;
+    const vista = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
     inCorso = true;
     try {
-      const zone = await zoneCoperte(Boolean(dati));
+      // prima i quadrati preparati dal robot per tutta Italia
+      const robot = await puntiDelRobot(vista);
+      if (rimossa) return;
+      if (robot.punti.length) {
+        dati = senzaDoppioni([...(dati ?? []), ...robot.punti]);
+        aggiungi(robot.punti);
+        aggiorna();
+      }
+      // dove il robot non è ancora passato, da vicino: celle chieste a Overpass (riserva)
+      const celle = mappa.getZoom() >= ZOOM_CELLE ? celleNelRiquadro(vista) : [];
+      if (!celle.length) return;
+      const zone = [...(await zoneCoperte(Boolean(dati))), ...robot.coperti.map((bbox) => ({ bbox }))];
       for (const c of celle) {
         if (rimossa) return;
         const [s, o, n, e] = c.bbox;
@@ -173,7 +188,7 @@ export function aggiungiPuntiUtili(mappa) {
           }
         }
         if (salvata?.punti?.length) {
-          dati = [...(dati ?? []), ...salvata.punti];
+          dati = senzaDoppioni([...(dati ?? []), ...salvata.punti]);
           aggiungi(salvata.punti);
           aggiorna();
         }

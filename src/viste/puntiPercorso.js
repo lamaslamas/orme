@@ -2,6 +2,7 @@
 // Se esce dalle zone coperte si chiedono a OpenStreetMap quelli del suo riquadro, salvati sul telefono.
 import { leggiPuntiPercorso, salvaPuntiPercorso } from '../db.js';
 import { zoneCoperte } from './copertura.js';
+import { puntiDelRobot } from './puntiRobot.js';
 import { percorsoCoperto, riquadroDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { queryPuntiParco, puntiDallaRisposta } from '../lib/puntiUtili.js';
 import { interrogaOverpass } from '../lib/overpass.js';
@@ -12,9 +13,14 @@ export const AVVISO_MANCANTI = 'Dati su rifugi e acqua non scaricati per questa 
 
 // { punti, avviso }: punti null se non c'è nessun dato (offline)
 export async function puntiPerIlPercorso(id, pezzi) {
-  const base = await caricaPunti();
+  const parchi = await caricaPunti();
   const geojson = { type: 'MultiLineString', coordinates: pezzi };
-  if (percorsoCoperto(pezzi, await zoneCoperte(Boolean(base)))) return { punti: base, avviso: '' };
+  // i quadrati del robot (tutta Italia) per la zona del percorso
+  const robot = await puntiDelRobot(riquadroDeiPezzi(pezzi), { max: 16 });
+  // un punto dei parchi e dello stesso quadrato del robot: una volta sola
+  const base = parchi || robot.punti.length ? [...new Map([...(parchi ?? []), ...robot.punti].map((p) => [p.id, p])).values()] : null;
+  const zone = [...(await zoneCoperte(Boolean(parchi))), ...robot.coperti.map((bbox) => ({ bbox }))];
+  if (percorsoCoperto(pezzi, zone)) return { punti: base, avviso: '' };
   const impronta = improntaTraccia(geojson);
   const salvati = await leggiPuntiPercorso(id).catch(() => null);
   const unisci = (altri) => [...new Map([...(base ?? []), ...altri].map((p) => [p.id, p])).values()];

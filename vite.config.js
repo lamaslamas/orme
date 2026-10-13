@@ -59,6 +59,12 @@ export default defineConfig({
           cacheMappa('mappa-satellite', /^https:\/\/server\.arcgisonline\.com\//),
           // archivio pubblico: prima la rete, la copia salvata solo offline
           {
+            // rifugi e acqua di tutta Italia a quadrati: si tengono a lungo, si aggiornano in sottofondo
+            urlPattern: /\/dati\/punti\/.*\.json$/,
+            handler: 'StaleWhileRevalidate',
+            options: { cacheName: 'orme-punti-italia', expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 60 } },
+          },
+          {
             urlPattern: /\/dati\/.*\.json$/,
             handler: 'NetworkFirst',
             options: { cacheName: 'orme-archivio', networkTimeoutSeconds: 5, expiration: { maxEntries: 20 } },
