@@ -169,7 +169,11 @@ function collegaRicercaLuogo(modulo, mappa, sceltoParco) {
 }
 
 // Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
-const STILE_DISCRETO = { color: COLORI.sfondo, weight: 2, opacity: 0.5 };
+// I nostri percorsi (segnati, dall'archivio o dalla zona cercata): viola pieno con un bordo chiaro
+// (scuro sulle basi scure), così si distinguono dai sentieri non segnati e restano leggibili sopra
+// la heatmap. Con una ricerca o dei filtri prendono il colore dello stato (da fare / fatto).
+const STILE_PERCORSI = { color: COLORI.traccia, weight: 3, opacity: 0.9 };
+const coloreBordo = () => (['scura', 'satellite'].includes(stato.leggi().base) ? 'rgba(11,16,18,0.85)' : 'rgba(255,255,255,0.9)');
 
 // Riquadro di un parco, o di tutti i parchi
 export function limitiParco(idParco) {
@@ -408,7 +412,10 @@ export async function vistaMappaGenerale(app, idParco = null) {
     for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
       const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
       // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
-      const { linea, area } = toccabili.disegna(livello, sentiero, traccia, ricerca ? { color: colore, weight: 3.5, opacity: 0.85 } : STILE_DISCRETO, colore);
+      const stile = ricerca ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;
+      // bordo sotto la linea (stesso tracciato, più largo)
+      L.geoJSON(traccia.geojson, { style: { color: coloreBordo(), weight: stile.weight + 3, opacity: 0.85 }, interactive: false }).addTo(livello);
+      const { linea, area } = toccabili.disegna(livello, sentiero, traccia, stile, colore);
       aree.set(sentiero.id, area);
       limiti.extend(linea.getBounds());
     }
@@ -511,7 +518,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
   const bottoneZona = app.querySelector('#cercaZona');
   let zonaSalvata = await leggiIntorno();
   const aggiornaBottoneZona = () => {
-    if (testoZona) return;
+    // la mappa può essere già chiusa (si è passati a un'altra schermata)
+    if (testoZona || !bottoneZona.isConnected || !mappa._loaded) return;
     const c = mappa.getCenter();
     bottoneZona.hidden = !zonaDaCercare([c.lng, c.lat], mappa.getZoom(), { zona: zonaSalvata, parchi: PARCHI });
   };
@@ -534,6 +542,15 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // una zona scaricata prima ma senza dislivelli o fauna: si completa con calma
   if (zonaSalvata && !zonaCompletata) avviaCompletamento();
 
+  // cambiando mappa di base (chiara/scura) il bordo delle tracce cambia colore
+  let baseDisegnata = stato.leggi().base;
+  const scollegaBase = stato.ascolta((st) => {
+    if (st.base === baseDisegnata) return;
+    baseDisegnata = st.base;
+    restaQui = true;
+    disegna();
+  });
+
   const scollegaRicerca = collegaRicercaLuogo(app.querySelector('.cerca-luogo'), mappa, (parco) => {
     if (!parco) {
       // un luogo (non un parco): via il filtro del parco, si vede tutto quello che c'è lì
@@ -551,6 +568,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
 
   return () => {
     scollegaRicerca();
+    scollegaBase();
     fauna.chiudi();
     document.body.classList.remove('home-mappa', 'elenco-aperto');
     fermaGps();

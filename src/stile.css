@@ -1797,3 +1797,5 @@ body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 .ordina-elenco button svg { width: 16px; height: 16px; }
 .ordina-elenco button.attivo { background: var(--verde); border-color: transparent; color: #fff; }
 .nota-partenza { font-size: 0.82rem; font-weight: 700; color: var(--verde-testo); }
+/* pannello dei livelli sulla pagina iniziale: non scende sotto i pulsanti in basso */
+.mappa-home .pannello-livelli { max-height: calc(100% - 150px); overflow: auto; }

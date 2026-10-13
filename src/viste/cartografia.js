@@ -3,9 +3,8 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { stato } from '../stato.js';
-import { creaBaseVettoriale } from './mappaVettoriale.js';
+import { creaBaseVettoriale, creaSentieriVettoriali } from './mappaVettoriale.js';
 import { aggiungiPuntiUtili } from './puntiUtili.js';
-import { aggiungiNonSegnati } from './nonSegnati.js';
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
@@ -67,7 +66,7 @@ export const NOMI_LIVELLI = {
   rifugi: 'Rifugi e bivacchi',
   acqua: 'Acqua',
   sentieriOsm: 'Sentieri segnati',
-  nonSegnati: 'Sentieri non segnati',
+  tuttiSentieri: 'Tutti i sentieri (anche non segnati)',
   gps: 'Posizione GPS',
 };
 
@@ -104,6 +103,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   const sentieri = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
     maxZoom: 18,
     minZoom: 11,
+    // sopra la heatmap e i sentieri non segnati, sotto le nostre tracce
+    pane: 'sentieriSegnati',
     opacity: 0.55,
     attribution: '&copy; <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a> (CC-BY-SA)',
   });
@@ -113,6 +114,13 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   // canvas: molto più veloce con centinaia di tracce (i tocchi sulle linee funzionano lo stesso)
   // minZoom esplicito: senza, Leaflet prende quello dei livelli (Waymarked parte da 11) e impedisce di allontanarsi
   const mappa = L.map(contenitore, { ...ferma, preferCanvas: true, minZoom: 5, maxZoom: 19 }).setView(CENTRO_PREDEFINITO, 11);
+  // sentieri: tutti (vettoriali, non segnati compresi) e sopra quelli segnati (Waymarked); entrambi
+  // sopra la heatmap (350) e sotto le tracce (400), senza intercettare i tocchi
+  for (const [nome, z] of [['sentieriVettoriali', 360], ['sentieriSegnati', 365]]) {
+    mappa.createPane(nome);
+    mappa.getPane(nome).style.zIndex = z;
+    mappa.getPane(nome).style.pointerEvents = 'none';
+  }
   const vistaSalvata = ricorda && !anteprima ? leggiViste()[ricorda] : null;
   mappa.vistaRitrovata = Boolean(vistaSalvata);
   if (vistaSalvata) {
@@ -127,7 +135,9 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     // una scelta fatta fuori dalla mappa (es. una card della lista) la deve poter spostare subito
     mappa.sbloccaInquadrature = libera;
   }
-  if (ricorda && !anteprima) mappa.on('moveend', () => salvaVista(ricorda, mappa));
+  if (ricorda && !anteprima) mappa.on('moveend', () => !rimossaVista && salvaVista(ricorda, mappa));
+  let rimossaVista = false;
+  mappa.on('unload', () => (rimossaVista = true));
   // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi
   // (non toccabili), sopra ancora pin e riquadri
   mappa.createPane('etichette');
@@ -175,6 +185,26 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     etichette[k]?.addTo(mappa);
     mappa.getContainer().classList.toggle('nomi-sotto', !!BASI[k].nomiSotto);
     baseAttuale = k;
+    applicaTuttiISentieri();
+  }
+  // tutti i sentieri: colori chiari o scuri secondo la base; si creano alla prima richiesta
+  const tuttiISentieri = {};
+  let tuttiAccesi = false;
+  let tuttiMostrati = null;
+  async function applicaTuttiISentieri(acceso = tuttiAccesi) {
+    tuttiAccesi = acceso;
+    const scuro = ['scura', 'satellite'].includes(baseAttuale);
+    const voluto = acceso && !anteprima ? (scuro ? 'scuro' : 'chiaro') : null;
+    if (voluto === tuttiMostrati) return;
+    if (tuttiMostrati) tuttiISentieri[tuttiMostrati]?.then((l) => l?.remove());
+    tuttiMostrati = voluto;
+    if (!voluto) return;
+    tuttiISentieri[voluto] ??= creaSentieriVettoriali(voluto === 'scuro').catch((e) => {
+      console.warn('Sentieri vettoriali non disponibili', e);
+      return null;
+    });
+    const livello = await tuttiISentieri[voluto];
+    if (livello && tuttiMostrati === voluto && !rimossa) livello.addTo(mappa);
   }
   function applicaSentieri(visibili) {
     if (visibili) sentieri.addTo(mappa);
@@ -230,9 +260,9 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   }
   // rifugi e acqua: in tutte le mappe con il pannello dei livelli, prima del GPS
   const conPunti = [...livelli.filter((k) => k !== 'gps'), 'rifugi', 'acqua', ...livelli.filter((k) => k === 'gps')];
-  aggiungiPannelloLivelli(mappa, ['sentieriOsm', 'nonSegnati', ...conPunti]);
+  aggiungiPannelloLivelli(mappa, ['sentieriOsm', 'tuttiSentieri', ...conPunti]);
   aggiungiPuntiUtili(mappa);
-  aggiungiNonSegnati(mappa);
+  mappa.suLivello('tuttiSentieri', (acceso) => applicaTuttiISentieri(acceso));
   return mappa;
 }
 

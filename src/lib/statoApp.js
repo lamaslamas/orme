@@ -12,7 +12,7 @@ export const STATO_INIZIALE = {
   // animali imperdibili); insiemeIntorno: la scelta in
   // "Intorno a me", l'unica sezione con gli imperdibili
   heatmap: { insieme: 'rare', insiemeIntorno: 'notevoli', stagione: 'tutto', anni: 0, soloVerificate: true, correggiSforzo: false },
-  livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true, nonSegnati: false, distribuzione: true, panoramicita: false, rifugi: true, acqua: true },
+  livelli: { heatmap: false, percorsi: true, osservazione: true, confini: true, sentieriOsm: true, tuttiSentieri: true, distribuzione: true, panoramicita: false, rifugi: true, acqua: true },
   base: 'chiara', // chiara | scura | topo | curve | satellite
 };
 
