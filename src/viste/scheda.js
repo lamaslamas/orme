@@ -198,7 +198,7 @@ import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA } from '../lib/faunaPercorso.js';
-import { riassuntoPunti } from '../lib/puntiUtili.js';
+import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 
 // Righe di riassunto delle sezioni richiudibili
 function riassuntoFauna(s, traccia) {
@@ -501,7 +501,7 @@ export async function vistaScheda(app, id) {
   if (traccia) collegaTerreno(app, s, traccia);
   if (traccia)
     mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), traccia.geojson).then((vicini) =>
-      impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : 'Nessuno entro 300 m'),
+      impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : `Nessuno entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m`),
     );
   collegaSezioni(app);
   // foto e luoghi lungo il percorso: dal file a parte; se non c'è niente la sezione sparisce

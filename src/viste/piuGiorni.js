@@ -6,7 +6,7 @@ import { salvaPercorso, leggiPercorso } from '../db.js';
 import { aggiungiQuote } from '../lib/openMeteo.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1 } from '../lib/lungoIlPercorso.js';
-import { perLaNotte, TIPI_PUNTO } from '../lib/puntiUtili.js';
+import { perLaNotte, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
@@ -103,7 +103,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
         .map(
           (g) => `<li>
           <b>Fine giorno ${g.giorno}</b> · km ${km1(g.km)} <span class="tenue">(dopo ${escapeHtml(durata(Math.round(g.minuti)))})</span>
-          ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? 'Nessun rifugio o bivacco entro 1 km dalla traccia qui vicino.' : 'Dati su rifugi non disponibili.'}</p>`}
+          ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? `Nessun rifugio o bivacco entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia qui vicino.` : 'Dati su rifugi non disponibili.'}</p>`}
           ${g.parco ? `<p class="avviso-pernotto">${ICONE.avviso}<span>${escapeHtml(g.parco.nomeBreve)}: nei parchi nazionali campeggio e bivacco liberi sono in genere vietati. Verifica il regolamento del parco.</span></p>` : ''}
         </li>`,
         )

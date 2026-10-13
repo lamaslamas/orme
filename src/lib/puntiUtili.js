@@ -12,6 +12,10 @@ export const TIPI_PUNTO = {
   fontanella: { gruppo: 'acqua', nome: 'Fontanella', plurale: 'fontanelle' },
 };
 export const GRUPPI_PUNTI = { rifugi: 'Rifugi e bivacchi', acqua: 'Acqua' };
+// Una sola soglia in tutta l'app (schede, Pianifica, disegno, Su più giorni): rifugi e acqua "lungo
+// il percorso" se entro 300 m dalla traccia. Con 200 m sui percorsi dell'archivio si perdono il 15%
+// delle fonti e dei rifugi (sorgenti un po' sotto il sentiero, posizioni approssimate in OSM);
+// 300 m sono una deviazione di pochi minuti.
 export const RAGGIO_LUNGO_IL_PERCORSO_M = 300;
 
 export function queryPuntiParco(parco) {

@@ -81,15 +81,16 @@ describe('percorsi su più giorni', () => {
   it('rifugi vicino alla fine della giornata, con la distanza dalla traccia', () => {
     const fine = { km: 10, punto: [13.6 + 0.12, 41.8] };
     const punti = [
-      { id: 'a', tipo: 'rifugio', lon: 13.72, lat: 41.803 }, // ~330 m a nord, al km 10
+      { id: 'a', tipo: 'rifugio', lon: 13.72, lat: 41.802 }, // ~220 m a nord, al km 10
+      { id: 'e', tipo: 'rifugio', lon: 13.721, lat: 41.804 }, // ~440 m: oltre la soglia di 300 m
       { id: 'b', tipo: 'bivacco', lon: 13.75, lat: 41.8 }, // sul percorso, al km 12,5
       { id: 'c', tipo: 'rifugio', lon: 13.72, lat: 41.83 }, // 3,3 km dalla traccia
       { id: 'd', tipo: 'rifugio', lon: 13.62, lat: 41.8 }, // al km 1,7: troppo indietro
     ];
     const r = rifugiPerLaNotte(punti, pezzi, fine);
     expect(r.map((p) => p.id)).toEqual(['a', 'b']);
-    expect(r[0].distanzaM).toBeGreaterThan(300);
-    expect(r[0].distanzaM).toBeLessThan(360);
+    expect(r[0].distanzaM).toBeGreaterThan(200);
+    expect(r[0].distanzaM).toBeLessThan(250);
     expect(r[1].distanzaM).toBe(0);
   });
 });

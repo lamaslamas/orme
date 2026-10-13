@@ -5,6 +5,7 @@ import { puntoNelPoligono } from './confini.js';
 import { distanzaKm, distanzaDallaTracciaM, lunghezzaKm } from './geo.js';
 import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH, stimaDurataMin } from './durata.js';
 import { dislivello, SOGLIA_RUMORE_M } from './quote.js';
+import { RAGGIO_LUNGO_IL_PERCORSO_M } from './puntiUtili.js';
 
 export const PASSO_COPERTURA_M = 500;
 export const MARGINE_RIQUADRO_M = 1000;
@@ -173,7 +174,7 @@ export function finiGiornata(serie, ore) {
 
 // Rifugi e bivacchi per la notte vicino a un punto di fine giornata ({ km, punto }): entro raggioM
 // dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
-export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = 1000, finestraKm = 3, perLaNotte = () => true } = {}) {
+export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_LUNGO_IL_PERCORSO_M, finestraKm = 3, perLaNotte = () => true } = {}) {
   const geojson = { type: 'MultiLineString', coordinates: pezzi };
   const vicino = (finestraKm * 1000 + raggioM) / 1000; // in linea d'aria, per scartare subito i lontani
   return punti
