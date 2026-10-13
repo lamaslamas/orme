@@ -343,3 +343,20 @@ describe('fauna della pagina iniziale: zona inquadrata', () => {
     expect(zonaInquadrata([40, 12, 43, 15]).km).toBe(25);
   });
 });
+
+import { zonaDaCercare, raggioPerZoom } from '../src/lib/intorno.js';
+import { PARCHI } from '../src/datiParchi.js';
+describe('pagina iniziale: cercare i percorsi di una zona', () => {
+  const copertino = [18.05, 40.27];
+  it('solo da vicino e fuori dai parchi', () => {
+    expect(zonaDaCercare(copertino, 9, { parchi: PARCHI })).toBe(false);
+    expect(zonaDaCercare(copertino, 12, { parchi: PARCHI })).toBe(true);
+    expect(zonaDaCercare([13.8, 41.8], 12, { parchi: PARCHI })).toBe(false); // PNALM
+  });
+  it('non dove la zona è già scaricata', () => {
+    const zona = { centro: [18.06, 40.28], raggioKm: 10 };
+    expect(zonaDaCercare(copertino, 12, { zona, parchi: PARCHI })).toBe(false);
+    expect(zonaDaCercare([18.4, 40.3], 12, { zona, parchi: PARCHI })).toBe(true);
+    expect([raggioPerZoom(13), raggioPerZoom(10)]).toEqual([10, 25]);
+  });
+});

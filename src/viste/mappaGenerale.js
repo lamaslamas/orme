@@ -14,7 +14,7 @@ import { percorsiToccabili } from './toccaPercorso.js';
 import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
 import { stato } from '../stato.js';
-import { parcoDa, PARCHI, diUnParco } from '../datiParchi.js';
+import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { aggiungiDaQui } from './daQui.js';
@@ -24,6 +24,51 @@ import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVede
 import { misureSentiero } from '../lib/riassunto.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
+import { leggiIntorno } from '../db.js';
+import { zonaDaCercare, raggioPerZoom } from '../lib/intorno.js';
+import { scaricaZona, completaZona } from './zona.js';
+
+// Lavoro sulla zona (scaricamento e calcoli) fuori dalla schermata: continua se si apre una scheda
+// e torna; a fine lavoro la mappa, se è aperta, si ridisegna con i percorsi nuovi.
+let lavoroZona = null;
+let testoZona = '';
+let zonaCompletata = false;
+const sullaMappa = () => /^#?\/?(\?|$)/.test(location.hash.replace(/^#/, ''));
+let rivalutaBottone = null; // della mappa aperta: mostra il pulsante solo dove serve
+function scriviZona(testo) {
+  testoZona = testo;
+  const b = document.querySelector('#cercaZona');
+  if (!b) return;
+  b.querySelector('span').textContent = testo || 'Cerca percorsi qui';
+  b.disabled = Boolean(testo);
+  if (testo) b.hidden = false;
+  else rivalutaBottone?.();
+}
+const ridisegna = () => sullaMappa() && window.dispatchEvent(new HashChangeEvent('hashchange'));
+function avviaZona(centro, raggio) {
+  if (lavoroZona) return;
+  lavoroZona = (async () => {
+    try {
+      const n = await scaricaZona(centro, raggio, { avanzamento: scriviZona });
+      scriviZona(n ? '' : 'Nessun percorso segnato qui');
+      ridisegna();
+      zonaCompletata = false;
+      await avviaCompletamento(true);
+    } catch (e) {
+      console.warn('Zona', e);
+      scriviZona('OpenStreetMap non risponde, riprova');
+    } finally {
+      lavoroZona = null;
+      if (testoZona) setTimeout(() => scriviZona(''), 4000);
+    }
+  })();
+}
+async function avviaCompletamento(dentroLavoro = false) {
+  if (zonaCompletata || (lavoroZona && !dentroLavoro)) return;
+  zonaCompletata = true;
+  const cambiata = await completaZona({ avanzamento: scriviZona, chiusa: () => false }).catch(() => false);
+  if (cambiata) ridisegna();
+}
 import { creaFaunaHome } from './faunaHome.js';
 
 // Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
@@ -93,6 +138,7 @@ function collegaRicercaLuogo(modulo, mappa, sceltoParco) {
       return sceltoParco(v.parco);
     }
     campo.value = v.nome;
+    sceltoParco(null);
     if (v.riquadro) mappa.fitBounds([[v.riquadro[0], v.riquadro[1]], [v.riquadro[2], v.riquadro[3]]], { maxZoom: 14 });
     else mappa.setView([v.lat, v.lon], 14);
   });
@@ -126,8 +172,13 @@ const sopra = (x) => (x.sentiero.stato === 'fatto' ? 0 : 1);
 // e la matita per disegnare. idParco (#/?parco=…): la mappa sul parco, con il suo confine.
 export async function vistaMappaGenerale(app, idParco = null) {
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
-  const sentieri = tutti.filter(diUnParco);
-  if (idParco && parcoDa(idParco) && !parcoDa(idParco).zona) stato.imposta({ parco: idParco });
+  // i percorsi dei parchi e quelli della zona cercata fuori dai parchi (ex "Intorno a me")
+  const sentieri = tutti;
+  if (idParco && parcoDa(idParco) && !parcoDa(idParco).zona) {
+    stato.imposta({ parco: idParco });
+    // l'indirizzo torna quello della mappa: togliendo il filtro del parco, ricaricando non ritorna
+    history.replaceState(null, '', '#/');
+  }
   const filtri = leggiFiltri();
 
   document.body.classList.add('con-mappa', 'home-mappa');
@@ -137,6 +188,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <label class="ricerca">${ICONE.cerca ?? ''}<input type="search" name="luogo" placeholder="Luogo o parco" aria-label="Cerca un luogo o un parco" autocomplete="off" enterkeyhint="search" /></label>
       <ul class="risultati-luogo" hidden></ul>
     </form>
+    <button type="button" class="pill-mappa cerca-zona" id="cercaZona" hidden>${ICONE.cerca}<span>Cerca percorsi qui</span></button>
     <div class="home-sotto">
       <button type="button" class="pill-mappa" id="apriElenco" aria-expanded="false" aria-controls="foglioElenco">${ICONE.percorso}<span>Percorsi qui</span><b id="contaQui"></b></button>
       <a class="pill-mappa tondo" href="#/percorso-nuovo" aria-label="Disegna un percorso">${ICONE.matita ?? '✎'}</a>
@@ -195,6 +247,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   };
   let visibili = [];
   let primaVolta = true;
+  let restaQui = false; // il prossimo cambio di filtri non sposta la mappa (es. tolto il parco per un luogo)
   // alla prima apertura (non tornando sulla mappa) e senza un parco scelto: la mappa su di me
   const centrataSuDiMe = !mappa.vistaRitrovata && !idParco && centraSuDiMe(mappa);
   let ultimiFiltri = '';
@@ -324,7 +377,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
     }
     // a ogni cambio di filtri la mappa si sposta sui risultati (o sul parco scelto)
     const chiave = JSON.stringify(filtri);
-    if ((primaVolta && !centrataSuDiMe) || (!primaVolta && chiave !== ultimiFiltri)) {
+    if (restaQui) restaQui = false;
+    else if ((primaVolta && !centrataSuDiMe) || (!primaVolta && chiave !== ultimiFiltri)) {
       if (ricerca && limiti.isValid()) mappa.fitBounds(limiti, { ...margini(30), maxZoom: 14 });
       else mappa.fitBounds(limitiParco(filtri.parco), margini(20));
     }
@@ -397,7 +451,42 @@ export async function vistaMappaGenerale(app, idParco = null) {
   }
   testaParco();
 
+  // fuori dai parchi: "Cerca percorsi qui" scarica i percorsi della zona inquadrata
+  const bottoneZona = app.querySelector('#cercaZona');
+  let zonaSalvata = await leggiIntorno();
+  const aggiornaBottoneZona = () => {
+    if (testoZona) return;
+    const c = mappa.getCenter();
+    bottoneZona.hidden = !zonaDaCercare([c.lng, c.lat], mappa.getZoom(), { zona: zonaSalvata, parchi: PARCHI });
+  };
+  rivalutaBottone = async () => {
+    zonaSalvata = await leggiIntorno();
+    if (bottoneZona.isConnected) aggiornaBottoneZona();
+  };
+  mappa.on('moveend', aggiornaBottoneZona);
+  aggiornaBottoneZona();
+  bottoneZona.addEventListener('click', () => {
+    const c = mappa.getCenter();
+    // i percorsi della zona non sono di un parco: il filtro del parco li nasconderebbe
+    if (filtri.parco) {
+      restaQui = true;
+      stato.imposta({ parco: '' });
+    }
+    avviaZona([Math.round(c.lng * 1e4) / 1e4, Math.round(c.lat * 1e4) / 1e4], raggioPerZoom(mappa.getZoom()));
+  });
+  if (testoZona) scriviZona(testoZona);
+  // una zona scaricata prima ma senza dislivelli o fauna: si completa con calma
+  if (zonaSalvata && !zonaCompletata) avviaCompletamento();
+
   const scollegaRicerca = collegaRicercaLuogo(app.querySelector('.cerca-luogo'), mappa, (parco) => {
+    if (!parco) {
+      // un luogo (non un parco): via il filtro del parco, si vede tutto quello che c'è lì
+      if (filtri.parco) {
+        restaQui = true;
+        stato.imposta({ parco: '' });
+      }
+      return;
+    }
     // i filtri seguono lo stato condiviso: elenco, confine e inquadratura si aggiornano da soli
     // (prima si apre il foglio, così il parco si inquadra nella parte di mappa che resta visibile)
     mostraFoglio(true);

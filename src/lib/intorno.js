@@ -403,3 +403,16 @@ export function zonaInquadrata([s, o, n, e]) {
   const km = distanzaKm(centro, [e, n]);
   return { centro: centro.map((x) => Math.round(x * 1e4) / 1e4), km: Math.max(2, Math.min(RAGGIO_INQUADRATA_MAX_KM, Math.round(km))) };
 }
+
+// Pagina iniziale: proporre "Cerca percorsi qui" solo da vicino (zoom 10+), fuori dai parchi
+// (lì i percorsi arrivano con l'archivio) e lontano dal centro della zona già scaricata
+export const ZOOM_CERCA_ZONA = 10;
+export function zonaDaCercare(centro, zoom, { zona = null, parchi = [] } = {}) {
+  if (zoom < ZOOM_CERCA_ZONA) return false;
+  const [lon, lat] = centro;
+  if (parchi.some((p) => !p.zona && p.bbox && lat >= p.bbox[0] && lat <= p.bbox[2] && lon >= p.bbox[1] && lon <= p.bbox[3])) return false;
+  if (zona?.centro && distanzaKm(centro, zona.centro) <= zona.raggioKm * 0.6) return false;
+  return true;
+}
+// raggio della ricerca: 10 km da vicino, 25 km se si guarda una zona più ampia
+export const raggioPerZoom = (zoom) => (zoom >= 12 ? 10 : 25);

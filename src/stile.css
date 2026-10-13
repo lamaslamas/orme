@@ -1777,3 +1777,11 @@ body.fauna-aperta .home-sotto { display: none; }
 body.elenco-aperto .foglio-fauna { display: none; }
 .fauna-azioni { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .fauna-azioni .chip-scorciatoia { flex: 0 0 auto; }
+/* "Cerca percorsi qui": in alto al centro, sotto la ricerca (fuori dai parchi) */
+.cerca-zona { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 64px); left: 50%; transform: translateX(-50%); min-height: 40px; font-size: 0.92rem; }
+.cerca-zona[hidden] { display: none; }
+.cerca-zona:disabled { opacity: 1; font-weight: 600; }
+body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
+@media (min-width: 1024px) { .cerca-zona { left: calc(var(--larghezza-nav) + 50% - var(--larghezza-nav) / 2); } }
+.cerca-zona { max-width: calc(100vw - 24px); }
+.cerca-zona span { overflow: hidden; text-overflow: ellipsis; }
