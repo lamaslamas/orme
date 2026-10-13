@@ -6,7 +6,7 @@ import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello } from '../lib/quote.js';
 import { percorsoSentiero, invertiGeojson } from '../lib/tracce.js';
-import { aggiungiQuote } from '../lib/openMeteo.js';
+import { quoteDeiPezzi } from './quote.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
@@ -104,7 +104,7 @@ export async function vistaMappa(app, id) {
     const d = dislivelloTraccia();
     const lunghezza =
       km(lunghezzaKm(traccia.geojson).toFixed(1)) +
-      (d ? `, dislivello +${d.salita} m / −${d.discesa} m${traccia.dettagli?.quote === 'open-meteo' ? ' stimato da Open-Meteo' : ''}` : '');
+      (d ? `, dislivello +${d.salita} m / −${d.discesa} m${traccia.dettagli?.quote === 'open-meteo' ? ' stimato da Open-Meteo' : traccia.dettagli?.quote === 'tinitaly' ? ' da TINITALY (INGV)' : ''}` : '');
     if (traccia.origine === 'osm') {
       const rel = traccia.dettagli?.relazioniOsm ?? [];
       const link = rel
@@ -142,7 +142,7 @@ export async function vistaMappa(app, id) {
       </div>
       ${
         traccia && !dislivelloTraccia()
-          ? '<p class="tenue">La traccia non ha le quote. "Aggiungi le quote" le chiede al servizio gratuito Open-Meteo (modello del terreno, precisione circa 90 m): vengono inviate solo le coordinate del sentiero.</p>'
+          ? '<p class="tenue">La traccia non ha le quote. "Aggiungi le quote" le prende dal modello del terreno TINITALY dell\'INGV (10 m; Open-Meteo, 90 m, se non risponde): si chiedono solo i dati della zona del sentiero.</p>'
           : ''
       }
       ${haCodici ? '' : '<p class="tenue">Senza codice ufficiale non è possibile cercare su OpenStreetMap: importa un GPX.</p>'}
@@ -242,10 +242,12 @@ export async function vistaMappa(app, id) {
   }
 
   async function aggiungiQuoteTraccia() {
-    pannello.innerHTML = '<p class="messaggio">Chiedo le quote a Open-Meteo…</p>';
+    pannello.innerHTML = '<p class="messaggio">Chiedo le quote a TINITALY…</p>';
     try {
-      const geojson = await aggiungiQuote(traccia.geojson);
-      traccia = await salvaTraccia({ ...traccia, geojson, dettagli: { ...traccia.dettagli, quote: 'open-meteo' } });
+      // le quote nei punti della traccia, senza aggiungerne (la traccia resta la stessa)
+      const { pezzi, fonte } = await quoteDeiPezzi(traccia.geojson.coordinates, { fitti: false });
+      const geojson = { ...traccia.geojson, coordinates: pezzi };
+      traccia = await salvaTraccia({ ...traccia, geojson, dettagli: { ...traccia.dettagli, quote: fonte } });
       pannelloBase('Quote aggiunte alla traccia.');
     } catch (e) {
       pannelloBase(`<span class="errore">${escapeHtml(e.message)}</span>`);

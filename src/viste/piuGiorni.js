@@ -3,7 +3,7 @@
 // Il tempo usa le quote punto per punto: della traccia o, se mancano, da Open-Meteo (salvate nel
 // percorso); solo se non si riesce, proporzionale ai km.
 import { salvaPercorso, leggiPercorso } from '../db.js';
-import { aggiungiQuote } from '../lib/openMeteo.js';
+import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1 } from '../lib/lungoIlPercorso.js';
 import { perLaNotte, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
@@ -32,7 +32,9 @@ async function parcoNazionaleIn([lon, lat]) {
 export function quoteDisponibili(percorso, pezzi) {
   if (profiloTempi(pezzi).conQuote) return { pezzi, fonte: 'traccia' };
   const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
-  return percorso.quoteOpenMeteo?.impronta === impronta ? { pezzi: percorso.quoteOpenMeteo.coordinates, fonte: 'open-meteo' } : null;
+  // quote salvate nel percorso (TINITALY o, prima, Open-Meteo)
+  const q = percorso.quote ?? (percorso.quoteOpenMeteo ? { ...percorso.quoteOpenMeteo, fonte: 'open-meteo' } : null);
+  return q?.impronta === impronta ? { pezzi: q.coordinates, fonte: q.fonte ?? 'open-meteo' } : null;
 }
 
 // Pezzi con le quote: già disponibili o chieste ora a Open-Meteo
@@ -41,12 +43,13 @@ async function pezziConQuote(percorso, pezzi) {
   if (pronte) return pronte;
   const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
   try {
-    const conQuote = await aggiungiQuote({ type: 'MultiLineString', coordinates: pezzi }, { passoM: 200 });
+    const { pezzi: conQuote, fonte } = await quoteDeiPezzi(pezzi);
     // si rilegge il percorso: nel frattempo potrei averne cambiato nome o note
     const ora = (await leggiPercorso(percorso.id)) ?? percorso;
-    await salvaPercorso({ ...ora, quoteOpenMeteo: { impronta, coordinates: conQuote.coordinates } });
-    percorso.quoteOpenMeteo = { impronta, coordinates: conQuote.coordinates };
-    return { pezzi: conQuote.coordinates, fonte: 'open-meteo' };
+    const quote = { impronta, coordinates: conQuote, fonte };
+    await salvaPercorso({ ...ora, quote });
+    percorso.quote = quote;
+    return { pezzi: conQuote, fonte };
   } catch (e) {
     console.warn('Quote per i giorni', e);
     return { pezzi, fonte: null };
@@ -83,7 +86,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
       if (!pronti && mia === richiesta) risultato.innerHTML = '<p class="tenue">Cerco i rifugi di questa zona…</p>';
     });
     const [{ pezzi: pq, fonte }, { punti: tutti, avviso }] = await Promise.all([quote, punti]);
-    if (fonte === 'open-meteo') conQuote(pq);
+    if (fonte === 'tinitaly' || fonte === 'open-meteo') conQuote(pq, fonte);
     if (mia !== richiesta || !risultato.isConnected) return;
     const serie = profiloTempi(pq);
     const fini = finiGiornata(serie, ore);
@@ -97,7 +100,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
     if (mia !== richiesta || !risultato.isConnected) return;
     risultato.innerHTML = `
       <p class="tenue piccolo">${
-        fonte === 'traccia' ? 'Tempi dalle quote della traccia (metodo CAI).' : fonte === 'open-meteo' ? 'Tempi dalle quote punto per punto (Open-Meteo, metodo CAI).' : 'Quote non disponibili: posizione stimata solo sui km (4 km/h).'
+        fonte === 'traccia' ? 'Tempi dalle quote della traccia (metodo CAI).' : fonte ? `Tempi con il metodo CAI. ${testoFonteQuote(fonte)}.` : 'Quote non disponibili: posizione stimata solo sui km (4 km/h).'
       }</p>
       <ol class="giorni">${giorni
         .map(

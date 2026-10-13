@@ -259,6 +259,10 @@ export async function eliminaPercorso(id) {
   await eliminaDa('meta', `punti:${id}`);
 }
 
+// --- Quote TINITALY a celle di 0,01° (src/lib/tinitaly.js): la griglia, sul telefono ---
+export const leggiCellaDem = async (chiave) => (await leggiDa('meta', `dem:${chiave}`))?.griglia ?? null;
+export const salvaCellaDem = (chiave, griglia) => scriviIn('meta', { chiave: `dem:${chiave}`, griglia });
+
 // --- Rifugi e acqua fuori dai parchi, a celle (src/lib/puntiUtili.js): { punti, scaricato } ---
 export const leggiCellaPunti = (chiave) => leggiDa('meta', `cella:${chiave}`);
 export const salvaCellaPunti = (chiave, punti) => scriviIn('meta', { chiave: `cella:${chiave}`, punti, scaricato: new Date().toISOString() });

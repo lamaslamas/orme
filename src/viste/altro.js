@@ -62,7 +62,7 @@ export async function vistaAltro(app) {
 
     <section class="riquadro">
       <h2>Fonti</h2>
-      <p class="tenue">Mappe e sentieri © collaboratori di OpenStreetMap, OpenTopoMap, Waymarked Trails (CC-BY-SA). Quote stimate con Open-Meteo (modello del terreno Copernicus).</p>
+      <p class="tenue">Mappe e sentieri © collaboratori di OpenStreetMap, OpenTopoMap, Waymarked Trails (CC-BY-SA). Quote: TINITALY 10 m dell'INGV (CC BY 4.0) e, come riserva, Open-Meteo (Copernicus).</p>
       <p class="tenue piccolo">Icone degli animali: <a href="https://github.com/microsoft/fluentui-emoji" target="_blank" rel="noopener">Fluent Emoji</a> © Microsoft, licenza MIT.</p>
     </section>
   `;

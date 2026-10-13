@@ -13,6 +13,7 @@ import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO, quoteDisponibili } from './piuGiorni.js';
 import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
+import { testoFonteQuote } from './quote.js';
 import L from 'leaflet';
 
 function htmlNumeri(misure, fonte) {
@@ -20,8 +21,8 @@ function htmlNumeri(misure, fonte) {
       ${
         !misure.conQuote
           ? '<p class="tenue">Dislivello non disponibile: il percorso non ha le quote.</p>'
-          : fonte === 'open-meteo'
-            ? '<p class="tenue piccolo">Dislivello e durata dalle quote di Open-Meteo.</p>'
+          : fonte && fonte !== 'traccia'
+            ? `<p class="tenue piccolo">Dislivello e durata: ${testoFonteQuote(fonte)}.</p>`
             : ''
       }`;
 }
@@ -132,9 +133,9 @@ export async function vistaPercorso(app, id) {
   });
   // su più giorni: dove finisce ogni giornata e dove dormire
   collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso, {
-    conQuote: (pq) => {
+    conQuote: (pq, fonte) => {
       const numeri = app.querySelector('#numeriPercorso');
-      if (numeri) numeri.innerHTML = htmlNumeri(misureDeiPezzi(pq), 'open-meteo');
+      if (numeri) numeri.innerHTML = htmlNumeri(misureDeiPezzi(pq), fonte);
     },
   });
   const mini = creaMappa(contenitore, { anteprima: true });
