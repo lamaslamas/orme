@@ -220,6 +220,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <button type="button" class="pill-mappa" id="apriElenco" aria-expanded="false" aria-controls="foglioElenco">${ICONE.percorso}<span>Percorsi qui</span><b id="contaQui"></b></button>
       <a class="pill-mappa tondo" href="#/percorso-nuovo" aria-label="Disegna un percorso">${ICONE.matita ?? '✎'}</a>
     </div>
+    <div class="cornice-tendina">
     <section class="foglio-home" id="foglioElenco" hidden aria-label="Percorsi nella zona">
       <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire o abbassare l'elenco"><span class="foglio-maniglia"></span></button>
       <div class="foglio-home-corpo">
@@ -246,6 +247,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
         </section>
       </div>
     </section>
+    </div>
   `;
 
   const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
@@ -280,7 +282,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // margini per inquadrare: sotto la ricerca in alto e sopra il foglio dell'elenco, se è aperto
   const margini = (m) => {
     const foglio = app.querySelector('#foglioElenco');
-    const sotto = foglio && !foglio.hidden ? foglio.offsetHeight : 70;
+    // la parte visibile della tendina (può essere spostata in basso, sotto la barra)
+    const sotto = foglio && !foglio.hidden ? Math.max(70, mappa.getContainer().getBoundingClientRect().bottom - foglio.getBoundingClientRect().top) : 70;
     return { paddingTopLeft: [m, m + 50], paddingBottomRight: [m, sotto + m] };
   };
   let visibili = [];
