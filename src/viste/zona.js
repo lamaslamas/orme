@@ -25,6 +25,7 @@ import {
   retiAreeProtette,
 } from '../lib/intorno.js';
 import { dimenticaPunti } from './puntiUtili.js';
+import { profiloDaTinitaly } from './quote.js';
 
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -81,12 +82,20 @@ export async function completaZona({ avanzamento = () => {}, chiusa = () => fals
 async function calcolaQuote({ avanzamento, chiusa }) {
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   // le reti di sentieri non hanno un giro: niente profilo
-  const daFare = tutti.filter((s) => s.parco === ID_INTORNO && s.tipoPercorso !== 'rete_sentieri' && tracce.get(s.id)?.geojson && !quoteDellaTraccia(s, tracce.get(s.id)));
+  const daFare = tutti.filter((s) => s.parco === ID_INTORNO && s.tipoPercorso !== 'rete_sentieri' && tracce.get(s.id)?.geojson && quoteDellaTraccia(s, tracce.get(s.id))?.fonte !== 'tinitaly');
+  // (anche quelli con le quote di Open-Meteo: si rifanno una volta con TINITALY)
   let fatti = 0;
   for (const s of daFare) {
     if (chiusa()) break;
     avanzamento(`Calcolo i dislivelli… ${fatti + 1} di ${daFare.length}`);
     const g = tracce.get(s.id).geojson;
+    // prima TINITALY (10 m, come il disegno e le schede); Open-Meteo solo se non risponde
+    const daTinitaly = await profiloDaTinitaly(g);
+    if (daTinitaly) {
+      await aggiornaCalcolati(s.id, { quote: { ...daTinitaly, impronta: improntaTraccia(g).split('-')[1], fonte: 'tinitaly' } });
+      fatti++;
+      continue;
+    }
     const memoria = new Map();
     try {
       for (const { url, punti } of urlQuote(puntiPerLeQuote(g))) {

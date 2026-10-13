@@ -1,7 +1,7 @@
 // Quote per tutta l'app: TINITALY (10 m, celle salvate sul telefono), Open-Meteo solo come riserva.
 // Dislivello e tempi poi con il metodo CAI (src/lib/lungoIlPercorso.js), uguale ovunque.
 import { leggiCellaDem, salvaCellaDem } from '../db.js';
-import { creaLettoreTinitaly, pezziConQuoteTinitaly, CREDITO_TINITALY } from '../lib/tinitaly.js';
+import { creaLettoreTinitaly, pezziConQuoteTinitaly, profiloTinitaly, CREDITO_TINITALY } from '../lib/tinitaly.js';
 import { aggiungiQuote } from '../lib/openMeteo.js';
 
 let lettore = null;
@@ -17,3 +17,6 @@ export function quoteDeiPezzi(pezzi, opzioni = {}) {
 export const quoteDeiPunti = (punti) => lettoreTinitaly().quote(punti).catch(() => punti.map(() => null));
 
 export const testoFonteQuote = (fonte) => (fonte === 'tinitaly' ? CREDITO_TINITALY : fonte === 'open-meteo' ? 'Quote Open-Meteo (Copernicus 90 m)' : '');
+
+// profilo di un sentiero (partenza, minima, massima, dislivello) come quello del robot; null se manca
+export const profiloDaTinitaly = (geojson) => profiloTinitaly(geojson, lettoreTinitaly()).catch(() => null);
