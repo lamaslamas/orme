@@ -1791,3 +1791,9 @@ body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 .tipo-risultato.parco { background: var(--verde-chiaro, rgba(15, 110, 86, 0.12)); color: var(--verde-testo); }
 .tipo-risultato.luogo { background: rgba(24, 95, 165, 0.12); color: #185fa5; }
 :root[data-scuro] .tipo-risultato.luogo { color: #85b7eb; background: rgba(133, 183, 235, 0.14); }
+/* "Percorsi qui": ordine consigliato o per partenza più vicina */
+.ordina-elenco { display: flex; gap: 6px; margin: 0 0 10px; }
+.ordina-elenco button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--bordo); background: var(--scheda); color: var(--testo); font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
+.ordina-elenco button svg { width: 16px; height: 16px; }
+.ordina-elenco button.attivo { background: var(--verde); border-color: transparent; color: #fff; }
+.nota-partenza { font-size: 0.82rem; font-weight: 700; color: var(--verde-testo); }

@@ -25,7 +25,22 @@ import { misureSentiero } from '../lib/riassunto.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
-import { zonaDaCercare, raggioPerZoom } from '../lib/intorno.js';
+import { zonaDaCercare, raggioPerZoom, distanzaDiPartenza, testoPartenza } from '../lib/intorno.js';
+
+// La mia posizione, solo in memoria finché l'app è aperta (mai salvata): serve a ordinare
+// "Percorsi qui" per partenza più vicina. ordine: 'consigliato' | 'vicini'
+let miaPosizione = null;
+let ordineElenco = 'consigliato';
+function chiediPosizione() {
+  return new Promise((risolvi) => {
+    if (!navigator.geolocation) return risolvi(null);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => risolvi((miaPosizione = [coords.longitude, coords.latitude])),
+      () => risolvi(null),
+      { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
+    );
+  });
+}
 import { scaricaZona, completaZona } from './zona.js';
 
 // Lavoro sulla zona (scaricamento e calcoli) fuori dalla schermata: continua se si apre una scheda
@@ -77,6 +92,7 @@ function centraSuDiMe(mappa) {
   if (!navigator.geolocation) return false;
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
+      miaPosizione = [coords.longitude, coords.latitude];
       if (!mappa.getContainer().isConnected) return;
       mappa.setView([coords.latitude, coords.longitude], 13);
       mappa.mostraPosizione?.(coords);
@@ -209,6 +225,11 @@ export async function vistaMappaGenerale(app, idParco = null) {
         </div>
         <section class="pannello">
           <h2 class="titolo-sezione" id="titoloRisultati"></h2>
+          <div class="ordina-elenco" role="radiogroup" aria-label="Ordine dei percorsi">
+            <button type="button" role="radio" data-ordine="consigliato">Consigliato</button>
+            <button type="button" role="radio" data-ordine="vicini">${ICONE.navigazione}Partenza più vicina</button>
+          </div>
+          <p class="tenue piccolo" id="notaOrdine" hidden></p>
           <ul class="risultati-mappa" id="risultatiMappa"></ul>
           <h2 class="titolo-sezione" id="titoloSenza"></h2>
           <ul class="senza-traccia" id="senzaTraccia"></ul>
@@ -312,7 +333,19 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let saltaSpostamento = false; // lo spostamento fatto per inquadrare un percorso scelto non cambia l'elenco
   function elencoInVista() {
     const vista = mappa.getBounds();
-    const qui = inMappa.filter(({ sentiero }) => aree.get(sentiero.id)?.getBounds().intersects(vista));
+    let qui = inMappa.filter(({ sentiero }) => aree.get(sentiero.id)?.getBounds().intersects(vista));
+    // partenza più vicina a me (se la posizione c'è): distanza dall'inizio (o dalla fine) della traccia
+    const vicini = ordineElenco === 'vicini' && miaPosizione;
+    if (vicini) {
+      qui = qui
+        .map((p) => ({ ...p, distanza: distanzaDiPartenza(p.sentiero, p.traccia, miaPosizione, Infinity) }))
+        .sort((a, b) => a.distanza.metri - b.distanza.metri);
+    }
+    for (const b of app.querySelectorAll('[data-ordine]')) {
+      const on = b.dataset.ordine === (vicini ? 'vicini' : 'consigliato');
+      b.classList.toggle('attivo', on);
+      b.setAttribute('aria-checked', String(on));
+    }
     const conta = app.querySelector('#contaQui');
     if (conta) conta.textContent = qui.length ? String(qui.length) : '';
     app.querySelector('#titoloRisultati').textContent = inMappa.length
@@ -321,7 +354,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     app.querySelector('#risultatiMappa').innerHTML =
       qui
         .slice(0, 60)
-        .map(({ sentiero: s, traccia }) => {
+        .map(({ sentiero: s, traccia, distanza }) => {
           // stessa scheda degli elenchi, compatta: foto (o disegno della traccia), nome, tre numeri, fauna
           const m = misureSentiero(s, traccia);
           const foto = copertina(s, traccia);
@@ -334,6 +367,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
             <span class="ris-foto">${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}</span>
             <span class="ris-corpo">
               <span class="nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</span>
+              ${distanza && Number.isFinite(distanza.metri) ? `<span class="nota-partenza">${escapeHtml(testoPartenza(distanza))}</span>` : ''}
               ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
               ${htmlFaunaBreve(s, { compatta: true })}
             </span>
@@ -420,6 +454,25 @@ export async function vistaMappaGenerale(app, idParco = null) {
     if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
   });
   requestAnimationFrame(() => mappa.invalidateSize());
+
+  // ordine dell'elenco: "Partenza più vicina" chiede la posizione se non c'è ancora
+  app.querySelector('.ordina-elenco').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-ordine]');
+    if (!b) return;
+    const nota = app.querySelector('#notaOrdine');
+    nota.hidden = true;
+    if (b.dataset.ordine === 'vicini' && !miaPosizione) {
+      nota.textContent = 'Cerco la tua posizione…';
+      nota.hidden = false;
+      if (!(await chiediPosizione())) {
+        nota.textContent = 'Posizione non disponibile: attivala per ordinare per distanza.';
+        return;
+      }
+      nota.hidden = true;
+    }
+    ordineElenco = b.dataset.ordine;
+    elencoInVista();
+  });
 
   // foglio "Percorsi qui": si apre dal pulsante in basso, si chiude con la maniglia
   const foglio = app.querySelector('#foglioElenco');
