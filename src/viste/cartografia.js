@@ -3,15 +3,16 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { stato } from '../stato.js';
-import { creaBaseVettoriale, creaSentieriVettoriali } from './mappaVettoriale.js';
+import { creaBaseVettoriale, creaSentieriVettoriali, mostraSentieri } from './mappaVettoriale.js';
 import { aggiungiPuntiUtili } from './puntiUtili.js';
 import { cronometra, registraMappa } from '../lib/misura.js';
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
-// Etichette in primo piano: le basi "chiara" e "satellitare" hanno i nomi dei luoghi in un livello
-// separato, sopra le tracce; così i percorsi non coprono mai nomi e punti d'interesse.
-// Le basi "nomiSotto" sono immagini con i nomi già stampati: lì le tracce si fanno trasparenti.
+// Basi "chiara" e "scura": una sola mappa MapLibre con base, tutti i sentieri e scritte (un solo
+// contesto WebGL: sul telefono tre mappe separate rallentavano ogni movimento). La "satellitare" ha i
+// nomi dei luoghi in un livello a immagini sopra le tracce. Le basi "nomiSotto" sono immagini con i
+// nomi già stampati: lì le tracce si fanno trasparenti.
 export const BASI = {
   chiara: {
     nome: 'Chiara',
@@ -154,11 +155,15 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   // basi vettoriali (chiara e scura): si creano alla prima richiesta; se non si può (offline, niente
   // WebGL) si usa la dettagliata
   const vettoriali = {};
+  const glBase = {}; // mappe MapLibre delle basi vettoriali, quando sono sulla mappa
   const preparaVettoriale = (k) =>
-    (vettoriali[k] ??= creaBaseVettoriale(BASI[k].vettoriale)
+    (vettoriali[k] ??= creaBaseVettoriale(BASI[k].vettoriale, { sentieri: !anteprima && stato.leggi().livelli.tuttiSentieri !== false })
       .then((v) => {
-        basi[k] = v.base;
-        etichette[k] = v.etichette;
+        basi[k] = v;
+        v.on('add', () => {
+          glBase[k] = v.getMaplibreMap?.() ?? null;
+          applicaTuttiISentieri();
+        });
         return true;
       })
       .catch((e) => {
@@ -198,10 +203,14 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   const glPronti = {}; // mappe MapLibre del livello, quando sono sulla mappa
   let tuttiAccesi = false;
   let tuttiMostrati = null;
+  // base vettoriale: i sentieri sono già nel suo stile e si accendono lì; sulle basi a immagini serve
+  // una mappa MapLibre a parte (l'unica)
+  const conSentieriDentro = () => Boolean(BASI[baseAttuale]?.vettoriale && glBase[baseAttuale]);
   async function applicaTuttiISentieri(acceso = tuttiAccesi) {
     tuttiAccesi = acceso;
+    if (BASI[baseAttuale]?.vettoriale) mostraSentieri(glBase[baseAttuale], acceso && !anteprima);
     const scuro = ['scura', 'satellite'].includes(baseAttuale);
-    const voluto = acceso && !anteprima ? (scuro ? 'scuro' : 'chiaro') : null;
+    const voluto = acceso && !anteprima && !BASI[baseAttuale]?.vettoriale ? (scuro ? 'scuro' : 'chiaro') : null;
     if (voluto === tuttiMostrati) return;
     if (tuttiMostrati) tuttiISentieri[tuttiMostrati]?.then((l) => l?.remove());
     tuttiMostrati = voluto;
@@ -221,7 +230,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   // C'è un sentiero (anche non segnato) sotto il dito? Si guarda il livello già disegnato, senza
   // chiedere niente a nessuno: solo se sì si cercano i suoi dati (nome, segnavia…) su Overpass
   mappa.sentieroVicino = (latlng, tolleranzaPx = 14) => {
-    const gl = tuttiMostrati ? glPronti[tuttiMostrati] : null;
+    const gl = conSentieriDentro() ? (tuttiAccesi ? glBase[baseAttuale] : null) : tuttiMostrati ? glPronti[tuttiMostrati] : null;
     if (!gl?.isStyleLoaded?.()) return false;
     const p = gl.project([latlng.lng, latlng.lat]);
     const box = [[p.x - tolleranzaPx, p.y - tolleranzaPx], [p.x + tolleranzaPx, p.y + tolleranzaPx]];
