@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
 import { tendinaTrascinabile } from './tendina.js';
+import { senzaTracciaNellaZona, testoRiassunto } from '../lib/elencoZona.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
@@ -238,8 +239,10 @@ export async function vistaMappaGenerale(app, idParco = null) {
           </div>
           <p class="tenue piccolo" id="notaOrdine" hidden></p>
           <ul class="risultati-mappa" id="risultatiMappa"></ul>
-          <h2 class="titolo-sezione" id="titoloSenza"></h2>
-          <ul class="senza-traccia" id="senzaTraccia"></ul>
+          <details class="senza-traccia-zona" id="boxSenza" hidden>
+            <summary class="tenue" id="titoloSenza"></summary>
+            <ul class="senza-traccia" id="senzaTraccia"></ul>
+          </details>
         </section>
       </div>
     </section>
@@ -354,6 +357,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   const preparati = preparaPercorsi(sentieri, tracce);
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
   let inMappa = [];
+  let senzaTracciaOra = []; // senza traccia con i filtri attivi (tutti i parchi)
   let saltaSpostamento = false; // lo spostamento fatto per inquadrare un percorso scelto non cambia l'elenco
   // l'elenco si scrive solo con il foglio aperto (il numero sul pulsante sempre): chiuso, si rifà
   // quando si apre
@@ -381,6 +385,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       return;
     }
     elencoVecchio = false;
+    senzaTracciaInVista();
     app.querySelector('#titoloRisultati').textContent = inMappa.length
       ? `Nella zona inquadrata (${qui.length}${qui.length < inMappa.length ? ` su ${inMappa.length}` : ''})`
       : '';
@@ -463,16 +468,25 @@ export async function vistaMappaGenerale(app, idParco = null) {
 
     testaParco();
 
-    app.querySelector('#riassuntoFiltri').textContent =
-      `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ` +
-      `${filtrati.length} ${filtrati.length === 1 ? 'sentiero' : 'sentieri'}${filtriAttivi(filtri) ? ' filtrati' : ''}`;
+    app.querySelector('#riassuntoFiltri').textContent = testoRiassunto(conTraccia.length, filtriAttivi(filtri) > 0 || Boolean(filtri.parco));
 
     inMappa = conTraccia;
+    senzaTracciaOra = senzaTraccia;
     elencoInVista();
-    app.querySelector('#titoloSenza').textContent = senzaTraccia.length
-      ? `Non sulla mappa: senza traccia (${senzaTraccia.length})`
-      : ''; // tutti i risultati sono già sulla mappa: niente da segnalare
-    app.querySelector('#senzaTraccia').innerHTML = senzaTraccia
+  }
+
+  // percorsi senza traccia (non sono sulla mappa): solo quelli della zona inquadrata o del parco,
+  // in un riquadro chiuso
+  function senzaTracciaInVista() {
+    const b = mappa.getBounds();
+    const qui = senzaTracciaNellaZona(senzaTracciaOra, [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], {
+      parco: filtri.parco,
+      riquadroParco: (id) => parcoDa(id)?.bbox ?? null,
+    });
+    const box = app.querySelector('#boxSenza');
+    box.hidden = !qui.length;
+    app.querySelector('#titoloSenza').textContent = `Senza traccia in questa zona (${qui.length})`;
+    app.querySelector('#senzaTraccia').innerHTML = qui
       .map(
         (s) => `<li>
           <span>${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</span>

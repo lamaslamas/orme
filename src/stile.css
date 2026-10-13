@@ -1945,3 +1945,6 @@ body.disegno main { padding: 0; }
   .foglio-home.trascinabile .foglio-maniglia-zona { touch-action: none; cursor: grab; }
   .foglio-home.trascinabile .foglio-home-corpo { flex: 1; min-height: 0; }
 }
+.senza-traccia-zona { margin-top: 14px; }
+.senza-traccia-zona summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.senza-traccia-zona[hidden] { display: none; }
