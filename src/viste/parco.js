@@ -24,7 +24,7 @@ export async function vistaParco(app, id) {
     return;
   }
   if (!parco) {
-    app.innerHTML = '<p class="vuoto">Parco non trovato. <a href="#/">Torna ai parchi</a></p>';
+    app.innerHTML = '<p class="vuoto">Parco non trovato. <a href="#/parchi">Torna ai parchi</a></p>';
     return;
   }
   impostaBanner(parco.id);
@@ -33,7 +33,7 @@ export async function vistaParco(app, id) {
   const conTraccia = sentieri.filter((s) => tracce.has(s.id));
 
   app.innerHTML = `
-    <a class="indietro" href="#/">‹ Parchi</a>
+    <a class="indietro" href="#/parchi">‹ Parchi</a>
     <article class="pagina-parco">
       <div class="anteprima-mappa parco-mappa"><div id="mappaParco"></div><p class="avviso-mappa" id="statoConfine">Carico il confine del parco…</p><p class="avviso-mappa avviso-vuoto-mappa" id="nessunPercorso" hidden></p></div>
       <div class="animali-parco" role="group" aria-label="Animali del parco">

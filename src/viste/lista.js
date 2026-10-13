@@ -123,9 +123,10 @@ function collegaSalvaDaLista() {
 // serveUnFiltro: l'elenco compare solo dopo aver scelto almeno un filtro (pagina iniziale)
 // ordina(risultato): ordine diverso da quello normale; nota(percorso): testo breve sulla scheda
 // perPagina: quanti percorsi si mostrano prima di "Mostra altri"
+// rigaUscita: nelle card sempre uscita · associazione · periodo (sezione Associazioni)
 // limita: { filtro(percorso), testo(n, totale) } = solo una parte nell'elenco (es. la zona inquadrata
 // sulla mappa); alRisultato riceve comunque tutti i percorsi filtrati
-export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false, ordina = null, nota = null, limita = null, perPagina = 40 } = {}) {
+export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, ricerca = true, alRisultato = null, serveUnFiltro = false, ordina = null, nota = null, limita = null, perPagina = 40, rigaUscita = false } = {}) {
   const filtri = leggiFiltri(parcoFisso);
   contenitore.innerHTML = `
     ${htmlFiltri(sentieri, filtri, { ricerca })}
@@ -148,7 +149,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   let ultimoRisultato = [];
   let quanti = PAGINA;
   const htmlPagina = (da) => {
-    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '', { stagione: filtri.stagione === 'adesso', uscita: filtri.uscite === 'si' })).join('');
+    const pezzo = ultimoRisultato.slice(da, quanti).map((p) => schedaInLista(p.sentiero, p.traccia, !parcoFisso, p.compat, nota?.(p) ?? '', { stagione: filtri.stagione === 'adesso', uscita: rigaUscita || filtri.uscite === 'si' })).join('');
     const resto = ultimoRisultato.length - quanti;
     return pezzo + (resto > 0 ? `<li class="altri"><button type="button" class="bottone pieno-largo" data-azione="altri">Mostra altri ${Math.min(PAGINA, resto)} (ne restano ${resto})</button></li>` : '');
   };

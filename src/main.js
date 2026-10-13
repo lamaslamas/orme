@@ -8,14 +8,13 @@ import { vistaModifica } from './viste/modifica.js';
 import { vistaMappa } from './viste/mappa.js';
 import { vistaBackup } from './viste/backup.js';
 import { vistaMappaGenerale } from './viste/mappaGenerale.js';
-import { vistaGiri, vistaGiro } from './viste/giri.js';
+import { vistaGiro } from './viste/giri.js';
 import { vistaModificaGiro } from './viste/modificaGiro.js';
 import { vistaMappaGiro } from './viste/mappaGiro.js';
 import { vistaAltro } from './viste/altro.js';
-import { vistaPianifica } from './viste/pianifica.js';
+import { vistaMiei } from './viste/miei.js';
+import { vistaAssociazioni } from './viste/associazioni.js';
 import { vistaDoveVado } from './viste/doveVado.js';
-import { vistaSalvati } from './viste/salvati.js';
-import { vistaIntorno } from './viste/intorno.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna } from './viste/disegna.js';
 import { vistaParco } from './viste/parco.js';
@@ -28,7 +27,7 @@ import { preparaInstallazione } from './viste/installa.js';
 import { preparaTema } from './viste/tema.js';
 import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
-import { sezioneDi } from './lib/sezioni.js';
+import { sezioneDi, reindirizza } from './lib/sezioni.js';
 
 const app = document.getElementById('app');
 collegaVisore();
@@ -47,7 +46,11 @@ if (navigator.serviceWorker?.controller) {
 
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [
-  [/^\/?$/, vistaHome],
+  // la mappa è la pagina iniziale; l'elenco dei parchi è in Altro
+  [/^\/?$/, vistaMappaGenerale],
+  [/^\/parchi\/?$/, vistaHome],
+  [/^\/miei(?:\?scheda=([a-z]+))?$/, vistaMiei],
+  [/^\/associazioni\/?$/, vistaAssociazioni],
   [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
   [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
@@ -56,17 +59,12 @@ const percorsi = [
   [/^\/parco\/([^/]+)\/importa\/?$/, vistaImporta],
   [/^\/backup\/?$/, vistaBackup],
   [/^\/altro\/?$/, vistaAltro],
-  [/^\/pianifica\/?$/, vistaPianifica],
   [/^\/domani(?:\?zona=([^&]+))?$/, vistaDoveVado],
-  [/^\/salvati\/?$/, vistaSalvati],
-  [/^\/intorno\/?$/, vistaIntorno],
   [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
   [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],
   [/^\/avvistamenti\/?$/, vistaElencoAvvistamenti],
   [/^\/avvistamento\/([^/]+)\/?$/, vistaModificaAvvistamento],
-  [/^\/mappa\/?$/, vistaMappaGenerale],
-  [/^\/giri\/?$/, vistaGiri],
   [/^\/giro-nuovo\/?$/, (app) => vistaModificaGiro(app, null)],
   [/^\/giro\/([^/]+)\/?$/, vistaGiro],
   [/^\/giro\/([^/]+)\/modifica\/?$/, vistaModificaGiro],
@@ -107,6 +105,9 @@ if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
 async function mostra() {
   const percorso = location.hash.replace(/^#/, '') || '/';
+  // indirizzi delle sezioni di prima (Intorno, Pianifica, Salvati, Giri): la schermata nuova
+  const nuovo = reindirizza(percorso);
+  if (nuovo) return location.replace(`#${nuovo}`);
   // stessa schermata ridisegnata (es. archivio arrivato dopo): si resta dove si è
   const stessa = percorsoMostrato === percorso;
   const yAttuale = window.scrollY;
@@ -137,6 +138,14 @@ async function mostra() {
 }
 
 window.addEventListener('hashchange', () => mostra());
+// "‹ Indietro": torna alla schermata da cui si è arrivati (mappa, associazioni, i miei percorsi…);
+// se la scheda è stata aperta da un link esterno, va all'indirizzo del link
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[data-indietro]');
+  if (!a || history.length <= 1) return;
+  e.preventDefault();
+  history.back();
+});
 
 // Chiede al browser di non cancellare i dati quando lo spazio scarseggia
 navigator.storage?.persist?.().catch(() => {});

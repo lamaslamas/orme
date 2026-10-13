@@ -17,7 +17,7 @@ export async function vistaBackup(app) {
   const numeroFoto = foto.length;
 
   app.innerHTML = `
-    <a class="indietro" href="#/">‹ Tutti i sentieri</a>
+    <a class="indietro" href="#/altro">‹ Altro</a>
     <h1 class="titolo-pagina">Backup</h1>
 
     <section class="riquadro">
@@ -130,7 +130,7 @@ export async function vistaBackup(app) {
       try {
         const n = await importa(dati, modo);
         anteprima.innerHTML = '';
-        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce, ${n.giri} giri, ${n.avvistamenti} avvistamenti e ${n.foto} foto. <a href="#/">Vai ai parchi</a>`);
+        mostraEsito(`Importati ${n.sentieri} sentieri, ${n.tracce} tracce, ${n.giri} giri, ${n.avvistamenti} avvistamenti e ${n.foto} foto. <a href="#/">Vai alla mappa</a>`);
       } catch (e) {
         mostraEsito(escapeHtml(e.message), true);
       }

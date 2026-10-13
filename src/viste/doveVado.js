@@ -135,7 +135,7 @@ export async function vistaDoveVado(app, zona = null) {
 
   app.innerHTML = `
     <div class="pagina-meteo">
-      ${inZona ? '<a class="indietro" href="#/intorno">‹ Intorno a me</a>' : '<a class="indietro" href="#/pianifica">‹ Pianifica</a>'}
+      <a class="indietro" href="#/altro" data-indietro>‹ Indietro</a>
       <h1 class="titolo-pagina">Dove vado ${scelte.giorno ? 'domani' : 'oggi'}?</h1>
       <section class="pannello-scelte" aria-label="Scelte">
         <div class="scelte-riga">

@@ -22,7 +22,7 @@ export async function vistaDisegna(app, id = null) {
 
   document.body.classList.add('con-mappa');
   app.innerHTML = `
-    <div class="mappa-barra"><a class="indietro" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : '#/pianifica'}">‹ Annulla</a></div>
+    <div class="mappa-barra"><a class="indietro" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : '#/miei?scheda=percorsi'}">‹ Annulla</a></div>
     <div id="mappa" class="mappa mappa-alta"></div>
     <section class="pannello">
       <p class="messaggio" id="statoDisegno"></p>

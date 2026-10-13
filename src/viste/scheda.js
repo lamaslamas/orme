@@ -308,7 +308,7 @@ export async function vistaScheda(app, id) {
   const puntoPartenza = puntoDiPartenza(s, traccia);
 
   app.innerHTML = `
-    ${parco?.zona ? '<a class="indietro" href="#/intorno">‹ Intorno a me</a>' : '<a class="indietro" href="#/">‹ Parchi</a>'}
+    <a class="indietro" href="#/" data-indietro>‹ Indietro</a>
     <article class="scheda">
       <aside class="scheda-laterale">
       ${

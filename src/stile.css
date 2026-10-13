@@ -1687,3 +1687,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .giorni-rifugi .piccolo { display: block; }
 .avviso-pernotto { display: grid; grid-template-columns: 16px 1fr; gap: 6px; margin: 6px 0 0; font-size: 0.86rem; color: var(--tonale-testo, inherit); }
 .avviso-pernotto svg { width: 16px; height: 16px; margin-top: 2px; }
+/* I miei percorsi: tre schede, il titolo delle schermate interne non si ripete */
+.schede-miei { display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 14px; }
+.schede-miei .segmento { display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; color: inherit; }
+.schede-miei .segmento.attivo { color: #fff; }
+.contenuto-miei > .titolo-pagina { display: none; }
