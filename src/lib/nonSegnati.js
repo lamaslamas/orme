@@ -2,6 +2,7 @@
 // parte di nessun percorso segnato (CAI, MTB, ciclabile). Si chiedono solo per la zona inquadrata,
 // quando lo si chiede ("Cerca sentieri qui"): sono tantissimi e cambiano da zona a zona.
 import { lunghezzaKm } from './geo.js';
+import { difficoltaDaOsm, testoDifficolta } from './difficolta.js';
 
 // da questo zoom in su (qualche km di lato): oltre, la richiesta sarebbe troppo grande
 export const ZOOM_NON_SEGNATI = 13;
@@ -43,12 +44,5 @@ export function sentieriNonSegnati(json) {
   return risultato;
 }
 
-const SAC = {
-  hiking: 'facile',
-  mountain_hiking: 'escursionistico',
-  demanding_mountain_hiking: 'impegnativo',
-  alpine_hiking: 'alpinistico',
-  demanding_alpine_hiking: 'alpinistico impegnativo',
-  difficult_alpine_hiking: 'alpinistico difficile',
-};
-export const testoDifficoltaSac = (sac) => SAC[sac] ?? null;
+// difficoltà CAI dalla SAC di OSM (es. "E · escursionistico (SAC T2)")
+export const testoDifficoltaSac = (sac) => testoDifficolta(difficoltaDaOsm({ sac_scale: sac })) || null;

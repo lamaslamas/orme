@@ -3,6 +3,7 @@
 // la via più vicina a ogni punto (può sbagliare vicino agli incroci).
 import { distanzaKm } from './geo.js';
 import { puntoSullaLinea } from './misure.js';
+import { difficoltaDaOsm, testoDifficolta } from './difficolta.js';
 
 export const PASSO_TERRENO_M = 25;
 export const DISTANZA_MAX_M = 20;
@@ -28,17 +29,10 @@ export const ATTRIBUTI = {
     ordine: ['Asfalto o lastricato', 'Sterrato o ghiaia', 'Terra o prato', 'Roccia o pietraia', 'Altro'],
   },
   sac_scale: {
-    nome: 'Difficoltà (scala SAC)',
-    categoria: (v) =>
-      ({
-        hiking: 'T1 escursione facile',
-        mountain_hiking: 'T2 escursione di montagna',
-        demanding_mountain_hiking: 'T3 montagna impegnativa',
-        alpine_hiking: 'T4 alpinistica',
-        demanding_alpine_hiking: 'T5 alpinistica impegnativa',
-        difficult_alpine_hiking: 'T6 alpinistica difficile',
-      })[v] ?? null,
-    ordine: ['T1 escursione facile', 'T2 escursione di montagna', 'T3 montagna impegnativa', 'T4 alpinistica', 'T5 alpinistica impegnativa', 'T6 alpinistica difficile'],
+    // scala CAI, con la SAC di OpenStreetMap tra parentesi
+    nome: 'Difficoltà (scala CAI)',
+    categoria: (v) => testoDifficolta(difficoltaDaOsm({ sac_scale: v })) || null,
+    ordine: ['T · turistico (SAC T1)', 'E · escursionistico (SAC T2)', 'EE · per esperti (SAC T3)', 'EE · per esperti (SAC T4, alpinistico)', 'EE · per esperti (SAC T5, alpinistico)', 'EE · per esperti (SAC T6, alpinistico)'],
   },
   trail_visibility: {
     nome: 'Visibilità della traccia',

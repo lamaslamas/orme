@@ -24,6 +24,6 @@ describe('sentieri non segnati', () => {
       [2, 'Sentiero', 'Sentiero della torre'],
     ]);
     expect(r[0].km).toBeCloseTo(1.11, 1);
-    expect(testoDifficoltaSac(r[1].difficolta)).toBe('escursionistico');
+    expect(testoDifficoltaSac(r[1].difficolta)).toBe('E · escursionistico (SAC T2)');
   });
 });
