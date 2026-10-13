@@ -259,6 +259,10 @@ export async function eliminaPercorso(id) {
   await eliminaDa('meta', `punti:${id}`);
 }
 
+// --- Rifugi e acqua fuori dai parchi, a celle (src/lib/puntiUtili.js): { punti, scaricato } ---
+export const leggiCellaPunti = (chiave) => leggiDa('meta', `cella:${chiave}`);
+export const salvaCellaPunti = (chiave, punti) => scriviIn('meta', { chiave: `cella:${chiave}`, punti, scaricato: new Date().toISOString() });
+
 // --- Rifugi e acqua scaricati per un percorso di Pianifica fuori dalle zone già coperte ---
 // impronta: della traccia, per riscaricare se il percorso cambia
 export const leggiPuntiPercorso = async (id) => (await leggiDa('meta', `punti:${id}`)) ?? null;

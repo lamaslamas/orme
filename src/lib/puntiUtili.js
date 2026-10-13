@@ -146,3 +146,22 @@ export function categoriaAcqua(p) {
 }
 // Fonti su cui contare per il tratto senza acqua: potabili e con potabilità non indicata
 export const acquaSuCuiContare = (p) => ['potabile', 'non_indicata'].includes(categoriaAcqua(p));
+
+// --- Punti fuori dai parchi: a quadrati (celle) di 0,1° (circa 8×11 km), scaricati quando servono ---
+export const PASSO_CELLA = 0.1;
+export const ZOOM_CELLE = 13;
+export const GIORNI_CELLA = 30; // poi si riscarica
+const arrotonda = (x) => Math.round(x * 1000) / 1000;
+// Celle che toccano il riquadro [sud, ovest, nord, est]: { chiave, bbox }. Al massimo max (vista
+// troppo ampia: nessuna, si aspetta di avvicinarsi)
+export function celleNelRiquadro([s, o, n, e], { passo = PASSO_CELLA, max = 12 } = {}) {
+  const celle = [];
+  for (let la = Math.floor(s / passo); la * passo < n; la++) {
+    for (let lo = Math.floor(o / passo); lo * passo < e; lo++) {
+      celle.push({ chiave: `${la}:${lo}`, bbox: [arrotonda(la * passo), arrotonda(lo * passo), arrotonda((la + 1) * passo), arrotonda((lo + 1) * passo)] });
+      if (celle.length > max) return [];
+    }
+  }
+  return celle;
+}
+export const cellaScaduta = (salvata, oggi = new Date()) => !salvata?.scaricato || (oggi - new Date(salvata.scaricato)) / 86_400_000 >= GIORNI_CELLA;

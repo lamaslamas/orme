@@ -105,7 +105,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     minZoom: 11,
     // sopra la heatmap e i sentieri non segnati, sotto le nostre tracce
     pane: 'sentieriSegnati',
-    opacity: 0.55,
+    // più coprenti dei puntini dei sentieri non segnati che stanno sotto
+    opacity: 0.8,
     attribution: '&copy; <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a> (CC-BY-SA)',
   });
   const ferma = anteprima
@@ -121,6 +122,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     mappa.getPane(nome).style.zIndex = z;
     mappa.getPane(nome).style.pointerEvents = 'none';
   }
+  // in sviluppo: l'ultima mappa aperta, per le prove dalla console
+  if (import.meta.env.DEV && !anteprima) globalThis.__mappa = mappa;
   const vistaSalvata = ricorda && !anteprima ? leggiViste()[ricorda] : null;
   mappa.vistaRitrovata = Boolean(vistaSalvata);
   if (vistaSalvata) {
@@ -214,7 +217,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   applicaSentieri(stato.leggi().livelli.sentieriOsm !== false);
 
   // i sentieri di Waymarked si attenuano quando si vuole far risaltare una traccia
-  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.3 : 0.55);
+  mappa.attenuaSentieri = (attenua) => sentieri.setOpacity(attenua ? 0.3 : 0.8);
 
   // ogni vista può reagire a un livello: f(acceso) subito e a ogni cambio
   const scollegamenti = [];

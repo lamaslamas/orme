@@ -1,8 +1,12 @@
 // Livelli "Rifugi e bivacchi" e "Acqua" (da OpenStreetMap, file dati/punti.json scaricato dal robot).
 // Due interruttori separati; le icone compaiono solo da vicino per non affollare la mappa.
 import L from 'leaflet';
-import { leggiPuntiIntorno } from '../db.js';
+import { leggiPuntiIntorno, leggiCellaPunti, salvaCellaPunti } from '../db.js';
+import { interrogaOverpass } from '../lib/overpass.js';
+import { percorsoCoperto } from '../lib/lungoIlPercorso.js';
+import { zoneCoperte } from './copertura.js';
 import { escapeHtml } from '../lib/formato.js';
+import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta } from '../lib/puntiUtili.js';
 import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 
@@ -96,14 +100,12 @@ export function aggiungiPuntiUtili(mappa) {
     mappa.aggiornaLegenda?.();
   }
 
-  caricaPunti().then((punti) => {
-    if (rimossa) return;
-    if (!punti) {
-      mancanti = true;
-      return mappa.aggiornaLegenda?.();
-    }
-    dati = punti;
+  // un punto si disegna una volta sola, anche se arriva da più fonti (parchi, zona, celle)
+  const disegnati = new Set();
+  function aggiungi(punti) {
     for (const p of punti) {
+      if (disegnati.has(p.id)) continue;
+      disegnati.add(p.id);
       const t = TIPI_PUNTO[p.tipo];
       L.marker([p.lat, p.lon], {
         icon: L.divIcon({
@@ -129,13 +131,70 @@ export function aggiungiPuntiUtili(mappa) {
         .bindPopup(() => popup(p))
         .addTo(pallini[t.gruppo]);
     }
+  }
+
+  caricaPunti().then((punti) => {
+    if (rimossa) return;
+    if (!punti) {
+      mancanti = true;
+      return mappa.aggiornaLegenda?.();
+    }
+    dati = punti;
+    aggiungi(punti);
     aggiorna();
+    caricaCelle();
   });
+
+  // Fuori dai parchi e dalla zona cercata: da zoom 13 i punti della zona inquadrata, a celle,
+  // da OpenStreetMap (salvati sul telefono per 30 giorni). Una richiesta alla volta.
+  let inCorso = false;
+  async function caricaCelle() {
+    if (rimossa || inCorso || mappa.getZoom() < ZOOM_CELLE || !(accesi.rifugi || accesi.acqua)) return;
+    const b = mappa.getBounds();
+    const celle = celleNelRiquadro([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]);
+    if (!celle.length) return;
+    inCorso = true;
+    try {
+      const zone = await zoneCoperte(Boolean(dati));
+      for (const c of celle) {
+        if (rimossa) return;
+        const [s, o, n, e] = c.bbox;
+        const angoli = [[o, s], [e, s], [o, n], [e, n]];
+        if (percorsoCoperto([angoli], zone)) continue; // la cella è tutta in un parco o nella zona
+        let salvata = await leggiCellaPunti(c.chiave).catch(() => null);
+        if (cellaScaduta(salvata)) {
+          try {
+            const punti = puntiDallaRisposta(await interrogaOverpass(queryPuntiParco({ bbox: c.bbox }), { timeoutMs: 60000 }));
+            await salvaCellaPunti(c.chiave, punti);
+            salvata = { punti };
+          } catch (err) {
+            console.warn('Rifugi e acqua della zona non scaricati', err); // si riprova alla prossima mossa
+            if (!salvata) break;
+          }
+        }
+        if (salvata?.punti?.length) {
+          dati = [...(dati ?? []), ...salvata.punti];
+          aggiungi(salvata.punti);
+          aggiorna();
+        }
+      }
+    } finally {
+      inCorso = false;
+    }
+  }
+  mappa.on('moveend', () => {
+    clearTimeout(attesaCelle);
+    attesaCelle = setTimeout(caricaCelle, 800);
+  });
+  let attesaCelle = null;
+  // all'apertura la mappa può ancora spostarsi (vista ritrovata, inquadrature): si guarda poco dopo
+  setTimeout(caricaCelle, 1500);
 
   for (const g of GRUPPI) {
     mappa.suLivello(g, (acceso) => {
       accesi[g] = acceso;
       aggiorna();
+      if (acceso) caricaCelle();
     });
   }
   mappa.on('zoomend', aggiorna);

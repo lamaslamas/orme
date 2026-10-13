@@ -61,7 +61,8 @@ export async function creaBaseVettoriale(variante = 'chiaro') {
 }
 
 // Tutti i sentieri di OpenStreetMap (path, footway, bridleway, gradini e carrarecce), anche quelli
-// che non fanno parte di un percorso segnato: tratteggio marrone sottile con un bordo, così restano
+// che non fanno parte di un percorso segnato: puntini marroni (le carrarecce a tratti) con un bordo
+// (diversi dai tratteggi rossi dei percorsi segnati di Waymarked), così restano
 // leggibili sopra la heatmap e su ogni mappa di base. I percorsi segnati sono sopra (Waymarked e
 // le nostre tracce). scuro: colori per le basi scure (scura, satellitare).
 export const COLORI_SENTIERI = { chiaro: { linea: '#8a5a2b', bordo: 'rgba(255,255,255,0.85)' }, scuro: { linea: '#f0c27a', bordo: 'rgba(11,16,18,0.85)' } };
@@ -77,12 +78,12 @@ export function stileSentieri(sorgenti, scuro = false) {
   const larghezza = (k) => ['interpolate', ['linear'], ['zoom'], 12, 1.1 * k, 14, 1.8 * k, 16, 2.6 * k, 18, 3.6 * k];
   const coppia = (id, f, tratteggio) => [
     { id: `${id}-bordo`, type: 'line', source: 'openmaptiles', 'source-layer': 'transportation', minzoom: 12, filter: f, layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.bordo, 'line-width': ['interpolate', ['linear'], ['zoom'], 12, 3, 14, 4, 16, 5.2, 18, 7] } },
-    { id, type: 'line', source: 'openmaptiles', 'source-layer': 'transportation', minzoom: 12, filter: f, layout: { 'line-join': 'round' }, paint: { 'line-color': c.linea, 'line-width': larghezza(1), 'line-dasharray': tratteggio } },
+    { id, type: 'line', source: 'openmaptiles', 'source-layer': 'transportation', minzoom: 12, filter: f, layout: { 'line-join': 'round', 'line-cap': tratteggio[0] < 1 ? 'round' : 'butt' }, paint: { 'line-color': c.linea, 'line-width': larghezza(tratteggio[0] < 1 ? 1.3 : 1), 'line-dasharray': tratteggio } },
   ];
   return {
     version: 8,
     sources: { openmaptiles: sorgenti.openmaptiles },
-    layers: [...coppia('orme-carrarecce', filtro(['track']), [3, 2]), ...coppia('orme-sentieri', filtro(['path'], ['path', 'footway', 'bridleway', 'steps', '']), [2, 1.5])],
+    layers: [...coppia('orme-carrarecce', filtro(['track']), [3, 2]), ...coppia('orme-sentieri', filtro(['path'], ['path', 'footway', 'bridleway', 'steps', '']), [0.1, 1.8])],
   };
 }
 

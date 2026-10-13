@@ -10,7 +10,7 @@ import { perLaNotte, TIPI_PUNTO } from '../lib/puntiUtili.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
-import { caricaConfini } from './puntiPercorso.js';
+import { caricaConfini } from './copertura.js';
 import { ICONE } from './icone.js';
 
 export const ORE_AL_GIORNO = [4, 6, 8];

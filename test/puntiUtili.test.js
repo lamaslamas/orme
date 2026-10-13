@@ -93,3 +93,18 @@ describe('acqua in categorie', () => {
     expect(fonti.map(acquaSuCuiContare)).toEqual([true, true, false, false]);
   });
 });
+
+import { celleNelRiquadro, cellaScaduta } from '../src/lib/puntiUtili.js';
+describe('punti fuori dai parchi: celle', () => {
+  it('le celle che coprono la vista, nessuna se la vista è troppo ampia', () => {
+    const c = celleNelRiquadro([40.12, 18.42, 40.18, 18.52]);
+    expect(c.map((x) => x.chiave)).toEqual(['401:184', '401:185']);
+    expect(c[0].bbox).toEqual([40.1, 18.4, 40.2, 18.5]);
+    expect(celleNelRiquadro([39, 15, 42, 18])).toEqual([]);
+  });
+  it('si riscarica dopo 30 giorni', () => {
+    expect(cellaScaduta(null)).toBe(true);
+    expect(cellaScaduta({ scaricato: '2026-10-01' }, new Date('2026-10-13'))).toBe(false);
+    expect(cellaScaduta({ scaricato: '2026-08-01' }, new Date('2026-10-13'))).toBe(true);
+  });
+});
