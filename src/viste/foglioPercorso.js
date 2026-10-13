@@ -1,6 +1,7 @@
 // Su telefono: toccando un percorso sulla mappa si alza un foglio dal basso, sopra la mappa.
 // Ridotto: nome, numeri, fauna e Salva / Portami / Apri la scheda. Trascinato in su: anche foto,
 // difficoltà, avvertenze, rifugi e acqua, panorama. In giù (o un tocco sulla mappa) si chiude.
+import L from 'leaflet';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { ACCESSI } from '../lib/costanti.js';
@@ -33,7 +34,8 @@ function htmlAccesso(s) {
 }
 const SOGLIA_PX = 50; // trascinamento oltre il quale il foglio cambia altezza
 
-export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '', extra = () => '' } = {}) {
+// altriItinerari(latlng): se c'è, un link apre gli itinerari segnati OSM del punto toccato (da scaricare)
+export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '', extra = () => '', altriItinerari = null } = {}) {
   const foglio = document.createElement('section');
   foglio.className = 'foglio-percorso';
   foglio.hidden = true;
@@ -103,6 +105,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
           ${punto ? `<button type="button" class="bottone" data-azione="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
           <a class="bottone primario" href="#/sentiero/${id}">Apri la scheda</a>
         </div>
+        ${altriItinerari && tocco ? '<button type="button" class="bottone testo piccolo" data-azione="itinerari">Altri itinerari segnati su questo tratto</button>' : ''}
         ${
           punto
             ? `<div class="foglio-portami" hidden>
@@ -129,6 +132,10 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
       if (b.dataset.azione === 'inizia') iniziaBozza(punto);
       else aggiungiABozza(punto);
       location.hash = '#/percorso-nuovo';
+    } else if (b.dataset.azione === 'itinerari' && attuale?.tocco) {
+      const [lng, lat] = attuale.tocco;
+      chiudi();
+      altriItinerari(L.latLng(lat, lng));
     } else if (b.dataset.azione === 'portami') foglio.querySelector('.foglio-portami').hidden = !foglio.querySelector('.foglio-portami').hidden;
     else if (b.dataset.azione === 'salva' && attuale) {
       const s = await leggiSentiero(attuale.sentiero.id);

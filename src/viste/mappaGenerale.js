@@ -321,6 +321,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
     primaDiInquadrare: () => (saltaSpostamento = true),
     dopoInquadrare: () => (saltaSpostamento = false),
     extra: (s) => htmlUsciteDelSentiero(uscite.usciteDi(s.id)),
+    // sotto un sentiero dell'archivio possono passare altri itinerari (es. il Sentiero Italia)
+    altriItinerari: (latlng) => foglioVia.apri(latlng, mappa.sentieroVicino?.(latlng)),
   });
   aggiungiDistribuzione(mappa);
   // un foglio alla volta: aprendo l'elenco si nasconde la fauna (e viceversa)

@@ -82,7 +82,7 @@ export async function completaZona({ avanzamento = () => {}, chiusa = () => fals
 async function calcolaQuote({ avanzamento, chiusa }) {
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   // le reti di sentieri non hanno un giro: niente profilo
-  const daFare = tutti.filter((s) => s.parco === ID_INTORNO && s.tipoPercorso !== 'rete_sentieri' && tracce.get(s.id)?.geojson && quoteDellaTraccia(s, tracce.get(s.id))?.fonte !== 'tinitaly');
+  const daFare = tutti.filter((s) => s.parco === ID_INTORNO && !s.scaricato && s.tipoPercorso !== 'rete_sentieri' && tracce.get(s.id)?.geojson && quoteDellaTraccia(s, tracce.get(s.id))?.fonte !== 'tinitaly');
   // (anche quelli con le quote di Open-Meteo: si rifanno una volta con TINITALY)
   let fatti = 0;
   for (const s of daFare) {
@@ -122,32 +122,47 @@ async function calcolaQuote({ avanzamento, chiusa }) {
   return fatti > 0;
 }
 
-// Fauna: le osservazioni GBIF della zona, poi lo stesso calcolo dei parchi per ogni percorso
-async function calcolaFauna(zona, { avanzamento, chiusa }) {
-  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
-  const daFare = tutti.filter((s) => s.parco === ID_INTORNO && tracce.get(s.id)?.geojson && faunaDaRicalcolare(s, tracce.get(s.id).geojson));
-  if (!daFare.length) return false;
-  avanzamento('Cerco la fauna osservata nella zona…');
+// Osservazioni GBIF di una zona, solo i campi che servono (dell'osservatore resta un codice anonimo).
+// null se GBIF non risponde o la schermata si è chiusa (si riprova la prossima volta)
+export async function osservazioniDellaZona(centro, km, { chiusa = () => false } = {}) {
   const osservazioni = [];
   try {
     for (let pagina = 0; pagina < PAGINE_GBIF_MAX; pagina++) {
-      const r = await fetch(urlFaunaIntorno(zona.centro, zona.raggioKm, pagina));
+      const r = await fetch(urlFaunaIntorno(centro, km, pagina));
       if (!r.ok) throw new Error(`GBIF ha risposto ${r.status}`);
       const json = await r.json();
-      // solo i campi che servono: dell'osservatore resta un codice anonimo
       for (const o of interpretaGbif(json)) osservazioni.push({ animale: o.animale, lat: o.lat, lon: o.lon, sfumata: o.sfumata, osservatore: o.osservatore, data: o.data });
-      if (chiusa()) return false;
+      if (chiusa()) return null;
       if (json.endOfRecords || !json.results?.length) break;
       await attendi(300); // con calma: GBIF è gratuito
     }
   } catch (e) {
     console.warn('Fauna non calcolata', e);
-    return false; // si riprova la prossima volta
+    return null;
   }
+  return osservazioni;
+}
+
+// fauna di un percorso dalle osservazioni (lo stesso calcolo dei parchi)
+export const faunaDelPercorso = (osservazioni, g, oggi = new Date().toISOString().slice(0, 10)) => ({
+  specie: faunaDalleOsservazioni(osservazioni, g),
+  calcolato: oggi,
+  impronta: improntaTraccia(g).split('-')[1],
+  km: Math.round(lunghezzaKm(g) * 10) / 10,
+});
+
+// Fauna: le osservazioni GBIF della zona, poi lo stesso calcolo dei parchi per ogni percorso
+async function calcolaFauna(zona, { avanzamento, chiusa }) {
+  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const daFare = tutti.filter((s) => s.parco === ID_INTORNO && !s.scaricato && tracce.get(s.id)?.geojson && faunaDaRicalcolare(s, tracce.get(s.id).geojson));
+  if (!daFare.length) return false;
+  avanzamento('Cerco la fauna osservata nella zona…');
+  const osservazioni = await osservazioniDellaZona(zona.centro, zona.raggioKm, { chiusa });
+  if (!osservazioni) return false;
   const oggi = new Date().toISOString().slice(0, 10);
   for (const s of daFare) {
     const g = tracce.get(s.id).geojson;
-    await aggiornaCalcolati(s.id, { faunaInat: { specie: faunaDalleOsservazioni(osservazioni, g), calcolato: oggi, impronta: improntaTraccia(g).split('-')[1], km: Math.round(lunghezzaKm(g) * 10) / 10 } });
+    await aggiornaCalcolati(s.id, { faunaInat: faunaDelPercorso(osservazioni, g, oggi) });
   }
   return true;
 }

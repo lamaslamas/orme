@@ -318,7 +318,7 @@ export async function salvaIntorno({ centro, raggioKm, percorsi, versione = null
   const tx = db.transaction(['sentieri', 'tracce', 'meta'], 'readwrite');
   const adesso = new Date().toISOString();
   for (const [id, s] of precedenti) {
-    if (nuovi.has(id) || haDatiMiei(s)) continue;
+    if (nuovi.has(id) || haDatiMiei(s) || s.scaricato) continue; // gli itinerari scaricati a mano restano
     tx.objectStore('sentieri').delete(id);
     tx.objectStore('tracce').delete(id);
   }

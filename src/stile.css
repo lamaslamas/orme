@@ -1921,3 +1921,8 @@ body.disegno main { padding: 0; }
 #mappaRitrovi { position: absolute; inset: 0; }
 .segno-ritrovo span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #7a3416; border: 2px solid #c4572a; font-weight: 800; font-size: 14px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
 .segno-ritrovo.gruppo span { background: #c4572a; color: #fff; border-color: #fff; }
+.itinerari-via ul { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 6px; }
+.itinerari-via li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.itinerari-via li:has(.pieno-largo) { grid-template-columns: minmax(0, 1fr); }
+.itinerari-via p { margin: 8px 0 0; }
+.azioni-itinerario { display: flex; gap: 6px; }

@@ -1,6 +1,7 @@
 // Tocco su un sentiero qualsiasi di OpenStreetMap (non nel nostro archivio): dal basso un foglio con
 // nome, tipo, se è segnato, difficoltà CAI e i pulsanti per iniziare o allungare un percorso da lì.
-// Dentro un parco, sui tratti non segnati un avviso: possono essere vietati.
+// Dentro un parco, sui tratti non segnati un avviso: possono essere vietati. Se il tratto fa parte
+// di itinerari segnati (route=hiking), "Scarica questo itinerario" (o la scelta tra più itinerari).
 import L from 'leaflet';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { queryViaVicina, viaDallaRisposta, viaVietata } from '../lib/viaOsm.js';
@@ -10,6 +11,10 @@ import { escapeHtml } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
 import { caricaConfini } from './copertura.js';
 import { ICONE } from './icone.js';
+import { tuttiISentieri, tutteLeTracce } from '../db.js';
+import { ID_INTORNO } from '../datiParchi.js';
+import { itinerarioPresente, testoItinerario } from '../lib/itinerario.js';
+import { scaricaItinerario } from './itinerario.js';
 
 const TIPI_TILE = { path: 'Sentiero', footway: 'Sentiero', bridleway: 'Mulattiera', steps: 'Gradini', track: 'Carrareccia' };
 
@@ -27,6 +32,30 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
   const selezione = L.layerGroup().addTo(mappa);
   let punto = null; // [lon, lat] del tocco
   let richiesta = 0;
+  let parcoAttuale = null;
+
+  // itinerari segnati del tratto: uno → "Scarica questo itinerario"; più di uno → si sceglie quale.
+  // Quelli già sul telefono (archivio, zona o scaricati) si aprono e basta.
+  async function mostraItinerari(percorsi, mia) {
+    const [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+    const box = foglio.querySelector('.itinerari-via');
+    if (mia !== richiesta || !box) return;
+    const ids = new Set(sentieri.map((x) => x.id));
+    const riga = (p, solo) => {
+      const presente = itinerarioPresente(p.id, ids, tracce);
+      // nell'archivio i sentieri OSM dei parchi sono tagliati al riquadro del parco: si può prendere intero
+      const tagliato = presente && tracce.get(presente)?.dettagli?.ritagliata;
+      const azione = presente
+        ? `<span class="azioni-itinerario"><a class="bottone" href="#/sentiero/${encodeURIComponent(presente)}">Apri</a>${tagliato ? `<button type="button" class="bottone" data-scarica="${p.id}">Scarica intero</button>` : ''}</span>`
+        : `<button type="button" class="bottone${solo ? ' pieno-largo' : ''}" data-scarica="${p.id}">${ICONE.percorso}<span>${solo ? 'Scarica questo itinerario' : 'Scarica'}</span></button>`;
+      return `<li><span>${escapeHtml(testoItinerario(p))}${presente ? ` <span class="tenue piccolo">· ${tagliato ? 'sul telefono solo il tratto nel parco' : 'già sul telefono'}</span>` : ''}</span>${azione}</li>`;
+    };
+    box.innerHTML =
+      percorsi.length === 1
+        ? `<p class="tenue piccolo">Fa parte dell'itinerario segnato:</p><ul>${riga(percorsi[0], true)}</ul>`
+        : `<p class="tenue piccolo">Questo tratto fa parte di ${percorsi.length} itinerari segnati: scegli quale scaricare.</p><ul>${percorsi.map((p) => riga(p, false)).join('')}</ul>`;
+    box.insertAdjacentHTML('beforeend', '<p class="tenue piccolo stato-scarica" role="status"></p>');
+  }
 
   function chiudi() {
     if (foglio.hidden) return;
@@ -59,6 +88,7 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
           <button type="button" class="bottone primario" data-azione="inizia">${ICONE.bandierina}<span>Inizia da qui</span></button>
           <button type="button" class="bottone" data-azione="aggiungi">${ICONE.percorso}<span>${bozza ? `Aggiungi (${bozza})` : 'Aggiungi'}</span></button>
         </div>
+        <div class="itinerari-via"></div>
         ${via.id ? `<a class="tenue piccolo link-osm" href="https://www.openstreetmap.org/way/${via.id}" target="_blank" rel="noopener">Dati OpenStreetMap ↗</a>` : ''}
       </div>`;
   }
@@ -89,6 +119,8 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
       if (!via) return void (foglio.querySelector('.stato-via').textContent = 'Dettagli non trovati su OpenStreetMap');
       L.polyline(via.linea.map(([lon, lat]) => [lat, lon]), { color: '#ef9f27', weight: 8, opacity: 0.55, interactive: false }).addTo(selezione);
       foglio.innerHTML = htmlVia(via, parco);
+      parcoAttuale = parco;
+      if (via.percorsi.length) mostraItinerari(via.percorsi, mia);
     } catch (e) {
       if (mia !== richiesta) return;
       console.warn('Sentiero toccato', e);
@@ -99,7 +131,21 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
     }
   }
 
-  foglio.addEventListener('click', (e) => {
+  foglio.addEventListener('click', async (e) => {
+    const scarica = e.target.closest('[data-scarica]');
+    if (scarica) {
+      const stato = foglio.querySelector('.stato-scarica');
+      foglio.querySelectorAll('[data-scarica]').forEach((b) => (b.disabled = true));
+      try {
+        const id = await scaricaItinerario(Number(scarica.dataset.scarica), parcoAttuale?.id ?? ID_INTORNO, { avanzamento: (t) => stato && (stato.textContent = t) });
+        location.hash = `#/sentiero/${encodeURIComponent(id)}`;
+      } catch (err) {
+        console.warn('Itinerario non scaricato', err);
+        if (stato) stato.textContent = 'Non sono riuscito a scaricarlo (OpenStreetMap non risponde): riprova tra poco.';
+        foglio.querySelectorAll('[data-scarica]').forEach((b) => (b.disabled = false));
+      }
+      return;
+    }
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'chiudi') chiudi();
     else if (azione === 'inizia' && punto) {
