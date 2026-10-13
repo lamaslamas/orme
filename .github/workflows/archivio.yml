@@ -18,7 +18,7 @@ permissions:
 jobs:
   importa:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     outputs:
       cambiato: ${{ steps.salva.outputs.cambiato }}
     steps:
@@ -35,6 +35,12 @@ jobs:
         run: node scripts/luoghi-uscite.mjs
         continue-on-error: true
         timeout-minutes: 10
+      # celle delle quote TINITALY già scaricate: restano tra una notte e l'altra (il terreno non cambia)
+      - uses: actions/cache@v4
+        with:
+          path: .cache/tinitaly
+          key: tinitaly-${{ github.run_id }}
+          restore-keys: tinitaly-
       # indice panoramico: solo per i percorsi nuovi o con la traccia cambiata
       - name: Calcola l'indice panoramico
         run: node scripts/calcola-panorama.mjs
@@ -49,6 +55,12 @@ jobs:
         run: node scripts/scarica-punti.mjs
         continue-on-error: true
         timeout-minutes: 15
+      # rifugi e acqua di tutta Italia a quadrati: 20 per notte (prima i parchi del Sud e il PNALM, poi
+      # dal più vecchio), pausa tra le richieste; cali sospetti e risposte incomplete non sovrascrivono
+      - name: Rifugi e acqua di tutta Italia
+        run: node scripts/scarica-punti-italia.mjs --max 20
+        continue-on-error: true
+        timeout-minutes: 40
       - name: Salva l'archivio se è cambiato
         id: salva
         run: |

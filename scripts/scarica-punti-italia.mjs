@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node
 import { join } from 'node:path';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { puntiDallaRisposta } from '../src/lib/puntiUtili.js';
-import { quadratiDaFare, queryQuadrato, riquadroQuadrato, quartiDi, PESO_MASSIMO, abitatiNellaRisposta } from '../src/lib/puntiItalia.js';
+import { quadratiDaFare, queryQuadrato, riquadroQuadrato, quartiDi, PESO_MASSIMO, abitatiNellaRisposta, valutaCalo } from '../src/lib/puntiItalia.js';
 
 const arg = (nome, base) => {
   const i = process.argv.indexOf(`--${nome}`);
@@ -39,15 +39,30 @@ function scrivi(id, punti) {
 const togli = (id) => existsSync(join(CARTELLA, `${id}.json`)) && rmSync(join(CARTELLA, `${id}.json`));
 const dentro = (p, [s, o, n, e]) => p.lat >= s && p.lat < n && p.lon >= o && p.lon < e;
 
+const segnalati = []; // per il riepilogo: cali trattenuti o accettati, errori
 const daFare = SCELTI.length ? SCELTI : quadratiDaFare(indice.quadrati, oggi, MAX);
 console.log(`Quadrati: ${daFare.join(', ')}`);
 for (const [i, id] of daFare.entries()) {
   if (i) await attendi(PAUSA_MS);
   try {
+    // HTTP diverso da 200: interrogaOverpass prova gli altri server e alla fine lancia un errore
     const json = await interrogaOverpass(queryQuadrato(riquadroQuadrato(id)), { fetchFn, timeoutMs: 200_000 });
+    // qualunque "remark" (timeout, errore di runtime): risposta da non usare
+    if (json?.remark) throw new Error(`risposta con avviso di Overpass (${String(json.remark).slice(0, 80)})`);
     const punti = puntiDallaRisposta(json);
     // paesi ma nessun punto: risposta incompleta, non un quadrato vuoto (si riprova)
     if (!punti.length && abitatiNellaRisposta(json) > 0) throw new Error(`${abitatiNellaRisposta(json)} abitati ma nessun punto: risposta incompleta`);
+    // più del 30% di punti in meno rispetto al file salvato: si tiene il vecchio (3 notti di fila: si accetta)
+    const prima = indice.quadrati[id];
+    const v = valutaCalo(prima?.n ?? 0, punti.length, prima?.calo, oggi);
+    if (!v.accetta) {
+      indice.quadrati[id] = { ...prima, calo: v.calo };
+      segnalati.push(`${id}: ${prima.n} → ${punti.length} punti (notte ${v.calo.volte} di 3), tenuto il file di prima`);
+      console.warn(`${id}: calo sospetto ${prima.n} → ${punti.length}, tenuto il file di prima`);
+      writeFileSync(FILE_INDICE, JSON.stringify({ ...indice, aggiornato: oggi }));
+      continue;
+    }
+    if (v.accettato) segnalati.push(`${id}: ${prima.n} → ${punti.length} punti, calo accettato dopo 3 notti`);
     let byte = 0;
     let quarti = false;
     if (!punti.length) {
@@ -73,11 +88,15 @@ for (const [i, id] of daFare.entries()) {
     console.log(`${id}: ${punti.length} punti, ${(byte / 1024).toFixed(1)} KB${quarti ? ' (diviso in quattro)' : ''}`);
   } catch (e) {
     console.warn(`${id}: non scaricato (${e.message}), si riprova al prossimo giro`);
+    // il file di prima resta; la notte dopo questo quadrato passa avanti
+    indice.quadrati[id] = { ...(indice.quadrati[id] ?? {}), errore: oggi };
+    segnalati.push(`${id}: non aggiornato (${e.message})`);
   }
   // l'indice si salva a ogni quadrato: se il robot si ferma, il lavoro fatto resta
   writeFileSync(FILE_INDICE, JSON.stringify({ ...indice, aggiornato: oggi }));
 }
 const pieni = Object.values(indice.quadrati).filter((x) => x.n);
 const totale = pieni.reduce((s, x) => s + x.byte, 0);
+console.log(segnalati.length ? `\nDa guardare:\n  ${segnalati.join('\n  ')}` : '\nNessun calo sospetto né errore.');
 console.log(`Indice: ${Object.keys(indice.quadrati).length} quadrati (${pieni.length} con punti), ${(totale / 1024 / 1024).toFixed(2)} MB in tutto.`);
 process.exit(0);

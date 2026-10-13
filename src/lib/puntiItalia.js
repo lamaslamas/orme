@@ -64,7 +64,8 @@ export function quadratiDaFare(indice, oggi, max) {
     return x.n === 0 ? giorni(x.aggiornato) >= GIORNI_VUOTO : true;
   };
   const tutti = quadratiItalia().filter(dovuto);
-  const priorita = (id) => (indice[id] ? 1 : prima.includes(id) ? 0 : 1);
+  // prima i quadrati da riprovare (errore o calo sospetto la notte prima), poi le zone prioritarie mai fatte
+  const priorita = (id) => (indice[id]?.calo || indice[id]?.errore ? -1 : indice[id] ? 1 : prima.includes(id) ? 0 : 1);
   return tutti
     .sort((a, b) => priorita(a) - priorita(b) || giorni(indice[b]?.aggiornato) - giorni(indice[a]?.aggiornato) || prima.indexOf(a) - prima.indexOf(b))
     .slice(0, max);
@@ -110,3 +111,17 @@ export function fileDellaVista([s, o, n, e], indice, max = 6) {
   return ids;
 }
 const intersecano = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+
+// Protezione dai cali improvvisi: se un quadrato già salvato perde più del 30% dei punti si tiene il
+// file vecchio e si riprova; se il calo si ripete per 3 notti di fila si accetta (può essere una
+// modifica vera su OSM). calo: { volte, ultima } dalla notte prima (o null).
+export const CALO_MASSIMO = 0.3;
+export const NOTTI_CALO = 3;
+export function valutaCalo(primaN, nuovoN, calo, oggi) {
+  if (!primaN || nuovoN >= primaN * (1 - CALO_MASSIMO)) return { accetta: true, calo: null };
+  const giorni = calo?.ultima ? (new Date(oggi) - new Date(calo.ultima)) / 86_400_000 : Infinity;
+  // "di fila": la notte prima (o al più due notti prima, se un giro è saltato)
+  const volte = giorni >= 1 && giorni <= 2 ? calo.volte + 1 : giorni < 1 ? calo.volte : 1;
+  if (volte >= NOTTI_CALO) return { accetta: true, calo: null, accettato: true };
+  return { accetta: false, calo: { volte, ultima: oggi, da: primaN, a: nuovoN } };
+}

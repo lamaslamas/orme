@@ -39,3 +39,28 @@ describe('quadrati vuoti o risposte incomplete', () => {
     expect(abitatiNellaRisposta({ elements: [] })).toBe(0);
   });
 });
+
+import { valutaCalo } from '../src/lib/puntiItalia.js';
+describe('cali improvvisi dei punti', () => {
+  it('fino al 30% in meno si accetta; di più no, finché non si ripete 3 notti di fila', () => {
+    expect(valutaCalo(1000, 750, null, '2026-10-13').accetta).toBe(true);
+    const n1 = valutaCalo(1000, 600, null, '2026-10-13');
+    expect(n1).toMatchObject({ accetta: false, calo: { volte: 1, da: 1000, a: 600 } });
+    const n2 = valutaCalo(1000, 610, n1.calo, '2026-10-14');
+    expect(n2).toMatchObject({ accetta: false, calo: { volte: 2 } });
+    const n3 = valutaCalo(1000, 605, n2.calo, '2026-10-15');
+    expect(n3).toMatchObject({ accetta: true, calo: null, accettato: true });
+  });
+  it('se le notti non sono di fila si ricomincia a contare; un quadrato nuovo si accetta', () => {
+    const n1 = valutaCalo(1000, 600, { volte: 2, ultima: '2026-10-01' }, '2026-10-13');
+    expect(n1.calo.volte).toBe(1);
+    expect(valutaCalo(0, 10, null, '2026-10-13').accetta).toBe(true);
+  });
+});
+
+describe('quadrati da riprovare', () => {
+  it('errore o calo sospetto la notte prima: passano avanti a tutti', () => {
+    const indice = { '83_27': { aggiornato: '2026-10-12', n: 411, calo: { volte: 1, ultima: '2026-10-12' } }, '80_36': { aggiornato: '2026-10-01', n: 219, errore: '2026-10-12' } };
+    expect(quadratiDaFare(indice, '2026-10-13', 2).sort()).toEqual(['80_36', '83_27']);
+  });
+});
