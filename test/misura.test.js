@@ -41,3 +41,20 @@ describe('misuratore delle prestazioni', () => {
     expect(r.slice(1)).toEqual(['  requestAnimationFrame: 70 ms', '  pointermove: 50 ms']);
   });
 });
+
+import { registraMappaGl, mappeGlRegistrate } from '../src/lib/misura.js';
+describe('mappe MapLibre misurate', () => {
+  it('anche quando la mappa viene ricreata con lo stesso nome, e ogni mappa una volta sola', () => {
+    azzeraTempi();
+    const nuova = () => ({ _render() { return 'ok'; } });
+    const a = nuova();
+    const b = nuova();
+    registraMappaGl('base', a, true);
+    registraMappaGl('base', a, true); // la stessa: non si avvolge due volte
+    registraMappaGl('base', b, true);
+    a._render();
+    b._render();
+    expect(tempiRegistrati().get('disegno MapLibre: base').volte).toBe(2);
+    expect(mappeGlRegistrate()).toEqual(['base']);
+  });
+});

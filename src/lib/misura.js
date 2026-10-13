@@ -49,10 +49,13 @@ export const tempiRegistrati = () => new Map(tempi);
 export const azzeraTempi = () => tempi.clear();
 
 // mappe MapLibre da misurare (nome → mappa), registrate da chi le crea
-const mappeGl = new Map();
+const mappeGl = new Map(); // nome → ultima mappa
+const misurate = new WeakSet(); // ogni mappa una volta sola (il livello Leaflet la ricrea a ogni aggiunta)
 export function registraMappaGl(nome, mappaGl, attivo = MISURA_ATTIVA) {
-  if (!attivo || !mappaGl || mappeGl.has(nome)) return;
+  if (!attivo || !mappaGl) return;
   mappeGl.set(nome, mappaGl);
+  if (misurate.has(mappaGl)) return;
+  misurate.add(mappaGl);
   // il disegno di ogni fotogramma (metodo interno di MapLibre: solo in misura)
   const originale = mappaGl._render;
   if (typeof originale === 'function') mappaGl._render = cronometra(`disegno MapLibre: ${nome}`, originale, true);
