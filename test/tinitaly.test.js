@@ -74,3 +74,18 @@ describe('quote TINITALY', () => {
     expect(r3.fonte).toBe('open-meteo');
   });
 });
+
+import { profiloTinitaly } from '../src/lib/tinitaly.js';
+describe('profilo con TINITALY', () => {
+  it('stesso formato del profilo del robot, quote dalle celle', async () => {
+    const lettore = { quote: async (punti) => punti.map(([lon]) => Math.round(1000 + (lon - 13.8) * 10000)) };
+    const g = { type: 'MultiLineString', coordinates: [[[13.8, 41.8], [13.81, 41.8]]] };
+    const r = await profiloTinitaly(g, lettore);
+    // un campione ogni 50 m: l'ultimo cade poco prima della fine
+    expect(r).toMatchObject({ min: 1000, discesa: 0 });
+    expect(r.max).toBeGreaterThan(1090);
+    expect(r.salita).toBe(r.max - 1000);
+    expect(r.partenza.quota).toBe(1000);
+    expect(await profiloTinitaly(g, { quote: async (p) => p.map(() => null) })).toBeNull();
+  });
+});

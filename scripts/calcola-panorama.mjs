@@ -16,6 +16,8 @@ import { faunaDalleOsservazioni, faunaDelParco } from '../src/lib/faunaPercorso.
 import { urlOsservazioniGbif, interpretaGbif } from '../src/lib/gbif.js';
 import { PARCHI } from '../src/datiParchi.js';
 import { profiloQuote } from '../src/lib/profiloQuote.js';
+import { creaLettoreTinitaly, profiloTinitaly } from '../src/lib/tinitaly.js';
+import { mkdirSync } from 'node:fs';
 import { lunghezzaKm } from '../src/lib/geo.js';
 import { existsSync } from 'node:fs';
 
@@ -188,25 +190,56 @@ const archivio = JSON.parse(readFileSync(FILE, 'utf8'));
 let calcolati = 0;
 let saltati = 0;
 // ---------- profilo delle quote (partenza, punto più alto, dislivello) ----------
-// Per "Dove vado domani?": temperatura in vetta e durata anche per le tracce senza quote.
-// Veloce (solo il modello del terreno), si ricalcola quando cambia la traccia.
+// Per le schede, "Dove vado domani?" e i tempi: TINITALY 10 m (INGV), lo stesso modello del disegno
+// e di Pianifica, così i tempi coincidono. Al più MAX_QUOTE percorsi per notte (il servizio è
+// pubblico); le celle restano su disco tra una notte e l'altra (cache del workflow). Dove TINITALY non
+// copre (estero, mare) il vecchio modello Terrarium, e si riprova TINITALY dopo 30 giorni.
+const MAX_QUOTE = Number(process.argv[process.argv.indexOf('--max-quote') + 1]) || 150;
+const CACHE_DEM = '.cache/tinitaly';
+mkdirSync(CACHE_DEM, { recursive: true });
+const fileCella = (k) => `${CACHE_DEM}/${k.replace(':', '_')}.json`;
+const tinitaly = creaLettoreTinitaly({
+  fetchFn: (url) => fetch(url, { headers: { 'User-Agent': AGENTE }, signal: AbortSignal.timeout(60_000) }),
+  parallele: 2,
+  // griglia compatta su disco: quote in decimetri (interi), null dove manca
+  leggiCella: async (k) => {
+    if (!existsSync(fileCella(k))) return null;
+    const g = JSON.parse(readFileSync(fileCella(k), 'utf8'));
+    return { ...g, valori: g.dm.map((v) => (v === null ? null : v / 10)) };
+  },
+  salvaCella: async (k, g) => writeFileSync(fileCella(k), JSON.stringify({ ncol: g.ncol, nrig: g.nrig, ovest: g.ovest, sud: g.sud, passo: g.passo, dm: g.valori.map((v) => (v == null ? null : Math.round(v * 10))) })),
+});
+const oggiData = new Date().toISOString().slice(0, 10);
+const giorniDa = (d) => (d ? (new Date(oggiData) - new Date(d)) / 86_400_000 : Infinity);
 let profili = 0;
+let daTinitaly = 0;
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
   if (!g?.coordinates?.length) continue;
   const geometria = improntaTraccia(g).split('-')[1];
-  if (!tutti && p.quote?.impronta === geometria) continue;
+  const aggiornato = p.quote?.impronta === geometria && (p.quote.fonte === 'tinitaly' || (p.quote.fonte === 'terrarium' && giorniDa(p.quote.tinitalyNo) < 30));
+  if (!tutti && aggiornato) continue;
+  if (daTinitaly >= MAX_QUOTE) continue; // gli altri la notte dopo
   try {
-    await terreno.prepara(riquadro(g, 0.005));
-    const r = profiloQuote(g, quota);
+    daTinitaly++;
+    let r = await profiloTinitaly(g, tinitaly).catch((e) => {
+      console.warn(`  TINITALY ${p.id}: ${e.message}`);
+      return null;
+    });
+    let fonte = 'tinitaly';
+    if (!r) {
+      await terreno.prepara(riquadro(g, 0.005));
+      r = profiloQuote(g, quota);
+      fonte = 'terrarium';
+    }
     if (!r) continue;
-    p.quote = { ...r, impronta: geometria };
+    p.quote = { ...r, impronta: geometria, fonte, ...(fonte === 'terrarium' ? { tinitalyNo: oggiData } : {}) };
     profili++;
   } catch (e) {
     console.warn(`  quote ${p.id}: ${e.message}`);
   }
 }
-console.log(`Profilo delle quote: ${profili} percorsi`);
+console.log(`Profilo delle quote: ${profili} percorsi (TINITALY; al più ${MAX_QUOTE} per notte)`);
 if (process.argv.includes('--solo-quote')) {
   if (profili) writeFileSync(FILE, JSON.stringify({ ...archivio, aggiornato: new Date().toISOString() }));
   process.exit(0);

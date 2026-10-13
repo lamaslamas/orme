@@ -4,6 +4,9 @@
 // testo (ASCII grid); si tengono sul telefono e la quota di ogni punto si ricava dalle quattro vicine.
 // Se TINITALY non risponde (o il punto è in mare / fuori dall'Italia) si usa Open-Meteo.
 import { distanzaKm } from './geo.js';
+import { percorsoSentiero } from './tracce.js';
+import { campionaPercorso } from './panorama.js';
+import { profiloQuote, PASSO_PROFILO_M } from './profiloQuote.js';
 
 export const URL_TINITALY = 'https://tinitaly.pi.ingv.it/TINItaly_1_1/wcs';
 export const CREDITO_TINITALY = 'Quote TINITALY 10 m (INGV, CC BY 4.0)';
@@ -182,4 +185,16 @@ export async function pezziConQuoteTinitaly(pezzi, lettore, riserva, { fitti: in
     console.warn('TINITALY non disponibile', e);
   }
   return { pezzi: await riserva(pezzi), fonte: 'open-meteo' };
+}
+
+// Profilo della traccia (partenza, minima, massima, dislivello) come quello del robot, ma con le quote
+// TINITALY: prima si scaricano le celle per i punti campionati, poi lo stesso calcolo di profiloQuote.
+// null se mancano troppe quote (fuori Italia, servizio giù).
+export async function profiloTinitaly(geojson, lettore, passoM = PASSO_PROFILO_M) {
+  const { pezzi } = percorsoSentiero(geojson);
+  const punti = pezzi.flatMap((pezzo) => campionaPercorso({ type: 'MultiLineString', coordinates: [pezzo] }, passoM).map((p) => [p.lon, p.lat]));
+  if (!punti.length) return null;
+  const quote = await lettore.quote(punti);
+  const memoria = new Map(punti.map(([lon, lat], i) => [`${lon.toFixed(6)},${lat.toFixed(6)}`, quote[i]]));
+  return profiloQuote(geojson, (lon, lat) => memoria.get(`${lon.toFixed(6)},${lat.toFixed(6)}`) ?? null, passoM);
 }
