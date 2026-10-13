@@ -23,9 +23,9 @@ describe('rifugi e acqua per tutta Italia, a quadrati', () => {
     expect(ZONE_PRIMA.length).toBeGreaterThanOrEqual(10);
   });
 
-  it('richiesta solo in Italia; file da caricare per la vista, con i quarti', () => {
-    expect(queryQuadrato([41.5, 13.5, 42, 14])).toContain('area["ISO3166-1"="IT"][admin_level=2]->.it');
-    expect(queryQuadrato([41.5, 13.5, 42, 14])).toContain('node["natural"="spring"](area.it)(41.5,13.5,42,14)');
+  it('richiesta per il solo rettangolo (senza area); file da caricare per la vista, con i quarti', () => {
+    expect(queryQuadrato([41.5, 13.5, 42, 14])).not.toContain('area');
+    expect(queryQuadrato([41.5, 13.5, 42, 14])).toContain('node["natural"="spring"](41.5,13.5,42,14)');
     const indice = { '83_27': { n: 900 }, '83_28': { n: 5000, quarti: true }, '83_26': { n: 0 } };
     expect(fileDellaVista([41.7, 13.4, 41.8, 14.1], indice)).toEqual(['83_27', '83_28-a', '83_28-c']);
   });
@@ -62,5 +62,26 @@ describe('quadrati da riprovare', () => {
   it('errore o calo sospetto la notte prima: passano avanti a tutti', () => {
     const indice = { '83_27': { aggiornato: '2026-10-12', n: 411, calo: { volte: 1, ultima: '2026-10-12' } }, '80_36': { aggiornato: '2026-10-01', n: 219, errore: '2026-10-12' } };
     expect(quadratiDaFare(indice, '2026-10-13', 2).sort()).toEqual(['80_36', '83_27']);
+  });
+});
+
+import { readFileSync } from 'node:fs';
+import { soloInItalia } from '../src/lib/puntiItalia.js';
+
+describe('punti fuori dall\'Italia scartati con il confine salvato', () => {
+  const { anelli } = JSON.parse(readFileSync('scripts/dati/confine-italia.json', 'utf8'));
+  const p = (nome, lat, lon) => ({ nome, lat, lon });
+  it('tiene Italia, isole ed enclave; scarta estero, San Marino e Vaticano', () => {
+    const punti = [
+      p('Roma', 41.9, 12.5),
+      p('Lampedusa', 35.51, 12.6),
+      p('Campione d\'Italia', 45.969, 8.971),
+      p('Lugano', 46.0, 8.95),
+      p('Nizza', 43.7, 7.26),
+      p('San Marino', 43.936, 12.447),
+      p('San Pietro', 41.9022, 12.4539),
+      p('Lubiana', 46.05, 14.5),
+    ];
+    expect(soloInItalia(punti, anelli).map((x) => x.nome)).toEqual(['Roma', 'Lampedusa', 'Campione d\'Italia']);
   });
 });

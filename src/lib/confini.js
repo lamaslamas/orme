@@ -58,8 +58,10 @@ export function semplifica(punti, tolleranza = 0.0003) {
   return punti.filter((_, i) => tieni[i]);
 }
 
-// Dalla risposta Overpass (relazione o linea chiusa con "out geom") agli anelli esterni del confine
-export function anelliDaRelazione(json, tolleranza) {
+// Dalla risposta Overpass (relazione o linea chiusa con "out geom") agli anelli esterni del confine.
+// ruoli: con ['outer', '', 'inner'] anche i buchi (San Marino e Vaticano nel confine dell'Italia);
+// puntoNelPoligono li tratta da soli con la regola pari-dispari
+export function anelliDaRelazione(json, tolleranza, ruoli = ['outer', '']) {
   const linea = (json?.elements ?? []).find((e) => e.type === 'way' && Array.isArray(e.geometry));
   if (linea) {
     const anello = linea.geometry.map((p) => [p.lon, p.lat]);
@@ -67,12 +69,16 @@ export function anelliDaRelazione(json, tolleranza) {
   }
   const rel = (json?.elements ?? []).find((e) => e.type === 'relation');
   if (!rel) return [];
-  const tratti = (rel.members ?? [])
-    .filter((m) => m.type === 'way' && (m.role === 'outer' || m.role === '') && Array.isArray(m.geometry))
-    .map((m) => m.geometry.map((p) => [p.lon, p.lat]));
-  return concatenaLinee(tratti, 5)
-    .filter((anello) => anello.length >= 4)
-    .map((anello) => semplifica(anello, tolleranza));
+  // esterni e buchi si uniscono ciascuno per conto suo
+  const gruppi = [ruoli.filter((r) => r !== 'inner'), ruoli.filter((r) => r === 'inner')].filter((g) => g.length);
+  return gruppi.flatMap((g) =>
+    concatenaLinee(
+      (rel.members ?? []).filter((m) => m.type === 'way' && g.includes(m.role) && Array.isArray(m.geometry)).map((m) => m.geometry.map((p) => [p.lon, p.lat])),
+      5,
+    )
+      .filter((anello) => anello.length >= 4)
+      .map((anello) => semplifica(anello, tolleranza)),
+  );
 }
 
 // Regola pari-dispari: funziona anche con più anelli

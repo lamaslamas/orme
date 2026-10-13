@@ -95,3 +95,25 @@ describe('confine dall\'API di OpenStreetMap (riserva)', () => {
     expect(anelliDaRelazione(r, 0)).toHaveLength(1);
   });
 });
+
+describe('confine con i buchi', () => {
+  const g = (pts) => pts.map(([lon, lat]) => ({ lon, lat }));
+  const rel = {
+    elements: [
+      {
+        type: 'relation',
+        members: [
+          { type: 'way', role: 'outer', geometry: g([[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]) },
+          { type: 'way', role: 'inner', geometry: g([[0.4, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6], [0.4, 0.4]]) },
+        ],
+      },
+    ],
+  };
+  it('senza ruoli solo l\'esterno; con "inner" il buco resta fuori', () => {
+    expect(anelliDaRelazione(rel, 0)).toHaveLength(1);
+    const anelli = anelliDaRelazione(rel, 0, ['outer', '', 'inner']);
+    expect(anelli).toHaveLength(2);
+    expect(puntoNelPoligono([0.2, 0.2], anelli)).toBe(true);
+    expect(puntoNelPoligono([0.5, 0.5], anelli)).toBe(false);
+  });
+});

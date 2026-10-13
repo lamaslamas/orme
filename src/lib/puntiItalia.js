@@ -2,6 +2,8 @@
 // (public/dati/punti/<id>.json) più un indice. Li prepara il robot qualche quadrato per notte; il
 // telefono scarica solo quelli della zona che guarda. Un quadrato troppo pesante (città piene di
 // fontanelle) si divide in quattro da 0,25°.
+import { puntoNelPoligono } from './confini.js';
+
 export const LATO_QUADRATO = 0.5;
 export const ITALIA = { sud: 35.0, nord: 47.5, ovest: 6.5, est: 19.0 };
 export const PESO_MASSIMO = 300_000; // byte del file di un quadrato prima di dividerlo
@@ -71,20 +73,34 @@ export function quadratiDaFare(indice, oggi, max) {
     .slice(0, max);
 }
 
-// richiesta Overpass per un riquadro, solo in territorio italiano (il mare e l'estero tornano vuoti)
+// richiesta Overpass per il solo rettangolo del quadrato (senza il filtro per area, molto più
+// lento sui server): i punti all'estero si scartano dopo, con il confine salvato (soloInItalia)
 export function queryQuadrato([s, o, n, e]) {
   const b = `(${s},${o},${n},${e})`;
   return `[out:json][timeout:180];
-area["ISO3166-1"="IT"][admin_level=2]->.it;
 (
-nwr["tourism"~"^(wilderness_hut|alpine_hut)$"](area.it)${b};
-nwr["amenity"="shelter"]["shelter_type"~"^(basic_hut|lean_to)$"](area.it)${b};
-node["natural"="spring"](area.it)${b};
-nwr["amenity"="drinking_water"](area.it)${b};
+nwr["tourism"~"^(wilderness_hut|alpine_hut)$"]${b};
+nwr["amenity"="shelter"]["shelter_type"~"^(basic_hut|lean_to)$"]${b};
+node["natural"="spring"]${b};
+nwr["amenity"="drinking_water"]${b};
 );
 out center tags;
-node["place"~"^(city|town|village|hamlet)$"](area.it)${b};
+node["place"~"^(city|town|village|hamlet)$"]${b};
 out count;`;
+}
+
+// Solo i punti dentro il confine dell'Italia (anelli [lon, lat], buchi compresi). Il rettangolo di
+// ogni anello evita il conto completo per i punti lontani
+export function soloInItalia(punti, anelli) {
+  const conRiquadro = anelli.map((a) => {
+    let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [x, y] of a) [o, s, e, n] = [Math.min(o, x), Math.min(s, y), Math.max(e, x), Math.max(n, y)];
+    return { a, o, s, e, n };
+  });
+  return punti.filter((p) => {
+    const vicini = conRiquadro.filter((r) => p.lon >= r.o && p.lon <= r.e && p.lat >= r.s && p.lat <= r.n).map((r) => r.a);
+    return vicini.length > 0 && puntoNelPoligono([p.lon, p.lat], vicini);
+  });
 }
 
 // Abitati contati nella risposta (out count): un quadrato con paesi ma senza punti è una risposta
