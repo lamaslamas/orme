@@ -94,3 +94,26 @@ describe('esporta collegamenti', () => {
     expect(stessiCollegamenti(f, { collegamenti: [] })).toBe(false);
   });
 });
+
+import { puntiDiRitrovo } from '../src/lib/collegamenti.js';
+describe('punti di ritrovo', () => {
+  it('uno per paese, con le coordinate migliori disponibili', () => {
+    const u = (id, paese, extra = {}) => ({ id, partenza: { paese, lat: null, lon: null }, ...extra });
+    const punti = puntiDiRitrovo(
+      [
+        u('a', 'Chiusi della Verna', { luoghi: { punti: [{ nome: 'La Beccia', lat: 43.706, lon: 11.926 }, { nome: 'Chiusi della Verna', lat: 43.707, lon: 11.931 }] } }),
+        u('b', 'chiusi della verna'),
+        u('c', '', { luoghi: { punti: [{ nome: 'Lago di Ponte', lat: 44.0286, lon: 11.6976 }] } }),
+        u('d', 'Pescasseroli'),
+        u('e', ''),
+        u('f', '', { luoghi: { punti: [{ nome: "Fra' Lupo", lat: 43.71, lon: 11.93 }] } }),
+      ],
+      new Map([['d', { geojson: { type: 'MultiLineString', coordinates: [[[13.79, 41.8], [13.8, 41.81]]] } }]]),
+    );
+    expect(punti.map((p) => [p.nome, p.lat, p.lon, p.uscite.map((x) => x.id)])).toEqual([
+      ['Chiusi della Verna', 43.707, 11.931, ['a', 'f', 'b']],
+      ['Pescasseroli', 41.8, 13.79, ['d']],
+      ['Lago di Ponte', 44.0286, 11.6976, ['c']],
+    ]);
+  });
+});

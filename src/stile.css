@@ -1916,3 +1916,8 @@ body.disegno main { padding: 0; }
 .dc-esporta { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--sfondo); }
 .dc-esporta ol { margin: 4px 0 8px; padding-left: 20px; }
 .da-collegare > [data-esporta] { margin-top: 8px; }
+.modo-uscite { grid-template-columns: repeat(2, 1fr); margin: 10px 0 8px; }
+.mappa-ritrovi { position: relative; height: 55vh; min-height: 280px; border-radius: 14px; overflow: hidden; margin: 4px 0 8px; }
+#mappaRitrovi { position: absolute; inset: 0; }
+.segno-ritrovo span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; color: #7a3416; border: 2px solid #c4572a; font-weight: 800; font-size: 14px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+.segno-ritrovo.gruppo span { background: #c4572a; color: #fff; border-color: #fff; }

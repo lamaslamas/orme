@@ -133,3 +133,50 @@ export function testoFileCollegamenti(file) {
 
 // file già uguale a quello del repository (niente da esportare)
 export const stessiCollegamenti = (a, b) => JSON.stringify(a?.collegamenti ?? []) === JSON.stringify(b?.collegamenti ?? []);
+
+// Punti di ritrovo per la mappa delle uscite: le uscite con lo stesso paese (o, senza paese, a meno
+// di 1 km da un altro punto) diventano un punto solo. Coordinate: la partenza, il luogo che ha il nome del
+// paese, il primo luogo trovato, l'inizio della traccia. Senza nessuna di queste l'uscita non va in mappa.
+export function puntiDiRitrovo(uscite, tracce = new Map()) {
+  const per = new Map();
+  const senzaPosto = [];
+  // prima quelle con il paese: le altre si uniscono al punto più vicino entro 1 km
+  const ordinate = [...uscite].sort((a, b) => Number(!a.partenza?.paese?.trim()) - Number(!b.partenza?.paese?.trim()));
+  for (const u of ordinate) {
+    const paese = u.partenza?.paese?.trim() ?? '';
+    const luoghi = u.luoghi?.punti ?? [];
+    const delPaese = paese && luoghi.find((l) => normalizza(l.nome) === normalizza(paese));
+    const inizio = primoPunto(tracce.get(u.id)?.geojson);
+    const p =
+      u.partenza?.lat != null && u.partenza?.lon != null
+        ? { lat: u.partenza.lat, lon: u.partenza.lon, nome: paese || u.partenza.descrizione || '' }
+        : delPaese
+          ? { lat: delPaese.lat, lon: delPaese.lon, nome: paese }
+          : luoghi[0]
+            ? { lat: luoghi[0].lat, lon: luoghi[0].lon, nome: paese || luoghi[0].nome }
+            : inizio
+              ? { lat: inizio[1], lon: inizio[0], nome: paese || u.zona || '' }
+              : null;
+    if (!p) {
+      // senza coordinate: si unisce a un'uscita dello stesso paese, se ce n'è una
+      if (paese) senzaPosto.push([normalizza(paese), u]);
+      continue;
+    }
+    const vicino = !paese && [...per.values()].find((v) => distanzaKm([v.lon, v.lat], [p.lon, p.lat]) * 1000 <= RITROVO_VICINO_M);
+    const chiave = vicino ? vicino.chiave : paese ? normalizza(paese) : `${p.lat.toFixed(4)},${p.lon.toFixed(4)}`;
+    const voce = per.get(chiave) ?? { chiave, nome: p.nome, lat: p.lat, lon: p.lon, uscite: [] };
+    voce.uscite.push(u);
+    per.set(chiave, voce);
+  }
+  for (const [chiave, u] of senzaPosto) per.get(chiave)?.uscite.push(u);
+  return [...per.values()].sort((a, b) => b.uscite.length - a.uscite.length);
+}
+
+function primoPunto(g) {
+  if (!g) return null;
+  if (g.type === 'LineString') return g.coordinates[0] ?? null;
+  if (g.type === 'MultiLineString') return g.coordinates[0]?.[0] ?? null;
+  if (g.type === 'FeatureCollection') return primoPunto(g.features?.[0]?.geometry);
+  if (g.type === 'Feature') return primoPunto(g.geometry);
+  return null;
+}
