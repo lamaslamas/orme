@@ -192,6 +192,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   }
   // tutti i sentieri: colori chiari o scuri secondo la base; si creano alla prima richiesta
   const tuttiISentieri = {};
+  const glPronti = {}; // mappe MapLibre del livello, quando sono sulla mappa
   let tuttiAccesi = false;
   let tuttiMostrati = null;
   async function applicaTuttiISentieri(acceso = tuttiAccesi) {
@@ -202,13 +203,31 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     if (tuttiMostrati) tuttiISentieri[tuttiMostrati]?.then((l) => l?.remove());
     tuttiMostrati = voluto;
     if (!voluto) return;
-    tuttiISentieri[voluto] ??= creaSentieriVettoriali(voluto === 'scuro').catch((e) => {
-      console.warn('Sentieri vettoriali non disponibili', e);
-      return null;
-    });
+    tuttiISentieri[voluto] ??= creaSentieriVettoriali(voluto === 'scuro')
+      .then((l) => {
+        l.on('add', () => (glPronti[voluto] = l.getMaplibreMap?.() ?? null));
+        return l;
+      })
+      .catch((e) => {
+        console.warn('Sentieri vettoriali non disponibili', e);
+        return null;
+      });
     const livello = await tuttiISentieri[voluto];
     if (livello && tuttiMostrati === voluto && !rimossa) livello.addTo(mappa);
   }
+  // C'è un sentiero (anche non segnato) sotto il dito? Si guarda il livello già disegnato, senza
+  // chiedere niente a nessuno: solo se sì si cercano i suoi dati (nome, segnavia…) su Overpass
+  mappa.sentieroVicino = (latlng, tolleranzaPx = 14) => {
+    const gl = tuttiMostrati ? glPronti[tuttiMostrati] : null;
+    if (!gl?.isStyleLoaded?.()) return false;
+    const p = gl.project([latlng.lng, latlng.lat]);
+    const box = [[p.x - tolleranzaPx, p.y - tolleranzaPx], [p.x + tolleranzaPx, p.y + tolleranzaPx]];
+    const linee = gl.queryRenderedFeatures(box, { layers: ['orme-sentieri', 'orme-carrarecce'] });
+    if (!linee.length) return null;
+    // { classe, sottoclasse, nome }: quello che dicono le tile, subito (il resto da Overpass)
+    const nome = gl.queryRenderedFeatures(box, { layers: ['orme-nomi'] }).map((f) => f.properties['name:it'] ?? f.properties.name).find(Boolean) ?? null;
+    return { classe: linee[0].properties.class, sottoclasse: linee[0].properties.subclass ?? null, nome };
+  };
   function applicaSentieri(visibili) {
     if (visibili) sentieri.addTo(mappa);
     else sentieri.remove();

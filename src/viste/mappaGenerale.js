@@ -85,6 +85,7 @@ async function avviaCompletamento(dentroLavoro = false) {
   if (cambiata) ridisegna();
 }
 import { creaFaunaHome } from './faunaHome.js';
+import { creaFoglioVia } from './foglioVia.js';
 
 // Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
 // senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). true se ci prova.
@@ -327,6 +328,16 @@ export async function vistaMappaGenerale(app, idParco = null) {
     pannelloIn: fauna.pannello,
   });
   fauna.collega(heat);
+  // tocco su un sentiero qualsiasi (non nostro): foglio con i dati di OpenStreetMap. I nostri percorsi
+  // hanno la precedenza (il loro foglio, con i nostri dati); con la fauna accesa i tocchi sono suoi
+  const foglioVia = creaFoglioVia(mappa);
+  mappa.on('click', (e) => {
+    if (misura.attiva() || avv.attiva() || mappa.strumento) return;
+    if (mappa.percorsoVicino?.(e.latlng) || heat.attiva()) return foglioVia.chiudi();
+    const dalleTile = mappa.sentieroVicino?.(e.latlng);
+    if (dalleTile) foglioVia.apri(e.latlng, dalleTile);
+    else foglioVia.chiudi();
+  });
   // "Percorsi da qui": tra i percorsi con i filtri e la modalità scelti
   let filtratiOra = [];
   const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true });

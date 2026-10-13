@@ -83,7 +83,12 @@ export function stileSentieri(sorgenti, scuro = false) {
   return {
     version: 8,
     sources: { openmaptiles: sorgenti.openmaptiles },
-    layers: [...coppia('orme-carrarecce', filtro(['track']), [3, 2]), ...coppia('orme-sentieri', filtro(['path'], ['path', 'footway', 'bridleway', 'steps', '']), [0.1, 1.8])],
+    layers: [
+      ...coppia('orme-carrarecce', filtro(['track']), [3, 2]),
+      ...coppia('orme-sentieri', filtro(['path'], ['path', 'footway', 'bridleway', 'steps', '']), [0.1, 1.8]),
+      // i nomi dei sentieri, invisibili: servono al tocco (il foglio si apre subito con il nome)
+      { id: 'orme-nomi', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation_name', minzoom: 12, filter: ['match', ['get', 'class'], ['path', 'track'], true, false], paint: { 'line-opacity': 0, 'line-width': 8 } },
+    ],
   };
 }
 

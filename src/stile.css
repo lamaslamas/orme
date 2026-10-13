@@ -1612,7 +1612,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* --- Foglio del percorso (telefono): dal basso, sopra la mappa e sopra la barra --- */
 .foglio-percorso {
   position: fixed; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); z-index: 1090;
-  max-height: 38vh; overflow: hidden; display: flex; flex-direction: column;
+  max-height: 60vh; max-height: 60dvh; overflow: hidden; display: flex; flex-direction: column;
   background: var(--scheda-piena); border-top: 1px solid var(--bordo); border-radius: 20px 20px 0 0;
   box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.18); transition: max-height var(--morbido), transform var(--veloce);
   touch-action: none;
@@ -1799,3 +1799,27 @@ body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 .nota-partenza { font-size: 0.82rem; font-weight: 700; color: var(--verde-testo); }
 /* pannello dei livelli sulla pagina iniziale: non scende sotto i pulsanti in basso */
 .mappa-home .pannello-livelli { max-height: calc(100% - 150px); overflow: auto; }
+
+/* --- Fogli dei sentieri toccati: Inizia da qui / Aggiungi, avvisi --- */
+.foglio-azioni.due { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 10px 0 4px; }
+.foglio-azioni.due .bottone { min-width: 0; }
+.foglio-azioni.due .bottone span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.foglio-via .chips { flex-wrap: wrap; }
+.foglio-via .chip { white-space: normal; }
+.foglio-via .foglio-corpo, .foglio-percorso .foglio-corpo { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.foglio-azioni.due .bottone { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+.foglio-azioni.due .bottone svg { width: 18px; height: 18px; }
+.avviso-via { display: grid; grid-template-columns: 18px 1fr; gap: 6px; align-items: start; margin: 8px 0 0; padding: 8px 10px; border-radius: 12px; background: rgba(239, 159, 39, 0.16); color: #7a4a06; font-size: 0.86rem; line-height: 1.35; }
+.avviso-via svg { width: 16px; height: 16px; margin-top: 1px; }
+:root[data-scuro] .avviso-via { background: rgba(239, 159, 39, 0.18); color: #fac775; }
+.chip-segnato { background: rgba(83, 74, 183, 0.14); color: #3c3489; }
+:root[data-scuro] .chip-segnato { background: rgba(175, 169, 236, 0.18); color: #cecbf6; }
+.foglio-via .foglio-sotto { margin: 2px 0 8px; }
+.foglio-via .link-osm { display: inline-block; margin-top: 6px; }
+body:has(.foglio-percorso:not([hidden])) .home-sotto, body:has(.foglio-percorso:not([hidden])) .cerca-zona { display: none; }
+.foglio-percorso.foglio-via { max-height: 60vh; max-height: 60dvh; }
+.foglio-via .foglio-corpo { overflow: auto; }
+/* da computer il foglio del sentiero toccato resta (quello dei nostri percorsi è un riquadro sulla mappa) */
+@media (min-width: 1024px) {
+  .foglio-percorso.foglio-via:not([hidden]) { display: flex; left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 20px; border-radius: 20px; }
+}

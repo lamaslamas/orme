@@ -23,6 +23,10 @@ export const SERVER_OVERPASS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
+// nel browser private.coffee non risponde alle pagine di altri siti (CORS): lo si salta
+export const SERVER_BROWSER = SERVER_OVERPASS.filter((u) => !u.includes('private.coffee'));
+const nelBrowser = () => typeof document !== 'undefined' && typeof window !== 'undefined';
+
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -109,7 +113,7 @@ export function combinaTraccia(scelti) {
 }
 
 // Prova i server uno dopo l'altro: Overpass a volte è sovraccarico
-export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetchFn = fetch, timeoutMs = 45000 } = {}) {
+export async function interrogaOverpass(query, { server = nelBrowser() ? SERVER_BROWSER : SERVER_OVERPASS, fetchFn = fetch, timeoutMs = 45000 } = {}) {
   let ultimoErrore;
   for (const url of server) {
     const controllo = new AbortController();

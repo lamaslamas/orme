@@ -79,7 +79,7 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
         const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6, ...(rete ? { frecce: false, estremi: false } : {}) }).addTo(selezione);
         let punto = e.latlng;
         if (suTelefono()) {
-          foglioPercorso().mostra(sentiero, traccia);
+          foglioPercorso().mostra(sentiero, traccia, e.latlng);
           // il percorso si vede tutto, sopra il foglio
           primaDiInquadrare();
           // in basso si lascia libera solo la parte di mappa coperta dal foglio (mappe a tutto schermo)

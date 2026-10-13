@@ -7,6 +7,7 @@ import { ACCESSI } from '../lib/costanti.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
 import { puntiLungoIlPercorso, riassuntoPunti } from '../lib/puntiUtili.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
+import { iniziaBozza, aggiungiABozza } from '../lib/bozza.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { copertina } from './daVedere.js';
 import { caricaPunti } from './puntiUtili.js';
@@ -14,7 +15,22 @@ import { ICONE } from './icone.js';
 
 export const suTelefono = () => Boolean(globalThis.matchMedia?.('(max-width: 1023.98px)').matches);
 
-const DIFFICOLTA = { T: 'T · turistico', E: 'E · escursionistico', EE: 'EE · esperti', EEA: 'EEA · attrezzatura' };
+const DIFFICOLTA = { T: 'T · turistico', E: 'E · escursionistico', EE: 'EE · per esperti', EEA: 'EEA · con attrezzatura' };
+// accesso regolato (guida, numero chiuso, chiusure): un avviso prima di partire
+const REGOLATO = ['guida', 'numero_chiuso', 'chiusure_periodiche'];
+
+// difficoltà CAI e accesso, sempre visibili; avviso se l'accesso è regolato
+function htmlAccesso(s) {
+  const tipo = s.accesso?.tipo || 'nessuno';
+  const chip = [
+    s.difficolta ? `<span class="chip">${escapeHtml(DIFFICOLTA[s.difficolta] ?? s.difficolta)}</span>` : '',
+    `<span class="chip ${REGOLATO.includes(tipo) ? 'chip-accesso' : ''}">${escapeHtml(tipo === 'nessuno' ? 'Accesso non indicato' : ACCESSI[tipo] ?? tipo)}</span>`,
+  ].join('');
+  const avviso = REGOLATO.includes(tipo)
+    ? `<p class="avviso-via">${ICONE.avviso}<span>Accesso regolato (${escapeHtml(ACCESSI[tipo].toLowerCase())}): verifica e prenota prima di partire.</span></p>`
+    : '';
+  return `<div class="chips">${chip}</div>${avviso}`;
+}
 const SOGLIA_PX = 50; // trascinamento oltre il quale il foglio cambia altezza
 
 export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '' } = {}) {
@@ -41,12 +57,8 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
   async function dettagli(s, traccia) {
     const el = foglio.querySelector('.foglio-dettagli');
     const foto = copertina(s, traccia);
-    const tipo = s.accesso?.tipo || 'nessuno';
-    const etichette = [
-      s.difficolta ? `<span class="chip">${escapeHtml(DIFFICOLTA[s.difficolta] ?? s.difficolta)}</span>` : '',
-      tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${escapeHtml(ACCESSI[tipo])}</span>` : '',
-      s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : '',
-    ].join('');
+    // difficoltà e accesso sono già in alto
+    const etichette = s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : '';
     el.innerHTML = `
       ${foto ? `<img class="foglio-foto" src="${escapeHtml(foto.url)}" alt="" loading="lazy" />` : ''}
       ${etichette ? `<div class="chips">${etichette}</div>` : ''}
@@ -61,8 +73,9 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
     if (testo) testo.innerHTML = `${ICONE.goccia}${vicini.length ? escapeHtml(riassuntoPunti(vicini)) : 'Niente rifugi né acqua vicino'}`;
   }
 
-  function mostra(s, traccia) {
-    attuale = { sentiero: s, traccia };
+  // tocco: [lat, lng] del punto toccato, per "Inizia da qui" (senza, la partenza del percorso)
+  function mostra(s, traccia, tocco = null) {
+    attuale = { sentiero: s, traccia, tocco: tocco ? [Number(tocco.lng.toFixed(6)), Number(tocco.lat.toFixed(6))] : null };
     const m = misureSentiero(s, traccia);
     const id = encodeURIComponent(s.id);
     const punto = puntoDiPartenza(s, traccia);
@@ -78,6 +91,11 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
         <p class="foglio-nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}<b>${escapeHtml(s.nome)}</b></p>
         ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
         ${htmlFaunaBreve(s, { compatta: true })}
+        ${htmlAccesso(s)}
+        <div class="foglio-azioni due">
+          <button type="button" class="bottone primario" data-azione="inizia">${ICONE.bandierina}<span>Inizia da qui</span></button>
+          <button type="button" class="bottone" data-azione="aggiungi">${ICONE.percorso}<span>Aggiungi</span></button>
+        </div>
         <div class="foglio-dettagli"></div>
         <div class="foglio-azioni">
           <button type="button" class="bottone ${s.salvato ? 'salvato' : ''}" data-azione="salva" aria-pressed="${Boolean(s.salvato)}">${ICONE.segnalibro}<span>${s.salvato ? 'Salvato' : 'Salva'}</span></button>
@@ -103,7 +121,14 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
     const b = e.target.closest('button');
     if (!b) return;
     if (b.classList.contains('foglio-maniglia-zona')) altezza(!foglio.classList.contains('aperto'));
-    else if (b.dataset.azione === 'portami') foglio.querySelector('.foglio-portami').hidden = !foglio.querySelector('.foglio-portami').hidden;
+    else if ((b.dataset.azione === 'inizia' || b.dataset.azione === 'aggiungi') && attuale) {
+      const p = attuale.tocco ?? puntoDiPartenza(attuale.sentiero, attuale.traccia);
+      if (!p) return;
+      const punto = Array.isArray(p) ? p : [p.lon, p.lat];
+      if (b.dataset.azione === 'inizia') iniziaBozza(punto);
+      else aggiungiABozza(punto);
+      location.hash = '#/percorso-nuovo';
+    } else if (b.dataset.azione === 'portami') foglio.querySelector('.foglio-portami').hidden = !foglio.querySelector('.foglio-portami').hidden;
     else if (b.dataset.azione === 'salva' && attuale) {
       const s = await leggiSentiero(attuale.sentiero.id);
       if (!s) return;

@@ -7,6 +7,7 @@ import { stato as statoApp } from '../stato.js';
 import { aggiungiDaQui } from './daQui.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
+import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozza.js';
 import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
@@ -16,7 +17,9 @@ import { aggiungiDistribuzione } from './distribuzione.js';
 
 export async function vistaDisegna(app, id = null) {
   const esistente = id ? await leggiPercorso(id) : null;
-  let punti = esistente?.puntiControllo?.map((p) => [...p]) ?? [];
+  // un percorso nuovo riparte dalla bozza (punti messi con "Inizia percorso da qui" / "Aggiungi")
+  const bozza = esistente ? null : leggiBozza();
+  let punti = esistente?.puntiControllo?.map((p) => [...p]) ?? bozza?.punti ?? [];
   let risultato = null;
   let richiesta = 0;
 
@@ -71,6 +74,7 @@ export async function vistaDisegna(app, id = null) {
   }
 
   async function ricalcola() {
+    if (!esistente) salvaBozza(punti);
     disegnaPunti();
     livelloPercorso.clearLayers();
     risultato = null;
@@ -124,6 +128,7 @@ export async function vistaDisegna(app, id = null) {
         aggiornatoTerreno: new Date().toISOString(),
       };
       await salvaPercorso(nuovo);
+      if (!esistente) cancellaBozza();
       location.hash = `#/percorso/${encodeURIComponent(nuovo.id)}`;
     }
   });
@@ -132,6 +137,12 @@ export async function vistaDisegna(app, id = null) {
     const g = disegnaPercorso(esistente.geojson, { colore: '#2563eb' }).addTo(livelloPercorso);
     mappa.fitBounds(g.getBounds(), { padding: [30, 30] });
     risultato = { coordinate: esistente.geojson.coordinates.flat(), terreno: esistente.terreno, lunghezzaM: 0 };
+    ricalcola();
+  } else if (punti.length) {
+    // bozza ripresa: la mappa sui punti
+    mappa.sbloccaInquadrature?.();
+    if (punti.length === 1) mappa.setView([punti[0][1], punti[0][0]], 15);
+    else mappa.fitBounds(punti.map(([lon, lat]) => [lat, lon]), { padding: [40, 40], maxZoom: 15 });
     ricalcola();
   } else testoStato();
   requestAnimationFrame(() => mappa.invalidateSize());
