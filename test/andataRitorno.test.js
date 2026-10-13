@@ -1,0 +1,54 @@
+import { describe, it, expect } from 'vitest';
+import { misureAR, misureScelte, eAnelloPezzi, pezziScelti, orariGiornata, oraDaMinuti, minutiDaOra, notaFonte } from '../src/lib/andataRitorno.js';
+
+describe('andata e ritorno', () => {
+  it('tempi CAI nei due sensi: al ritorno salita e discesa si scambiano', () => {
+    // 5 km, +420 −30. Andata: piano 1,25 h, dislivello 420/300 + 30/500 = 1,46 h → 1,46 + 1,25/2 = 125 min.
+    // Ritorno: dislivello 30/300 + 420/500 = 0,94 h → 1,25 + 0,94/2 = 103 min
+    const ar = misureAR({ km: 5, salita: 420, discesa: 30 });
+    expect(ar.andata).toEqual({ km: 5, salita: 420, discesa: 30, durataMin: 125 });
+    expect(ar.ritorno).toEqual({ km: 5, salita: 30, discesa: 420, durataMin: 103 });
+    expect(ar.totale).toEqual({ km: 10, salita: 450, discesa: 450, durataMin: 228 });
+  });
+  it('senza quote: stesso tempo nei due sensi (solo i km)', () => {
+    const ar = misureAR({ km: 8, salita: null, discesa: null });
+    expect(ar.andata.durataMin).toBe(120);
+    expect(ar.ritorno.durataMin).toBe(120);
+    expect(ar.totale.salita).toBeNull();
+  });
+  it('anello: niente ritorno; in alto si mostra il giro', () => {
+    const ar = misureAR({ km: 9.2, salita: 610, discesa: 610 }, { anello: true });
+    expect(ar.ritorno).toBeNull();
+    expect(misureScelte(ar, 'ar')).toBe(ar.andata);
+  });
+  it('in alto i numeri seguono la scelta', () => {
+    const ar = misureAR({ km: 5, salita: 420, discesa: 30 });
+    expect(misureScelte(ar, 'andata').km).toBe(5);
+    expect(misureScelte(ar, 'ar').km).toBe(10);
+  });
+  it('riconosce gli anelli (partenza e arrivo entro 300 m)', () => {
+    expect(eAnelloPezzi([[[13.8, 41.8], [13.81, 41.81], [13.8001, 41.8001]]])).toBe(true);
+    expect(eAnelloPezzi([[[13.8, 41.8], [13.85, 41.85]]])).toBe(false);
+  });
+  it('pezzi per "Su più giorni": con A/R la traccia anche al contrario', () => {
+    const pezzi = [[[0, 0, 100], [1, 0, 200]], [[1, 0, 200], [2, 0, 300]]];
+    expect(pezziScelti(pezzi, 'andata')).toBe(pezzi);
+    expect(pezziScelti(pezzi, 'ar')).toEqual([...pezzi, [[2, 0, 300], [1, 0, 200]], [[1, 0, 200], [0, 0, 100]]]);
+  });
+  it('orari: arrivo, rientro e ultima partenza con la luce', () => {
+    const o = orariGiornata({ partenzaMin: 9 * 60, andataMin: 115, ritornoMin: 85, tramontoMin: 18 * 60 + 10 });
+    expect(oraDaMinuti(o.arrivoMin)).toBe('10:55');
+    expect(oraDaMinuti(o.rientroMin)).toBe('12:20');
+    expect(oraDaMinuti(o.ultimaPartenzaMin)).toBe('14:20');
+    expect(o.tardi).toBe(false);
+    expect(orariGiornata({ partenzaMin: 15 * 60, andataMin: 115, ritornoMin: 85, tramontoMin: 18 * 60 + 10 }).tardi).toBe(true);
+    expect(orariGiornata({ partenzaMin: 600, andataMin: 60 }).rientroMin).toBeNull();
+    expect(minutiDaOra('08:30')).toBe(510);
+    expect(minutiDaOra('')).toBeNull();
+  });
+  it('dato della fonte solo se diverso dal calcolo', () => {
+    expect(notaFonte({ km: 5, salita: 400, durataMin: 180 }, { km: 5.1, salita: 420, durataMin: 125 })).toBe('Indicato dalla fonte: 3 h');
+    expect(notaFonte({ km: 6, salita: 600 }, { km: 5, salita: 420, durataMin: 117 })).toBe('Indicato dalla fonte: 6,0 km · +600 m');
+    expect(notaFonte({ km: 5, salita: 410, durataMin: 120 }, { km: 5, salita: 420, durataMin: 117 })).toBe('');
+  });
+});
