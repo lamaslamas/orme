@@ -1926,3 +1926,4 @@ body.disegno main { padding: 0; }
 .itinerari-via li:has(.pieno-largo) { grid-template-columns: minmax(0, 1fr); }
 .itinerari-via p { margin: 8px 0 0; }
 .azioni-itinerario { display: flex; gap: 6px; }
+.aggiungi-uscita { display: inline-block; margin: 0 0 4px; }

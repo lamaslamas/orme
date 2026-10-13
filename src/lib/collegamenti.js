@@ -116,6 +116,7 @@ export function sentieriDelleUscite(uscite, tracce) {
 export function collegamentiDelTelefono(uscite, tracce) {
   const r = [];
   for (const u of uscite) {
+    if (u.manuale) continue; // le uscite aggiunte a mano non sono nell'archivio comune
     const t = tracce.get(u.id);
     const c = collegamentoDi(u, t);
     if (c && !t.dettagli?.archivio) r.push(c);

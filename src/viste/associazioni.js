@@ -29,6 +29,7 @@ export async function vistaAssociazioni(app) {
   app.innerHTML = `
     <h1 class="titolo-pagina">Associazioni</h1>
     <p class="tenue">I sentieri usati da associazioni e guide per le uscite sulla fauna, da fare per conto tuo.</p>
+    <a class="bottone testo aggiungi-uscita" href="#/associazioni/nuova">+ Aggiungi uscita a mano</a>
     ${uscite.length ? `<div id="daCollegare"></div><div class="filtri-uscite"></div>
       <div class="segmenti due modo-uscite" role="tablist" aria-label="Come vedere le uscite">
         <button type="button" role="tab" class="segmento" data-modo="elenco">Elenco</button>

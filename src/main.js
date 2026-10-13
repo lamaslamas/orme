@@ -14,6 +14,7 @@ import { vistaMappaGiro } from './viste/mappaGiro.js';
 import { vistaAltro } from './viste/altro.js';
 import { vistaMiei } from './viste/miei.js';
 import { vistaAssociazioni } from './viste/associazioni.js';
+import { vistaUscitaAMano } from './viste/uscitaAMano.js';
 import { vistaDoveVado } from './viste/doveVado.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna } from './viste/disegna.js';
@@ -51,6 +52,7 @@ const percorsi = [
   [/^\/parchi\/?$/, vistaHome],
   [/^\/miei(?:\?scheda=([a-z]+))?$/, vistaMiei],
   [/^\/associazioni\/?$/, vistaAssociazioni],
+  [/^\/associazioni\/nuova\/?$/, vistaUscitaAMano],
   [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
   [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],

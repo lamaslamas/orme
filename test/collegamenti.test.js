@@ -79,7 +79,7 @@ describe('esporta collegamenti', () => {
       ['a', { dettagli: { conferma: { sentiero: 's1', nome: 'S1', data: 'd1' } } }],
       ['b', { dettagli: { archivio: true, conferma: { sentiero: 's2', nome: 'S2', data: 'd2' } } }],
     ]);
-    const uscite = [{ id: 'a' }, { id: 'b' }, { id: 'c', collegamento: { nessuno: true, data: 'd3' } }, { id: 'd' }];
+    const uscite = [{ id: 'a' }, { id: 'b' }, { id: 'c', collegamento: { nessuno: true, data: 'd3' } }, { id: 'd' }, { id: 'm', manuale: { data: 'd' }, collegamento: { nessuno: true } }];
     expect(collegamentiDelTelefono(uscite, tracce)).toEqual([
       { uscita: 'a', sentiero: 's1', nome: 'S1', data: 'd1' },
       { uscita: 'c', nessuno: true, data: 'd3' },
