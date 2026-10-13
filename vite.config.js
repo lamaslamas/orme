@@ -1,5 +1,15 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'node:child_process';
+
+// versione nel riepilogo del misuratore (?misura): commit e data della build
+const commit = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim();
+  } catch {
+    return 'sconosciuto';
+  }
+})();
 
 // L'app è pubblicata su https://lamaslamas.github.io/orme/
 // quindi tutti i percorsi partono da /orme/.
@@ -21,6 +31,7 @@ function cacheMappa(nome, regola) {
 
 export default defineConfig({
   base: BASE,
+  define: { __VERSIONE__: JSON.stringify(`${commit} · ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`) },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',

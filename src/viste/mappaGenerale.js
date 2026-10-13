@@ -87,6 +87,7 @@ async function avviaCompletamento(dentroLavoro = false) {
 }
 import { creaFaunaHome } from './faunaHome.js';
 import { creaFoglioVia } from './foglioVia.js';
+import { cronometra } from '../lib/misura.js';
 
 // Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
 // senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). true se ci prova.
@@ -354,6 +355,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
   let inMappa = [];
   let saltaSpostamento = false; // lo spostamento fatto per inquadrare un percorso scelto non cambia l'elenco
+  const elencoMisurato = cronometra('elenco della zona', () => elencoInVista());
   function elencoInVista() {
     if (!app.isConnected || !mappa._loaded || !mappa._mapPane) return; // schermata già chiusa
     const vista = mappa.getBounds();
@@ -410,7 +412,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       return;
     }
     clearTimeout(attesaVista);
-    attesaVista = setTimeout(elencoInVista, 150);
+    attesaVista = setTimeout(elencoMisurato, 150);
   });
 
   function disegna() {
@@ -547,7 +549,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     zonaSalvata = await leggiIntorno();
     if (bottoneZona.isConnected) aggiornaBottoneZona();
   };
-  mappa.on('moveend', aggiornaBottoneZona);
+  mappa.on('moveend', cronometra('pulsante «Cerca percorsi qui»', aggiornaBottoneZona));
   aggiornaBottoneZona();
   bottoneZona.addEventListener('click', () => {
     const c = mappa.getCenter();

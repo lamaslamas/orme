@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import { stato } from '../stato.js';
 import { creaBaseVettoriale, creaSentieriVettoriali } from './mappaVettoriale.js';
 import { aggiungiPuntiUtili } from './puntiUtili.js';
+import { cronometra, registraMappa } from '../lib/misura.js';
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
@@ -125,6 +126,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   }
   // in sviluppo: l'ultima mappa aperta, per le prove dalla console
   if (import.meta.env.DEV && !anteprima) globalThis.__mappa = mappa;
+  if (!anteprima) registraMappa(mappa); // misuratore (?misura)
   const vistaSalvata = ricorda && !anteprima ? leggiViste()[ricorda] : null;
   mappa.vistaRitrovata = Boolean(vistaSalvata);
   if (vistaSalvata) {
@@ -139,7 +141,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     // una scelta fatta fuori dalla mappa (es. una card della lista) la deve poter spostare subito
     mappa.sbloccaInquadrature = libera;
   }
-  if (ricorda && !anteprima) mappa.on('moveend', () => !rimossaVista && salvaVista(ricorda, mappa));
+  if (ricorda && !anteprima) mappa.on('moveend', cronometra('salvataggio della vista', () => !rimossaVista && salvaVista(ricorda, mappa)));
   let rimossaVista = false;
   mappa.on('unload', () => (rimossaVista = true));
   // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi
@@ -387,9 +389,9 @@ function aggiungiPannelloLivelli(mappa, livelli) {
       </fieldset>`;
   }
   // la legenda segue le scelte (animale, livelli) mentre il pannello è aperto
-  mappa.aggiornaLegenda = () => {
+  mappa.aggiornaLegenda = cronometra('legenda', () => {
     if (!pannello.hidden) disegna();
-  };
+  });
 
   pannello.addEventListener('change', (e) => {
     if (e.target.name === 'base') stato.imposta({ base: e.target.value });

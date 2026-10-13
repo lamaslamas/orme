@@ -3,6 +3,7 @@
 // (nomi di luoghi, vette, punti d'interesse) in un livello sopra le tracce.
 // La libreria MapLibre si carica solo quando serve.
 import L from 'leaflet';
+import { registraMappaGl } from '../lib/misura.js';
 
 // chiaro (liberty) o scuro (dark): sono due basi diverse della mappa, scelte nel pannello dei livelli
 const STILI = { chiaro: 'https://tiles.openfreemap.org/styles/liberty', scuro: 'https://tiles.openfreemap.org/styles/dark' };
@@ -54,10 +55,13 @@ export function preparaLibreria(variante = 'chiaro') {
 // Restituisce { base, etichette } come livelli Leaflet, oppure lancia un errore (offline, niente WebGL)
 export async function creaBaseVettoriale(variante = 'chiaro') {
   const { base, etichette } = await preparaLibreria(variante);
-  return {
+  const livelli = {
     base: L.maplibreGL({ style: base, attributionControl: { customAttribution: ATTR_VETTORIALE } }),
     etichette: L.maplibreGL({ style: etichette, pane: 'etichette', attributionControl: false, interactive: false }),
   };
+  // misuratore (?misura): tempo di disegno di ogni mappa MapLibre
+  for (const [nome, l] of Object.entries(livelli)) l.on('add', () => registraMappaGl(nome, l.getMaplibreMap?.()));
+  return livelli;
 }
 
 // Tutti i sentieri di OpenStreetMap (path, footway, bridleway, gradini e carrarecce), anche quelli
@@ -98,6 +102,7 @@ export async function creaSentieriVettoriali(scuro = false) {
   const livello = L.maplibreGL({ style: stileSentieri(base.sources, scuro), pane: 'sentieriVettoriali', attributionControl: false, interactive: false });
   // un problema dello stile o delle tile non deve passare in silenzio
   livello.on('add', () => livello.getMaplibreMap?.()?.on('error', (e) => console.warn('Sentieri vettoriali', e.error?.message ?? e)));
+  livello.on('add', () => registraMappaGl('sentieri', livello.getMaplibreMap?.()));
   if (import.meta.env.DEV) globalThis.__sentieriVettoriali = livello;
   return livello;
 }

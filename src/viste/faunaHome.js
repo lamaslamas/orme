@@ -8,6 +8,7 @@ import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { iconaAnimale, ICONE } from './icone.js';
+import { cronometra } from '../lib/misura.js';
 
 // gli stessi gruppi scelti in "Intorno a me" (preferenza del telefono)
 const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
@@ -154,9 +155,10 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     }
   }
   let attesa = null;
+  const specieMisurate = cronometra('fauna: specie della zona', () => mostraSpecie());
   const allaFine = () => {
     clearTimeout(attesa);
-    attesa = setTimeout(() => mostraSpecie(), 700);
+    attesa = setTimeout(specieMisurate, 700);
   };
   mappa.on('moveend', allaFine);
   const scollega = stato.ascolta((s) => {

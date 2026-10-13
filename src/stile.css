@@ -1927,3 +1927,13 @@ body.disegno main { padding: 0; }
 .itinerari-via p { margin: 8px 0 0; }
 .azioni-itinerario { display: flex; gap: 6px; }
 .aggiungi-uscita { display: inline-block; margin: 0 0 4px; }
+
+/* Misuratore (?misura): pannello in alto, piccolo durante le prove per lasciare libera la mappa */
+.misuratore { position: fixed; z-index: 3000; top: calc(env(safe-area-inset-top) + 64px); left: 8px; right: 8px; max-height: 60vh; overflow: auto; background: var(--scheda-piena); color: inherit; border: 1px solid var(--bordo); border-radius: 12px; box-shadow: var(--ombra); padding: 8px 10px; font-size: 13px; }
+.misuratore ol { margin: 4px 0; padding-left: 18px; display: grid; gap: 6px; }
+.misuratore .piccolo { display: block; margin-top: 2px; }
+.misuratore-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.misuratore-prove { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+.misuratore-riepilogo { white-space: pre-wrap; font-size: 11px; background: var(--sfondo); border-radius: 8px; padding: 6px; margin: 6px 0; user-select: text; }
+.misuratore.ridotto .misuratore-corpo { display: none; }
+.misuratore.in-corso { left: auto; right: 8px; width: 60%; pointer-events: none; opacity: 0.92; }

@@ -14,6 +14,7 @@ import { escapeHtml } from '../lib/formato.js';
 import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta, inCentroAbitato } from '../lib/puntiUtili.js';
 import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
+import { cronometra } from '../lib/misura.js';
 
 // da vicino le icone; da lontano pallini colorati (leggeri, su canvas) per avere il quadro d'insieme
 export const ZOOM_PUNTI = 12;
@@ -87,7 +88,9 @@ export function aggiungiPuntiUtili(mappa) {
   mappa.on('unload', () => (rimossa = true));
 
   const vicino = () => mappa.getZoom() >= ZOOM_PUNTI;
-  function aggiorna() {
+  // misuratore (?misura): disegno di rifugi e acqua
+  const aggiorna = cronometra('rifugi e acqua: disegno', () => aggiornaPunti());
+  function aggiornaPunti() {
     const z = mappa.getZoom();
     // pallini piccoli da lontano, più grandi avvicinandosi
     const raggio = z >= 11 ? 4.5 : z >= 10 ? 3.5 : 2.5;
@@ -107,7 +110,8 @@ export function aggiungiPuntiUtili(mappa) {
 
   // un punto si disegna una volta sola, anche se arriva da più fonti (parchi, zona, celle)
   const disegnati = new Set();
-  function aggiungi(punti) {
+  const aggiungi = cronometra('rifugi e acqua: segnaposto nuovi', (punti) => aggiungiPunti(punti));
+  function aggiungiPunti(punti) {
     for (const p of punti) {
       if (disegnati.has(p.id)) continue;
       disegnati.add(p.id);

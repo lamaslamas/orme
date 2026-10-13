@@ -21,6 +21,7 @@ import {
 } from '../lib/inaturalist.js';
 import { iconaAnimale } from './icone.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
+import { cronometra } from '../lib/misura.js';
 
 const COLORI_CLASSI = { 0: '#f3f4f6', 1: '#c4b5fd', 2: '#7c6cf0', 3: '#3c9a2a', 4: '#e2d600' };
 const MASSIMO_TILE = 12;
@@ -212,7 +213,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   mappa.on('moveend', () => {
     if (!attiva || !filtri.correggiSforzo) return;
     clearTimeout(attesa);
-    attesa = setTimeout(disegnaGriglia, 600);
+    attesa = setTimeout(cronometra('fauna: griglia', disegnaGriglia), 600);
   });
 
   // Da vicino: un'icona per ogni osservazione con posizione esatta (le sfumate delle specie
@@ -383,9 +384,10 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
             ? `${contoIcone} ${contoIcone === 1 ? 'animale' : 'animali'} qui`
             : 'nessun animale qui';
   }
+  const iconeMisurate = cronometra('fauna: icone', () => aggiornaIcone());
   mappa.on('moveend', () => {
     clearTimeout(attesaIcone);
-    attesaIcone = setTimeout(aggiornaIcone, 500);
+    attesaIcone = setTimeout(iconeMisurate, 500);
   });
   mappa.vociLegenda?.push(() => (stato.leggi().livelli.heatmap && iconeInfo ? `<p class="voce-legenda tenue piccolo">Icone: ${escapeHtml(iconeInfo)}</p>` : ''));
 
