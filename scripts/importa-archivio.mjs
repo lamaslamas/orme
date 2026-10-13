@@ -2,6 +2,7 @@
 // La esegue ogni giorno GitHub Actions (.github/workflows/archivio.yml); si può lanciare anche a mano:
 //   node scripts/importa-archivio.mjs            (tutte le fonti)
 //   node scripts/importa-archivio.mjs ecotur     (solo alcune: ecotur o un'altra associazione, wolf-howling, osm-mtb)
+// Le fonti con un giorno (es. il-bel-sentiero, il lunedì) si leggono solo quel giorno, se non si nominano.
 // Ogni fonte è indipendente: se una non risponde, le altre si aggiornano lo stesso.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { unisciImportazione } from '../src/lib/importazione.js';
@@ -158,7 +159,7 @@ async function importaDaOsm(parco, query, leggiCandidati) {
 }
 
 const FONTI = [
-  ...ASSOCIAZIONI.map((def) => ({ fonte: def.fonte, gruppo: def.fonte, esegui: () => importaElencoPagine(def) })),
+  ...ASSOCIAZIONI.map((def) => ({ fonte: def.fonte, gruppo: def.fonte, giorno: def.giorno, esegui: () => importaElencoPagine(def) })),
   { fonte: WOLF_HOWLING.fonte, gruppo: 'wolf-howling', esegui: importaWolfHowling },
   ...PARCHI.map((p) => ({ fonte: `${OSM_MTB.fonte}:${p.id}`, gruppo: 'osm-mtb', esegui: () => importaDaOsm(p, queryMtbParco, candidatiMtb) })),
   ...PARCHI.filter((p) => OSM_SENTIERI.parchi.includes(p.id)).map((p) => ({
@@ -170,7 +171,9 @@ const FONTI = [
 
 const scelte = process.argv.slice(2);
 const risultati = [];
-for (const f of FONTI.filter((f) => !scelte.length || scelte.includes(f.gruppo) || scelte.includes(f.fonte))) {
+// le fonti settimanali solo nel loro giorno (o quando si nominano a mano); le altre restano come sono
+const diTurno = (f) => f.giorno == null || f.giorno === new Date().getUTCDay();
+for (const f of FONTI.filter((f) => (scelte.length ? scelte.includes(f.gruppo) || scelte.includes(f.fonte) : diTurno(f)))) {
   console.log(`> ${f.fonte}`);
   try {
     // una fonte appesa (rete che non risponde più) non deve bloccare le altre

@@ -36,3 +36,16 @@ describe('uscite per animale e periodo dell\'anno', () => {
     expect(g[1].uscite).toHaveLength(2);
   });
 });
+
+describe('tema dal titolo', () => {
+  it('vale l\'animale nominato nel titolo', () => {
+    const s = { nome: 'Il Bramito dei Cervi in Abruzzo', animali: ['camoscio', 'cervo'], escursione: { nomeUscita: 'Il Bramito dei Cervi in Abruzzo', periodo: 'Tra settembre e ottobre' } };
+    expect(temaUscita(s).nome).toBe('Bramito del cervo');
+  });
+});
+
+describe('bramito dal titolo', () => {
+  it('anche senza periodo', () => {
+    expect(temaUscita({ nome: 'Il bramito dei cervi su richiesta', animali: ['cervo'], escursione: { nomeUscita: 'Il bramito dei cervi su richiesta' } }).nome).toBe('Bramito del cervo');
+  });
+});

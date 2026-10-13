@@ -2,6 +2,7 @@
 // set–ott"): servono a trovare i sentieri, non a partecipare, quindi l'anno non conta e le uscite
 // passate restano.
 import { ANIMALI } from './costanti.js';
+import { animaliNelTesto } from './importazione.js';
 
 const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 const MESI_EN = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
@@ -53,10 +54,14 @@ export function testoMesi(mesi) {
 
 // tema dell'uscita: il primo animale; il cervo in autunno è il bramito; senza animali "Natura"
 export function temaUscita(s) {
-  const animale = (s?.animali ?? []).find((a) => ANIMALI[a] && a !== 'altro');
+  // prima l'animale nominato nel titolo ("Il bramito dei cervi" nomina anche il camoscio nel testo)
+  const nelTitolo = animaliNelTesto(`${s?.escursione?.nomeUscita ?? ''} ${s?.nome ?? ''}`);
+  const validi = (s?.animali ?? []).filter((a) => ANIMALI[a] && a !== 'altro');
+  const animale = validi.find((a) => nelTitolo.includes(a)) ?? validi[0];
   if (!animale) return { chiave: 'natura', nome: 'Natura' };
   const mesi = mesiUscita(s);
-  if (animale === 'cervo' && mesi.length && mesi.every((m) => m >= 8 && m <= 10)) return { chiave: 'bramito', nome: 'Bramito del cervo', animale };
+  const titolo = `${s?.escursione?.nomeUscita ?? ''} ${s?.nome ?? ''}`;
+  if (animale === 'cervo' && (/bramit/i.test(titolo) || (mesi.length && mesi.every((m) => m >= 8 && m <= 10)))) return { chiave: 'bramito', nome: 'Bramito del cervo', animale };
   return { chiave: animale, nome: ANIMALI[animale], animale };
 }
 

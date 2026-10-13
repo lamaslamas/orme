@@ -61,3 +61,8 @@ export function controllaFonte(def) {
 export const testoLuoghi = (testo) => riassunto(togliDatiPersonali(testo), 1200);
 
 export const attesaTraLePagine = (def, robotsMs = 0) => Math.max(ATTESA_MINIMA_MS, def.attesaMs ?? 0, robotsMs);
+
+// Uscita dedicata alla fauna: l'animale nel titolo, oppure un'osservazione, un appostamento, il bramito
+// nel testo. Non basta un animale citato di passaggio (ciaspolate, feste, degustazioni…)
+const OSSERVAZIONE = /osservazion\w* faunistic|avvistament|appostament|bramit|bearwatching|wolf ?howling|wildlife/i;
+export const uscitaSullaFauna = (nome, testo) => animaliNelTesto(nome).length > 0 || OSSERVAZIONE.test(`${nome} ${testo}`);
