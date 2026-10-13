@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
+import { tendinaTrascinabile } from './tendina.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
@@ -219,7 +220,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <a class="pill-mappa tondo" href="#/percorso-nuovo" aria-label="Disegna un percorso">${ICONE.matita ?? '✎'}</a>
     </div>
     <section class="foglio-home" id="foglioElenco" hidden aria-label="Percorsi nella zona">
-      <button type="button" class="foglio-maniglia-zona" data-azione="chiudi-elenco" aria-label="Chiudi l'elenco"><span class="foglio-maniglia"></span></button>
+      <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire o abbassare l'elenco"><span class="foglio-maniglia"></span></button>
       <div class="foglio-home-corpo">
         <div id="testaParco"></div>
         <div class="mappa-barra">
@@ -514,16 +515,23 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // foglio "Percorsi qui": si apre dal pulsante in basso, si chiude con la maniglia
   const foglio = app.querySelector('#foglioElenco');
   const apri = app.querySelector('#apriElenco');
+  // tendina a tre posizioni (chiusa, metà, aperta): si trascina dalla maniglia o dalla lista in cima
+  const tendina = tendinaTrascinabile(foglio, {
+    maniglia: foglio.querySelector('.foglio-maniglia-zona'),
+    corpo: foglio.querySelector('.foglio-home-corpo'),
+    allaChiusura: () => mostraFoglio(false),
+  });
   mostraFoglio = (si) => {
+    const cambia = foglio.hidden === si;
     foglio.hidden = !si;
     if (si && elencoVecchio) elencoInVista();
+    if (cambia) si ? tendina.apri('meta') : tendina.chiudi();
     apri.setAttribute('aria-expanded', String(si));
     document.body.classList.toggle('elenco-aperto', si);
   };
   apri.addEventListener('click', () => mostraFoglio(foglio.hidden));
-  foglio.addEventListener('click', (e) => {
-    if (e.target.closest('[data-azione="chiudi-elenco"]')) mostraFoglio(false);
-  });
+  // un tocco sulla mappa abbassa la tendina a metà
+  mappa.on('click', () => !foglio.hidden && tendina.posizione() === 'aperta' && tendina.vai('meta'));
   // scegliendo un percorso dall'elenco il foglio si chiude e la mappa lo mostra
   app.querySelector('#risultatiMappa').addEventListener('click', (e) => {
     if (e.target.closest('[data-id]') && suTelefono()) mostraFoglio(false);

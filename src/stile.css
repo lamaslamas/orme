@@ -1937,3 +1937,11 @@ body.disegno main { padding: 0; }
 .misuratore-riepilogo { white-space: pre-wrap; font-size: 11px; background: var(--sfondo); border-radius: 8px; padding: 6px; margin: 6px 0; user-select: text; }
 .misuratore.ridotto .misuratore-corpo { display: none; }
 .misuratore.in-corso { left: auto; right: 8px; width: 60%; pointer-events: none; opacity: 0.92; }
+
+/* tendina "Percorsi qui" trascinabile (tre posizioni): l'altezza la decide il dito */
+@media (max-width: 1023.98px) {
+  .foglio-home.trascinabile { max-height: none; transition: height 0.22s ease; will-change: height; }
+  .foglio-home.trascinabile.trascinando { transition: none; }
+  .foglio-home.trascinabile .foglio-maniglia-zona { touch-action: none; cursor: grab; }
+  .foglio-home.trascinabile .foglio-home-corpo { flex: 1; min-height: 0; }
+}
