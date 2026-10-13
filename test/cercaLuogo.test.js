@@ -28,3 +28,21 @@ describe('ricerca sulla mappa', () => {
     expect(luoghiDallaRisposta([doppio, { ...doppio, lat: '41.81' }])).toHaveLength(1);
   });
 });
+
+import { risultatiOrdinati } from '../src/lib/cercaLuogo.js';
+describe('ordine dei risultati', () => {
+  const parco = PARCHI.find((p) => p.id === 'gallipoli-cognato');
+  const gallipoli = { nome: 'Gallipoli', dettaglio: 'Lecce, Puglia', lat: 40.05, lon: 17.99, riquadro: null };
+  const via = { nome: 'Via Gallipoli', dettaglio: 'Lecce', lat: 40.3, lon: 18.1, riquadro: null };
+  it('il paese con il nome esatto prima del parco, ognuno con il suo tipo', () => {
+    const r = risultatiOrdinati('gallipoli', [parco], [via, gallipoli]);
+    expect(r.map((x) => [x.tipo, x.nome])).toEqual([
+      ['luogo', 'Gallipoli'],
+      ['parco', 'Gallipoli Cognato'],
+      ['luogo', 'Via Gallipoli'],
+    ]);
+  });
+  it('senza un luogo esatto il parco resta primo', () => {
+    expect(risultatiOrdinati('majella', [PARCHI.find((p) => p.id === 'majella')], [via])[0].tipo).toBe('parco');
+  });
+});

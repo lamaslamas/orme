@@ -42,3 +42,15 @@ export function luoghiDallaRisposta(json) {
     // lo stesso luogo come punto e come confine: una volta sola (si tiene il primo)
     .filter((l, i, tutti) => tutti.findIndex((x) => x.nome === l.nome && x.dettaglio === l.dettaglio) === i);
 }
+
+// Ordine dei risultati: un luogo che si chiama esattamente come il testo cercato (es. "Gallipoli")
+// viene prima dei parchi che lo contengono nel nome ("Gallipoli Cognato"); poi i parchi, poi gli
+// altri luoghi. Ogni voce ha il tipo: 'parco' o 'luogo'.
+export function risultatiOrdinati(testo, parchi, luoghi) {
+  const t = normalizza(testo);
+  const p = parchi.map((x) => ({ tipo: 'parco', parco: x, nome: x.nomeBreve, dettaglio: x.nome }));
+  const l = luoghi.map((x) => ({ tipo: 'luogo', ...x }));
+  const esatti = l.filter((x) => normalizza(x.nome) === t);
+  const altri = l.filter((x) => normalizza(x.nome) !== t);
+  return [...esatti, ...p, ...altri];
+}

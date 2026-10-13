@@ -22,7 +22,7 @@ import { ICONE } from './icone.js';
 import { miniatura } from './lista.js';
 import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
-import { parchiCercati, urlLuoghi, luoghiDallaRisposta } from '../lib/cercaLuogo.js';
+import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
 import { zonaDaCercare, raggioPerZoom } from '../lib/intorno.js';
@@ -104,13 +104,14 @@ function collegaRicercaLuogo(modulo, mappa, sceltoParco) {
     elenco.innerHTML =
       voci
         .map(
-          (v, i) => `<li><button type="button" data-i="${i}">${v.parco ? ICONE.parco : ICONE.segnaposto}<span><b>${escapeHtml(v.nome)}</b>${v.dettaglio ? `<span class="tenue piccolo">${escapeHtml(v.dettaglio)}</span>` : ''}</span></button></li>`,
+          (v, i) => `<li><button type="button" data-i="${i}">${v.parco ? ICONE.parco : ICONE.segnaposto}<span><b>${escapeHtml(v.nome)}</b>${v.dettaglio ? `<span class="tenue piccolo">${escapeHtml(v.dettaglio)}</span>` : ''}</span><span class="tipo-risultato ${v.parco ? 'parco' : 'luogo'}">${v.parco ? 'Parco' : 'Luogo'}</span></button></li>`,
         )
         .join('') + (nota ? `<li class="tenue piccolo nota-luogo">${escapeHtml(nota)}</li>` : '');
     elenco.hidden = !voci.length && !nota;
   };
+  const parchiDi = (testo) => risultatiOrdinati(testo, parchiCercati(testo, PARCHI.filter((p) => !p.zona)), []);
   campo.addEventListener('input', () => {
-    const parchi = parchiCercati(campo.value, PARCHI.filter((p) => !p.zona)).map((p) => ({ parco: p, nome: p.nomeBreve, dettaglio: p.nome }));
+    const parchi = parchiDi(campo.value);
     if (campo.value.trim()) mostra(parchi, 'Premi Cerca per i luoghi');
     else chiudi();
   });
@@ -119,12 +120,14 @@ function collegaRicercaLuogo(modulo, mappa, sceltoParco) {
     const testo = campo.value.trim();
     if (!testo) return;
     campo.blur();
-    const parchi = parchiCercati(testo, PARCHI.filter((p) => !p.zona)).map((p) => ({ parco: p, nome: p.nomeBreve, dettaglio: p.nome }));
+    const parchi = parchiDi(testo);
     mostra(parchi, 'Cerco…');
     try {
       const r = await fetch(urlLuoghi(testo), { headers: { Accept: 'application/json' } });
       const luoghi = luoghiDallaRisposta(r.ok ? await r.json() : []);
-      mostra([...parchi, ...luoghi], parchi.length || luoghi.length ? '' : 'Nessun luogo trovato in Italia');
+      // un paese con il nome esatto prima dei parchi che lo contengono nel nome
+      const tutti = risultatiOrdinati(testo, parchi.map((x) => x.parco), luoghi);
+      mostra(tutti, tutti.length ? '' : 'Nessun luogo trovato in Italia');
     } catch {
       mostra(parchi, 'Ricerca dei luoghi non disponibile ora');
     }

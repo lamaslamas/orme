@@ -1785,3 +1785,9 @@ body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 @media (min-width: 1024px) { .cerca-zona { left: calc(var(--larghezza-nav) + 50% - var(--larghezza-nav) / 2); } }
 .cerca-zona { max-width: calc(100vw - 24px); }
 .cerca-zona span { overflow: hidden; text-overflow: ellipsis; }
+/* ricerca: etichetta Parco / Luogo a destra di ogni risultato */
+.risultati-luogo button { grid-template-columns: 20px 1fr auto; }
+.tipo-risultato { font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.tipo-risultato.parco { background: var(--verde-chiaro, rgba(15, 110, 86, 0.12)); color: var(--verde-testo); }
+.tipo-risultato.luogo { background: rgba(24, 95, 165, 0.12); color: #185fa5; }
+:root[data-scuro] .tipo-risultato.luogo { color: #85b7eb; background: rgba(133, 183, 235, 0.14); }
