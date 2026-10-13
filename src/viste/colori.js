@@ -10,4 +10,5 @@ export const COLORI = {
   partenza: '#7b2d9b',
   osservazione: '#b9925a', // percorsi di osservazione fauna: ambra tenue
   salto: '#5f6e75',
+  uscita: '#c4572a', // sentieri delle uscite delle associazioni: terracotta tratteggiato
 };

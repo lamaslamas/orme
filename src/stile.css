@@ -1908,3 +1908,8 @@ body.disegno main { padding: 0; }
 .dc-nessuno { margin-top: 8px; }
 .dc-nessuno ul { list-style: none; padding: 0; margin: 6px 0 0; }
 .dc-altri[hidden] { display: none; }
+.popup-uscite ul { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 6px; }
+.popup-uscite p { margin: 4px 0 0; }
+.uscite-sentiero { margin: 6px 0; }
+.uscite-sentiero p { margin: 0 0 4px; }
+.uscite-sentiero ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }

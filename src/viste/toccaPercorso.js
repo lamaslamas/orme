@@ -32,11 +32,12 @@ export function riquadroSentiero(s, traccia) {
 // occupata(): true mentre uno strumento (misura, avvistamento…) usa i tocchi sulla mappa
 // inquadra: la traccia toccata viene inquadrata (mappa principale)
 // nota(sentiero): testo in più nel foglio del telefono (es. la distanza in Intorno a me)
-export function percorsiToccabili(mappa, { occupata = () => false, inquadra = false, primaDiInquadrare = () => {}, dopoInquadrare = () => {}, nota = () => '' } = {}) {
+// extra(sentiero): html in più nel foglio (es. le uscite delle associazioni che usano il sentiero)
+export function percorsiToccabili(mappa, { occupata = () => false, inquadra = false, primaDiInquadrare = () => {}, dopoInquadrare = () => {}, nota = () => '', extra = () => '' } = {}) {
   const selezione = L.layerGroup().addTo(mappa);
   // su telefono il percorso toccato si apre nel foglio dal basso, su computer nel riquadro sulla mappa
   let foglio = null;
-  const foglioPercorso = () => (foglio ??= creaFoglioPercorso(mappa, { allaChiusura: () => selezione.clearLayers(), nota }));
+  const foglioPercorso = () => (foglio ??= creaFoglioPercorso(mappa, { allaChiusura: () => selezione.clearLayers(), nota, extra }));
   // le aree toccabili stanno in un livello SVG sopra le tracce e i pallini di rifugi e acqua (su
   // canvas, che altrimenti prenderebbero il tocco): in SVG rispondono solo vicino alla linea
   if (!mappa.getPane('toccoPercorsi')) {

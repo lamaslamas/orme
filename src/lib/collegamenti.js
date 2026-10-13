@@ -88,3 +88,20 @@ export function applicaCollegamenti(percorsi, file) {
   }
   return { collegate, nonValidi };
 }
+
+// Sentieri delle uscite per il livello della mappa: un elemento per sentiero (più uscite possono
+// usare lo stesso), con la traccia e le uscite che lo usano. Le uscite con una traccia propria
+// sono un elemento a sé.
+export function sentieriDelleUscite(uscite, tracce) {
+  const per = new Map();
+  for (const u of uscite) {
+    const t = tracce.get(u.id);
+    if (!t?.geojson) continue;
+    const c = t.dettagli?.conferma;
+    const chiave = c?.sentiero ?? u.id;
+    const voce = per.get(chiave) ?? { chiave, sentiero: c?.sentiero ?? null, nome: c?.nome ?? u.nome, geojson: t.geojson, uscite: [] };
+    voce.uscite.push(u);
+    per.set(chiave, voce);
+  }
+  return [...per.values()];
+}

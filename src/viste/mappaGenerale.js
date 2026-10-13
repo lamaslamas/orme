@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
+import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
@@ -243,13 +244,17 @@ export async function vistaMappaGenerale(app, idParco = null) {
     </section>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'], ricorda: 'mappa' });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
   const confini = L.layerGroup();
   // confini di tutti i parchi (dal telefono o dal file dell'app, senza aspettare Overpass)
   for (const parco of PARCHI) ottieniConfine(parco).then((c) => disegnaConfine(c).addTo(confini)).catch(() => {});
   mappa.suLivello('confini', (acceso) => (acceso ? confini.addTo(mappa) : confini.remove()));
   const livello = L.layerGroup();
   mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));
+  // sentieri già collegati alle uscite delle associazioni
+  const uscite = creaLivelloUscite(mappa, { coloreBordo });
+  uscite.aggiorna(tutti, tracce);
+  mappa.suLivello('uscite', (acceso) => (acceso ? uscite.gruppo.addTo(mappa) : uscite.gruppo.remove()));
   // area toccabile di ogni traccia: l'elenco dei risultati la "tocca" per evidenziarla
   const aree = new Map();
   // confine del parco scelto: sempre visibile e più marcato (si scarica se manca)
@@ -315,6 +320,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     inquadra: true,
     primaDiInquadrare: () => (saltaSpostamento = true),
     dopoInquadrare: () => (saltaSpostamento = false),
+    extra: (s) => htmlUsciteDelSentiero(uscite.usciteDi(s.id)),
   });
   aggiungiDistribuzione(mappa);
   // un foglio alla volta: aprendo l'elenco si nasconde la fauna (e viceversa)
@@ -561,6 +567,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     baseDisegnata = st.base;
     restaQui = true;
     disegna();
+    uscite.ridisegna();
   });
 
   const scollegaRicerca = collegaRicercaLuogo(app.querySelector('.cerca-luogo'), mappa, (parco) => {

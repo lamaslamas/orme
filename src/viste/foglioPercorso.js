@@ -33,7 +33,7 @@ function htmlAccesso(s) {
 }
 const SOGLIA_PX = 50; // trascinamento oltre il quale il foglio cambia altezza
 
-export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '' } = {}) {
+export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '', extra = () => '' } = {}) {
   const foglio = document.createElement('section');
   foglio.className = 'foglio-percorso';
   foglio.hidden = true;
@@ -92,6 +92,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
         ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
         ${htmlFaunaBreve(s, { compatta: true })}
         ${htmlAccesso(s)}
+        ${extra(s)}
         <div class="foglio-azioni due">
           <button type="button" class="bottone primario" data-azione="inizia">${ICONE.bandierina}<span>Inizia da qui</span></button>
           <button type="button" class="bottone" data-azione="aggiungi">${ICONE.percorso}<span>Aggiungi</span></button>

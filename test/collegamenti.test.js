@@ -51,3 +51,20 @@ describe('collegamenti tra uscite e sentieri', () => {
     expect(percorsi[1].traccia.dettagli).toBeUndefined();
   });
 });
+
+import { sentieriDelleUscite } from '../src/lib/collegamenti.js';
+describe('livello dei sentieri delle uscite', () => {
+  it('un elemento per sentiero, con tutte le uscite che lo usano', () => {
+    const g = { type: 'LineString', coordinates: [[0, 0], [1, 1]] };
+    const tracce = new Map([
+      ['a', { geojson: g, dettagli: { conferma: { sentiero: 's1', nome: 'S1' } } }],
+      ['b', { geojson: g, dettagli: { conferma: { sentiero: 's1', nome: 'S1' } } }],
+      ['c', { geojson: g, dettagli: {} }],
+    ]);
+    const r = sentieriDelleUscite([{ id: 'a' }, { id: 'b' }, { id: 'c', nome: 'Uscita C' }, { id: 'd' }], tracce);
+    expect(r.map((x) => [x.chiave, x.nome, x.uscite.map((u) => u.id)])).toEqual([
+      ['s1', 'S1', ['a', 'b']],
+      ['c', 'Uscita C', ['c']],
+    ]);
+  });
+});
