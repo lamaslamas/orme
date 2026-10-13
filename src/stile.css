@@ -1890,3 +1890,9 @@ body.disegno main { padding: 0; }
   .disegno-sopra { left: calc(var(--larghezza-nav) + 10px); }
   .foglio-disegno { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 16px; border-radius: 20px; }
 }
+
+/* Associazioni: filtri e gruppi per animale e periodo */
+.filtri-uscite { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 4px; }
+.filtri-uscite select { min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; font: inherit; font-size: 14px; padding: 0 6px; min-width: 0; }
+.filtri-uscite .filtro-spunta { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+.gruppo-uscite .titolo-sezione .piccolo { font-weight: 400; margin-left: 4px; }

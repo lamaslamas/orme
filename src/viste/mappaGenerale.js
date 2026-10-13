@@ -347,6 +347,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let inMappa = [];
   let saltaSpostamento = false; // lo spostamento fatto per inquadrare un percorso scelto non cambia l'elenco
   function elencoInVista() {
+    if (!app.isConnected || !mappa._loaded || !mappa._mapPane) return; // schermata già chiusa
     const vista = mappa.getBounds();
     let qui = inMappa.filter(({ sentiero }) => aree.get(sentiero.id)?.getBounds().intersects(vista));
     // partenza più vicina a me (se la posizione c'è): distanza dall'inizio (o dalla fine) della traccia

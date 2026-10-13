@@ -102,7 +102,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
 
 // Salva / togli dai salvati direttamente dalla scheda in lista (un solo ascoltatore per tutta l'app)
 let salvaCollegato = false;
-function collegaSalvaDaLista() {
+export function collegaSalvaDaLista() {
   if (salvaCollegato) return;
   salvaCollegato = true;
   document.addEventListener('click', async (e) => {
