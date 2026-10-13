@@ -6,7 +6,7 @@ import { interrogaOverpass } from '../lib/overpass.js';
 import { percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { zoneCoperte } from './copertura.js';
 import { escapeHtml } from '../lib/formato.js';
-import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta } from '../lib/puntiUtili.js';
+import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta, inCentroAbitato } from '../lib/puntiUtili.js';
 import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 
@@ -235,8 +235,10 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
     contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}<p class="stato-dati stato-assente">Dati non raggiungibili ora (sei offline?).</p></section>`;
     return null;
   }
-  let vicini = puntiLungoIlPercorso(punti, geojson);
+  // fontanelle in paese: dopo le fonti fuori dai centri abitati (in ordine di km, solo segnate)
+  let vicini = puntiLungoIlPercorso(punti, geojson).map((p) => ({ ...p, inPaese: inCentroAbitato(p, punti) }));
   if (pezzi) vicini = vicini.map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi) })).sort((a, b) => a.km - b.km);
+  else vicini.sort((a, b) => a.inPaese - b.inPaese || a.distanzaM - b.distanzaM);
   contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}
     ${pezzi && !avviso ? htmlRiassuntoLungo(vicini, pezzi) : ''}
     ${
@@ -248,7 +250,7 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
           const note = noteDelPunto(p);
           return `<li><span class="punto-utile ${t.gruppo}${p.chiuso ? ' chiuso' : ''}">${htmlIconaPunto(p.tipo)}</span>
             <span><b>${escapeHtml(p.nome ?? t.nome)}</b>${p.nome ? ` <span class="tenue">· ${t.nome.toLowerCase()}</span>` : ''}
-            <span class="tenue piccolo">${p.km != null ? `al km ${km1(p.km)} · ` : ''}${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}${note.length ? ` · ${escapeHtml(note.join(' · '))}` : ''}</span></span></li>`;
+            <span class="tenue piccolo">${p.km != null ? `al km ${km1(p.km)} · ` : ''}${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}${p.inPaese ? ' · in paese' : ''}${note.length ? ` · ${escapeHtml(note.join(' · '))}` : ''}</span></span></li>`;
         })
         .join('')}</ul>`
         : avviso

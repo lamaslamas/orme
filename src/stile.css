@@ -1826,3 +1826,67 @@ body:has(.foglio-percorso:not([hidden])) .home-sotto, body:has(.foglio-percorso:
 .legenda-sentieri { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
 .legenda-sentieri li { display: flex; align-items: center; gap: 8px; }
 .legenda-sentieri svg { flex: none; border-radius: 3px; background: var(--sfondo-legenda, rgba(127, 127, 127, 0.12)); }
+
+/* --- Modalità disegno --- */
+body.disegno .cima { display: none; }
+body.disegno main { padding: 0; }
+.mappa-disegno {
+  position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
+  height: auto; min-height: 0; z-index: 1;
+}
+.mappa-disegno .leaflet-top { top: calc(env(safe-area-inset-top) + 104px); }
+.mappa-disegno .leaflet-bottom { bottom: 190px; }
+@media (max-width: 1023.98px) { .mappa-disegno .leaflet-control-zoom { display: none; } }
+.disegno-sopra { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
+.disegno-sopra > * { pointer-events: auto; }
+.disegno-strumenti { display: flex; gap: 6px; }
+.disegno-strumenti .pill-mappa.tondo { width: 42px; min-height: 42px; }
+.disegno-sopra > .pill-mappa.tondo { width: 42px; min-height: 42px; }
+.pill-mappa.attiva { background: var(--verde); color: #fff; border-color: transparent; }
+.disegno-menu { position: absolute; top: 50px; right: 0; display: grid; padding: 6px; border-radius: 16px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); }
+.disegno-menu[hidden] { display: none; }
+.disegno-menu button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: none; background: none; color: var(--testo); font: inherit; font-weight: 600; text-align: left; border-radius: 10px; cursor: pointer; }
+.disegno-menu button:hover { background: var(--bordo); }
+.disegno-menu svg, .menu-punto svg { width: 18px; height: 18px; }
+.disegno-suggerimento { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 62px); left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 999px; max-width: calc(100vw - 24px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.disegno-suggerimento[hidden] { display: none; }
+.foglio-disegno {
+  position: fixed; z-index: 1040; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
+  max-height: 40vh; max-height: 40dvh; overflow: auto; overscroll-behavior: contain; padding: 0 16px 12px;
+  background: var(--sfondo); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro);
+}
+.foglio-disegno.aperto { max-height: 78vh; max-height: 78dvh; }
+.foglio-disegno:not(.aperto) .disegno-dettagli { display: none; }
+.disegno-numeri { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 4px; margin-bottom: 4px; }
+.disegno-numeri > p { grid-column: 1 / -1; margin: 6px 0; }
+.disegno-numeri b { display: block; font-size: 1.1rem; font-weight: 800; white-space: nowrap; }
+.disegno-numeri span { font-size: 0.75rem; color: var(--testo-tenue); }
+.disegno-profilo svg { display: block; width: 100%; height: 56px; touch-action: none; cursor: crosshair; }
+.foglio-disegno.aperto .disegno-profilo svg { height: 110px; }
+.profilo-area { fill: rgba(15, 110, 86, 0.18); }
+.profilo-linea { stroke: #0f6e56; stroke-width: 2; }
+.profilo-cursore { stroke: #ef9f27; stroke-width: 2; }
+:root[data-scuro] .profilo-area { fill: rgba(93, 202, 165, 0.2); }
+:root[data-scuro] .profilo-linea { stroke: #5dcaa5; }
+.profilo-dati { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0 0; font-size: 0.78rem; color: var(--testo-tenue); }
+.profilo-fonte { margin: 0; font-size: 0.72rem; }
+.disegno-punti { display: grid; grid-template-columns: 18px 1fr; gap: 6px; align-items: center; margin: 8px 0; font-size: 0.86rem; white-space: nowrap; }
+.disegno-punti span { overflow: hidden; text-overflow: ellipsis; }
+.disegno-punti svg { width: 16px; height: 16px; }
+.disegno-dettagli .riquadro { margin: 8px 0; }
+.foglio-disegno .bottone.pieno { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 6px; }
+.foglio-disegno .bottone.pieno svg { width: 18px; height: 18px; }
+.stato-disegno { grid-column: 1 / -1; margin: 2px 0 0; }
+.punto-disegno { border-radius: 50%; background: #fff; border: 3px solid #0f6e56; box-sizing: border-box; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+.punto-disegno.primo { background: #0f6e56; border-color: #fff; }
+.punto-disegno.ultimo { background: #0b1012; border-color: #fff; }
+.punto-disegno.libero { border-style: dashed; }
+.menu-punto { display: flex; gap: 6px; }
+.menu-punto button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--bordo); background: var(--scheda); color: var(--testo); font: inherit; font-weight: 700; cursor: pointer; }
+.popup-punto-disegno .leaflet-popup-content { margin: 8px; }
+.foglio-salva .azioni-salva { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 6px; }
+@media (min-width: 1024px) {
+  .mappa-disegno { left: var(--larghezza-nav); bottom: 0; }
+  .disegno-sopra { left: calc(var(--larghezza-nav) + 10px); }
+  .foglio-disegno { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 16px; border-radius: 20px; }
+}

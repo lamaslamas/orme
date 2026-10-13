@@ -169,3 +169,19 @@ export function celleNelRiquadro([s, o, n, e], { passo = PASSO_CELLA, max = 12 }
   return celle;
 }
 export const cellaScaduta = (salvata, oggi = new Date()) => !salvata?.scaricato || (oggi - new Date(salvata.scaricato)) / 86_400_000 >= GIORNI_CELLA;
+
+// Fontanella in un centro abitato: ce ne sono altre (almeno `minimo`) entro 300 m. Le fonti fuori
+// dai paesi (sorgenti, fontanelle isolate) vengono prima nelle liste; quelle in paese dopo.
+export function inCentroAbitato(p, tutti, { raggioM = 300, minimo = 3 } = {}) {
+  if (p?.tipo !== 'fontanella') return false;
+  const gradi = raggioM / 111_000;
+  let vicine = 0;
+  for (const q of tutti) {
+    if (q === p || q.id === p.id || q.tipo !== 'fontanella') continue;
+    if (Math.abs(q.lat - p.lat) > gradi || Math.abs(q.lon - p.lon) > gradi * 1.4) continue;
+    const dy = (q.lat - p.lat) * 111_000;
+    const dx = (q.lon - p.lon) * 111_000 * Math.cos((p.lat * Math.PI) / 180);
+    if (Math.hypot(dx, dy) <= raggioM && ++vicine >= minimo) return true;
+  }
+  return false;
+}
