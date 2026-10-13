@@ -35,6 +35,10 @@ jobs:
         run: node scripts/luoghi-uscite.mjs
         continue-on-error: true
         timeout-minutes: 10
+      # uscite collegate a un sentiero sul telefono ed esportate in public/dati/collegamenti.json
+      - name: Applica i collegamenti delle uscite
+        run: node scripts/applica-collegamenti.mjs
+        continue-on-error: true
       # celle delle quote TINITALY già scaricate: restano tra una notte e l'altra (il terreno non cambia)
       - uses: actions/cache@v4
         with:

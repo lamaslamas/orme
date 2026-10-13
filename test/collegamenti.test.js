@@ -46,9 +46,12 @@ describe('collegamenti tra uscite e sentieri', () => {
     const geo = { type: 'LineString', coordinates: [[0, 0], [1, 1]] };
     const percorsi = [{ id: 'u1' }, { id: 'u2', traccia: { geojson: { type: 'LineString', coordinates: [] } } }, { id: 's', nome: 'S', traccia: { origine: 'osm', geojson: geo } }];
     const r = applicaCollegamenti(percorsi, { collegamenti: [{ uscita: 'u1', sentiero: 's', data: 'd' }, { uscita: 'u2', sentiero: 's' }, { uscita: 'x', sentiero: 's' }, { uscita: 'u1b', nessuno: true }] });
-    expect(r).toEqual({ collegate: 1, nonValidi: ['x'] });
+    expect(r).toEqual({ collegate: 1, nonValidi: ['x', 'u1b'] });
     expect(percorsi[0].traccia).toEqual({ origine: 'osm', geojson: geo, dettagli: { conferma: { sentiero: 's', nome: 'S', data: 'd' } } });
     expect(percorsi[1].traccia.dettagli).toBeUndefined();
+    const conNessuno = [{ id: 'n' }];
+    applicaCollegamenti(conNessuno, { collegamenti: [{ uscita: 'n', nessuno: true, data: 'd' }] });
+    expect(conNessuno[0].collegamento).toEqual({ nessuno: true, data: 'd' });
   });
 });
 
@@ -66,5 +69,28 @@ describe('livello dei sentieri delle uscite', () => {
       ['s1', 'S1', ['a', 'b']],
       ['c', 'Uscita C', ['c']],
     ]);
+  });
+});
+
+import { collegamentiDelTelefono, testoFileCollegamenti, stessiCollegamenti } from '../src/lib/collegamenti.js';
+describe('esporta collegamenti', () => {
+  it('solo quelli scelti sul telefono, con i "nessuno"', () => {
+    const tracce = new Map([
+      ['a', { dettagli: { conferma: { sentiero: 's1', nome: 'S1', data: 'd1' } } }],
+      ['b', { dettagli: { archivio: true, conferma: { sentiero: 's2', nome: 'S2', data: 'd2' } } }],
+    ]);
+    const uscite = [{ id: 'a' }, { id: 'b' }, { id: 'c', collegamento: { nessuno: true, data: 'd3' } }, { id: 'd' }];
+    expect(collegamentiDelTelefono(uscite, tracce)).toEqual([
+      { uscita: 'a', sentiero: 's1', nome: 'S1', data: 'd1' },
+      { uscita: 'c', nessuno: true, data: 'd3' },
+    ]);
+  });
+  it('file leggibile e valido, un collegamento per riga', () => {
+    const f = fileCollegamenti(null, [{ uscita: 'a', sentiero: 's1', nome: 'S1', data: 'd' }, { uscita: 'b', nessuno: true, data: 'd' }], '2026-10-13');
+    const testo = testoFileCollegamenti(f);
+    expect(JSON.parse(testo)).toEqual(f);
+    expect(testo.split('\n').filter((r) => r.includes('"uscita"'))).toHaveLength(2);
+    expect(stessiCollegamenti(f, JSON.parse(testo))).toBe(true);
+    expect(stessiCollegamenti(f, { collegamenti: [] })).toBe(false);
   });
 });

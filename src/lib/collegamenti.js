@@ -75,8 +75,13 @@ export function applicaCollegamenti(percorsi, file) {
   let collegate = 0;
   const nonValidi = [];
   for (const c of file?.collegamenti ?? []) {
-    if (!c.sentiero) continue;
     const uscita = perId.get(c.uscita);
+    if (!c.sentiero) {
+      // "nessun sentiero adatto": vale anche sugli altri telefoni, finché l'uscita non ha una traccia
+      if (uscita && !uscita.traccia) uscita.collegamento = { nessuno: true, data: c.data };
+      else if (!uscita) nonValidi.push(c.uscita);
+      continue;
+    }
     const sentiero = perId.get(c.sentiero);
     if (!uscita || !sentiero?.traccia?.geojson) {
       nonValidi.push(c.uscita);
@@ -84,6 +89,7 @@ export function applicaCollegamenti(percorsi, file) {
     }
     if (uscita.traccia && !uscita.traccia.dettagli?.conferma) continue; // traccia propria dell'uscita
     uscita.traccia = { origine: sentiero.traccia.origine ?? 'osm', geojson: sentiero.traccia.geojson, dettagli: { conferma: { sentiero: sentiero.id, nome: sentiero.nome, data: c.data } } };
+    delete uscita.collegamento;
     collegate++;
   }
   return { collegate, nonValidi };
@@ -105,3 +111,25 @@ export function sentieriDelleUscite(uscite, tracce) {
   }
   return [...per.values()];
 }
+
+// Collegamenti scelti su questo telefono (non quelli già arrivati dall'archivio comune)
+export function collegamentiDelTelefono(uscite, tracce) {
+  const r = [];
+  for (const u of uscite) {
+    const t = tracce.get(u.id);
+    const c = collegamentoDi(u, t);
+    if (c && !t.dettagli?.archivio) r.push(c);
+    else if (!t && u.collegamento?.nessuno) r.push({ uscita: u.id, nessuno: true, data: u.collegamento.data });
+  }
+  return r;
+}
+
+// Testo del file con un collegamento per riga: le modifiche su GitHub restano leggibili
+export function testoFileCollegamenti(file) {
+  const righe = file.collegamenti.map((c) => `    ${JSON.stringify(c)}`).join(',\n');
+  const elenco = righe ? `[\n${righe}\n  ]` : '[]';
+  return `{\n  "descrizione": ${JSON.stringify(file.descrizione)},\n  "aggiornato": ${JSON.stringify(file.aggiornato)},\n  "collegamenti": ${elenco}\n}\n`;
+}
+
+// file già uguale a quello del repository (niente da esportare)
+export const stessiCollegamenti = (a, b) => JSON.stringify(a?.collegamenti ?? []) === JSON.stringify(b?.collegamenti ?? []);
