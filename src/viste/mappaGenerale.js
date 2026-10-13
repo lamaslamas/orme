@@ -87,7 +87,6 @@ async function avviaCompletamento(dentroLavoro = false) {
 }
 import { creaFaunaHome } from './faunaHome.js';
 import { creaFoglioVia } from './foglioVia.js';
-import { cronometra } from '../lib/misura.js';
 
 // Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
 // senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). true se ci prova.
@@ -355,7 +354,9 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
   let inMappa = [];
   let saltaSpostamento = false; // lo spostamento fatto per inquadrare un percorso scelto non cambia l'elenco
-  const elencoMisurato = cronometra('elenco della zona', () => elencoInVista());
+  // l'elenco si scrive solo con il foglio aperto (il numero sul pulsante sempre): chiuso, si rifà
+  // quando si apre
+  let elencoVecchio = false;
   function elencoInVista() {
     if (!app.isConnected || !mappa._loaded || !mappa._mapPane) return; // schermata già chiusa
     const vista = mappa.getBounds();
@@ -374,6 +375,11 @@ export async function vistaMappaGenerale(app, idParco = null) {
     }
     const conta = app.querySelector('#contaQui');
     if (conta) conta.textContent = qui.length ? String(qui.length) : '';
+    if (app.querySelector('#foglioElenco')?.hidden) {
+      elencoVecchio = true;
+      return;
+    }
+    elencoVecchio = false;
     app.querySelector('#titoloRisultati').textContent = inMappa.length
       ? `Nella zona inquadrata (${qui.length}${qui.length < inMappa.length ? ` su ${inMappa.length}` : ''})`
       : '';
@@ -405,15 +411,17 @@ export async function vistaMappaGenerale(app, idParco = null) {
   }
   // le foto di copertina arrivano dopo: quando ci sono, l'elenco si ridisegna
   if (!copertineCaricate()) caricaDaVedere().then((d) => d && app.isConnected && elencoInVista());
-  let attesaVista = null;
-  mappa.on('moveend', () => {
-    if (saltaSpostamento) {
-      saltaSpostamento = false;
-      return;
-    }
-    clearTimeout(attesaVista);
-    attesaVista = setTimeout(elencoMisurato, 150);
-  });
+  mappa.dopoIlMovimento(
+    'elenco della zona',
+    () => {
+      if (saltaSpostamento) {
+        saltaSpostamento = false;
+        return;
+      }
+      elencoInVista();
+    },
+    { priorita: 1 },
+  );
 
   function disegna() {
     mostraConfineScelto(filtri.parco);
@@ -508,6 +516,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   const apri = app.querySelector('#apriElenco');
   mostraFoglio = (si) => {
     foglio.hidden = !si;
+    if (si && elencoVecchio) elencoInVista();
     apri.setAttribute('aria-expanded', String(si));
     document.body.classList.toggle('elenco-aperto', si);
   };
@@ -549,7 +558,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     zonaSalvata = await leggiIntorno();
     if (bottoneZona.isConnected) aggiornaBottoneZona();
   };
-  mappa.on('moveend', cronometra('pulsante «Cerca percorsi qui»', aggiornaBottoneZona));
+  mappa.dopoIlMovimento('pulsante «Cerca percorsi qui»', aggiornaBottoneZona, { priorita: 2 });
   aggiornaBottoneZona();
   bottoneZona.addEventListener('click', () => {
     const c = mappa.getCenter();

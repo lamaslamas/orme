@@ -8,7 +8,6 @@ import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { iconaAnimale, ICONE } from './icone.js';
-import { cronometra } from '../lib/misura.js';
 
 // gli stessi gruppi scelti in "Intorno a me" (preferenza del telefono)
 const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
@@ -154,13 +153,8 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       mostraSpecie();
     }
   }
-  let attesa = null;
-  const specieMisurate = cronometra('fauna: specie della zona', () => mostraSpecie());
-  const allaFine = () => {
-    clearTimeout(attesa);
-    attesa = setTimeout(specieMisurate, 700);
-  };
-  mappa.on('moveend', allaFine);
+  // "Cosa vedere qui" segue la zona inquadrata, solo con il foglio della fauna aperto
+  const togliDallaCoda = mappa.dopoIlMovimento('fauna: specie della zona', () => mostraSpecie(), { visibile: () => !foglio.hidden, priorita: 4 });
   const scollega = stato.ascolta((s) => {
     if (s.livelli.heatmap === foglio.hidden) mostra(s.livelli.heatmap);
     else disegnaScelte();
@@ -175,9 +169,8 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     },
     pannello: foglio.querySelector('.fauna-heat'),
     chiudi() {
-      clearTimeout(attesa);
       scollega();
-      mappa.off('moveend', allaFine);
+      togliDallaCoda();
       document.body.classList.remove('fauna-aperta');
       foglio.remove();
     },

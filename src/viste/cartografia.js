@@ -6,6 +6,10 @@ import { stato } from '../stato.js';
 import { creaBaseVettoriale, creaSentieriVettoriali, mostraSentieri } from './mappaVettoriale.js';
 import { aggiungiPuntiUtili } from './puntiUtili.js';
 import { cronometra, registraMappa } from '../lib/misura.js';
+import { telePigre } from './telaPigra.js';
+import { creaCoda } from '../lib/codaMovimento.js';
+
+telePigre();
 
 const CENTRO_PREDEFINITO = [41.79, 13.85];
 
@@ -128,6 +132,14 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   // in sviluppo: l'ultima mappa aperta, per le prove dalla console
   if (import.meta.env.DEV && !anteprima) globalThis.__mappa = mappa;
   if (!anteprima) registraMappa(mappa); // misuratore (?misura)
+
+  // Lavori di fine movimento (elenco, fauna, punti, legenda, vista salvata…) in un'unica coda: partono
+  // 250 ms dopo l'ultimo movimento, uno per fotogramma (mai tutti insieme), e si fermano se la mappa
+  // riparte (src/lib/codaMovimento.js). visibile(): false = si salta
+  const coda = creaCoda({ fotogramma: () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))), avvolgi: cronometra });
+  mappa.dopoIlMovimento = coda.aggiungi;
+  mappa.on('movestart', coda.inizio);
+  mappa.on('moveend', () => coda.fine(() => mappa._loaded));
   const vistaSalvata = ricorda && !anteprima ? leggiViste()[ricorda] : null;
   mappa.vistaRitrovata = Boolean(vistaSalvata);
   if (vistaSalvata) {
@@ -142,7 +154,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     // una scelta fatta fuori dalla mappa (es. una card della lista) la deve poter spostare subito
     mappa.sbloccaInquadrature = libera;
   }
-  if (ricorda && !anteprima) mappa.on('moveend', cronometra('salvataggio della vista', () => !rimossaVista && salvaVista(ricorda, mappa)));
+  if (ricorda && !anteprima) mappa.dopoIlMovimento('salvataggio della vista', () => !rimossaVista && salvaVista(ricorda, mappa), { priorita: 9 });
   let rimossaVista = false;
   mappa.on('unload', () => (rimossaVista = true));
   // ordine dei livelli: base e sentieri Waymarked, poi heatmap e tracce, sopra i nomi dei luoghi

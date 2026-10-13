@@ -226,11 +226,7 @@ export function aggiungiPuntiUtili(mappa) {
       inCorso = false;
     }
   }
-  mappa.on('moveend', () => {
-    clearTimeout(attesaCelle);
-    attesaCelle = setTimeout(caricaCelle, 800);
-  });
-  let attesaCelle = null;
+  mappa.dopoIlMovimento('rifugi e acqua: celle', () => caricaCelle(), { priorita: 3 });
   // all'apertura la mappa può ancora spostarsi (vista ritrovata, inquadrature): si guarda poco dopo
   setTimeout(caricaCelle, 1500);
 
@@ -243,7 +239,7 @@ export function aggiungiPuntiUtili(mappa) {
   }
   mappa.on('zoomend', aggiorna);
   // la legenda conta i punti nella zona inquadrata
-  mappa.on('moveend', () => mappa.aggiornaLegenda?.());
+  mappa.dopoIlMovimento('legenda', () => mappa.aggiornaLegenda?.(), { priorita: 8 });
 
   mappa.vociLegenda?.push(() => {
     const voci = GRUPPI.filter((g) => accesi[g]);
