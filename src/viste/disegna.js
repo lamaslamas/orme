@@ -20,6 +20,27 @@ import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { ICONE } from './icone.js';
+import { tuttiISentieri, tutteLeTracce } from '../db.js';
+import { trattiARischio, testiAvvisi, intervalliLiberi, ACCESSI_REGOLATI } from '../lib/avvisiParco.js';
+import { puntoNelPoligono } from '../lib/confini.js';
+import { PARCHI } from '../datiParchi.js';
+import { caricaConfini } from './copertura.js';
+
+// Per gli avvisi: in quale parco cade un punto (confine, o riquadro se manca) e i nostri sentieri ad
+// accesso regolato, con la traccia. Si preparano una volta.
+let datiAvvisi = null;
+function preparaAvvisi() {
+  datiAvvisi ??= Promise.all([caricaConfini(), tuttiISentieri(), tutteLeTracce()]).then(([confini, sentieri, tracce]) => {
+    const parchi = PARCHI.filter((p) => !p.zona);
+    const parcoDi = ([lon, lat]) =>
+      parchi.find((p) => (lat >= p.bbox[0] && lat <= p.bbox[2] && lon >= p.bbox[1] && lon <= p.bbox[3] ? (confini[p.id]?.length ? puntoNelPoligono([lon, lat], confini[p.id]) : true) : false)) ?? null;
+    const regolati = sentieri
+      .filter((x) => ACCESSI_REGOLATI[x.accesso?.tipo] && tracce.get(x.id)?.geojson)
+      .map((x) => ({ nome: [x.codici?.join(' + '), x.nome].filter(Boolean).join(' '), accesso: x.accesso.tipo, geojson: tracce.get(x.id).geojson }));
+    return { parcoDi, regolati };
+  });
+  return datiAvvisi;
+}
 
 const COLORE = '#0f6e56'; // verde: diverso dal viola dei percorsi dell'archivio
 const ATTESA_PUNTI_MS = 1200; // rifugi e acqua si cercano quando il disegno si ferma un attimo
@@ -79,6 +100,7 @@ export async function vistaDisegna(app, id = null) {
   // la fauna si guarda soltanto: i tocchi sulla mappa sono del disegno
   const heat = aggiungiHeatmap(mappa, { occupata: () => true });
   const livelloLinea = L.layerGroup().addTo(mappa);
+  const livelloAvvisi = L.layerGroup().addTo(mappa);
   const livelloPunti = L.layerGroup().addTo(mappa);
   const segnaProfilo = L.circleMarker([0, 0], { radius: 7, color: '#fff', weight: 3, fillColor: '#ef9f27', fillOpacity: 1, interactive: false });
   const foglio = app.querySelector('.foglio-disegno');
@@ -187,6 +209,8 @@ export async function vistaDisegna(app, id = null) {
     if (punti.length < 2) {
       risultato = null;
       livelloLinea.clearLayers();
+      livelloAvvisi.clearLayers();
+      app.querySelector('#avvisi').innerHTML = '';
       app.querySelector('#riassuntoPunti').innerHTML = '';
       app.querySelector('#dettagli').innerHTML = '';
       return mostraBarra();
@@ -210,6 +234,7 @@ export async function vistaDisegna(app, id = null) {
     }
     risultato = { linea, terreno: unisciTerreno(fatti), tratti: fatti, pezziQuote: null, fonte: null, misure: misureDeiPezzi([linea]) };
     mostraBarra();
+    mostraAvvisi(mia);
     // quote (TINITALY) e poi rifugi e acqua: con un attimo di calma, il disegno è veloce
     const { pezzi, fonte } = await quoteDeiPezzi([linea]).catch(() => ({ pezzi: [linea], fonte: null }));
     if (mia !== richiesta || chiusa) return;
@@ -266,6 +291,19 @@ export async function vistaDisegna(app, id = null) {
     cursore.setAttribute('x2', ((x.km / tot) * 300).toFixed(1));
     app.querySelector('#datoProfilo').textContent = `km ${km1(x.km)} · ${Math.round(x.z)} m`;
   });
+
+  // nei parchi: tratti non segnati, a mano libera o su sentieri ad accesso regolato, in arancione
+  async function mostraAvvisi(mia) {
+    const box = app.querySelector('#avvisi');
+    const { parcoDi, regolati } = await preparaAvvisi();
+    if (mia !== richiesta || chiusa || !risultato) return;
+    const tratti = trattiARischio({ linea: risultato.linea, terreno: risultato.terreno, liberi: intervalliLiberi(risultato.tratti) }, { parcoDi, regolati });
+    livelloAvvisi.clearLayers();
+    for (const t of tratti) L.polyline(t.linea.map(([lon, lat]) => [lat, lon]), { color: '#ef9f27', weight: 9, opacity: 0.6, interactive: false }).addTo(livelloAvvisi);
+    box.innerHTML = testiAvvisi(tratti)
+      .map((t) => `<p class="avviso-via">${ICONE.avviso}<span>${escapeHtml(t)}</span></p>`)
+      .join('');
+  }
 
   // rifugi e acqua entro 300 m: riassunto sempre, elenco con il km nella barra aperta
   async function mostraPunti(mia) {
