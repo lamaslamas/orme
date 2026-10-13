@@ -15,6 +15,8 @@ import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDalla
 import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 import { cronometra } from '../lib/misura.js';
+import { partiDaSvg } from '../lib/tracciati.js';
+import { SegnoSuTela, telaSegni, disegnaTracciati } from './segniSuTela.js';
 
 // da vicino le icone; da lontano pallini colorati (leggeri, su canvas) per avere il quadro d'insieme
 export const ZOOM_PUNTI = 12;
@@ -54,6 +56,37 @@ export function caricaPunti() {
 // dopo aver scaricato i punti di una zona nuova
 export function dimenticaPunti() {
   datiInCorso = null;
+}
+
+// Segno di un punto sulla tela, come l'icona HTML di prima: cerchio colorato con bordo bianco, ombra
+// leggera e il simbolo. Disegnato una volta per tipo (immagine pronta), poi solo copiato.
+const segniPronti = new Map();
+function disegnoPunto(tipo, chiuso) {
+  const chiave = `${tipo}|${chiuso ? 1 : 0}`;
+  if (!segniPronti.has(chiave)) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const lato = 28; // 24 px più l'ombra
+    const c = document.createElement('canvas');
+    c.width = c.height = Math.ceil(lato * dpr);
+    const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.save();
+    ctx.shadowColor = 'rgba(37, 50, 56, 0.45)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 1;
+    ctx.beginPath();
+    ctx.arc(lato / 2, lato / 2, 11, 0, Math.PI * 2);
+    ctx.fillStyle = chiuso ? '#8a8f8c' : COLORE_GRUPPO[TIPI_PUNTO[tipo]?.gruppo] ?? '#2a7bbf';
+    ctx.fill();
+    ctx.restore();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    disegnaTracciati(ctx, partiDaSvg(ICONE[tipo] ?? ''), lato / 2, lato / 2, 14, '#fff');
+    segniPronti.set(chiave, c);
+  }
+  const img = segniPronti.get(chiave);
+  return (ctx, x, y) => ctx.drawImage(img, x - 14, y - 14, 28, 28);
 }
 
 export function htmlIconaPunto(tipo) {
@@ -116,16 +149,8 @@ export function aggiungiPuntiUtili(mappa) {
       if (disegnati.has(p.id)) continue;
       disegnati.add(p.id);
       const t = TIPI_PUNTO[p.tipo];
-      L.marker([p.lat, p.lon], {
-        icon: L.divIcon({
-          className: `punto-utile ${t.gruppo}${p.chiuso ? ' chiuso' : ''}`,
-          html: htmlIconaPunto(p.tipo),
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        }),
-        title: p.nome ? `${t.nome}: ${p.nome}` : t.nome,
-        keyboard: false,
-      })
+      // sulla tela, non come segnaposto HTML (con centinaia di punti il telefono rallentava)
+      new SegnoSuTela([p.lat, p.lon], { renderer: telaSegni(mappa), radius: 12, disegno: disegnoPunto(p.tipo, p.chiuso) })
         .bindPopup(popup(p))
         .addTo(livelli[t.gruppo]);
       L.circleMarker([p.lat, p.lon], {

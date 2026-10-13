@@ -19,7 +19,8 @@ import {
   urlOsservazioni,
   interpretaOsservazioni,
 } from '../lib/inaturalist.js';
-import { iconaAnimale } from './icone.js';
+import { iconaAnimale, urlIconaAnimale } from './icone.js';
+import { SegnoSuTela, telaSegni, immagine } from './segniSuTela.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
 import { cronometra } from '../lib/misura.js';
 
@@ -233,7 +234,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     for (const o of oss) {
       const p = mappa.latLngToContainerPoint([o.lat, o.lon]);
       const specie = o.animale ?? o.nomeScientifico;
-      const k = `${specie}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / 60)}|${Math.floor(p.y / 60)}`;
+      // da lontano (zoom 12–13) zone più grandi: meno icone, la mappa resta leggera sul telefono
+      const lato = mappa.getZoom() < 14 ? 90 : 60;
+      const k = `${specie}|${o.sfumata ? 1 : 0}|${Math.floor(p.x / lato)}|${Math.floor(p.y / lato)}`;
       const g = gruppi.get(k) ?? { animale: o.animale, scientifico: o.nomeScientifico, nome: o.specie, icona: iconaPerOsservazione(o), sfumata: o.sfumata, oss: [] };
       // il nome italiano viene da iNaturalist (GBIF di solito ha solo quello scientifico)
       if (o.fonte === 'iNaturalist' && o.specie) g.nome = o.specie;
@@ -247,6 +250,53 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       oss: g.oss.sort((a, b) => String(b.data).localeCompare(String(a.data))),
     }));
   }
+  // Spillo lilla come quello di prima: sempre chiaro, con l'animale, il numero di osservazioni e il
+  // bordo tratteggiato per le posizioni approssimate
+  function disegnoSpillo(g, tela) {
+    const url = urlIconaAnimale(g.icona);
+    const n = g.oss.length;
+    return (ctx, x, y) => {
+      const cy = y - 22;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, cy, 13, Math.PI * 0.75, Math.PI * 0.25);
+      ctx.lineTo(x, y - 3);
+      ctx.closePath();
+      ctx.shadowColor = 'rgba(37, 50, 56, 0.4)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = g.sfumata ? 'rgba(241, 236, 255, 0.85)' : '#fff';
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#7c6cf0';
+      if (g.sfumata) ctx.setLineDash([4, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      const img = immagine(url, tela);
+      if (img) {
+        ctx.globalAlpha = g.sfumata ? 0.6 : 1;
+        ctx.drawImage(img, x - 9, cy - 9, 18, 18);
+        ctx.globalAlpha = 1;
+      }
+      if (n > 1) {
+        const testo = String(n);
+        ctx.font = '700 10px Inter, system-ui, sans-serif';
+        const w = Math.max(16, ctx.measureText(testo).width + 8);
+        ctx.fillStyle = '#5b4b9a';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, y - 42, w, 16, 8);
+        else ctx.rect(x, y - 42, w, 16);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(testo, x + w / 2, y - 34);
+      }
+      ctx.restore();
+    };
+  }
+
   function popupGruppo(g) {
     const data = (o) => (o.data ? escapeHtml(o.data.split('-').reverse().join('/')) : 'data non indicata');
     const datiFoto = (o) =>
@@ -337,18 +387,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
       // le posizioni approssimate (specie protette, atlanti) a parte, sbiadite e tratteggiate
       for (const g of raggruppa(oss)) {
-        L.marker([g.lat, g.lon], {
-          icon: L.divIcon({
-            className: `icona-osservazione${g.sfumata ? ' sfumata' : ''}`,
-            html: `<span class="spillo"><span>${iconaAnimale(g.icona)}</span></span>${g.oss.length > 1 ? `<b class="quante">${g.oss.length}</b>` : ''}`,
-            iconSize: [30, 36],
-            iconAnchor: [15, 36],
-            popupAnchor: [0, -34],
-          }),
-          title: `${nomeGruppo(g)}: ${g.oss.length}`,
-          keyboard: false,
-        })
-          .bindPopup(() => popupGruppo(g))
+        // sulla tela, non come segnaposto HTML: lo spillo sta sopra il punto (lì si tocca)
+        new SegnoSuTela([g.lat, g.lon], { renderer: telaSegni(mappa), radius: 15, centro: [0, -22], disegno: disegnoSpillo(g, telaSegni(mappa)) })
+          .bindPopup(() => popupGruppo(g), { offset: [0, -34] })
           .on('popupopen', (ev) => {
             if (g.animale || NOMI_IT.get(g.scientifico)) return;
             cercaNomeItaliano(g.scientifico).then((nome) => nome && ev.popup.isOpen() && ev.popup.setContent(popupGruppo(g)));
