@@ -7,6 +7,7 @@ import { gruppiPerStagione, temaUscita } from '../lib/stagioni.js';
 import { escapeHtml } from '../lib/formato.js';
 import { parcoDa } from '../datiParchi.js';
 import { schedaInLista, collegaSalvaDaLista } from './lista.js';
+import { montaDaCollegare } from './daCollegare.js';
 
 const chiDi = (s) => s.escursione?.associazione || s.organizzatori?.[0] || '';
 let filtri = { tema: '', parco: '', chi: '', daCollegare: false }; // restano finché l'app è aperta
@@ -17,9 +18,16 @@ export async function vistaAssociazioni(app) {
   app.innerHTML = `
     <h1 class="titolo-pagina">Associazioni</h1>
     <p class="tenue">I sentieri usati da associazioni e guide per le uscite sulla fauna, da fare per conto tuo.</p>
-    ${uscite.length ? '<div class="filtri-uscite"></div><div id="gruppiUscite"></div>' : '<p class="vuoto">Nessuna uscita in archivio per ora.</p>'}`;
+    ${uscite.length ? '<div id="daCollegare"></div><div class="filtri-uscite"></div><div id="gruppiUscite"></div>' : '<p class="vuoto">Nessuna uscita in archivio per ora.</p>'}`;
   if (!uscite.length) return;
   collegaSalvaDaLista();
+  // dopo una scelta si ridisegna tutto restando allo stesso punto della pagina
+  const alCambio = async () => {
+    const y = window.scrollY;
+    await vistaAssociazioni(app);
+    window.scrollTo(0, y);
+  };
+  montaDaCollegare(app.querySelector('#daCollegare'), { uscite, sentieri: tutti, tracce, alCambio });
 
   const temi = gruppiPerStagione(uscite);
   const opzioni = (valori, scelto) => valori.map(([v, t]) => `<option value="${escapeHtml(v)}" ${v === scelto ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('');
