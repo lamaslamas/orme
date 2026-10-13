@@ -91,6 +91,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
           ${parchi ? `<span class="carta-parco-nome">${escapeHtml(parchi)}</span>` : ''}
           ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
           ${uscita && testoUscita(s) ? `<span class="riga-uscita">${ICONE.calendario}${escapeHtml(testoUscita(s))}</span>` : ''}
+          ${uscita && !traccia ? '<span class="riga-uscita tenue">' + ICONE.percorso + 'Senza traccia: scegli tra i sentieri probabili</span>' : ''}
           ${htmlFaunaBreve(s, { compatta: true, stagione })}
           ${etichette ? `<span class="chips">${etichette}</span>` : ''}
         </span>

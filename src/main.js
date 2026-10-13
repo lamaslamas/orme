@@ -73,8 +73,11 @@ const percorsi = [
 
 let pulisciVistaPrecedente = null;
 
+// le schede dei sentieri si aprono da più sezioni: resta evidenziata quella da cui si arriva
+let sezionePrecedente = 'mappa';
 function aggiornaBarraSchede(percorso) {
-  const sezione = sezioneDi(percorso);
+  const sezione = /^\/sentiero\//.test(percorso) ? sezionePrecedente : sezioneDi(percorso);
+  sezionePrecedente = sezione;
   for (const a of document.querySelectorAll('.barra-schede a')) {
     const attiva = a.dataset.sezione === sezione;
     a.classList.toggle('attiva', attiva);
