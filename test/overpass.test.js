@@ -152,3 +152,26 @@ describe('risposte incomplete di Overpass', () => {
     await expect(interrogaOverpass('x', { server: ['a', 'b'], fetchFn })).rejects.toThrow(/non risponde/);
   });
 });
+
+describe('rotazione dei server Overpass', async () => {
+  const { interrogaOverpass, ordineServer, azzeraServer, SERVER_OVERPASS, ATTESA_BASE_MS } = await import('../src/lib/overpass.js');
+  const ok = { ok: true, json: async () => ({ elements: [] }) };
+  it('tanti server pubblici, private.coffee escluso', () => {
+    expect(SERVER_OVERPASS.length).toBeGreaterThanOrEqual(4);
+    expect(SERVER_OVERPASS.some((u) => u.includes('kumi.systems'))).toBe(true);
+    expect(SERVER_OVERPASS.some((u) => u.includes('private.coffee'))).toBe(false);
+  });
+  it('attesa crescente tra i tentativi; chi non risponde va in fondo per un po', async () => {
+    azzeraServer();
+    const attese = [];
+    const fetchFn = vi.fn().mockResolvedValueOnce({ ok: false, status: 504 }).mockResolvedValueOnce({ ok: false, status: 429 }).mockResolvedValueOnce(ok);
+    await interrogaOverpass('q', { server: ['a', 'b', 'c'], fetchFn, attendi: async (ms) => attese.push(ms), adesso: () => 1000 });
+    expect(attese).toEqual([ATTESA_BASE_MS, ATTESA_BASE_MS * 2]);
+    // c ha risposto: la prossima volta si parte da lui; a e b sono in pausa
+    expect(ordineServer(['a', 'b', 'c'], 2000)).toEqual(['c', 'a', 'b']);
+    // finita la pausa tornano liberi
+    expect(ordineServer(['a', 'b', 'c'], 1000 + 6 * 60_000)).toEqual(['c', 'a', 'b']);
+    azzeraServer();
+    expect(ordineServer(['a', 'b', 'c'])).toEqual(['a', 'b', 'c']);
+  });
+});

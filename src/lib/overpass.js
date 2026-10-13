@@ -17,15 +17,34 @@ export function dentroIlParco(parco) {
   return { prima: `area(id:${areaParco(parco)})->.parco;\n`, filtro: '(area.parco)' };
 }
 
+// Server pubblici di Overpass che rispondono anche alle pagine web (CORS). Ottobre 2026: i tre di
+// overpass-api.de (FOSSGIS) sono veloci, maps.mail.ru lento ma affidabile, kumi.systems spesso giù.
+// private.coffee non risponde alle pagine di altri siti: escluso.
 export const SERVER_OVERPASS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
+  'https://z.overpass-api.de/api/interpreter',
+  'https://lz4.overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
-// nel browser private.coffee non risponde alle pagine di altri siti (CORS): lo si salta
-export const SERVER_BROWSER = SERVER_OVERPASS.filter((u) => !u.includes('private.coffee'));
-const nelBrowser = () => typeof document !== 'undefined' && typeof window !== 'undefined';
+// Rotazione: si parte dall'ultimo server che ha risposto; uno che non risponde va "in pausa" per
+// qualche minuto (in fondo alla fila), così le richieste dopo non lo aspettano. Tra un tentativo e
+// l'altro un'attesa crescente (1, 2, 4, 8 s): un server sovraccarico ha tempo di respirare.
+export const PAUSA_SERVER_MS = 5 * 60_000;
+export const ATTESA_BASE_MS = 1000;
+const pausa = new Map(); // server → fino a quando (ms)
+let ultimoBuono = null;
+export function ordineServer(server, adesso = Date.now()) {
+  const inPausa = (u) => (pausa.get(u) ?? 0) > adesso;
+  const liberi = server.filter((u) => !inPausa(u));
+  return [...liberi.filter((u) => u === ultimoBuono), ...liberi.filter((u) => u !== ultimoBuono), ...server.filter(inPausa)];
+}
+export function azzeraServer() {
+  pausa.clear();
+  ultimoBuono = null;
+}
+const dormi = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -113,9 +132,11 @@ export function combinaTraccia(scelti) {
 }
 
 // Prova i server uno dopo l'altro: Overpass a volte è sovraccarico
-export async function interrogaOverpass(query, { server = nelBrowser() ? SERVER_BROWSER : SERVER_OVERPASS, fetchFn = fetch, timeoutMs = 45000 } = {}) {
+export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetchFn = fetch, timeoutMs = 45000, attendi = dormi, adesso = Date.now } = {}) {
   let ultimoErrore;
-  for (const url of server) {
+  const ordine = ordineServer(server, adesso());
+  for (const [i, url] of ordine.entries()) {
+    if (i > 0) await attendi(ATTESA_BASE_MS * 2 ** Math.min(i - 1, 3));
     const controllo = new AbortController();
     const timer = setTimeout(() => controllo.abort(), timeoutMs);
     try {
@@ -129,9 +150,12 @@ export async function interrogaOverpass(query, { server = nelBrowser() ? SERVER_
       const json = await risposta.json();
       // un server sovraccarico può rispondere "ok" con dati vuoti o parziali e un avviso di errore
       if (/error|timed out|out of memory/i.test(json?.remark ?? '')) throw new Error(`risposta incompleta (${json.remark.slice(0, 80)})`);
+      ultimoBuono = url;
+      pausa.delete(url);
       return json;
     } catch (e) {
       ultimoErrore = e;
+      pausa.set(url, adesso() + PAUSA_SERVER_MS);
     } finally {
       clearTimeout(timer);
     }
