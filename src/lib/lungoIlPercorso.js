@@ -174,7 +174,10 @@ export function finiGiornata(serie, ore) {
 
 // Rifugi e bivacchi per la notte vicino a un punto di fine giornata ({ km, punto }): entro raggioM
 // dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
-export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_LUNGO_IL_PERCORSO_M, finestraKm = 3, perLaNotte = () => true } = {}) {
+// Per dormire si accetta una deviazione più lunga che per l'acqua: 1 km dalla traccia (il resto
+// dell'app usa RAGGIO_LUNGO_IL_PERCORSO_M, 300 m)
+export const RAGGIO_PERNOTTO_M = 1000;
+export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_PERNOTTO_M, finestraKm = 3, perLaNotte = () => true } = {}) {
   const geojson = { type: 'MultiLineString', coordinates: pezzi };
   const vicino = (finestraKm * 1000 + raggioM) / 1000; // in linea d'aria, per scartare subito i lontani
   return punti
@@ -182,4 +185,29 @@ export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_LUNGO_IL
     .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi), distanzaM: Math.round(distanzaDallaTracciaM([p.lon, p.lat], geojson)) }))
     .filter((p) => p.km != null && Math.abs(p.km - fine.km) <= finestraKm && p.distanzaM <= raggioM)
     .sort((a, b) => Math.abs(a.km - fine.km) - Math.abs(b.km - fine.km));
+}
+
+// Quota del punto della traccia più vicino a [lon, lat] (pezzi con le quote), per il dislivello
+// approssimato fino a un rifugio fuori traccia
+export function quotaPiuVicina(pezzi, [lon, lat]) {
+  let migliore = null;
+  let d = Infinity;
+  for (const linea of pezzi ?? []) {
+    for (const p of linea) {
+      if (!Number.isFinite(p[2])) continue;
+      const x = (p[0] - lon) * Math.cos((lat * Math.PI) / 180);
+      const y = p[1] - lat;
+      const q = x * x + y * y;
+      if (q < d) [d, migliore] = [q, p[2]];
+    }
+  }
+  return migliore;
+}
+
+// "circa +120 m" / "circa −40 m" (sotto i 10 m non si dice: è nel rumore delle quote)
+export function testoDislivelloRifugio(quotaRifugio, quotaTraccia) {
+  if (!Number.isFinite(quotaRifugio) || !Number.isFinite(quotaTraccia)) return '';
+  const d = Math.round((quotaRifugio - quotaTraccia) / 10) * 10;
+  if (Math.abs(d) < 10) return 'circa in piano';
+  return `circa ${d > 0 ? '+' : '−'}${Math.abs(d)} m`;
 }

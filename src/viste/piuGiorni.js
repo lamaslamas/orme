@@ -3,10 +3,10 @@
 // Il tempo usa le quote punto per punto: della traccia o, se mancano, da Open-Meteo (salvate nel
 // percorso); solo se non si riesce, proporzionale ai km.
 import { salvaPercorso, leggiPercorso } from '../db.js';
-import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
+import { quoteDeiPezzi, quoteDeiPunti, testoFonteQuote } from './quote.js';
 import { improntaTraccia } from '../lib/panorama.js';
-import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1 } from '../lib/lungoIlPercorso.js';
-import { perLaNotte, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
+import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1, quotaPiuVicina, testoDislivelloRifugio } from '../lib/lungoIlPercorso.js';
+import { perLaNotte, TIPI_PUNTO } from '../lib/puntiUtili.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
@@ -58,8 +58,21 @@ async function pezziConQuote(percorso, pezzi) {
 
 function htmlRifugio(p) {
   const t = TIPI_PUNTO[p.tipo];
+  const dove = p.distanzaM < 30 ? 'sulla traccia' : `a ${p.distanzaM} m dalla traccia${p.salita ? ` · ${p.salita}` : ''}`;
   return `<li><b>${escapeHtml(p.nome ?? t.nome)}</b>${p.nome ? ` <span class="tenue">· ${t.nome.toLowerCase()}</span>` : ''}
-    <span class="tenue piccolo">al km ${km1(p.km)} · ${p.distanzaM < 30 ? 'sulla traccia' : `a ${p.distanzaM} m dalla traccia`}</span></li>`;
+    <span class="tenue piccolo">al km ${km1(p.km)} · ${escapeHtml(dove)}</span></li>`;
+}
+
+// Dislivello approssimato per arrivare ai rifugi fuori traccia: quota del rifugio (OSM o TINITALY)
+// meno quella del punto più vicino del percorso
+async function conDislivello(rifugi, pq) {
+  const fuori = rifugi.filter((p) => p.distanzaM >= 30);
+  const senzaQuota = fuori.filter((p) => !Number.isFinite(p.quota));
+  const quote = senzaQuota.length ? await quoteDeiPunti(senzaQuota.map((p) => [p.lon, p.lat])) : [];
+  const quotaDi = new Map(senzaQuota.map((p, i) => [p.id, quote[i]]));
+  return rifugi.map((p) =>
+    p.distanzaM < 30 ? p : { ...p, salita: testoDislivelloRifugio(Number.isFinite(p.quota) ? p.quota : quotaDi.get(p.id), quotaPiuVicina(pq, [p.lon, p.lat])) },
+  );
 }
 
 // punti: promessa di { punti, avviso }, gli stessi del riquadro "Rifugi e acqua"
@@ -95,7 +108,11 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
       return;
     }
     const giorni = await Promise.all(
-      fini.map(async (f) => ({ ...f, rifugi: rifugiPerLaNotte(tutti ?? [], pezzi, f, { perLaNotte }).slice(0, 4), parco: await parcoNazionaleIn(f.punto) })),
+      fini.map(async (f) => ({
+        ...f,
+        rifugi: await conDislivello(rifugiPerLaNotte(tutti ?? [], pezzi, f, { perLaNotte }).slice(0, 4), pq),
+        parco: await parcoNazionaleIn(f.punto),
+      })),
     );
     if (mia !== richiesta || !risultato.isConnected) return;
     risultato.innerHTML = `
@@ -106,7 +123,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
         .map(
           (g) => `<li>
           <b>Fine giorno ${g.giorno}</b> · km ${km1(g.km)} <span class="tenue">(dopo ${escapeHtml(durata(Math.round(g.minuti)))})</span>
-          ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? `Nessun rifugio o bivacco entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m dalla traccia qui vicino.` : 'Dati su rifugi non disponibili.'}</p>`}
+          ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? 'Nessun rifugio o bivacco entro 1 km dalla traccia qui vicino.' : 'Dati su rifugi non disponibili.'}</p>`}
           ${g.parco ? `<p class="avviso-pernotto">${ICONE.avviso}<span>${escapeHtml(g.parco.nomeBreve)}: nei parchi nazionali campeggio e bivacco liberi sono in genere vietati. Verifica il regolamento del parco.</span></p>` : ''}
         </li>`,
         )

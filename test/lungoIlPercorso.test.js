@@ -82,16 +82,19 @@ describe('percorsi su più giorni', () => {
     const fine = { km: 10, punto: [13.6 + 0.12, 41.8] };
     const punti = [
       { id: 'a', tipo: 'rifugio', lon: 13.72, lat: 41.802 }, // ~220 m a nord, al km 10
-      { id: 'e', tipo: 'rifugio', lon: 13.721, lat: 41.804 }, // ~440 m: oltre la soglia di 300 m
+      { id: 'e', tipo: 'rifugio', lon: 13.721, lat: 41.804 }, // ~440 m: dentro 1 km (per dormire)
+      { id: 'f', tipo: 'rifugio', lon: 13.72, lat: 41.812 }, // ~1,3 km: troppo lontano
       { id: 'b', tipo: 'bivacco', lon: 13.75, lat: 41.8 }, // sul percorso, al km 12,5
       { id: 'c', tipo: 'rifugio', lon: 13.72, lat: 41.83 }, // 3,3 km dalla traccia
       { id: 'd', tipo: 'rifugio', lon: 13.62, lat: 41.8 }, // al km 1,7: troppo indietro
     ];
     const r = rifugiPerLaNotte(punti, pezzi, fine);
-    expect(r.map((p) => p.id)).toEqual(['a', 'b']);
-    expect(r[0].distanzaM).toBeGreaterThan(200);
-    expect(r[0].distanzaM).toBeLessThan(250);
-    expect(r[1].distanzaM).toBe(0);
+    // dal più vicino (lungo la traccia) al punto di fine giornata
+    expect(r.map((p) => p.id)).toEqual(['e', 'a', 'b']);
+    const a = r.find((p) => p.id === 'a');
+    expect(a.distanzaM).toBeGreaterThan(200);
+    expect(a.distanzaM).toBeLessThan(250);
+    expect(r.find((p) => p.id === 'b').distanzaM).toBe(0);
   });
 });
 
@@ -119,5 +122,21 @@ describe('un solo calcolo della durata', () => {
     expect(conProfilo.durataMin).toBe(stimaDurataMin(conProfilo.km, { salita: 800, discesa: 600 }));
     expect(conProfilo.durataMin).toBeGreaterThan(senzaProfilo.durataMin);
     expect(misureSentiero({ quote: { impronta: 'altra', salita: 800, discesa: 600 } }, { geojson }).durataMin).toBe(senzaProfilo.durataMin);
+  });
+});
+
+import { quotaPiuVicina, testoDislivelloRifugio, RAGGIO_PERNOTTO_M } from '../src/lib/lungoIlPercorso.js';
+import { RAGGIO_LUNGO_IL_PERCORSO_M } from '../src/lib/puntiUtili.js';
+describe('rifugi per la notte', () => {
+  it('1 km per dormire, 300 m per il resto', () => {
+    expect([RAGGIO_PERNOTTO_M, RAGGIO_LUNGO_IL_PERCORSO_M]).toEqual([1000, 300]);
+  });
+  it('dislivello approssimato dal punto della traccia più vicino', () => {
+    const pezzi = [[[13.7, 41.8, 1200], [13.72, 41.8, 1350], [13.74, 41.8, 1500]]];
+    expect(quotaPiuVicina(pezzi, [13.721, 41.803])).toBe(1350);
+    expect(testoDislivelloRifugio(1472, 1350)).toBe('circa +120 m');
+    expect(testoDislivelloRifugio(1310, 1350)).toBe('circa −40 m');
+    expect(testoDislivelloRifugio(1354, 1350)).toBe('circa in piano');
+    expect(testoDislivelloRifugio(null, 1350)).toBe('');
   });
 });
