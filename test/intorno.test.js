@@ -332,3 +332,14 @@ describe('Intorno a me: pochi percorsi', async () => {
     expect(suggerimentoPochi(5, 3, 10)).toBeNull();
   });
 });
+
+import { zonaInquadrata } from '../src/lib/intorno.js';
+describe('fauna della pagina iniziale: zona inquadrata', () => {
+  it('centro e raggio della zona visibile, al massimo 25 km', () => {
+    const vicino = zonaInquadrata([41.78, 13.76, 41.84, 13.82]);
+    expect(vicino.centro).toEqual([13.79, 41.81]);
+    expect(vicino.km).toBeGreaterThanOrEqual(2);
+    expect(vicino.km).toBeLessThan(6);
+    expect(zonaInquadrata([40, 12, 43, 15]).km).toBe(25);
+  });
+});

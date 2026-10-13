@@ -394,3 +394,12 @@ export function suggerimentoPochi(percorsi, aree, km) {
   const allarga = RAGGI_INTORNO.find((r) => r > km) ?? null;
   return allarga || aree ? { allarga, aree } : null;
 }
+
+// Zona inquadrata sulla mappa [sud, ovest, nord, est] → centro [lon, lat] e raggio in km (da 2 a 25),
+// per "Cosa vedere qui" nella pagina iniziale
+export const RAGGIO_INQUADRATA_MAX_KM = 25;
+export function zonaInquadrata([s, o, n, e]) {
+  const centro = [(o + e) / 2, (s + n) / 2];
+  const km = distanzaKm(centro, [e, n]);
+  return { centro: centro.map((x) => Math.round(x * 1e4) / 1e4), km: Math.max(2, Math.min(RAGGIO_INQUADRATA_MAX_KM, Math.round(km))) };
+}

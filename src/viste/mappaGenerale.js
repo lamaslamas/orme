@@ -24,6 +24,7 @@ import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVede
 import { misureSentiero } from '../lib/riassunto.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
+import { creaFaunaHome } from './faunaHome.js';
 
 // Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
 // senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). true se ci prova.
@@ -234,7 +235,17 @@ export async function vistaMappaGenerale(app, idParco = null) {
     dopoInquadrare: () => (saltaSpostamento = false),
   });
   aggiungiDistribuzione(mappa);
-  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() || Boolean(mappa.strumento) });
+  // un foglio alla volta: aprendo l'elenco si nasconde la fauna (e viceversa)
+  let mostraFoglio = null;
+  // fauna come in "Intorno a me": gruppi di animali scelti e "Cosa vedere qui" nella zona inquadrata
+  const fauna = creaFaunaHome(app, mappa, { allApertura: () => mostraFoglio?.(false), apriElenco: () => mostraFoglio?.(true) });
+  const heat = aggiungiHeatmap(mappa, {
+    occupata: () => misura.attiva() || avv.attiva() || Boolean(mappa.strumento),
+    intorno: true,
+    personalizza: fauna.personalizza,
+    pannelloIn: fauna.pannello,
+  });
+  fauna.collega(heat);
   // "Percorsi da qui": tra i percorsi con i filtri e la modalità scelti
   let filtratiOra = [];
   const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true });
@@ -356,7 +367,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // foglio "Percorsi qui": si apre dal pulsante in basso, si chiude con la maniglia
   const foglio = app.querySelector('#foglioElenco');
   const apri = app.querySelector('#apriElenco');
-  const mostraFoglio = (si) => {
+  mostraFoglio = (si) => {
     foglio.hidden = !si;
     apri.setAttribute('aria-expanded', String(si));
     document.body.classList.toggle('elenco-aperto', si);
@@ -395,6 +406,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
 
   return () => {
     scollegaRicerca();
+    fauna.chiudi();
     document.body.classList.remove('home-mappa', 'elenco-aperto');
     fermaGps();
     heat.rimuovi();

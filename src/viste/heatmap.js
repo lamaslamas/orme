@@ -88,7 +88,10 @@ function opzioniSpecie(scelta, intorno) {
 
 // occupata() dice se un altro strumento (misura, nuovo avvistamento) sta usando i tocchi
 // personalizza(): campi in più per i filtri (in Intorno a me: gruppi scelti, specie scelta)
-export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false, personalizza = () => ({}) } = {}) {
+export const ZOOM_HEATMAP_GRUPPI = 10;
+
+// pannelloIn: dove mettere legenda e filtri (di base sulla mappa; nella pagina iniziale nel foglio della fauna)
+export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false, personalizza = () => ({}), pannelloIn = null } = {}) {
   const calcolaFiltri = (st) => ({ ...filtriHeatmap(st, { intorno }), ...personalizza() });
   let filtri = calcolaFiltri(stato.leggi());
   let richiestaZona = 0;
@@ -113,7 +116,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
   // parte ridotto (titolo e legenda): i filtri si aprono con un tocco
   const pannello = L.DomUtil.create('div', 'misura-barra pannello-heatmap ridotto');
   pannello.hidden = true;
-  mappa.getContainer().appendChild(pannello);
+  (pannelloIn ?? mappa.getContainer()).appendChild(pannello);
   L.DomEvent.disableClickPropagation(pannello);
   L.DomEvent.disableScrollPropagation(pannello);
 
@@ -401,6 +404,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
     livello = L.tileLayer(urlTileHeatmap({ ...filtri, soloVerificate: true }), {
       pane: 'heatmap',
       opacity: 1,
+      // con i gruppi (molte più osservazioni delle sole rare) da lontano iNaturalist dà riquadri pieni
+      ...(intorno && !filtri.taxon ? { minZoom: ZOOM_HEATMAP_GRUPPI } : {}),
       tileSize: 512,
       zoomOffset: -1,
       minNativeZoom: 1,

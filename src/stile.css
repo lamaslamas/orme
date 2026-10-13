@@ -1754,3 +1754,26 @@ body.elenco-aperto .home-sotto { display: none; }
 }
 /* i crediti © e la scala restano sopra i pulsanti in basso */
 .mappa-home .leaflet-bottom { bottom: 64px; }
+
+/* --- Pagina iniziale: foglio della fauna (heatmap, Ricco di fauna, Cosa vedere qui) --- */
+.foglio-fauna {
+  position: fixed; z-index: 1035; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
+  max-height: 46vh; max-height: 46dvh; display: flex; flex-direction: column;
+  background: var(--sfondo); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro);
+}
+.foglio-fauna[hidden] { display: none; }
+.foglio-fauna .fauna-heat .pannello-heatmap { position: static; left: auto; right: auto; bottom: auto; margin: 0 12px; box-shadow: none; }
+.fauna-corpo { overflow: auto; padding: 8px 16px 14px; overscroll-behavior: contain; }
+.fauna-corpo .titolo-sezione { margin: 12px 0 6px; font-size: 1rem; }
+.fauna-corpo .gruppi-fauna { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.fauna-corpo .specie-zona { display: flex; gap: 8px; overflow-x: auto; list-style: none; margin: 0 -16px; padding: 0 16px 4px; scrollbar-width: none; }
+.fauna-corpo .specie-zona > li { flex: 0 0 auto; }
+.fauna-corpo .specie-zona > li.tenue { flex: 1; padding: 6px 0; }
+.foglio-fauna.ridotto .fauna-corpo { display: none; }
+body.fauna-aperta .home-sotto { display: none; }
+@media (min-width: 1024px) {
+  .foglio-fauna { left: var(--larghezza-nav); right: auto; width: 420px; }
+}
+body.elenco-aperto .foglio-fauna { display: none; }
+.fauna-azioni { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.fauna-azioni .chip-scorciatoia { flex: 0 0 auto; }
