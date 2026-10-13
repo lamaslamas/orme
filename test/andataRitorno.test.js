@@ -52,3 +52,34 @@ describe('andata e ritorno', () => {
     expect(notaFonte({ km: 5, salita: 410, durataMin: 120 }, { km: 5, salita: 420, durataMin: 117 })).toBe('');
   });
 });
+
+import { fineSullAndata } from '../src/lib/andataRitorno.js';
+describe('su più giorni con A/R', () => {
+  it('una giornata che finisce sul ritorno si cerca sul punto equivalente dell\'andata', () => {
+    expect(fineSullAndata({ km: 15, giorno: 2 }, 10).km).toBe(5);
+    expect(fineSullAndata({ km: 7 }, 10).km).toBe(7);
+  });
+});
+
+import { baseAndata } from '../src/lib/andataRitorno.js';
+describe('base dell\'andata', () => {
+  const pezzi = [[[13.8, 41.8], [13.81, 41.8], [13.82, 41.8]]];
+  it('profilo TINITALY quando la traccia non ha quote; null senza quote né traccia', () => {
+    const b = baseAndata(pezzi, { salita: 420, discesa: 30 });
+    expect(b.salita).toBe(420);
+    expect(b.discesa).toBe(30);
+    expect(b.km).toBeCloseTo(1.7, 1);
+    expect(baseAndata(pezzi, null)).toBeNull();
+    expect(baseAndata([], { salita: 1, discesa: 1 })).toBeNull();
+  });
+});
+
+import { tracciaDiversa } from '../src/lib/andataRitorno.js';
+describe('traccia diversa dal percorso descritto', () => {
+  it('oltre il 40% di differenza nei km', () => {
+    expect(tracciaDiversa(5, 15.9)).toBe(true);
+    expect(tracciaDiversa(6, 1.7)).toBe(true);
+    expect(tracciaDiversa(5, 6.5)).toBe(false);
+    expect(tracciaDiversa(null, 6)).toBe(false);
+  });
+});

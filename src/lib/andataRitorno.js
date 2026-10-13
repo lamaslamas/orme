@@ -2,7 +2,8 @@
 // (al ritorno salita e discesa si scambiano), e gli orari di una giornata: arrivo, rientro e ultima
 // partenza per rientrare con la luce.
 import { stimaDurataMin } from './durata.js';
-import { distanzaKm } from './geo.js';
+import { distanzaKm, lunghezzaKm } from './geo.js';
+import { dislivello } from './quote.js';
 import { durata as testoDurata } from './formato.js';
 
 export const ANELLO_M = 300; // partenza e arrivo più vicini di così: è un anello
@@ -73,4 +74,26 @@ export function notaFonte(fonte, calcolate) {
   if (diverso(fonte.salita, calcolate.salita, 50, 0.15)) parti.push(`+${Math.round(fonte.salita)} m`);
   if (diverso(fonte.durataMin, calcolate.durataMin, 15, 0.15)) parti.push(testoDurata(fonte.durataMin));
   return parti.length ? `Indicato dalla fonte: ${parti.join(' · ')}` : '';
+}
+
+// Con A/R una giornata può finire sul ritorno: per cercare i rifugi si usa il punto equivalente
+// sull'andata (stessa traccia), cioè il km 2L − km
+export const fineSullAndata = (fine, kmAndata) => (fine.km > kmAndata ? { ...fine, km: Math.max(0, 2 * kmAndata - fine.km) } : fine);
+
+// Base dell'andata: km dalla traccia; salita e discesa dalle quote della traccia o, se non le ha, dal
+// profilo calcolato con il modello del terreno (TINITALY). null senza traccia o senza quote: lì la
+// scheda tiene i dati della fonte
+export function baseAndata(pezzi, profilo = null) {
+  if (!pezzi?.length) return null;
+  const disl = dislivello(pezzi) ?? (Number.isFinite(profilo?.salita) && Number.isFinite(profilo?.discesa) ? { salita: profilo.salita, discesa: profilo.discesa } : null);
+  if (!disl) return null;
+  return { km: Math.round(lunghezzaKm({ type: 'MultiLineString', coordinates: pezzi }) * 10) / 10, salita: Math.round(disl.salita), discesa: Math.round(disl.discesa) };
+}
+
+// La traccia è molto più lunga o più corta (oltre il 40%) del percorso descritto dalla fonte: forse
+// comprende altri tratti (es. tutto il sentiero F2 invece del tratto fino alla sorgente) o ne manca
+export const DIFFERENZA_TRACCIA = 0.4;
+export function tracciaDiversa(fonteKm, tracciaKm) {
+  if (!Number.isFinite(fonteKm) || !Number.isFinite(tracciaKm) || fonteKm <= 0) return false;
+  return Math.abs(tracciaKm - fonteKm) / fonteKm > DIFFERENZA_TRACCIA;
 }

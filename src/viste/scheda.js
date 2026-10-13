@@ -4,7 +4,9 @@ import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
 import { bollinoBici, bollinoDifficolta } from './lista.js';
-import { misureSentiero } from '../lib/riassunto.js';
+import { misureSentiero, quoteDellaTraccia } from '../lib/riassunto.js';
+import { baseAndata, misureAR, misureScelte, eAnelloPezzi, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
+import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
@@ -302,6 +304,22 @@ export async function vistaScheda(app, id) {
   const partenza = [p.paese, p.descrizione].filter(Boolean).map(escapeHtml).join(' – ');
   const e = s.escursione ?? {};
   const haEscursione = e.associazione || e.nomeUscita || e.periodo || e.fonte;
+  // Andata e ritorno: dalla traccia con le quote (della traccia o TINITALY) e il metodo CAI. I numeri
+  // in alto usano lo stesso calcolo e seguono la scelta; il dato della fonte, se diverso, in piccolo
+  const pezziTraccia = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' ? percorsoSentiero(traccia.geojson).pezzi : [];
+  const base = baseAndata(pezziTraccia, quoteDellaTraccia(s, traccia));
+  const ar = base ? misureAR(base, { anello: eAnelloPezzi(pezziTraccia) }) : null;
+  const numeriScelti = (modo) => {
+    if (!ar) return numeriGrandi(misureSentiero(s, traccia));
+    const m = misureScelte(ar, modo);
+    const nota = notaFonte({ km: s.lunghezzaKm, salita: s.dislivelloM, durataMin: s.durataMin }, ar.andata);
+    const didascalia = ar.anello ? 'Giro ad anello' : modo === 'ar' ? 'Andata e ritorno' : 'Solo andata';
+    // traccia molto diversa dal percorso descritto: un avviso chiaro invece della nota piccola
+    const diversa = tracciaDiversa(s.lunghezzaKm, ar.andata.km)
+      ? `<p class="avviso-via">${ICONE.avviso}<span>La traccia (${ar.andata.km.toFixed(1).replace('.', ',')} km) non corrisponde al percorso descritto dalla fonte (${s.lunghezzaKm.toFixed(1).replace('.', ',')} km): forse comprende altri tratti. I numeri vengono dalla traccia: verifica sulla mappa.</span></p>`
+      : '';
+    return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · metodo CAI${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
+  };
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
@@ -339,7 +357,8 @@ export async function vistaScheda(app, id) {
         ${bollinoBici(s)}
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
-      ${numeriGrandi(misure)}
+      <div id="numeriScheda">${numeriScelti(modoScelto())}</div>
+      ${ar ? htmlAndataRitorno(ar) : ''}
 
       <section class="riquadro traccia-stato traccia-${statoT.tipo}">
         <h2>Traccia</h2>
@@ -499,6 +518,14 @@ export async function vistaScheda(app, id) {
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
   if (traccia) collegaTerreno(app, s, traccia);
+  if (ar) {
+    const inizio = pezziTraccia[0]?.[0];
+    collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
+      ar,
+      partenza: inizio ? [inizio[0], inizio[1]] : puntoPartenza ? [puntoPartenza.lon, puntoPartenza.lat] : null,
+      alCambioModo: (modo) => (app.querySelector('#numeriScheda').innerHTML = numeriScelti(modo)),
+    });
+  }
   if (traccia)
     mostraPuntiLungoIlPercorso(app.querySelector('#puntiLungo'), traccia.geojson).then((vicini) =>
       impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : `Nessuno entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m`),

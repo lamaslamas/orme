@@ -1955,3 +1955,19 @@ body.disegno main { padding: 0; }
 .senza-traccia-zona { margin-top: 14px; }
 .senza-traccia-zona summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
 .senza-traccia-zona[hidden] { display: none; }
+
+/* Andata e ritorno (scheda del sentiero e del percorso) */
+.andata-ritorno .scelta-ar { grid-template-columns: repeat(2, 1fr); margin: 4px 0 10px; }
+.tabella-ar { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabella-ar th, .tabella-ar td { padding: 6px 4px; border-top: 1px solid var(--bordo); text-align: left; font-weight: 400; white-space: nowrap; }
+.tabella-ar th { color: var(--testo-tenue, inherit); }
+.tabella-ar tr.totale th, .tabella-ar tr.totale td { font-weight: 800; }
+.orari-ar { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--sfondo); }
+.orari-scelte { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.orari-scelte label { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+.orari-scelte input { font: inherit; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; padding: 0 6px; }
+.orari-risultato p { margin: 8px 0 0; }
+.avviso-luce { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: rgba(239, 159, 39, 0.16); color: #7a4a06; }
+:root[data-scuro] .avviso-luce { background: rgba(239, 159, 39, 0.18); color: #fac775; }
+.avviso-luce svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
+.nota-numeri { margin: -4px 0 10px; }
