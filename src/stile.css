@@ -1798,7 +1798,7 @@ body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 .ordina-elenco button.attivo { background: var(--verde); border-color: transparent; color: #fff; }
 .nota-partenza { font-size: 0.82rem; font-weight: 700; color: var(--verde-testo); }
 /* pannello dei livelli sulla pagina iniziale: non scende sotto i pulsanti in basso */
-.mappa-home .pannello-livelli { max-height: calc(100% - 150px); overflow: auto; }
+.mappa-home .pannello-livelli { max-height: calc(100dvh - var(--altezza-barra) - env(safe-area-inset-bottom) - 200px) !important; overflow: auto; }
 
 /* --- Fogli dei sentieri toccati: Inizia da qui / Aggiungi, avvisi --- */
 .foglio-azioni.due { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 10px 0 4px; }
@@ -1823,3 +1823,6 @@ body:has(.foglio-percorso:not([hidden])) .home-sotto, body:has(.foglio-percorso:
 @media (min-width: 1024px) {
   .foglio-percorso.foglio-via:not([hidden]) { display: flex; left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 20px; border-radius: 20px; }
 }
+.legenda-sentieri { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.legenda-sentieri li { display: flex; align-items: center; gap: 8px; }
+.legenda-sentieri svg { flex: none; border-radius: 3px; background: var(--sfondo-legenda, rgba(127, 127, 127, 0.12)); }

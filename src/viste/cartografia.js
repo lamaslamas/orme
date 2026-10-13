@@ -262,7 +262,23 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   mappa.on('unload', () => scollegamenti.forEach((f) => f()));
 
   // ogni livello può aggiungere una voce alla legenda (funzione che restituisce HTML)
-  mappa.vociLegenda = [];
+  mappa.vociLegenda = [
+    // i tre tipi di sentiero, solo quelli accesi
+    () => {
+      const l = stato.leggi().livelli;
+      const scuro = ['scura', 'satellite'].includes(stato.leggi().base);
+      const bordo = scuro ? '#0b1012' : '#fff';
+      const riga = (svg, testo) => `<li><svg viewBox="0 0 34 10" width="34" height="10" aria-hidden="true">${svg}</svg>${testo}</li>`;
+      const voci = [
+        l.percorsi !== false ? riga(`<path d="M2 5H32" stroke="${bordo}" stroke-width="7" stroke-linecap="round"/><path d="M2 5H32" stroke="#7b2d9b" stroke-width="4" stroke-linecap="round"/>`, 'I nostri percorsi') : '',
+        l.sentieriOsm !== false ? riga('<path d="M2 5H32" stroke="#d6362f" stroke-width="3" stroke-linecap="round" opacity="0.85"/>', 'Segnati (Waymarked Trails)') : '',
+        l.tuttiSentieri !== false
+          ? riga(`<path d="M2 5H32" stroke="${bordo}" stroke-width="5" stroke-linecap="round"/><path d="M3 5H32" stroke="${scuro ? '#f0c27a' : '#8a5a2b'}" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="0.1 5"/>`, 'Non segnati (OpenStreetMap)')
+          : '',
+      ].filter(Boolean);
+      return voci.length ? `<div class="voce-legenda"><b>Sentieri</b><ul class="legenda-sentieri">${voci.join('')}</ul></div>` : '';
+    },
+  ];
   mappa.aggiornaLegenda = () => {};
   if (anteprima) return mappa;
   L.control.scale({ imperial: false }).addTo(mappa);
