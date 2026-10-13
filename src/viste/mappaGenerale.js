@@ -22,6 +22,85 @@ import { ICONE } from './icone.js';
 import { miniatura } from './lista.js';
 import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
+import { parchiCercati, urlLuoghi, luoghiDallaRisposta } from '../lib/cercaLuogo.js';
+import { suTelefono } from './foglioPercorso.js';
+
+// Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
+// senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). true se ci prova.
+function centraSuDiMe(mappa) {
+  if (!navigator.geolocation) return false;
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => {
+      if (!mappa.getContainer().isConnected) return;
+      mappa.setView([coords.latitude, coords.longitude], 13);
+      mappa.mostraPosizione?.(coords);
+    },
+    () => {
+      // niente posizione: si resta sui parchi
+      if (mappa.getContainer().isConnected) mappa.fitBounds(limitiParco(null), { padding: [20, 20] });
+    },
+    { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
+  );
+  return true;
+}
+
+// Ricerca in alto: parchi (subito, dall'elenco dell'app) e luoghi (Nominatim, quando si preme Cerca)
+function collegaRicercaLuogo(modulo, mappa, sceltoParco) {
+  const campo = modulo.querySelector('input');
+  const elenco = modulo.querySelector('.risultati-luogo');
+  let risultati = [];
+  const chiudi = () => {
+    elenco.hidden = true;
+    elenco.innerHTML = '';
+  };
+  const mostra = (voci, nota = '') => {
+    risultati = voci;
+    elenco.innerHTML =
+      voci
+        .map(
+          (v, i) => `<li><button type="button" data-i="${i}">${v.parco ? ICONE.parco : ICONE.segnaposto}<span><b>${escapeHtml(v.nome)}</b>${v.dettaglio ? `<span class="tenue piccolo">${escapeHtml(v.dettaglio)}</span>` : ''}</span></button></li>`,
+        )
+        .join('') + (nota ? `<li class="tenue piccolo nota-luogo">${escapeHtml(nota)}</li>` : '');
+    elenco.hidden = !voci.length && !nota;
+  };
+  campo.addEventListener('input', () => {
+    const parchi = parchiCercati(campo.value, PARCHI.filter((p) => !p.zona)).map((p) => ({ parco: p, nome: p.nomeBreve, dettaglio: p.nome }));
+    if (campo.value.trim()) mostra(parchi, 'Premi Cerca per i luoghi');
+    else chiudi();
+  });
+  modulo.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const testo = campo.value.trim();
+    if (!testo) return;
+    campo.blur();
+    const parchi = parchiCercati(testo, PARCHI.filter((p) => !p.zona)).map((p) => ({ parco: p, nome: p.nomeBreve, dettaglio: p.nome }));
+    mostra(parchi, 'Cerco…');
+    try {
+      const r = await fetch(urlLuoghi(testo), { headers: { Accept: 'application/json' } });
+      const luoghi = luoghiDallaRisposta(r.ok ? await r.json() : []);
+      mostra([...parchi, ...luoghi], parchi.length || luoghi.length ? '' : 'Nessun luogo trovato in Italia');
+    } catch {
+      mostra(parchi, 'Ricerca dei luoghi non disponibile ora');
+    }
+  });
+  elenco.addEventListener('click', (e) => {
+    const v = risultati[Number(e.target.closest('[data-i]')?.dataset.i)];
+    if (!v) return;
+    chiudi();
+    if (v.parco) {
+      campo.value = v.nome;
+      return sceltoParco(v.parco);
+    }
+    campo.value = v.nome;
+    if (v.riquadro) mappa.fitBounds([[v.riquadro[0], v.riquadro[1]], [v.riquadro[2], v.riquadro[3]]], { maxZoom: 14 });
+    else mappa.setView([v.lat, v.lon], 14);
+  });
+  const fuori = (e) => {
+    if (!modulo.contains(e.target)) chiudi();
+  };
+  document.addEventListener('pointerdown', fuori);
+  return () => document.removeEventListener('pointerdown', fuori);
+}
 
 // Tracce "di sfondo" quando non c'è una ricerca: discrete, per non affollare la mappa
 const STILE_DISCRETO = { color: COLORI.sfondo, weight: 2, opacity: 0.5 };
@@ -41,26 +120,44 @@ export const COLORI_STATO = {
 
 const sopra = (x) => (x.sentiero.stato === 'fatto' ? 0 : 1);
 
-export async function vistaMappaGenerale(app) {
+// La pagina iniziale: la mappa a tutto schermo, centrata su di me alla prima apertura.
+// In alto la ricerca (luoghi e parchi); in basso "Percorsi qui" (elenco con i filtri, in un foglio)
+// e la matita per disegnare. idParco (#/?parco=…): la mappa sul parco, con il suo confine.
+export async function vistaMappaGenerale(app, idParco = null) {
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   const sentieri = tutti.filter(diUnParco);
+  if (idParco && parcoDa(idParco) && !parcoDa(idParco).zona) stato.imposta({ parco: idParco });
   const filtri = leggiFiltri();
 
-  document.body.classList.add('con-mappa');
+  document.body.classList.add('con-mappa', 'home-mappa');
   app.innerHTML = `
-    <div class="mappa-barra">
-      ${htmlSelettoreAttivita({ titolo: false })}
-      ${htmlFiltri(sentieri, filtri)}
-      <div class="riassunto-mappa" id="riassuntoFiltri"></div>
-      <p class="avviso-vuoto" id="nessunRisultato" hidden>Nessun percorso con traccia corrisponde ai filtri.
-        <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></p>
+    <div id="mappa" class="mappa mappa-home"></div>
+    <form class="cerca-luogo" role="search">
+      <label class="ricerca">${ICONE.cerca ?? ''}<input type="search" name="luogo" placeholder="Luogo o parco" aria-label="Cerca un luogo o un parco" autocomplete="off" enterkeyhint="search" /></label>
+      <ul class="risultati-luogo" hidden></ul>
+    </form>
+    <div class="home-sotto">
+      <button type="button" class="pill-mappa" id="apriElenco" aria-expanded="false" aria-controls="foglioElenco">${ICONE.percorso}<span>Percorsi qui</span><b id="contaQui"></b></button>
+      <a class="pill-mappa tondo" href="#/percorso-nuovo" aria-label="Disegna un percorso">${ICONE.matita ?? '✎'}</a>
     </div>
-    <div id="mappa" class="mappa"></div>
-    <section class="pannello">
-      <h2 class="titolo-sezione" id="titoloRisultati"></h2>
-      <ul class="risultati-mappa" id="risultatiMappa"></ul>
-      <h2 class="titolo-sezione" id="titoloSenza"></h2>
-      <ul class="senza-traccia" id="senzaTraccia"></ul>
+    <section class="foglio-home" id="foglioElenco" hidden aria-label="Percorsi nella zona">
+      <button type="button" class="foglio-maniglia-zona" data-azione="chiudi-elenco" aria-label="Chiudi l'elenco"><span class="foglio-maniglia"></span></button>
+      <div class="foglio-home-corpo">
+        <div id="testaParco"></div>
+        <div class="mappa-barra">
+          ${htmlSelettoreAttivita({ titolo: false })}
+          ${htmlFiltri(sentieri, filtri)}
+          <div class="riassunto-mappa" id="riassuntoFiltri"></div>
+          <p class="avviso-vuoto" id="nessunRisultato" hidden>Nessun percorso con traccia corrisponde ai filtri.
+            <button type="button" class="link" data-azione="reimposta">Reimposta filtri</button></p>
+        </div>
+        <section class="pannello">
+          <h2 class="titolo-sezione" id="titoloRisultati"></h2>
+          <ul class="risultati-mappa" id="risultatiMappa"></ul>
+          <h2 class="titolo-sezione" id="titoloSenza"></h2>
+          <ul class="senza-traccia" id="senzaTraccia"></ul>
+        </section>
+      </div>
     </section>
   `;
 
@@ -89,8 +186,16 @@ export async function vistaMappaGenerale(app) {
       })
       .catch(() => {}); // senza rete il riquadro del parco basta per inquadrarlo
   }
+  // margini per inquadrare: sotto la ricerca in alto e sopra il foglio dell'elenco, se è aperto
+  const margini = (m) => {
+    const foglio = app.querySelector('#foglioElenco');
+    const sotto = foglio && !foglio.hidden ? foglio.offsetHeight : 70;
+    return { paddingTopLeft: [m, m + 50], paddingBottomRight: [m, sotto + m] };
+  };
   let visibili = [];
   let primaVolta = true;
+  // alla prima apertura (non tornando sulla mappa) e senza un parco scelto: la mappa su di me
+  const centrataSuDiMe = !mappa.vistaRitrovata && !idParco && centraSuDiMe(mappa);
   let ultimiFiltri = '';
 
   // "Vista iniziale": niente filtri, niente parco, tutti i parchi inquadrati
@@ -117,14 +222,6 @@ export async function vistaMappaGenerale(app) {
   });
   new VistaIniziale().addTo(mappa);
 
-  const Legenda = L.Control.extend({
-    options: { position: 'bottomright' },
-    onAdd() {
-      this.div = L.DomUtil.create('div', 'legenda');
-      return this.div;
-    },
-  });
-  const legenda = new Legenda().addTo(mappa);
 
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
   const misura = aggiungiMisura(mappa, () => visibili.map((t) => t.geojson));
@@ -149,6 +246,8 @@ export async function vistaMappaGenerale(app) {
   function elencoInVista() {
     const vista = mappa.getBounds();
     const qui = inMappa.filter(({ sentiero }) => aree.get(sentiero.id)?.getBounds().intersects(vista));
+    const conta = app.querySelector('#contaQui');
+    if (conta) conta.textContent = qui.length ? String(qui.length) : '';
     app.querySelector('#titoloRisultati').textContent = inMappa.length
       ? `Nella zona inquadrata (${qui.length}${qui.length < inMappa.length ? ` su ${inMappa.length}` : ''})`
       : '';
@@ -214,20 +313,15 @@ export async function vistaMappaGenerale(app) {
     }
     // a ogni cambio di filtri la mappa si sposta sui risultati (o sul parco scelto)
     const chiave = JSON.stringify(filtri);
-    if (primaVolta || chiave !== ultimiFiltri) {
-      if (ricerca && limiti.isValid()) mappa.fitBounds(limiti, { padding: [30, 30], maxZoom: 14 });
-      else mappa.fitBounds(limitiParco(filtri.parco), { padding: [20, 20] });
+    if ((primaVolta && !centrataSuDiMe) || (!primaVolta && chiave !== ultimiFiltri)) {
+      if (ricerca && limiti.isValid()) mappa.fitBounds(limiti, { ...margini(30), maxZoom: 14 });
+      else mappa.fitBounds(limitiParco(filtri.parco), margini(20));
     }
     primaVolta = false;
     ultimiFiltri = chiave;
     app.querySelector('#nessunRisultato').hidden = !(ricerca && conTraccia.length === 0);
 
-    const conta = (s) => conTraccia.filter((x) => x.sentiero.stato === s).length;
-    legenda.div.innerHTML = ricerca
-      ? `<div><span class="segno" style="background:${COLORI_STATO.da_fare}"></span>Da fare (${conta('da_fare')})</div>
-         <div><span class="segno" style="background:${COLORI_STATO.fatto}"></span>Fatto (${conta('fatto')})</div>`
-      : `<div><span class="segno" style="background:${STILE_DISCRETO.color};opacity:.6"></span>Tracce in archivio (${conTraccia.length})</div>
-         <div class="tenue">Cerca o filtra per evidenziarle</div>`;
+    testaParco();
 
     app.querySelector('#riassuntoFiltri').textContent =
       `${conTraccia.length} ${conTraccia.length === 1 ? 'traccia' : 'tracce'} su ` +
@@ -259,7 +353,49 @@ export async function vistaMappaGenerale(app) {
   });
   requestAnimationFrame(() => mappa.invalidateSize());
 
+  // foglio "Percorsi qui": si apre dal pulsante in basso, si chiude con la maniglia
+  const foglio = app.querySelector('#foglioElenco');
+  const apri = app.querySelector('#apriElenco');
+  const mostraFoglio = (si) => {
+    foglio.hidden = !si;
+    apri.setAttribute('aria-expanded', String(si));
+    document.body.classList.toggle('elenco-aperto', si);
+  };
+  apri.addEventListener('click', () => mostraFoglio(foglio.hidden));
+  foglio.addEventListener('click', (e) => {
+    if (e.target.closest('[data-azione="chiudi-elenco"]')) mostraFoglio(false);
+  });
+  // scegliendo un percorso dall'elenco il foglio si chiude e la mappa lo mostra
+  app.querySelector('#risultatiMappa').addEventListener('click', (e) => {
+    if (e.target.closest('[data-id]') && suTelefono()) mostraFoglio(false);
+  });
+  if (idParco) {
+    // dall'elenco dei parchi: il foglio con il parco e la mappa sul parco, sopra il foglio
+    mostraFoglio(true);
+    mappa.sbloccaInquadrature?.();
+    mappa.fitBounds(limitiParco(idParco), margini(20));
+  }
+
+  // intestazione del foglio quando c'è un parco scelto: nome, descrizione e la sua pagina
+  function testaParco() {
+    const p = parcoDa(filtri.parco);
+    app.querySelector('#testaParco').innerHTML =
+      p && !p.zona
+        ? `<div class="testa-parco"><h2>${escapeHtml(p.nome)}</h2>${p.descrizione ? `<p class="tenue">${escapeHtml(p.descrizione)}</p>` : ''}<a href="#/parco/${encodeURIComponent(p.id)}">Pagina del parco ›</a></div>`
+        : '';
+  }
+  testaParco();
+
+  const scollegaRicerca = collegaRicercaLuogo(app.querySelector('.cerca-luogo'), mappa, (parco) => {
+    // i filtri seguono lo stato condiviso: elenco, confine e inquadratura si aggiornano da soli
+    // (prima si apre il foglio, così il parco si inquadra nella parte di mappa che resta visibile)
+    mostraFoglio(true);
+    stato.imposta({ parco: parco.id });
+  });
+
   return () => {
+    scollegaRicerca();
+    document.body.classList.remove('home-mappa', 'elenco-aperto');
     fermaGps();
     heat.rimuovi();
     daQui.chiudi();

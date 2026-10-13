@@ -47,7 +47,7 @@ if (navigator.serviceWorker?.controller) {
 // Ogni percorso dopo il "#" corrisponde a una schermata
 const percorsi = [
   // la mappa è la pagina iniziale; l'elenco dei parchi è in Altro
-  [/^\/?$/, vistaMappaGenerale],
+  [/^\/?(?:\?parco=([^&]+))?$/, vistaMappaGenerale],
   [/^\/parchi\/?$/, vistaHome],
   [/^\/miei(?:\?scheda=([a-z]+))?$/, vistaMiei],
   [/^\/associazioni\/?$/, vistaAssociazioni],
@@ -122,7 +122,8 @@ async function mostra() {
     const trovato = percorso.match(regola);
     if (trovato) {
       try {
-        pulisciVistaPrecedente = await vista(app, ...trovato.slice(1).map(decodeURIComponent));
+        // un gruppo facoltativo assente resta undefined (non la parola "undefined")
+        pulisciVistaPrecedente = await vista(app, ...trovato.slice(1).map((x) => (x == null ? x : decodeURIComponent(x))));
         animaIngresso();
         // la schermata già vista torna dov'era; una nuova parte dall'inizio
         const y = stessa ? yAttuale : posizioni.get(percorso) ?? 0;

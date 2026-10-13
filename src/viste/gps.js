@@ -12,6 +12,15 @@ function messaggioErrore(errore) {
   return 'Posizione non disponibile.';
 }
 
+// La mia posizione: punto blu con l'alone e, quando il telefono la dà (in movimento), una freccia
+// nella direzione di marcia. Diversa dai punti d'acqua (gocce) e dai rifugi (casette).
+export function iconaPosizione(direzione = null) {
+  const freccia = Number.isFinite(direzione)
+    ? `<svg class="posizione-freccia" viewBox="0 0 40 40" style="transform:rotate(${Math.round(direzione)}deg)" aria-hidden="true"><path d="M20 2 L27 14 L20 11 L13 14 Z"/></svg>`
+    : '';
+  return L.divIcon({ className: 'posizione-me', html: `<span class="posizione-alone"></span>${freccia}<span class="posizione-punto"></span>`, iconSize: [40, 40], iconAnchor: [20, 20] });
+}
+
 function formattaMetri(m) {
   return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 }
@@ -93,16 +102,11 @@ export function aggiungiGps(mappa, leggiTraccia, { naviga = false } = {}) {
     const latlng = [latitude, longitude];
     if (!punto) {
       cerchio = L.circle(latlng, { radius: accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.12 }).addTo(mappa);
-      punto = L.circleMarker(latlng, {
-        radius: 8,
-        color: '#fff',
-        weight: 3,
-        fillColor: '#2563eb',
-        fillOpacity: 1,
-      }).addTo(mappa);
+      punto = L.marker(latlng, { icon: iconaPosizione(pos.coords.heading), interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(mappa);
+      soloPunto?.remove();
       mappa.setView(latlng, Math.max(mappa.getZoom(), 15));
     } else {
-      punto.setLatLng(latlng);
+      punto.setLatLng(latlng).setIcon(iconaPosizione(pos.coords.heading));
       cerchio.setLatLng(latlng).setRadius(accuracy);
       if (segui) mappa.panTo(latlng);
     }
@@ -192,5 +196,12 @@ export function aggiungiGps(mappa, leggiTraccia, { naviga = false } = {}) {
 
   // il pannello dei livelli può accendere e spegnere il GPS
   mappa.gps = { avvia, ferma, attivo: () => idWatch !== null };
+  // posizione vista una volta (es. all'apertura della mappa), senza seguirla
+  let soloPunto = null;
+  mappa.mostraPosizione = (coords) => {
+    if (punto) return;
+    soloPunto?.remove();
+    soloPunto = L.marker([coords.latitude, coords.longitude], { icon: iconaPosizione(coords.heading), interactive: false, keyboard: false }).addTo(mappa);
+  };
   return ferma;
 }

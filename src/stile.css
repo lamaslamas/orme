@@ -1692,3 +1692,65 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .schede-miei .segmento { display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; color: inherit; }
 .schede-miei .segmento.attivo { color: #fff; }
 .contenuto-miei > .titolo-pagina { display: none; }
+
+/* --- La mia posizione: alone, punto e (in movimento) freccia --- */
+.posizione-me { position: relative; }
+.posizione-alone { position: absolute; inset: 6px; border-radius: 50%; background: rgba(24, 95, 165, 0.22); }
+.posizione-punto { position: absolute; left: 13px; top: 13px; width: 14px; height: 14px; border-radius: 50%; background: #185fa5; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); box-sizing: border-box; }
+.posizione-freccia { position: absolute; inset: 0; width: 40px; height: 40px; fill: #185fa5; }
+
+/* --- Home: mappa a tutto schermo --- */
+body.home-mappa .cima { display: none; }
+body.home-mappa main { padding: 0; }
+.mappa-home {
+  position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
+  height: auto; min-height: 0; z-index: 1;
+}
+.mappa-home .leaflet-top { top: calc(env(safe-area-inset-top) + 60px); }
+.cerca-luogo { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 64px; margin: 0; }
+.cerca-luogo .ricerca { min-height: 44px; }
+.risultati-luogo { list-style: none; margin: 6px 0 0; padding: 6px; border-radius: 16px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); max-height: 50vh; overflow: auto; }
+.risultati-luogo button { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: center; width: 100%; padding: 10px 8px; border: none; background: none; color: var(--testo); text-align: left; border-radius: 10px; cursor: pointer; }
+.risultati-luogo button:hover { background: var(--bordo); }
+.risultati-luogo button > span { display: flex; flex-direction: column; min-width: 0; }
+.risultati-luogo .icona, .risultati-luogo svg { width: 18px; height: 18px; }
+.nota-luogo { padding: 6px 8px; }
+.home-sotto {
+  position: fixed; z-index: 1001; left: 10px; right: 10px; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 12px);
+  display: flex; gap: 8px; justify-content: flex-end; pointer-events: none;
+}
+.home-sotto > * { pointer-events: auto; }
+.pill-mappa {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 16px; border-radius: 999px; border: var(--bordo-vetro);
+  background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra);
+  color: var(--testo); font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.pill-mappa svg { width: 20px; height: 20px; }
+.pill-mappa b:empty { display: none; }
+.pill-mappa b { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--verde); color: #fff; font-size: 0.8rem; text-align: center; }
+.pill-mappa.tondo { width: 46px; padding: 0; justify-content: center; }
+.foglio-home {
+  position: fixed; z-index: 1040; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
+  max-height: 58vh; max-height: 58dvh; display: flex; flex-direction: column;
+  background: var(--sfondo, #f4f6f4); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro);
+}
+.foglio-home[hidden] { display: none; }
+.foglio-home-corpo { overflow: auto; padding: 0 16px 16px; overscroll-behavior: contain; }
+.foglio-home .mappa-barra { background: none; padding: 0; border: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.foglio-home .pannello { padding: 8px 0 0; }
+body.elenco-aperto .home-sotto { display: none; }
+.testa-parco h2 { margin: 4px 0; font-size: 1.15rem; }
+.testa-parco p { margin: 0 0 6px; font-size: 0.9rem; }
+.testa-parco a { display: inline-block; margin-bottom: 10px; font-weight: 700; }
+@media (min-width: 1024px) {
+  .mappa-home { left: var(--larghezza-nav); bottom: 0; }
+  .cerca-luogo { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 380px; }
+  .home-sotto { left: calc(var(--larghezza-nav) + 16px); bottom: 20px; }
+  .foglio-home { left: var(--larghezza-nav); right: auto; width: 420px; top: 0; bottom: 0; max-height: none; border-radius: 0; }
+}
+@media (max-width: 1023.98px) {
+  /* sul telefono si ingrandisce con le dita: niente pulsanti + e − sulla pagina iniziale */
+  .mappa-home .leaflet-control-zoom { display: none; }
+}
+/* i crediti © e la scala restano sopra i pulsanti in basso */
+.mappa-home .leaflet-bottom { bottom: 64px; }

@@ -35,7 +35,7 @@ function htmlCredito(chiave, titolo) {
 function htmlParco(p, n, evidenziato, attivita) {
   const specie = p.animali.slice(0, 3).map((a) => ANIMALI[a]).join(', ');
   return `<li class="carta-foto ${evidenziato ? 'evidenziata' : ''}">
-    <a class="carta-foto-link" href="#/parco/${encodeURIComponent(p.id)}">
+    <a class="carta-foto-link" href="#/?parco=${encodeURIComponent(p.id)}">
       ${htmlFoto(p.id, p.nomeBreve)}
       <span class="carta-foto-testo">
         <span class="nome">${escapeHtml(p.nomeBreve)}</span>
@@ -165,7 +165,7 @@ export async function vistaHome(app) {
                   return schedaInLista(x, p?.traccia, false, p?.compat);
                 })
                 .join('')}</ul>
-              ${g.percorsi.length > PER_PARCO ? `<a class="vedi-tutti" href="#/parco/${encodeURIComponent(g.parco)}">Vedi tutti i ${g.percorsi.length} nel parco ›</a>` : ''}
+              ${g.percorsi.length > PER_PARCO ? `<a class="vedi-tutti" href="#/?parco=${encodeURIComponent(g.parco)}">Vedi tutti i ${g.percorsi.length} nel parco ›</a>` : ''}
             </div>`,
           )
           .join('')}`
