@@ -319,10 +319,6 @@ body.con-mappa main { max-width: none; padding: 0; }
 .bici-no { border-left-color: #dc2626; }
 .suggerimento { margin-top: 10px; padding: 10px; border: 1px dashed var(--avviso-bordo); border-radius: 8px; background: var(--avviso); }
 .suggerimento .bottone { margin-top: 4px; width: 100%; }
-
-/* --- Mappa generale --- */
-.filtri-mappa summary { cursor: pointer; font-weight: 600; min-height: 32px; display: flex; align-items: center; }
-.filtri-mappa .filtri { margin: 8px 0; }
 .legenda {
   background: rgba(var(--chiaro-rgb), 0.95); padding: 6px 10px; border-radius: 8px;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25); font-size: 0.8rem; line-height: 1.6;
@@ -495,7 +491,6 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .foglio::backdrop { background: rgba(10, 20, 10, 0.4); }
 .foglio-maniglia { width: 44px; height: 5px; border-radius: 3px; background: var(--bordo); margin: 4px auto 8px; }
 .foglio-titolo { font-size: 1.1rem; font-weight: 800; margin: 4px 0 8px; }
-.foglio-voci { display: grid; margin-bottom: 12px; }
 .voce { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--bordo); font-weight: 600; }
 .voce input { width: 20px; height: 20px; accent-color: var(--verde); }
 .pieno-largo { width: 100%; }
@@ -518,7 +513,6 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .numeri { margin-top: 6px; font-size: 0.9rem; color: var(--testo); }
 .numeri .sep { margin: 0 6px; color: var(--testo-tenue); }
 .carta-sentiero .chips { margin-top: 8px; }
-.spunta { font-size: 0.75rem; font-weight: 800; color: var(--accento); }
 
 .difficolta {
   display: inline-grid; place-items: center; min-width: 28px; height: 22px; padding: 0 6px;
@@ -565,12 +559,6 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 /* ============ Parchi ============ */
 .titolo-sezione { font-size: 1.05rem; font-weight: 800; margin: 18px 0 10px; }
 .parchi { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.carta-parco { display: flex; gap: 14px; align-items: center; }
-.parco-segno {
-  flex: none; width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center;
-  background: var(--verde); color: #fff;
-}
-.parco-segno svg { width: 26px; height: 31px; }
 .carta-parco-nome { margin-top: 2px; font-size: 0.78rem; font-weight: 700; color: var(--verde-testo); }
 .link-parco { display: inline-block; margin: 2px 0 6px; font-weight: 700; text-decoration: none; }
 .pagina-parco h1 { font-size: 1.7rem; font-weight: 800; margin: 2px 0 0; }
@@ -629,7 +617,6 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .griglia-legenda b { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
 .griglia-legenda b.insufficiente { background: #9ca3af; opacity: 0.6; margin-left: 8px; }
 .pannello-heatmap { left: 8px; right: 8px; }
-.mappa-alta { height: 64vh; height: 64dvh; }
 .legenda-pendenze { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0; font-size: 0.75rem; color: var(--testo-tenue); }
 .legenda-pendenze i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
 .legenda-pendenze b { color: var(--testo); }
@@ -689,10 +676,6 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .scorrimento > li { scroll-snap-align: start; flex: none; }
 .foto { display: block; width: 100%; object-fit: cover; background: var(--verde-chiaro); }
 .foto.vuota { aspect-ratio: 4 / 3; }
-.credito {
-  display: block; margin-top: 4px; font-size: 0.66rem; line-height: 1.3; color: var(--testo-tenue);
-  text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
 .carta-foto { width: 78%; max-width: 300px; }
 .carta-foto-link {
   display: block; position: relative; border-radius: var(--raggio); overflow: hidden;
@@ -1046,9 +1029,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 }
 .risultato:hover { box-shadow: var(--ombra-alta); }
 .risultato:active { transform: scale(0.99); }
-.pallino-stato { flex: none; width: 10px; height: 10px; border-radius: 50%; }
-.risultato-testo { line-height: 1.35; }
-.piccolo-inline { font-size: 0.78rem; }
 
 /* foto dei belvedere nell'indice panoramico */
 .foto-belvedere { list-style: none; margin: 4px 0 10px; padding: 0; display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; }
@@ -1073,22 +1053,16 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .mia-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .visore-foto img { display: block; width: 100%; max-height: 62vh; object-fit: contain; border-radius: 14px; background: #111; }
 .visore-foto .azioni { margin-bottom: 0; }
-
-/* filtri: quanti percorsi per ogni scelta, suggerimenti quando non resta nulla */
-.voce-conta { margin-left: auto; font-size: 0.8rem; font-weight: 700; color: var(--testo-tenue); background: rgba(155, 184, 165, 0.22); border-radius: 999px; padding: 1px 9px; }
-.voce-vuota { opacity: 0.5; }
 .suggerimenti-filtri { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px 0; }
 .suggerimenti-filtri:empty { display: none; }
 
 /* animali da iNaturalist */
 .chip-inat { background: rgba(191, 214, 227, 0.45); color: #33505e; border: 1px dashed rgba(51, 80, 94, 0.3); }
-.elenco-fauna { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 6px; line-height: 1.4; }
 .invito-filtri { list-style: none; text-align: center; padding: 18px 12px; border-radius: var(--raggio); background: var(--scheda); border: var(--bordo-vetro); box-shadow: var(--ombra); grid-column: 1 / -1; }
 .invito-filtri p { margin: 0; }
 
 /* fauna del parco: stato dei dati sempre esplicito */
 .stato-dati { padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; }
-.stato-ok { background: rgba(155, 184, 165, 0.22); }
 .stato-scarso { background: rgba(216, 195, 165, 0.35); }
 .stato-assente { background: rgba(191, 214, 227, 0.4); }
 .fauna-testa { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -1185,25 +1159,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .fauna-possibili .icona { color: #8a6a1f; }
 .fauna-possibili b { color: #7a5d16; }
 .fauna-occasionali .icona, .fauna-occasionali b { color: var(--testo-tenue); }
-.risultato-testo .fauna-breve { margin: 2px 0 0; font-size: 0.8rem; }
 .riga-meteo.fauna-breve { margin: 0; font-size: 0.9rem; }
-
-/* icone degli animali sopra la heatmap: spilli lilla (i rifugi e l'acqua sono cerchi pieni marroni e blu) */
-.icona-osservazione { background: none; border: none; }
-.icona-osservazione .spillo {
-  position: absolute; left: 2px; top: 0; width: 26px; height: 26px; display: grid; place-items: center;
-  /* sempre chiaro, anche in modalità scura: le icone degli animali si leggono meglio */
-  background: #fff; border: 2px solid #7c6cf0; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
-  box-shadow: 0 1px 3px rgba(37, 50, 56, 0.4);
-}
-.icona-osservazione .spillo > span { transform: rotate(45deg); line-height: 0; }
-.icona-osservazione .icona-animale { width: 18px; height: 18px; }
-.icona-osservazione .quante {
-  position: absolute; left: 15px; top: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
-  background: #5b4b9a; color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-weight: 700;
-}
-.icona-osservazione.sfumata .spillo { border-style: dashed; background: rgba(241, 236, 255, 0.75); }
-.icona-osservazione.sfumata .spillo > span { opacity: 0.6; }
 .popup-oss ul { margin: 6px 0 0; padding: 0; list-style: none; font-size: 0.85rem; display: grid; gap: 6px; }
 .popup-oss li { display: flex; align-items: center; gap: 8px; }
 .foto-oss { flex: none; padding: 0; border: none; background: none; cursor: zoom-in; border-radius: 8px; overflow: hidden; width: 44px; height: 44px; }
@@ -1213,9 +1169,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .leaflet-container:has(.heat-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
 .leaflet-container:has(.daqui-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
 .leaflet-container:has(.heat-bottone):has(.daqui-bottone) .pannello-livelli { top: 150px; max-height: calc(100% - 164px); }
-
-/* heatmap GBIF: esagoni di densità sfumati in macchie, la mappa sotto resta leggibile */
-.leaflet-heatmap-pane .tile-densita { filter: blur(2px); }
 
 /* --- sezioni richiudibili della scheda del sentiero --- */
 .sezione { background: var(--scheda); border: var(--bordo-vetro); border-radius: 16px; box-shadow: var(--ombra); margin: 0 0 10px; overflow: hidden; }
@@ -1244,7 +1197,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .striscia-foto a { position: relative; display: block; }
 .striscia-foto img { width: 132px; height: 100px; object-fit: cover; border-radius: 10px; display: block; }
 .striscia-foto .km { position: absolute; left: 6px; bottom: 6px; font-size: 0.72rem; font-weight: 700; background: rgba(var(--chiaro-rgb), 0.85); color: var(--testo); border-radius: 6px; padding: 0 5px; }
-.striscia-foto .credito { font-size: 0.68rem; color: var(--testo-tenue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .luoghi-vicini { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: 0.92rem; }
 
 /* --- Percorsi da qui --- */
@@ -1276,7 +1228,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 
 /* --- crediti delle foto: solo a schermo pieno; nelle anteprime un piccolo "©" --- */
 .carta-foto, .carta-specie { position: relative; }
-.carta-foto > .credito, .carta-specie > .credito { display: none; }
 .pulsante-crediti {
   position: absolute; top: 8px; right: 8px; z-index: 2; width: 22px; height: 22px; border-radius: 50%;
   border: none; padding: 0; display: grid; place-items: center; cursor: pointer;
@@ -1490,26 +1441,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 }
 .carta-specie.scelta .specie-parchi { color: rgba(255, 255, 255, 0.8); }
 
-/* --- Intorno a me --- */
-.zona-intorno { display: grid; gap: 10px; }
-.zona-intorno .stato-intorno { margin: 0; }
-.comandi-intorno { display: grid; gap: 10px; justify-items: start; }
-/* con una zona salvata: tutto su una riga, pulsanti a icona, stato in piccolo sotto */
-.titolo-intorno { font-size: 1.3rem; margin-bottom: 8px; }
-.zona-intorno.compatta { gap: 6px; padding: 10px 12px; }
-.zona-intorno.compatta .comandi-intorno { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.zona-intorno.compatta .segmenti .segmento { padding: 6px 9px; min-height: 36px; font-size: 0.85rem; white-space: nowrap; }
-.zona-intorno.compatta .segmenti { flex: none; }
-.zona-intorno.compatta .azioni-intorno { flex-wrap: nowrap; gap: 6px; }
-.zona-intorno.compatta .azioni-intorno .bottone { width: 40px; height: 40px; min-height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
-.zona-intorno.compatta .azioni-intorno .bottone > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.zona-intorno.compatta .stato-intorno { font-size: 0.8rem; color: var(--testo-tenue); }
-.azioni-intorno { display: flex; flex-wrap: wrap; gap: 8px; }
-.azioni-intorno .bottone[hidden] { display: none; }
-.azioni-intorno .bottone { display: inline-flex; align-items: center; gap: 6px; }
-.azioni-intorno .bottone svg { width: 18px; height: 18px; }
-.nota-intorno { margin-top: 16px; }
-
 /* Pagina del parco su telefono: mappa più grande */
 @media (max-width: 1023.98px) {
   .pagina-parco .parco-mappa, .parco-mappa:has(#mappaIntorno) { height: 50vh; height: 50dvh; min-height: 280px; max-height: 480px; }
@@ -1540,10 +1471,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .heat-conto { font-size: 0.75rem; color: var(--testo-tenue); white-space: nowrap; }
 .heat-conto:empty { display: none; }
 .pannello-heatmap.ridotto .heat-testa > .heat-conto { order: 1; gap: 0; }
-
-/* Intorno a me: "Cosa vedere qui" */
-.cosa-vedere { margin: 14px 0 4px; }
-.cosa-vedere .titolo-sezione { margin-bottom: 6px; }
 .gruppi-fauna { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .specie-zona { list-style: none; margin: 0; padding: 2px 0 6px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; }
 .specie-zona li { flex: none; scroll-snap-align: start; }
@@ -1556,7 +1483,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .carta-specie-zona .specie-icona { display: grid; place-items: center; background: #f1efe8; }
 .carta-specie-zona .specie-icona .icona-animale { width: 38px; height: 38px; }
 .carta-specie-zona.scelta { border-color: var(--verde); box-shadow: 0 0 0 2px var(--verde) inset; }
-.nota-specie { margin-top: 2px !important; }
 .specie-rara { font-size: 0.68rem; font-weight: 700; color: #993c1d; background: #faece7; border-radius: 999px; padding: 1px 7px; }
 .oss-evidenza { display: grid; gap: 3px; margin-top: 8px; font-size: 0.85rem; }
 .foto-oss.grande { width: 100%; max-width: 240px; height: 150px; border-radius: 10px; }
@@ -1637,20 +1563,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 @media (min-width: 1024px) { .foglio-percorso { display: none; } }
 .avviso-vuoto-mappa { top: auto; bottom: 64px; left: 50%; transform: translateX(-50%); white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
 .avviso-vuoto-mappa[hidden] { display: none; }
-
-/* Sentieri non segnati: pulsante "Cerca sentieri qui" in cima alla mappa */
-.cerca-qui {
-  position: absolute; z-index: 820; top: 12px; left: 50%; transform: translateX(-50%);
-  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--bordo); background: var(--scheda-piena); color: var(--testo);
-  font: inherit; font-size: 0.85rem; font-weight: 700; box-shadow: var(--ombra); cursor: pointer; white-space: nowrap;
-}
-.cerca-qui:disabled { cursor: default; color: var(--testo-tenue); font-weight: 600; }
-.cerca-qui[hidden] { display: none; }
-.popup-non-segnato { display: grid; gap: 3px; min-width: 180px; }
-.aree-protette { margin-top: 18px; }
-.lista-aree { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
-.carta-area { width: 100%; display: grid; gap: 2px; text-align: left; padding: 10px 14px; border: 1px solid var(--bordo); border-left: 4px solid #8a5a2b; border-radius: 0 12px 12px 0; background: var(--scheda-piena); color: var(--testo); font: inherit; cursor: pointer; }
-.carta-area.scelta { box-shadow: 0 0 0 2px #8a5a2b inset; }
 /* lo stato del GPS sopra la barra della fauna, non sotto */
 .con-heatmap .gps-stato { bottom: 72px; }
 :root[data-scuro] .gps-bottone.segue { background: #1e3a5f !important; color: #93c5fd; }
@@ -1658,16 +1570,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 :root[data-scuro] .gps-stato.fuori { color: #f5c4b3; }
 /* la scala sopra la barra della fauna */
 .con-heatmap .leaflet-bottom.leaflet-left { bottom: 58px; }
-/* messaggi sulla mappa senza sovrapposizioni: se in alto c'è già un avviso, il pulsante dei
-   sentieri non segnati scende sotto; gli avvisi brevi stanno in basso, sopra la barra della fauna */
-.anteprima-mappa:has(> .avviso-mappa:not([hidden])) .cerca-qui { top: 64px; }
 .avviso-mappa.avviso-breve { top: auto; bottom: 72px; }
 .invito-meteo[hidden] { display: none; }
-.pochi-percorsi { margin: 10px 0 12px; display: grid; gap: 8px; border-left: 4px solid var(--teal); }
-.pochi-percorsi p { margin: 0; }
-.pochi-percorsi[hidden] { display: none; }
-.pochi-azioni { display: flex; flex-wrap: wrap; gap: 8px; }
-.pochi-azioni .bottone { min-height: 38px; font-size: 0.88rem; }
 
 /* Sentieri probabili per le uscite senza traccia */
 .probabili { margin-top: 12px; border-top: 1px solid var(--bordo, rgba(0, 0, 0, 0.1)); padding-top: 10px; }
@@ -1908,8 +1812,6 @@ body.disegno main { padding: 0; }
 .dc-nessuno { margin-top: 8px; }
 .dc-nessuno ul { list-style: none; padding: 0; margin: 6px 0 0; }
 .dc-altri[hidden] { display: none; }
-.popup-uscite ul { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 6px; }
-.popup-uscite p { margin: 4px 0 0; }
 .uscite-sentiero { margin: 6px 0; }
 .uscite-sentiero p { margin: 0 0 4px; }
 .uscite-sentiero ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }

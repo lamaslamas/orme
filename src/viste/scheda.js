@@ -344,7 +344,7 @@ export async function vistaScheda(app, id) {
       </div>
       <h1>${escapeHtml(s.nome)}</h1>
       <div class="sotto-titolo">
-        ${parco ? `<a class="link-parco" href="${parco.zona ? '#/intorno' : `#/parco/${encodeURIComponent(parco.id)}`}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
+        ${parco ? `<a class="link-parco" href="${parco.zona ? '#/' : `#/parco/${encodeURIComponent(parco.id)}`}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
         <a class="link-modifica" href="#/sentiero/${idUrl}/modifica">Modifica</a>
       </div>
       ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}

@@ -20,7 +20,7 @@ import { htmlFaunaParco, collegaFaunaParco } from './faunaParco.js';
 export async function vistaParco(app, id) {
   const parco = parcoDa(id);
   if (parco?.zona) {
-    location.replace('#/intorno');
+    location.replace('#/'); // "Intorno a me" ora è la mappa iniziale
     return;
   }
   if (!parco) {
