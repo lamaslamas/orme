@@ -129,8 +129,6 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     mappa.getPane(nome).style.zIndex = z;
     mappa.getPane(nome).style.pointerEvents = 'none';
   }
-  // in sviluppo: l'ultima mappa aperta, per le prove dalla console
-  if (import.meta.env.DEV && !anteprima) globalThis.__mappa = mappa;
   if (!anteprima) registraMappa(mappa); // misuratore (?misura)
   // mentre la mappa si muove i controlli "di vetro" non sfocano lo sfondo: sul telefono ricalcolare la
   // sfocatura a ogni fotogramma costa più del disegno della mappa (stile.css, .mappa-in-movimento)

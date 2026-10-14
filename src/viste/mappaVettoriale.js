@@ -71,6 +71,5 @@ export async function creaSentieriVettoriali(scuro = false) {
   // un problema dello stile o delle tile non deve passare in silenzio
   livello.on('add', () => livello.getMaplibreMap?.()?.on('error', (e) => console.warn('Sentieri vettoriali', e.error?.message ?? e)));
   livello.on('add', () => registraMappaGl('sentieri', livello.getMaplibreMap?.()));
-  if (import.meta.env.DEV) globalThis.__sentieriVettoriali = livello;
   return livello;
 }

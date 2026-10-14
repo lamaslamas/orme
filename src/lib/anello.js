@@ -195,13 +195,6 @@ export function testoQuotaSegnata(segnata) {
   return `${Math.round(segnata * 100)}% su sentieri segnati o strade`;
 }
 
-// metri dall'inizio di ogni punto della linea
-function metriDi(linea) {
-  const metri = [0];
-  for (let i = 1; i < linea.length; i++) metri.push(metri[i - 1] + distanzaKm(linea[i - 1], linea[i]) * 1000);
-  return metri;
-}
-
 // Gambo: dalla partenza al giro e ritorno sulla stessa strada (partenza in fondo a una valle). Si
 // misura a parte: non conta nella sovrapposizione, ma si mostra; andata e ritorno sul gambo non
 // possono superare MAX_GAMBO del percorso

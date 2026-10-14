@@ -6,7 +6,7 @@ import { misureSentiero } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { testoUscita } from '../lib/filtri.js';
-import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi, definizioni } from './filtri.js';
+import { leggiFiltri, htmlFiltri, collegaFiltri, definizioni } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
 import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
@@ -36,14 +36,6 @@ export function miniatura(traccia, stato) {
   return d
     ? `<svg class="miniatura" viewBox="0 0 88 88" aria-hidden="true"><path d="${d}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${colore}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
     : `<div class="miniatura vuota" aria-hidden="true"><svg viewBox="0 0 116 138">${IMPRONTA}</svg><span>Nessuna traccia</span></div>`;
-}
-
-export function rigaNumeri(m) {
-  const parti = [];
-  if (m.km != null) parti.push(`<b>${m.km.toFixed(1).replace('.', ',')}</b> km`);
-  if (m.salita != null) parti.push(`<b>+${m.salita}</b> m`);
-  if (m.durataMin != null) parti.push(`${m.durataStimata ? '~' : ''}<b>${durata(m.durataMin)}</b>`);
-  return parti.join('<span class="sep">·</span>');
 }
 
 export function bollinoCompatibilita(compat, attivita) {

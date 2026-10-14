@@ -9,20 +9,16 @@ import { nuovoRecord } from './importazione.js';
 import { profiloQuote } from './profiloQuote.js';
 import { improntaTraccia } from './panorama.js';
 import { percorsiDaQui } from './daQui.js';
-import { animaliPossibili } from './faunaPercorso.js';
 import { urlOsservazioniGbif } from './gbif.js';
-import { API_INATURALIST, parametriInat, parametriRare, iconaDaAntenati } from './inaturalist.js';
+import { API_INATURALIST, parametriRare, iconaDaAntenati } from './inaturalist.js';
 export { iconaDaAntenati };
-import { CLASSI_FAUNA, ANIMALI, TAXON_INATURALIST } from './costanti.js';
+import { ANIMALI, TAXON_INATURALIST } from './costanti.js';
 import { taxaDeiGruppi, conMinacciate } from './gruppiFauna.js';
-import { distanzaDallaTracciaM } from './geo.js';
 import { ID_INTORNO, INTORNO } from '../datiParchi.js';
 
-export const RAGGI_INTORNO = [10, 25, 50];
 // cambia quando cambia cosa si cerca: le zone scaricate prima si riscaricano da sole
 // (2: anche itinerari ciclabili e percorsi a piedi non escursionistici)
 export const VERSIONE_RICERCA = 3; // 3: anche i sentieri non segnati delle aree protette
-export const RAGGIO_INTORNO = 25;
 
 // Riquadro [sud, ovest, nord, est] che contiene il cerchio; centro: [lon, lat]
 export function riquadroIntorno([lon, lat], km) {
@@ -152,16 +148,6 @@ export function faunaDaRicalcolare(s, geojson, oggi = new Date()) {
   return (oggi - new Date(f.calcolato)) / 86_400_000 >= 30;
 }
 
-// Gli animali della zona: quelli segnalati sul maggior numero di percorsi, al massimo "max"
-export function animaliDellaZona(sentieri, max = 6) {
-  const conta = new Map();
-  for (const s of sentieri) for (const a of animaliPossibili(s)) conta.set(a, (conta.get(a) ?? 0) + 1);
-  return [...conta]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, max)
-    .map(([animale, percorsi]) => ({ animale, percorsi }));
-}
-
 // ---- Sentieri non segnati delle aree protette (riserve, parchi regionali) ----
 // Su OSM molte riserve hanno sentieri e carrarecce disegnati come singole strade, senza un percorso
 // segnato. Per ogni area si mostra la rete intera (la geometria è quella di OSM): il giro lo sceglie
@@ -189,7 +175,6 @@ foreach.aree->.a(
   out geom(${r});
 );`;
 }
-export const queryAreeProtette = (centro, km) => `[out:json][timeout:60];\n${parteAreeProtette(centro, km)}`;
 
 // la geometria ritagliata ha dei buchi (null): ogni buco spezza la linea
 function lineeDellaVia(el) {
@@ -323,52 +308,6 @@ export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [] 
   return [...inTesta, ...tutte.filter((x) => !inTesta.includes(x)).sort(perConteggio)].slice(0, max);
 }
 
-// Osservazioni di una specie nella zona (per i percorsi dove è stata vista)
-export function urlOsservazioniSpecie(centro, km, inat) {
-  const p = parametriInat({ taxon: { inat }, soloVerificate: true });
-  const [lon, lat] = centro;
-  p.set('lat', lat.toFixed(4));
-  p.set('lng', lon.toFixed(4));
-  p.set('radius', String(km));
-  p.set('per_page', '200');
-  return `${API_INATURALIST}/observations?${p}`;
-}
-
-// Percorsi che passano entro raggioM da almeno un'osservazione (posizioni precise soltanto)
-export const RAGGIO_AVVISTAMENTO_M = 1000;
-export function percorsiDoveVisto(percorsi, osservazioni, raggioM = RAGGIO_AVVISTAMENTO_M) {
-  const punti = osservazioni.filter((o) => !o.sfumata && Number.isFinite(o.lat) && Number.isFinite(o.lon)).map((o) => [o.lon, o.lat]);
-  if (!punti.length) return [];
-  const m = raggioM / 111_000;
-  return percorsi.filter((p) => {
-    const g = p.traccia?.geojson;
-    if (!g?.coordinates?.length) return false;
-    // prima il riquadro della traccia (veloce), poi la distanza vera
-    let [o, s, e, n] = [Infinity, Infinity, -Infinity, -Infinity];
-    for (const l of g.coordinates) for (const [x, y] of l) [o, s, e, n] = [Math.min(o, x), Math.min(s, y), Math.max(e, x), Math.max(n, y)];
-    const mLon = m / Math.cos((s * Math.PI) / 180);
-    return punti.some(([x, y]) => x >= o - mLon && x <= e + mLon && y >= s - m && y <= n + m && distanzaDallaTracciaM([x, y], g) <= raggioM);
-  });
-}
-
-// ---- Quando riscaricare la zona ----
-export const RINNOVA_GIORNI = 7;
-export const SPOSTAMENTO_KM = 3;
-// zona: quella salvata; centro e km: quelli richiesti ora. 'niente' = va bene così (al massimo si
-// aggiorna il centro), 'scarica' = serve una ricerca nuova
-export function serveScaricare(zona, centro, km, { versione, oggi = new Date() } = {}) {
-  if (!zona || zona.versione !== versione || zona.raggioKm !== km) return true;
-  if (distanzaKm(zona.centro, centro) > SPOSTAMENTO_KM) return true;
-  return (oggi - new Date(zona.aggiornato)) / 86_400_000 > RINNOVA_GIORNI;
-}
-
-// La specie scelta in "Cosa vedere qui" resta tornando da un sentiero, ma solo se la zona è la stessa.
-// ricordata: { zona, specie, viste } | null; zona: quella salvata ({ centro }) | null
-export function sceltaRitrovata(ricordata, zona) {
-  if (!ricordata?.specie || !zona?.centro) return null;
-  return ricordata.zona === JSON.stringify(zona.centro) ? ricordata : null;
-}
-
 // ---- Distanza dalla partenza ----
 // Percorso lineare: dal più vicino dei due estremi (su OpenStreetMap il verso è spesso casuale e si
 // può partire da tutte e due le parti); anello: dal suo punto di partenza; partenza indicata a mano:
@@ -385,15 +324,6 @@ export function distanzaDiPartenza(sentiero, traccia, centro, vicinoM) {
 
 export const testoPartenza = ({ metri, partenza }) =>
   partenza ? (metri < 150 ? 'partenza qui' : `partenza ${testoDistanza(metri)}`) : testoDistanza(metri);
-
-// ---- Pochi percorsi segnati: cosa suggerire ----
-export const POCHI_PERCORSI = 5;
-// { allarga: raggio più grande o null, aree: quante aree con sentieri non segnati } oppure null
-export function suggerimentoPochi(percorsi, aree, km) {
-  if (percorsi >= POCHI_PERCORSI) return null;
-  const allarga = RAGGI_INTORNO.find((r) => r > km) ?? null;
-  return allarga || aree ? { allarga, aree } : null;
-}
 
 // Zona inquadrata sulla mappa [sud, ovest, nord, est] → centro [lon, lat] e raggio in km (da 2 a 25),
 // per "Cosa vedere qui" nella pagina iniziale

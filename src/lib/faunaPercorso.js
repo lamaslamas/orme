@@ -15,7 +15,6 @@ export const MINIMO_OSSERVAZIONI = 3;
 export const MINIMO_PERSONE = 2;
 
 const PER_TAXON = new Map(Object.entries(TAXON_INATURALIST).map(([k, t]) => [t.id, k]));
-export const TAXA_FAUNA = Object.values(TAXON_INATURALIST).map((t) => t.id);
 
 // Il nostro animale per un taxon iNaturalist (anche sottospecie: si guardano gli antenati)
 export function animaleDelTaxon(taxon) {

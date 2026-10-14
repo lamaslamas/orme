@@ -5,7 +5,6 @@
 import L from 'leaflet';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { percorsiDaQui, RAGGI_DA_QUI, RAGGIO_DA_QUI } from '../lib/daQui.js';
-import { COLORI } from './colori.js';
 import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 

@@ -286,7 +286,6 @@ export async function fotoDelSentiero(sentieroId) {
   return foto.sort((a, b) => (a.aggiunta ?? '').localeCompare(b.aggiunta ?? ''));
 }
 
-export const leggiFoto = (id) => leggiDa('foto', id);
 export const tutteLeFoto = () => tuttiDa('foto');
 export const salvaFoto = (f) => scriviIn('foto', { ...f, aggiunta: f.aggiunta ?? new Date().toISOString() });
 
@@ -301,12 +300,6 @@ export async function eliminaFoto(id) {
 // meta "intorno": { centro: [lon, lat], raggioKm, aggiornato }
 
 export const leggiIntorno = async () => (await leggiDa('meta', 'intorno')) ?? null;
-// spostato di poco: la zona resta quella scaricata, cambia solo il punto da cui misurare le distanze
-export async function spostaCentroIntorno(centro) {
-  const z = await leggiIntorno();
-  if (z) await scriviIn('meta', { ...z, centro });
-}
-
 // Sostituisce i percorsi della zona con quelli appena scaricati. Quelli con dati miei (salvati,
 // fatti, note) restano anche se escono dalla zona; una traccia che ho cambiato io non si tocca.
 export async function salvaIntorno({ centro, raggioKm, percorsi, versione = null }) {

@@ -21,10 +21,6 @@ export function lunghezzaKm(geojson) {
   return totale;
 }
 
-export function contaPunti(geojson) {
-  return (geojson?.coordinates ?? []).reduce((n, linea) => n + linea.length, 0);
-}
-
 // Distanza minima (in metri) tra un punto [lon, lat] e un MultiLineString.
 // Usa una proiezione piana locale: precisa a sufficienza per poche centinaia di km.
 export function distanzaDallaTracciaM(punto, geojson) {

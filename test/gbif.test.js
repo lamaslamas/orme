@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parametriGbif, urlTileGbif, urlOsservazioniGbif, interpretaGbif, nomeFonte, animaleGbif } from '../src/lib/gbif.js';
+import { parametriGbif, urlOsservazioniGbif, interpretaGbif, nomeFonte, animaleGbif } from '../src/lib/gbif.js';
 import { faunaDalleOsservazioni, faunaDelParco } from '../src/lib/faunaPercorso.js';
 import { TAXON_GBIF, SPECIE_SOLO_INTORNO } from '../src/lib/costanti.js';
 import { SPECIE_RARE } from '../src/lib/inaturalist.js';
@@ -28,8 +28,7 @@ describe('GBIF: parametri e indirizzi', () => {
     expect(p.get('year')).toBe('2021,2026');
   });
 
-  it('tile della mappa e ricerca in un riquadro', () => {
-    expect(urlTileGbif({ specie: 'orso' }, oggi)).toMatch(/^https:\/\/api\.gbif\.org\/v2\/map\/occurrence\/adhoc\/\{z\}\/\{x\}\/\{y\}@1x\.png\?.*taxonKey=2433433/);
+  it('ricerca in un riquadro', () => {
     const u = new URL(urlOsservazioniGbif([41.6, 13.64, 42.02, 14.05], { specie: 'cervo' }, { limite: 50, scarto: 100 }));
     expect(u.searchParams.get('decimalLatitude')).toBe('41.60000,42.02000');
     expect(u.searchParams.get('offset')).toBe('100');

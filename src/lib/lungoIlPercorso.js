@@ -5,7 +5,6 @@ import { puntoNelPoligono } from './confini.js';
 import { distanzaKm, distanzaDallaTracciaM, lunghezzaKm } from './geo.js';
 import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH, stimaDurataMin } from './durata.js';
 import { dislivello, SOGLIA_RUMORE_M } from './quote.js';
-import { RAGGIO_LUNGO_IL_PERCORSO_M } from './puntiUtili.js';
 
 export const PASSO_COPERTURA_M = 500;
 export const MARGINE_RIQUADRO_M = 1000;

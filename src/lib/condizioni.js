@@ -327,11 +327,6 @@ export function nellaDurata(durataPrevista, chiave) {
   return (d.min == null || durataPrevista >= d.min) && durataPrevista <= d.max;
 }
 
-// Animali osservati di solito in quel mese lungo il percorso o nella zona (da iNaturalist)
-export function animaliDelMese(faunaInat, mese) {
-  return (faunaInat?.specie ?? []).filter((x) => mesiDaTesto(x.mesi).has(mese)).map((x) => x.animale);
-}
-
 // ---------- dai percorsi dell'app ai punti meteo ----------
 
 // prep: { sentiero, traccia, misure } (da preparaPercorsi). quote: profilo valido per la traccia o null.

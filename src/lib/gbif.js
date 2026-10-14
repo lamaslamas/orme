@@ -10,7 +10,6 @@ export const API_GBIF = 'https://api.gbif.org/v1';
 // specie minacciate (Lista Rossa IUCN) tra mammiferi e uccelli: in "Intorno a me" si aggiungono a parte
 export { CATEGORIE_RARE as CATEGORIE_MINACCIATE } from './costanti.js';
 import { CATEGORIE_RARE } from './costanti.js';
-export const MAPPE_GBIF = 'https://api.gbif.org/v2/map/occurrence/adhoc';
 // oltre questa incertezza la posizione vale solo per la zona (come le posizioni sfumate)
 export const INCERTEZZA_MAX_M = 1000;
 
@@ -51,20 +50,6 @@ export function parametriGbif(filtri = {}, oggi = new Date()) {
   p.set('occurrenceStatus', 'PRESENT');
   p.set('hasGeospatialIssue', 'false');
   return p;
-}
-
-// Sotto questo zoom (scala nazionale) la heatmap coprirebbe tutto: si mostra da regione/parco in giù
-export const ZOOM_MINIMO_HEATMAP = 8;
-
-// Tile della heatmap (densità di tutte le fonti)
-export function urlTileGbif(filtri, oggi) {
-  const p = parametriGbif(filtri, oggi);
-  p.set('srs', 'EPSG:3857');
-  // esagoni piccoli colorati per densità (dal rosa al rosso, come la heatmap di iNaturalist)
-  p.set('style', 'iNaturalist.poly');
-  p.set('bin', 'hex');
-  p.set('hexPerTile', '40');
-  return `${MAPPE_GBIF}/{z}/{x}/{y}@1x.png?${p}`;
 }
 
 // Osservazioni in un riquadro [sud, ovest, nord, est]

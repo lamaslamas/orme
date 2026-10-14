@@ -19,14 +19,13 @@ import {
   urlOsservazioni,
   interpretaOsservazioni,
 } from '../lib/inaturalist.js';
-import { iconaAnimale, urlIconaAnimale } from './icone.js';
+import { urlIconaAnimale } from './icone.js';
 import { SegnoSuTela, telaSegni, immagine, segnoPronto } from './segniSuTela.js';
 import { celleDaTile, rapportoSforzo, classifica, tilePerRiquadro, MINIMO_RIFERIMENTO } from '../lib/griglia.js';
 
 const COLORI_CLASSI = { 0: '#f3f4f6', 1: '#c4b5fd', 2: '#7c6cf0', 3: '#3c9a2a', 4: '#e2d600' };
 const MASSIMO_TILE = 12;
 
-const CHIAVE = 'orme.heatmap';
 const RAGGIO_TOCCO_PX = 28;
 
 const ICONA =

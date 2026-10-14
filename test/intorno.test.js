@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { riquadroIntorno, queryIntorno, percorsiIntorno, nelRaggio, puntiPerLeQuote, urlQuote, leggiQuote, profiloIntorno, haDatiMiei, testoDistanza, queryAreeProtette, retiAreeProtette, urlFaunaIntorno, faunaDaRicalcolare, animaliDellaZona } from '../src/lib/intorno.js';
+import { riquadroIntorno, queryIntorno, percorsiIntorno, nelRaggio, puntiPerLeQuote, urlQuote, leggiQuote, profiloIntorno, haDatiMiei, testoDistanza, retiAreeProtette, urlFaunaIntorno, faunaDaRicalcolare } from '../src/lib/intorno.js';
 import { diUnParco, parcoDa } from '../src/datiParchi.js';
 import { improntaTraccia } from '../src/lib/panorama.js';
 
@@ -156,19 +156,6 @@ describe('Intorno a me: fauna', () => {
     expect(faunaDaRicalcolare({ faunaInat: { calcolato: '2026-10-01', impronta, specie: [{ animale: 'volpe', mesi: 'mag' }] } }, g, new Date('2026-10-05'))).toBe(true);
   });
 
-  it('al massimo 6 animali, dai più diffusi', () => {
-    const sentieri = [
-      { faunaInat: { specie: [{ animale: 'volpe' }, { animale: 'fenicottero' }] } },
-      { faunaInat: { specie: [{ animale: 'volpe' }] } },
-      { animali: ['riccio'] },
-    ];
-    expect(animaliDellaZona(sentieri)).toEqual([
-      { animale: 'volpe', percorsi: 2 },
-      { animale: 'fenicottero', percorsi: 1 },
-      { animale: 'riccio', percorsi: 1 },
-    ]);
-    expect(animaliDellaZona(sentieri, 1)).toHaveLength(1);
-  });
 });
 
 describe('Intorno a me: sentieri delle aree protette', () => {
@@ -195,7 +182,7 @@ describe('Intorno a me: sentieri delle aree protette', () => {
   };
 
   it('chiede le aree protette con i loro sentieri, solo nel riquadro', () => {
-    const q = queryAreeProtette(COPERTINO, 25);
+    const q = queryIntorno(COPERTINO, 25);
     expect(q).toContain('wr["leisure"="nature_reserve"]["name"](around:25000');
     expect(q).toContain('map_to_area');
     expect(q).toMatch(/out geom\([\d.,]+\)/);
@@ -235,7 +222,7 @@ describe('Intorno a me: una sola richiesta', () => {
 });
 
 describe('Intorno a me: cosa vedere qui', async () => {
-  const { ricercheSpecieDellaZona, specieDellaZona, percorsiDoveVisto } = await import('../src/lib/intorno.js');
+  const { ricercheSpecieDellaZona, specieDellaZona } = await import('../src/lib/intorno.js');
   it('una ricerca per i gruppi e una per le minacciate', () => {
     const r = ricercheSpecieDellaZona(COPERTINO, 25, ['rapaci', 'rare']);
     expect(r).toHaveLength(2);
@@ -256,44 +243,6 @@ describe('Intorno a me: cosa vedere qui', async () => {
     // le rare (ultima risposta) vengono prima anche se meno osservate
     const conRare = specieDellaZona([{ results: [{ count: 229, taxon: taxon(2, 'Falco tinnunculus', 'gheppio', 'cc-by') }] }, { results: [{ count: 5, taxon: taxon(3, 'Ichthyaetus audouinii', 'gabbiano corso', null) }] }], 8, { rare: [1] });
     expect(conRare.map((x) => [x.nome, x.rara])).toEqual([['Gabbiano corso', true], ['Gheppio', false]]);
-  });
-  it('percorsi passati vicino alle osservazioni precise', () => {
-    const p = { sentiero: { id: 'a' }, traccia: { geojson: { type: 'MultiLineString', coordinates: [[[18.0, 40.0], [18.01, 40.0]]] } } };
-    expect(percorsiDoveVisto([p], [{ lat: 40.005, lon: 18.005 }]).map((x) => x.sentiero.id)).toEqual(['a']);
-    expect(percorsiDoveVisto([p], [{ lat: 40.05, lon: 18.005 }])).toEqual([]);
-    expect(percorsiDoveVisto([p], [{ lat: 40.001, lon: 18.005, sfumata: true }])).toEqual([]);
-  });
-});
-
-describe('Intorno a me: quando riscaricare', async () => {
-  const { serveScaricare } = await import('../src/lib/intorno.js');
-  const zona = { centro: COPERTINO, raggioKm: 25, versione: 3, aggiornato: '2026-10-08T10:00:00Z' };
-  const oggi = new Date('2026-10-10T10:00:00Z');
-  it('non riscarica se ci si sposta di poco e la zona è recente', () => {
-    expect(serveScaricare(zona, [18.06, 40.28], 25, { versione: 3, oggi })).toBe(false);
-  });
-  it('riscarica se ci si sposta, cambia raggio o ricerca, o dopo una settimana', () => {
-    expect(serveScaricare(zona, [18.2, 40.4], 25, { versione: 3, oggi })).toBe(true);
-    expect(serveScaricare(zona, COPERTINO, 50, { versione: 3, oggi })).toBe(true);
-    expect(serveScaricare(zona, COPERTINO, 25, { versione: 4, oggi })).toBe(true);
-    expect(serveScaricare(zona, COPERTINO, 25, { versione: 3, oggi: new Date('2026-10-20T10:00:00Z') })).toBe(true);
-    expect(serveScaricare(null, COPERTINO, 25, { versione: 3, oggi })).toBe(true);
-  });
-});
-
-describe('Intorno a me: specie ricordata', async () => {
-  const { sceltaRitrovata } = await import('../src/lib/intorno.js');
-  const zona = { centro: COPERTINO };
-  const ricordata = { zona: JSON.stringify(COPERTINO), specie: { inat: 4255, nome: 'Fenicottero' }, viste: new Set(['a']) };
-  it('primo accesso: niente zona e niente specie ricordata (prima la pagina si rompeva)', () => {
-    expect(sceltaRitrovata(null, null)).toBeNull();
-    expect(sceltaRitrovata(undefined, undefined)).toBeNull();
-    expect(sceltaRitrovata(ricordata, null)).toBeNull();
-    expect(sceltaRitrovata(null, zona)).toBeNull();
-  });
-  it('zona diversa: la specie non vale più; stessa zona: resta', () => {
-    expect(sceltaRitrovata(ricordata, { centro: [16, 41] })).toBeNull();
-    expect(sceltaRitrovata(ricordata, zona)?.specie.nome).toBe('Fenicottero');
   });
 });
 
@@ -319,17 +268,6 @@ describe('Intorno a me: distanza dalla partenza', async () => {
     const d = distanzaDiPartenza({ tipoPercorso: 'rete_sentieri' }, lineare, centro, 900);
     expect(d).toEqual({ metri: 900, partenza: false });
     expect(testoPartenza(d)).toBe('a 900 m');
-  });
-});
-
-describe('Intorno a me: pochi percorsi', async () => {
-  const { suggerimentoPochi } = await import('../src/lib/intorno.js');
-  it('sotto i 5: allargare il raggio e/o guardare le aree con sentieri non segnati', () => {
-    expect(suggerimentoPochi(3, 2, 10)).toEqual({ allarga: 25, aree: 2 });
-    expect(suggerimentoPochi(0, 0, 25)).toEqual({ allarga: 50, aree: 0 });
-    expect(suggerimentoPochi(4, 1, 50)).toEqual({ allarga: null, aree: 1 });
-    expect(suggerimentoPochi(4, 0, 50)).toBeNull(); // niente da suggerire
-    expect(suggerimentoPochi(5, 3, 10)).toBeNull();
   });
 });
 

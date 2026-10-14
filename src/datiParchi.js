@@ -1,9 +1,6 @@
 // Catalogo dei parchi. Testi e animali ricavati dai siti ufficiali: da verificare.
 // Gli avvistamenti personali NON vanno mai messi in questo file né in altri file del codice.
 
-export const REGOLA_GENERALE =
-  'Nei parchi resta sempre sui sentieri. Chiusure, divieti e numeri chiusi cambiano ogni anno: verifica sul sito del Parco.';
-
 export const PARCHI = [
   {
     id: 'pnalm',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { creaStato, filtriAttiviStato, STATO_INIZIALE } from '../src/lib/statoApp.js';
+import { creaStato, STATO_INIZIALE } from '../src/lib/statoApp.js';
 
 const memoria = () => {
   const m = new Map();
@@ -24,13 +24,13 @@ describe('stato condiviso', () => {
     expect(di_nuovo.heatmap).toEqual({ ...STATO_INIZIALE.heatmap, stagione: 'autunno' });
   });
 
-  it('azzera i filtri e conta quelli attivi', () => {
+  it('azzera i filtri (il parco resta)', () => {
     const s = creaStato(memoria());
     s.imposta({ parco: 'pnalm', specie: 'lupo', filtri: { stato: 'fatto' } });
-    expect(filtriAttiviStato(s.leggi())).toBe(3);
-    expect(filtriAttiviStato(s.leggi(), { contaParco: false })).toBe(2);
     s.azzeraFiltri();
-    expect(filtriAttiviStato(s.leggi())).toBe(1);
+    expect(s.leggi().parco).toBe('pnalm');
+    expect(s.leggi().specie).toBe('');
+    expect(Object.values(s.leggi().filtri).filter(Boolean)).toHaveLength(0);
   });
 
   it('funziona anche senza memoria o con memoria rotta', () => {

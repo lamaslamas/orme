@@ -54,8 +54,3 @@ export function creaStato(memoria = null, chiave = 'orme.stato') {
     },
   };
 }
-
-// Numero di filtri attivi (il parco conta solo se richiesto)
-export function filtriAttiviStato(s, { contaParco = true } = {}) {
-  return (contaParco && s.parco ? 1 : 0) + (s.specie ? 1 : 0) + Object.values(s.filtri).filter(Boolean).length;
-}

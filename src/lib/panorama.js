@@ -102,7 +102,6 @@ export function aperturaOrizzonte(punto, quota) {
 
 // --- Versione 2: analisi di visibilità (viewshed) ---
 const RAGGI = 72; // una direzione ogni 5°
-const RAGGIO_VISTA_M = 8000;
 const ALTEZZA_CHIOMA_M = 15; // gli alberi vicini coprono la vista
 const RAGGIO_CHIOMA_M = 1000;
 // raggio terrestre "efficace" con la rifrazione dell'aria (coefficiente 0,13)

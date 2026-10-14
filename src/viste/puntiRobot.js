@@ -1,7 +1,7 @@
 // Rifugi e acqua preparati dal robot per tutta Italia, a quadrati di 0,5° (src/lib/puntiItalia.js):
 // prima l'indice (piccolo), poi solo i file dei quadrati che servono. Se mancano (robot non ancora
 // passato, offline) restano le celle da Overpass come riserva.
-import { fileDellaVista, riquadroQuadrato, idQuadrato } from '../lib/puntiItalia.js';
+import { fileDellaVista, riquadroQuadrato } from '../lib/puntiItalia.js';
 
 let indice = null;
 export function leggiIndice() {
@@ -52,10 +52,4 @@ export async function puntiDelRobot(riquadro, { max = 6 } = {}) {
   const [s, o, n, e] = riquadro;
   for (let la = Math.floor(s / 0.5); la * 0.5 < n; la++) for (let lo = Math.floor(o / 0.5); lo * 0.5 < e; lo++) if (q[`${la}_${lo}`]?.n === 0) coperti.push(riquadroQuadrato(`${la}_${lo}`));
   return { punti, coperti };
-}
-
-// un punto [lon, lat] è in un quadrato già passato dal robot?
-export async function quadratoFatto([lon, lat]) {
-  const q = await leggiIndice();
-  return Boolean(q?.[idQuadrato(lon, lat)]);
 }

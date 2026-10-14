@@ -11,7 +11,6 @@ import {
   riassuntoParco,
   nellaDurata,
   mesiDaTesto,
-  animaliDelMese,
   MAX_LUOGHI_RICHIESTA,
   datiPerMeteo,
   giornoAllaQuota,
@@ -218,10 +217,9 @@ describe('altri calcoli', () => {
     expect(nellaDurata(null, 'breve')).toBe(true);
   });
 
-  it('mesi e animali del mese', () => {
+  it('mesi dal testo', () => {
     expect([...mesiDaTesto('giu, ago–set')]).toEqual([6, 8, 9]);
     expect([...mesiDaTesto('nov–gen')]).toEqual([11, 12, 1]);
-    expect(animaliDelMese({ specie: [{ animale: 'orso', mesi: 'ago–ott' }, { animale: 'lupo', mesi: 'gen' }] }, 10)).toEqual(['orso']);
   });
 });
 
