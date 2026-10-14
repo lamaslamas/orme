@@ -1,6 +1,6 @@
-// Pannello del misuratore (solo con ?misura): due prove ripetibili da 10 secondi (mappa e tendina), poi
-// un riepilogo da copiare con fotogrammi, compiti lunghi, tempi dei lavori a fine movimento, disegno
-// delle mappe MapLibre, telefono, schermo e livelli accesi. Si carica solo con ?misura (main.js).
+// Pannello del misuratore (solo con ?misura): prove ripetibili da 10 secondi (mappa con Fauna, zoom 12
+// e 15, tendina), poi un riepilogo da copiare con fotogrammi, compiti lunghi, tempi dei lavori a fine
+// movimento, disegno delle mappe MapLibre, telefono, schermo e livelli accesi. Si carica solo con ?misura (main.js).
 import { stato } from '../stato.js';
 import {
   azzeraTempi,
@@ -19,6 +19,11 @@ const PREPARA_MS = 3000; // la mappa si mette nel punto di prova e carica, poi p
 // punto di prova: PNALM, Pescasseroli; la prova lo rimette da sola, così lo zoom è sempre lo stesso
 const CENTRO_PROVA = [41.8, 13.79];
 const PROVE = {
+  mappa: {
+    nome: 'mappa (PNALM, zoom 13, Fauna)',
+    zoom: 13,
+    testo: 'Fauna accesa con heatmap e segnaposto. Quando parte il conto, per 10 secondi trascina la mappa con un dito in tutte le direzioni, senza fermarti, senza zoom e senza toccare la tendina.',
+  },
   lontano: {
     nome: 'mappa da lontano (zoom 12)',
     zoom: 12,
@@ -103,11 +108,12 @@ export function avviaMisuratore() {
         <ol>
           <li>Scegli la prova: la mappa va da sola sul PNALM (Pescasseroli) con Fauna accesa, poi parte il conto.
             <div class="misuratore-prove">
-              <button type="button" class="bottone primario" data-m="lontano">Zoom 12 (10 s)</button>
+              <button type="button" class="bottone primario" data-m="mappa">Mappa (10 s)</button>
+              <button type="button" class="bottone" data-m="lontano">Zoom 12 (10 s)</button>
               <button type="button" class="bottone" data-m="vicino">Zoom 15 (10 s)</button>
               <button type="button" class="bottone" data-m="tendina">Tendina (10 s)</button>
             </div>
-            <p class="piccolo">Mappa: ${PROVE.lontano.testo}<br>Tendina: ${PROVE.tendina.testo}</p></li>
+            <p class="piccolo">Mappa: ${PROVE.mappa.testo}<br>Zoom 12 e 15: ${PROVE.lontano.testo}<br>Tendina: ${PROVE.tendina.testo}</p></li>
           <li>Copia il riepilogo e incollalo nella chat.</li>
         </ol>
         ${ultimo ? `<pre class="misuratore-riepilogo">${ultimo.replace(/</g, '&lt;')}</pre><button type="button" class="bottone primario" data-m="copia">Copia il riepilogo</button><p class="piccolo" data-esito></p>` : ''}
@@ -126,7 +132,7 @@ export function avviaMisuratore() {
     const p = PROVE[chiave];
     if (p.zoom) {
       pannello.classList.add('in-corso');
-      pannello.innerHTML = `<div class="misuratore-testa"><b>Preparo la mappa…</b></div><p class="piccolo">${p.testo}</p>`;
+      pannello.innerHTML = `<div class="misuratore-testa"><b>Preparo la mappa… non toccare ancora</b></div><p class="piccolo">${p.testo}</p>`;
       await puntoDiProva(p.zoom);
       await new Promise((r) => setTimeout(r, PREPARA_MS));
     }
@@ -160,7 +166,7 @@ export function avviaMisuratore() {
     }
     // conto alla rovescia piccolo, per lasciare libera la mappa
     pannello.classList.add('in-corso');
-    pannello.innerHTML = `<div class="misuratore-testa"><b>Prova ${p.nome}</b> <span data-conto>${DURATA_S}</span> s</div><p class="piccolo">${p.testo}</p>`;
+    pannello.innerHTML = `<div class="misuratore-testa"><b>${p.zoom ? 'Via! Trascina la mappa' : `Prova ${p.nome}`}</b> <span data-conto>${DURATA_S}</span> s</div><p class="piccolo">${p.testo}</p>`;
     const inizio = performance.now();
     let prima = inizio;
     await new Promise((fine) => {
