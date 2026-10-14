@@ -2,6 +2,7 @@
 // Ridotto: nome, numeri, fauna e Salva / Portami / Apri la scheda. Trascinato in su: anche foto,
 // difficoltà, avvertenze, rifugi e acqua, panorama. In giù (o un tocco sulla mappa) si chiude.
 import L from 'leaflet';
+import { tendinaTrascinabile } from './tendina.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { ACCESSI } from '../lib/costanti.js';
@@ -32,7 +33,6 @@ function htmlAccesso(s) {
     : '';
   return `<div class="chips">${chip}</div>${avviso}`;
 }
-const SOGLIA_PX = 50; // trascinamento oltre il quale il foglio cambia altezza
 
 // altriItinerari(latlng): se c'è, un link apre gli itinerari segnati OSM del punto toccato (da scaricare)
 export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () => '', extra = () => '', altriItinerari = null } = {}) {
@@ -43,15 +43,13 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
   document.body.appendChild(foglio);
   let attuale = null; // { sentiero, traccia }
 
-  function altezza(aperto) {
-    foglio.classList.toggle('aperto', aperto);
-    foglio.querySelector('.foglio-maniglia-zona')?.setAttribute('aria-expanded', String(aperto));
-  }
+  // la stessa tendina di "Percorsi qui" (alta quanto il contenuto): si trascina anche dal nome
+  const tendina = tendinaTrascinabile(foglio, { maniglia: '.foglio-maniglia-zona, .foglio-nome', corpo: '.foglio-corpo', naturale: true, fineMeta: '.foglio-azioni:not(.due)', allaChiusura: () => chiudi() });
 
   function chiudi() {
     if (foglio.hidden) return;
     foglio.hidden = true;
-    altezza(false);
+    tendina.chiudi();
     attuale = null;
     allaChiusura();
   }
@@ -88,7 +86,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
       nota(s) ? `<span>${escapeHtml(nota(s))}</span>` : '',
     ].join('');
     foglio.innerHTML = `
-      <button type="button" class="foglio-maniglia-zona" aria-label="Apri o riduci" aria-expanded="false"><span class="foglio-maniglia"></span></button>
+      <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire, abbassare o chiudere"><span class="foglio-maniglia"></span></button>
       <div class="foglio-corpo">
         <p class="foglio-nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}<b>${escapeHtml(s.nome)}</b></p>
         ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
@@ -99,7 +97,6 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
           <button type="button" class="bottone primario" data-azione="inizia">${ICONE.bandierina}<span>Inizia da qui</span></button>
           <button type="button" class="bottone" data-azione="aggiungi">${ICONE.percorso}<span>Aggiungi</span></button>
         </div>
-        <div class="foglio-dettagli"></div>
         <div class="foglio-azioni">
           <button type="button" class="bottone ${s.salvato ? 'salvato' : ''}" data-azione="salva" aria-pressed="${Boolean(s.salvato)}">${ICONE.segnalibro}<span>${s.salvato ? 'Salvato' : 'Salva'}</span></button>
           ${punto ? `<button type="button" class="bottone" data-azione="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
@@ -115,16 +112,19 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
         </div>`
             : ''
         }
+        <div class="foglio-dettagli"></div>
       </div>`;
+    const eraChiuso = foglio.hidden;
     foglio.hidden = false;
-    altezza(false);
+    // un percorso nuovo riparte da metà; la tendina si adegua al contenuto
+    tendina.vai(eraChiuso ? 'meta' : tendina.posizione() === 'chiusa' ? 'meta' : tendina.posizione());
     dettagli(s, traccia);
   }
 
   foglio.addEventListener('click', async (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.classList.contains('foglio-maniglia-zona')) altezza(!foglio.classList.contains('aperto'));
+    if (b.classList.contains('foglio-maniglia-zona')) return; // la maniglia è della tendina
     else if ((b.dataset.azione === 'inizia' || b.dataset.azione === 'aggiungi') && attuale) {
       const p = attuale.tocco ?? puntoDiPartenza(attuale.sentiero, attuale.traccia);
       if (!p) return;
@@ -149,28 +149,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
     }
   });
 
-  // trascinamento verticale dalla parte alta del foglio: su = aperto, giù = ridotto o chiuso
-  let inizio = null;
-  foglio.addEventListener('pointerdown', (e) => {
-    if (!e.target.closest('.foglio-maniglia-zona, .foglio-nome')) return;
-    inizio = { y: e.clientY, aperto: foglio.classList.contains('aperto') };
-    foglio.setPointerCapture?.(e.pointerId);
-  });
-  foglio.addEventListener('pointermove', (e) => {
-    if (!inizio) return;
-    const dy = e.clientY - inizio.y;
-    foglio.style.transform = `translateY(${Math.max(inizio.aperto ? 0 : -40, dy)}px)`;
-  });
-  const fine = (e) => {
-    if (!inizio) return;
-    const dy = e.clientY - inizio.y;
-    foglio.style.transform = '';
-    if (dy < -SOGLIA_PX) altezza(true);
-    else if (dy > SOGLIA_PX) inizio.aperto ? altezza(false) : chiudi();
-    inizio = null;
-  };
-  foglio.addEventListener('pointerup', fine);
-  foglio.addEventListener('pointercancel', fine);
+
 
   // un tocco su un punto vuoto della mappa chiude il foglio e serve solo a quello (la heatmap
   // non apre le osservazioni); un tocco vicino a una traccia apre quella

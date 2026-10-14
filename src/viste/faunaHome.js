@@ -8,6 +8,7 @@ import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { iconaAnimale, ICONE } from './icone.js';
+import { tendinaTrascinabile } from './tendina.js';
 
 // gli stessi gruppi scelti in "Intorno a me" (preferenza del telefono)
 const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
@@ -43,7 +44,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   foglio.hidden = true;
   foglio.setAttribute('aria-label', 'Fauna qui');
   foglio.innerHTML = `
-    <button type="button" class="foglio-maniglia-zona" data-azione="riduci-fauna" aria-label="Riduci o apri" aria-expanded="true"><span class="foglio-maniglia"></span></button>
+    <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire o abbassare la fauna"><span class="foglio-maniglia"></span></button>
     <div class="fauna-heat"></div>
     <div class="fauna-corpo">
       <div class="fauna-azioni">
@@ -57,6 +58,8 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       <ul class="specie-zona"></ul>
     </div>`;
   contenitore.appendChild(foglio);
+  // la stessa tendina di "Percorsi qui": chiudendola si spegne la Fauna (il pulsante sulla mappa la riaccende)
+  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', naturale: true, allaChiusura: () => stato.imposta({ livelli: { heatmap: false } }) });
   const elenco = foglio.querySelector('.specie-zona');
 
   function disegnaScelte() {
@@ -114,11 +117,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.azione === 'riduci-fauna') {
-      const ridotto = !foglio.classList.contains('ridotto');
-      foglio.classList.toggle('ridotto', ridotto);
-      b.setAttribute('aria-expanded', String(!ridotto));
-    } else if (b.dataset.azione === 'elenco') {
+    if (b.dataset.azione === 'elenco') {
       apriElenco();
     } else if (b.dataset.azione === 'ricco') {
       // per i percorsi in elenco: avvistamenti frequenti nel mese corrente e in quelli accanto
@@ -145,7 +144,9 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   });
 
   function mostra(si) {
+    const cambia = foglio.hidden === si;
     foglio.hidden = !si;
+    if (cambia) si ? tendina.apri('meta') : tendina.chiudi();
     document.body.classList.toggle('fauna-aperta', si);
     if (si) {
       allApertura();

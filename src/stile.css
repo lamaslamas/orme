@@ -1938,19 +1938,22 @@ body.disegno main { padding: 0; }
 .misuratore.ridotto .misuratore-corpo { display: none; }
 .misuratore.in-corso { left: auto; right: 8px; width: 60%; pointer-events: none; opacity: 0.92; }
 
-/* tendina "Percorsi qui" trascinabile (tre posizioni): l'altezza la decide il dito */
-/* la cornice taglia la parte di tendina spostata sotto la barra; sul computer non c'è */
+/* Tendine dal basso trascinabili (tutti i fogli: src/viste/tendina.js), tre posizioni. La cornice
+   taglia la parte spostata sotto la barra; sul computer non c'è (i fogli sono pannelli laterali) */
 .cornice-tendina { display: contents; }
 @media (max-width: 1023.98px) {
   .cornice-tendina {
-    display: block; position: fixed; z-index: 1040; left: 0; right: 0; top: 0;
+    display: block; position: fixed; z-index: var(--z-cornice, 1040); left: 0; right: 0; top: 0;
     bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); overflow: hidden; pointer-events: none;
   }
-  .cornice-tendina .foglio-home { position: absolute; bottom: 0; pointer-events: auto; }
-  .foglio-home.trascinabile { max-height: none; transition: transform 0.22s ease; will-change: transform; }
-  .foglio-home.trascinabile.trascinando { transition: none; }
-  .foglio-home.trascinabile .foglio-maniglia-zona { touch-action: none; cursor: grab; }
-  .foglio-home.trascinabile .foglio-home-corpo { flex: 1; min-height: 0; }
+  .cornice-tendina > .trascinabile { position: absolute; left: 0; right: 0; bottom: 0; pointer-events: auto; max-height: none; transition: transform 0.22s ease; will-change: transform; }
+  .cornice-tendina > .trascinabile.trascinando { transition: none; }
+  .trascinabile .foglio-maniglia-zona { touch-action: none; cursor: grab; height: 28px; }
+  /* i dettagli (foto, rifugi e acqua) ci sono sempre: si vedono trascinando la tendina in su */
+  .foglio-percorso.trascinabile .foglio-dettagli { display: grid; }
+  .foglio-disegno.trascinabile .disegno-dettagli { display: block; }
+  .foglio-disegno.trascinabile { overflow: auto; }
+  .foglio-home.trascinabile .foglio-home-corpo, .foglio-fauna.trascinabile .fauna-corpo, .foglio-percorso.trascinabile .foglio-corpo { flex: 1; min-height: 0; }
 }
 .senza-traccia-zona { margin-top: 14px; }
 .senza-traccia-zona summary { cursor: pointer; font-weight: 700; padding: 6px 0; }

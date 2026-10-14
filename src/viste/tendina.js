@@ -1,73 +1,118 @@
-// Tendina dal basso trascinabile con il dito, con tre posizioni: chiusa, metà, aperta
-// (src/lib/tendina.js decide dove si ferma). Si trascina dalla maniglia; con la lista già in cima,
-// trascinare in giù sulla lista abbassa la tendina. Una spinta veloce in giù la chiude. Su schermi
-// larghi la tendina è un pannello laterale: niente trascinamento.
-// La tendina è sempre alta come "aperta" e si sposta in giù (transform): spostarla non ridisegna
-// il contenuto (cambiarne l'altezza a ogni fotogramma sì, ed era a scatti sul telefono). La cornice
-// intorno taglia la parte che finisce sotto la barra in basso.
+// Tendina dal basso, la stessa per tutti i fogli dell'app (Percorsi qui, Fauna, scheda del sentiero
+// toccato, sentiero di OpenStreetMap, disegno): tre posizioni (chiusa, metà, aperta) e
+// src/lib/tendina.js decide dove si ferma. Si trascina dalla maniglia; con la lista già in cima,
+// trascinare in giù sulla lista abbassa la tendina; una spinta veloce in giù la chiude; un tocco sulla
+// maniglia passa da metà ad aperta e viceversa. Su schermi larghi i fogli sono pannelli laterali:
+// niente trascinamento.
+// La tendina è alta come "aperta" e si sposta in giù (transform): spostarla non ridisegna il
+// contenuto. Una cornice intorno taglia la parte che finisce sotto la barra in basso.
 import { posizioneFinale, altezzeTendina } from '../lib/tendina.js';
 
 const SOGLIA_PX = 6; // sotto: è un tocco, non un trascinamento
 const largo = () => window.matchMedia('(min-width: 1024px)').matches;
 
-// foglio: la tendina; maniglia: la zona da trascinare; corpo: la parte che scorre;
-// allaChiusura(): chi la apre e chiude (aria, pulsanti) sa che si è chiusa
-export function tendinaTrascinabile(foglio, { maniglia, corpo, allaChiusura = () => {} }) {
+// la cornice: un riquadro fisso fino alla barra in basso, che taglia ciò che esce sotto
+function cornice(foglio) {
+  if (foglio.parentElement?.classList.contains('cornice-tendina')) return foglio.parentElement;
+  const c = document.createElement('div');
+  c.className = 'cornice-tendina';
+  const z = getComputedStyle(foglio).zIndex;
+  if (z && z !== 'auto') c.style.setProperty('--z-cornice', z);
+  foglio.before(c);
+  c.appendChild(foglio);
+  return c;
+}
+
+// foglio: la tendina. maniglia: selettore della zona da trascinare (vale anche dopo che il contenuto
+// è stato riscritto); corpo: selettore della parte che scorre (null = il foglio stesso).
+// naturale: "aperta" è l'altezza del contenuto (fogli corti), non tutto lo schermo.
+// chiudibile: false = la posizione più bassa è "metà" (il foglio del disegno resta sempre).
+// quotaMeta: altezza di "metà" rispetto allo spazio disponibile; fineMeta: selettore dell'elemento
+// che deve vedersi tutto a metà (es. il pulsante Salva): "metà" arriva fin lì.
+// allaChiusura(): chi apre e chiude il foglio (aria, livelli, pulsanti) sa che si è chiuso.
+export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona', corpo = null, allaChiusura = () => {}, naturale = false, chiudibile = true, quotaMeta = 0.48, fineMeta = null } = {}) {
   let posizione = 'chiusa';
   foglio.classList.add('trascinabile');
+  const contenitore = cornice(foglio);
+  const corpoDi = () => (corpo ? foglio.querySelector(corpo) : foglio) ?? foglio;
 
-  // spazio tra la ricerca in alto e la barra in basso (l'altezza della cornice)
-  const cornice = foglio.parentElement;
-  function altezze() {
-    return altezzeTendina((cornice?.clientHeight || window.innerHeight) - 72);
+  // altezza del contenuto, senza limiti (solo per i fogli "naturali")
+  function contenuto() {
+    const { height, transform } = foglio.style;
+    const c = corpoDi();
+    const margine = c.style.paddingBottom;
+    foglio.style.height = 'auto';
+    foglio.style.transform = 'none';
+    c.style.paddingBottom = '';
+    const h = foglio.scrollHeight;
+    foglio.style.height = height;
+    foglio.style.transform = transform;
+    c.style.paddingBottom = margine;
+    return h;
   }
-  // spostamento in giù per avere `visibile` px di tendina
-  const sposta = (visibile) => {
-    const { aperta } = altezze();
+  // spazio tra la ricerca in alto e la barra in basso (l'altezza della cornice)
+  function altezze() {
+    const spazio = (contenitore.clientHeight || window.innerHeight) - 72;
+    const a = altezzeTendina(spazio);
+    a.meta = Math.round(spazio * quotaMeta);
+    if (naturale) a.aperta = Math.min(a.aperta, contenuto());
+    const fine = fineMeta && foglio.querySelector(fineMeta);
+    if (fine) a.meta = Math.round(fine.offsetTop + fine.offsetHeight + 14);
+    a.meta = Math.min(a.meta, a.aperta);
+    return a;
+  }
+  const sposta = (visibile, aperta) => {
     const giu = Math.max(0, aperta - visibile);
     foglio.style.transform = `translateY(${giu}px)`;
     return giu;
   };
-  const visibileOra = () => altezze().aperta - (new DOMMatrixReadOnly(getComputedStyle(foglio).transform).m42 || 0);
+  const visibileOra = () => (parseFloat(foglio.style.height) || foglio.getBoundingClientRect().height) - (new DOMMatrixReadOnly(getComputedStyle(foglio).transform).m42 || 0);
   function pulisci() {
     foglio.style.height = '';
     foglio.style.transform = '';
-    corpo.style.paddingBottom = '';
+    corpoDi().style.paddingBottom = '';
+    foglio.classList.remove('aperto');
   }
   function vai(p) {
+    if (p === 'chiusa' && !chiudibile) p = 'meta';
     const daChiusa = posizione === 'chiusa';
     posizione = p;
-    if (largo()) return pulisci();
+    if (largo()) {
+      pulisci();
+      foglio.classList.toggle('aperto', p === 'aperta');
+      return;
+    }
     if (p === 'chiusa') {
       pulisci();
       allaChiusura();
       return;
     }
+    // la classe prima di misurare: da aperto alcuni fogli mostrano di più (es. il profilo più alto)
+    foglio.classList.toggle('aperto', p === 'aperta');
     const a = altezze();
     foglio.style.height = `${a.aperta}px`;
     if (daChiusa) {
       // all'apertura sale dal basso
       foglio.classList.add('trascinando');
-      sposta(0);
+      sposta(0, a.aperta);
       void foglio.offsetHeight;
       foglio.classList.remove('trascinando');
     }
-    const giu = sposta(a[p]);
+    const giu = sposta(a[p], a.aperta);
     // la fine della lista resta raggiungibile anche a metà (la parte sotto la barra non si vede)
-    corpo.style.paddingBottom = `${giu + 16}px`;
+    corpoDi().style.paddingBottom = giu ? `${giu + 16}px` : '';
   }
 
-  // --- trascinamento: altezza che segue il dito, poi la posizione più vicina (o la spinta) ---
-  let inizio = null; // { y, h, t }
+  // --- trascinamento: la tendina segue il dito, poi la posizione più vicina (o la spinta) ---
+  let inizio = null; // { y, h, aperta }
   let ultimi = []; // ultimi punti per la velocità
   const comincia = (y) => {
-    inizio = { y, h: visibileOra(), t: performance.now() };
-    ultimi = [{ y, t: inizio.t }];
+    inizio = { y, h: visibileOra(), aperta: altezze().aperta };
+    ultimi = [{ y, t: performance.now() }];
     foglio.classList.add('trascinando');
   };
   const segui = (y) => {
-    const { aperta } = altezze();
-    sposta(Math.max(60, Math.min(aperta, inizio.h - (y - inizio.y))));
+    sposta(Math.max(60, Math.min(inizio.aperta, inizio.h - (y - inizio.y))), inizio.aperta);
     ultimi.push({ y, t: performance.now() });
     if (ultimi.length > 6) ultimi.shift();
   };
@@ -77,48 +122,59 @@ export function tendinaTrascinabile(foglio, { maniglia, corpo, allaChiusura = ()
     const b = ultimi.at(-1);
     const velocita = b.t > a.t ? (b.y - a.y) / (b.t - a.t) : 0;
     const altezza = visibileOra();
+    const misure = altezze();
     inizio = null;
-    vai(posizioneFinale({ altezza, velocita, altezze: altezze() }));
+    vai(posizioneFinale({ altezza, velocita, altezze: misure }));
   };
 
-  // dalla maniglia: un tocco passa da metà ad aperta e viceversa, un trascinamento la sposta
-  maniglia.addEventListener('pointerdown', (e) => {
-    if (largo()) return;
-    maniglia.setPointerCapture?.(e.pointerId);
+  // dalla maniglia (anche dopo che il contenuto è stato riscritto)
+  let daManiglia = null; // { tocco: true finché il dito non si sposta }
+  foglio.addEventListener('pointerdown', (e) => {
+    if (largo() || !e.target.closest(maniglia)) return;
+    foglio.setPointerCapture?.(e.pointerId);
+    daManiglia = { tocco: Boolean(e.target.closest('.foglio-maniglia-zona')) };
     comincia(e.clientY);
   });
-  maniglia.addEventListener('pointermove', (e) => inizio && segui(e.clientY));
+  foglio.addEventListener('pointermove', (e) => {
+    if (!daManiglia || !inizio) return;
+    if (Math.abs(e.clientY - inizio.y) > SOGLIA_PX) daManiglia.tocco = false;
+    segui(e.clientY);
+  });
   const rilascia = (e) => {
-    if (!inizio) return;
-    const mosso = Math.abs(e.clientY - inizio.y) > SOGLIA_PX;
-    if (mosso) return finisci();
+    if (!daManiglia || !inizio) return;
+    const tocco = daManiglia.tocco && Math.abs(e.clientY - inizio.y) <= SOGLIA_PX;
+    daManiglia = null;
+    if (!tocco) return finisci();
     foglio.classList.remove('trascinando');
     inizio = null;
-    vai(posizione === 'aperta' ? 'meta' : 'aperta');
+    // un tocco sulla maniglia: da metà ad aperta e viceversa (un foglio corto, senza metà, si chiude)
+    const a = altezze();
+    if (a.meta >= a.aperta) vai(chiudibile ? 'chiusa' : 'meta');
+    else vai(posizione === 'aperta' ? 'meta' : 'aperta');
   };
-  maniglia.addEventListener('pointerup', rilascia);
-  maniglia.addEventListener('pointercancel', rilascia);
-  // il clic che segue il tocco sulla maniglia non deve fare altro
-  maniglia.addEventListener('click', (e) => e.preventDefault());
+  foglio.addEventListener('pointerup', rilascia);
+  foglio.addEventListener('pointercancel', rilascia);
 
   // dalla lista: solo se è già in cima e il dito va in giù
-  let tocco = null; // { y, trascina }
-  corpo.addEventListener(
+  let tocco = null; // { y, trascina, corpo }
+  foglio.addEventListener(
     'touchstart',
     (e) => {
-      if (largo() || e.touches.length !== 1) return;
-      tocco = { y: e.touches[0].clientY, trascina: false };
+      if (largo() || e.touches.length !== 1 || e.target.closest(maniglia)) return;
+      const c = corpoDi();
+      if (!c.contains(e.target)) return;
+      tocco = { y: e.touches[0].clientY, trascina: false, corpo: c };
     },
     { passive: true },
   );
-  corpo.addEventListener(
+  foglio.addEventListener(
     'touchmove',
     (e) => {
       if (!tocco) return;
       const y = e.touches[0].clientY;
       if (!tocco.trascina) {
-        if (corpo.scrollTop > 0 || y - tocco.y < SOGLIA_PX) {
-          if (Math.abs(y - tocco.y) >= SOGLIA_PX) tocco = null; // la lista scorre: non è un trascinamento
+        if (tocco.corpo.scrollTop > 0 || y - tocco.y < SOGLIA_PX) {
+          if (Math.abs(y - tocco.y) >= SOGLIA_PX) tocco = null; // la lista scorre: non è la tendina
           return;
         }
         tocco.trascina = true;
@@ -133,11 +189,23 @@ export function tendinaTrascinabile(foglio, { maniglia, corpo, allaChiusura = ()
     if (tocco?.trascina) finisci();
     tocco = null;
   };
-  corpo.addEventListener('touchend', fineTocco);
-  corpo.addEventListener('touchcancel', fineTocco);
+  foglio.addEventListener('touchend', fineTocco);
+  foglio.addEventListener('touchcancel', fineTocco);
 
   // girando il telefono le altezze cambiano
   window.addEventListener('resize', () => posizione !== 'chiusa' && vai(posizione));
+  // i fogli corti crescono o si accorciano quando arriva il contenuto (dettagli, dati da OSM)
+  if (naturale) {
+    let atteso = false;
+    new MutationObserver(() => {
+      if (atteso || posizione === 'chiusa' || inizio) return;
+      atteso = true;
+      requestAnimationFrame(() => {
+        atteso = false;
+        if (posizione !== 'chiusa' && !inizio) vai(posizione);
+      });
+    }).observe(foglio, { childList: true, subtree: true, characterData: true });
+  }
 
   return {
     apri: (p = 'meta') => vai(p),

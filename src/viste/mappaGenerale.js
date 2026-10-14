@@ -533,11 +533,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   const foglio = app.querySelector('#foglioElenco');
   const apri = app.querySelector('#apriElenco');
   // tendina a tre posizioni (chiusa, metà, aperta): si trascina dalla maniglia o dalla lista in cima
-  const tendina = tendinaTrascinabile(foglio, {
-    maniglia: foglio.querySelector('.foglio-maniglia-zona'),
-    corpo: foglio.querySelector('.foglio-home-corpo'),
-    allaChiusura: () => mostraFoglio(false),
-  });
+  const tendina = tendinaTrascinabile(foglio, { corpo: '.foglio-home-corpo', allaChiusura: () => mostraFoglio(false) });
   mostraFoglio = (si) => {
     const cambia = foglio.hidden === si;
     foglio.hidden = !si;

@@ -11,6 +11,7 @@ import { escapeHtml } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
 import { caricaConfini } from './copertura.js';
 import { ICONE } from './icone.js';
+import { tendinaTrascinabile } from './tendina.js';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { ID_INTORNO } from '../datiParchi.js';
 import { itinerarioPresente, testoItinerario } from '../lib/itinerario.js';
@@ -57,9 +58,13 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
     box.insertAdjacentHTML('beforeend', '<p class="tenue piccolo stato-scarica" role="status"></p>');
   }
 
+  // la stessa tendina degli altri fogli, alta quanto il contenuto (cresce quando arrivano i dati da OSM)
+  const tendina = tendinaTrascinabile(foglio, { corpo: '.foglio-corpo', naturale: true, fineMeta: '.itinerari-via', allaChiusura: () => chiudi() });
+
   function chiudi() {
     if (foglio.hidden) return;
     foglio.hidden = true;
+    tendina.chiudi();
     selezione.clearLayers();
     richiesta++;
     allaChiusura();
@@ -78,7 +83,7 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
     ].filter(Boolean);
     const bozza = leggiBozza()?.punti?.length ?? 0;
     return `
-      <button type="button" class="foglio-maniglia-zona" data-azione="chiudi" aria-label="Chiudi"><span class="foglio-maniglia"></span></button>
+      <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire, abbassare o chiudere"><span class="foglio-maniglia"></span></button>
       <div class="foglio-corpo">
         <p class="foglio-nome"><b>${escapeHtml(via.nome ?? `${via.tipo} senza nome`)}</b></p>
         <p class="tenue piccolo foglio-sotto">${escapeHtml([via.tipo, parco ? `dentro il ${parco.nomeBreve}` : ''].filter(Boolean).join(' · '))}</p>
@@ -111,7 +116,9 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
       tag: {},
     };
     foglio.innerHTML = htmlVia(provvisoria, parco);
+    const eraChiuso = foglio.hidden;
     foglio.hidden = false;
+    if (eraChiuso || tendina.posizione() === 'chiusa') tendina.apri('meta');
     try {
       const json = await interrogaOverpass(queryViaVicina(punto[1], punto[0]), { timeoutMs: 15000 });
       if (mia !== richiesta) return;

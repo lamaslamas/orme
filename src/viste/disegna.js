@@ -3,6 +3,7 @@
 // acqua e rifugi entro 300 m; tirando su la barra il profilo grande e i punti con il km.
 // Punti: trascinare = spostare; tocco = menu (Togli / Sposta); pressione lunga = togliere.
 import L from 'leaflet';
+import { tendinaTrascinabile } from './tendina.js';
 import { leggiPercorso, salvaPercorso } from '../db.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
@@ -77,13 +78,13 @@ export async function vistaDisegna(app, id = null) {
     </div>
     <p class="disegno-suggerimento" id="suggerimento" hidden></p>
     <section class="foglio-disegno" aria-label="Il percorso disegnato">
-      <button type="button" class="foglio-maniglia-zona" data-azione="apri" aria-expanded="false" aria-label="Apri o riduci"><span class="foglio-maniglia"></span></button>
+      <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire o abbassare"><span class="foglio-maniglia"></span></button>
       <div class="disegno-numeri" id="numeri"></div>
       <div class="disegno-profilo" id="profilo"></div>
       <p class="disegno-punti" id="riassuntoPunti"></p>
       <div class="disegno-avvisi" id="avvisi"></div>
-      <div class="disegno-dettagli" id="dettagli"></div>
       <button type="button" class="bottone primario pieno" data-azione="salva">${ICONE.segnalibro}<span>Salva</span></button>
+      <div class="disegno-dettagli" id="dettagli"></div>
     </section>
     <dialog class="foglio foglio-salva">
       <div class="foglio-maniglia" aria-hidden="true"></div>
@@ -104,6 +105,9 @@ export async function vistaDisegna(app, id = null) {
   const livelloPunti = L.layerGroup().addTo(mappa);
   const segnaProfilo = L.circleMarker([0, 0], { radius: 7, color: '#fff', weight: 3, fillColor: '#ef9f27', fillOpacity: 1, interactive: false });
   const foglio = app.querySelector('.foglio-disegno');
+  // la stessa tendina degli altri fogli, ma resta sempre (la posizione più bassa è metà)
+  const tendina = tendinaTrascinabile(foglio, { naturale: true, chiudibile: false, fineMeta: '[data-azione="salva"]' });
+  tendina.apri('meta');
   const suggerimento = app.querySelector('#suggerimento');
 
   function scriviSuggerimento(testo) {
@@ -380,11 +384,7 @@ export async function vistaDisegna(app, id = null) {
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('[data-azione]');
     const azione = b?.dataset.azione;
-    if (azione === 'apri') {
-      const aperto = !foglio.classList.contains('aperto');
-      foglio.classList.toggle('aperto', aperto);
-      b.setAttribute('aria-expanded', String(aperto));
-    } else if (azione === 'salva' && risultato) {
+    if (azione === 'salva' && risultato) {
       const m = risultato.misure;
       app.querySelector('#riepilogoSalva').textContent = `${km1(m.km)} km${m.salita != null ? ` · +${m.salita} m` : ''}${m.durataMin != null ? ` · ${durata(m.durataMin)}` : ''}${eAnello(punti) ? ' · anello' : ''}`;
       finestraSalva.showModal();
