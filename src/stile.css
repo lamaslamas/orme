@@ -2053,3 +2053,6 @@ body.suggerisci-aperto .home-sotto, body.suggerisci-aperto .foglio-fauna { displ
 :root[data-scuro] .giudizio-ok .segno-giudizio { background: #97c459; }
 :root[data-scuro] .giudizio-attenzione .segno-giudizio { background: #fac775; }
 :root[data-scuro] .giudizio-sconsigliato .segno-giudizio { background: #f09595; }
+
+/* mappa in movimento: niente sfocatura dietro i controlli (cartografia.js), torna appena si ferma */
+.mappa-in-movimento *, .mappa-in-movimento .leaflet-bar a { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }

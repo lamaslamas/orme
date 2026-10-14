@@ -132,6 +132,13 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   // in sviluppo: l'ultima mappa aperta, per le prove dalla console
   if (import.meta.env.DEV && !anteprima) globalThis.__mappa = mappa;
   if (!anteprima) registraMappa(mappa); // misuratore (?misura)
+  // mentre la mappa si muove i controlli "di vetro" non sfocano lo sfondo: sul telefono ricalcolare la
+  // sfocatura a ogni fotogramma costa più del disegno della mappa (stile.css, .mappa-in-movimento)
+  if (!anteprima) {
+    const radice = document.documentElement;
+    mappa.on('movestart zoomstart', () => radice.classList.add('mappa-in-movimento'));
+    mappa.on('moveend zoomend unload', () => radice.classList.remove('mappa-in-movimento'));
+  }
 
   // Lavori di fine movimento (elenco, fauna, punti, legenda, vista salvata…) in un'unica coda: partono
   // 250 ms dopo l'ultimo movimento, uno per fotogramma (mai tutti insieme), e si fermano se la mappa
