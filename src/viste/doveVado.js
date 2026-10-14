@@ -13,8 +13,6 @@ import {
   GIUDIZI,
   NOMI_FATTORI,
   DURATE,
-  urlPrevisioni,
-  giorniDaRisposta,
   giudicaGiornata,
   riassuntoParco,
   nellaDurata,
@@ -27,6 +25,7 @@ import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { caricaPunti } from './puntiUtili.js';
 import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
+import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
 import { puntiLungoIlPercorso, perLaNotte, conAcqua, riassuntoPunti, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 
 // giudizio: cerchio pieno colorato con il segno dentro
@@ -40,7 +39,6 @@ const ICONE_GIUDIZIO = {
 const CHIAVE_SCELTE = 'orme.doveVado';
 const CHIAVE_SOGLIE = 'orme.preferenzeMeteo';
 const PAGINA = 25;
-const VALIDITA_MS = 60 * 60 * 1000; // previsioni riusate per un'ora
 
 const leggi = (chiave, base) => {
   try {
@@ -62,38 +60,6 @@ function dataTra(n) {
   const d = new Date();
   d.setDate(d.getDate() + n);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// previsioni già scaricate: chiave della cella → { giorni, quando }. Restano anche sul dispositivo
-// per un'ora, così riaprire la pagina non le scarica di nuovo (Open-Meteo è gratuito: con calma)
-const CHIAVE_PREVISIONI = 'orme.previsioni';
-const memoria = new Map();
-try {
-  const salvate = JSON.parse(localStorage.getItem(CHIAVE_PREVISIONI) ?? '{}');
-  for (const [k, v] of Object.entries(salvate)) if (v.quando > Date.now() - VALIDITA_MS) memoria.set(k, v);
-} catch {
-  // niente memoria del dispositivo: si scaricano ogni volta
-}
-function salvaPrevisioni() {
-  const recenti = Object.fromEntries([...memoria].filter(([, v]) => v.quando > Date.now() - VALIDITA_MS));
-  try {
-    localStorage.setItem(CHIAVE_PREVISIONI, JSON.stringify(recenti));
-  } catch {
-    // spazio esaurito: restano solo in questa sessione
-  }
-}
-async function scaricaPrevisioni(punti, { segnale } = {}) {
-  const adesso = Date.now();
-  const mancanti = punti.filter((p) => !(memoria.get(p.chiave)?.quando > adesso - VALIDITA_MS));
-  for (const { url, punti: gruppo } of urlPrevisioni(mancanti)) {
-    const r = await fetch(url, { signal: segnale });
-    if (r.status === 429) throw new Error('troppe richieste a Open-Meteo, riprova tra un minuto');
-    if (!r.ok) throw new Error(`Open-Meteo ha risposto ${r.status}`);
-    const json = await r.json();
-    const risposte = Array.isArray(json) ? json : [json];
-    gruppo.forEach((p, i) => memoria.set(p.chiave, { giorni: giorniDaRisposta(risposte[i]), quando: adesso }));
-  }
-  if (mancanti.length) salvaPrevisioni();
 }
 
 function htmlPreferenze(s) {
@@ -262,8 +228,8 @@ export async function vistaDoveVado(app, zona = null) {
     const mese = Number(data.slice(5, 7));
     const voci = [];
     for (const p of lista) {
-      const basso = giornoAllaQuota(memoria.get(p.meteo.basso.chiave)?.giorni[data], p.meteo.basso.quota);
-      const alto = p.meteo.alto ? giornoAllaQuota(memoria.get(p.meteo.alto.chiave)?.giorni[data], p.meteo.alto.quota) : null;
+      const basso = giornoAllaQuota(previsioneDi(p.meteo.basso.chiave, data), p.meteo.basso.quota);
+      const alto = p.meteo.alto ? giornoAllaQuota(previsioneDi(p.meteo.alto.chiave, data), p.meteo.alto.quota) : null;
       const giudizio = giudicaGiornata({ basso, alto, durataMin: p.meteo.durataMin, percorso: p.meteo.percorso, soglie, attivita, dopoMin });
       if (!giudizio || !nellaDurata(giudizio.durataPrevista, scelte.durata)) continue;
       voci.push({ ...p, giudizio, panorama: p.meteo.percorso.panorama, mese });
