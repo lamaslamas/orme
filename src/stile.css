@@ -1981,3 +1981,44 @@ body.disegno main { padding: 0; }
   .finestra-trascinabile .foglio-maniglia { box-sizing: content-box; padding: 10px 70px; margin: -6px auto 0; background-clip: content-box; touch-action: none; cursor: grab; }
   .finestra-trascinabile .foglio-titolo, .finestra-trascinabile .foglio-testa { touch-action: none; }
 }
+
+/* Suggeriscimi (pagina iniziale): tendina con tutte le scelte e le 3 proposte */
+.foglio-suggerisci {
+  position: fixed; z-index: 1045; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
+  max-height: 80dvh; display: flex; flex-direction: column;
+  background: var(--sfondo, #f4f6f4); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro);
+}
+.foglio-suggerisci[hidden] { display: none; }
+.suggerisci-corpo { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 16px 16px; }
+.suggerisci-corpo h3 { font-size: 0.85rem; margin: 10px 0 4px; color: var(--testo-tenue); font-weight: 700; }
+.gruppo-scelte { display: flex; flex-wrap: wrap; gap: 6px; }
+.gruppo-scelte .chip-scorciatoia.attiva { background: var(--verde); color: #fff; border-color: var(--verde); }
+.scelta-parco { margin-top: 8px; width: 100%; min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; font: inherit; }
+.suggerisci-corpo [data-azione="suggerisci"] { margin: 14px 0 6px; width: 100%; }
+.proposte { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
+.proposta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border-radius: 14px; background: var(--scheda-piena); }
+.proposta-mappa { border: none; background: none; padding: 0; cursor: pointer; }
+.numero-proposta, .segno-proposta span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; font-weight: 800; font-size: 0.85rem; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+.proposta-corpo { display: grid; gap: 3px; min-width: 0; }
+.proposta-corpo .nome { font-weight: 800; text-decoration: none; color: inherit; }
+.proposta-corpo .perche { font-size: 0.88rem; }
+.meteo-proposta { font-size: 0.82rem; font-weight: 700; }
+.meteo-ok { color: #2f7d3e; }
+.meteo-attenzione { color: #9a6408; }
+.meteo-sconsigliato { color: #a33b2e; }
+:root[data-scuro] .meteo-ok { color: #97c459; }
+:root[data-scuro] .meteo-attenzione { color: #fac775; }
+:root[data-scuro] .meteo-sconsigliato { color: #f09595; }
+.azioni-proposte { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+body.suggerisci-aperto .home-sotto, body.suggerisci-aperto .foglio-fauna { display: none; }
+@media (min-width: 1024px) {
+  .foglio-suggerisci { left: var(--larghezza-nav); right: auto; width: 420px; top: 0; bottom: 0; max-height: none; border-radius: 0; }
+}
+/* in basso tre pulsanti (Suggerisci, Percorsi qui, matita): sul telefono stretti, ci stanno tutti */
+@media (max-width: 480px) {
+  .home-sotto { gap: 6px; }
+  .home-sotto .pill-mappa { padding: 0 11px; gap: 5px; font-size: 0.92rem; }
+  .home-sotto .pill-mappa.tondo { padding: 0; flex: none; }
+}
+.suggerisci-riepilogo { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 2px; font-size: 0.88rem; font-weight: 700; }
+.suggerisci-riepilogo[hidden], .suggerisci-form[hidden] { display: none; }

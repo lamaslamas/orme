@@ -215,6 +215,14 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
     },
     vai,
     posizione: () => posizione,
+    // px di tendina visibili a posizione raggiunta (anche mentre sta ancora scorrendo): per inquadrare
+    // la mappa sopra di lei
+    visibile: () => {
+      if (foglio.hidden) return 0;
+      const h = parseFloat(foglio.style.height) || foglio.getBoundingClientRect().height;
+      const giu = Number(/translateY\((-?[\d.]+)px\)/.exec(foglio.style.transform)?.[1] ?? 0);
+      return Math.max(0, h - giu);
+    },
   };
 }
 

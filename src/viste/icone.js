@@ -29,6 +29,7 @@ export const ICONE = {
   calendario: svg('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'),
   cerca: svg('<circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/>'),
   matita: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'),
+  bussola: svg('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>'),
   chiudi: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
   indietro: svg('<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
   anello: svg('<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/>'),

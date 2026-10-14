@@ -2,6 +2,7 @@ import L from 'leaflet';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
 import { tendinaTrascinabile } from './tendina.js';
+import { creaSuggeriscimi } from './suggeriscimi.js';
 import { senzaTracciaNellaZona, testoRiassunto } from '../lib/elencoZona.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
@@ -217,6 +218,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     </form>
     <button type="button" class="pill-mappa cerca-zona" id="cercaZona" hidden>${ICONE.cerca}<span>Cerca percorsi qui</span></button>
     <div class="home-sotto">
+      <button type="button" class="pill-mappa" id="apriSuggerisci">${ICONE.bussola}<span>Suggerisci</span></button>
       <button type="button" class="pill-mappa" id="apriElenco" aria-expanded="false" aria-controls="foglioElenco">${ICONE.percorso}<span>Percorsi qui</span><b id="contaQui"></b></button>
       <a class="pill-mappa tondo" href="#/percorso-nuovo" aria-label="Disegna un percorso">${ICONE.matita ?? '✎'}</a>
     </div>
@@ -335,7 +337,15 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // un foglio alla volta: aprendo l'elenco si nasconde la fauna (e viceversa)
   let mostraFoglio = null;
   // fauna come in "Intorno a me": gruppi di animali scelti e "Cosa vedere qui" nella zona inquadrata
-  const fauna = creaFaunaHome(app, mappa, { allApertura: () => mostraFoglio?.(false), apriElenco: () => mostraFoglio?.(true) });
+  const fauna = creaFaunaHome(app, mappa, {
+    allApertura: () => {
+      mostraFoglio?.(false);
+      suggerisci?.chiudi();
+    },
+    apriElenco: () => mostraFoglio?.(true),
+  });
+  // "Suggeriscimi": una tendina sua; aprendola si chiudono le altre
+  let suggerisci = null;
   const heat = aggiungiHeatmap(mappa, {
     occupata: () => misura.attiva() || avv.attiva() || Boolean(mappa.strumento),
     intorno: true,
@@ -534,7 +544,15 @@ export async function vistaMappaGenerale(app, idParco = null) {
   const apri = app.querySelector('#apriElenco');
   // tendina a tre posizioni (chiusa, metà, aperta): si trascina dalla maniglia o dalla lista in cima
   const tendina = tendinaTrascinabile(foglio, { corpo: '.foglio-home-corpo', allaChiusura: () => mostraFoglio(false) });
+  suggerisci = creaSuggeriscimi(app, mappa, {
+    sentieri: tutti,
+    tracce,
+    posizione: () => miaPosizione,
+    allApertura: () => mostraFoglio(false),
+  });
+  app.querySelector('#apriSuggerisci').addEventListener('click', () => (suggerisci.aperto() ? suggerisci.chiudi() : suggerisci.apri()));
   mostraFoglio = (si) => {
+    if (si) suggerisci?.chiudi();
     const cambia = foglio.hidden === si;
     foglio.hidden = !si;
     if (si && elencoVecchio) elencoInVista();

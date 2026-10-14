@@ -38,7 +38,7 @@ export function adattoAlTempo(minuti, tempo) {
   if (!Number.isFinite(minuti)) return false;
   if (tempo === 'mezza') return minuti <= 270;
   if (tempo === 'giornata') return minuti >= 180 && minuti <= 540;
-  return minuti > 360; // due giorni: serve anche il rifugio a fine primo giorno
+  return minuti > 480; // due giorni (oltre 8 ore di cammino): serve anche il rifugio a fine primo giorno
 }
 
 // fatica: dislivello e difficoltà CAI
@@ -74,7 +74,7 @@ export function valuta(c, scelte) {
     if (trova[cosa]) {
       trovati.push(cosa);
       punteggio += cosa === 'fauna' ? (c.fauna.livello === 'frequenti' ? 30 : 15) : 20;
-    } else punteggio -= 12;
+    } else punteggio -= 30; // cercato e non trovato: pesa più della distanza
   }
   if (c.anello) punteggio += 6;
   if (c.acqua) punteggio += 4;
