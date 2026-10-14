@@ -21,27 +21,8 @@ import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { ICONE } from './icone.js';
-import { tuttiISentieri, tutteLeTracce } from '../db.js';
-import { trattiARischio, testiAvvisi, intervalliLiberi, ACCESSI_REGOLATI } from '../lib/avvisiParco.js';
-import { puntoNelPoligono } from '../lib/confini.js';
-import { PARCHI } from '../datiParchi.js';
-import { caricaConfini } from './copertura.js';
-
-// Per gli avvisi: in quale parco cade un punto (confine, o riquadro se manca) e i nostri sentieri ad
-// accesso regolato, con la traccia. Si preparano una volta.
-let datiAvvisi = null;
-function preparaAvvisi() {
-  datiAvvisi ??= Promise.all([caricaConfini(), tuttiISentieri(), tutteLeTracce()]).then(([confini, sentieri, tracce]) => {
-    const parchi = PARCHI.filter((p) => !p.zona);
-    const parcoDi = ([lon, lat]) =>
-      parchi.find((p) => (lat >= p.bbox[0] && lat <= p.bbox[2] && lon >= p.bbox[1] && lon <= p.bbox[3] ? (confini[p.id]?.length ? puntoNelPoligono([lon, lat], confini[p.id]) : true) : false)) ?? null;
-    const regolati = sentieri
-      .filter((x) => ACCESSI_REGOLATI[x.accesso?.tipo] && tracce.get(x.id)?.geojson)
-      .map((x) => ({ nome: [x.codici?.join(' + '), x.nome].filter(Boolean).join(' '), accesso: x.accesso.tipo, geojson: tracce.get(x.id).geojson }));
-    return { parcoDi, regolati };
-  });
-  return datiAvvisi;
-}
+import { trattiARischio, testiAvvisi, intervalliLiberi } from '../lib/avvisiParco.js';
+import { preparaAvvisi } from './avvisiParco.js';
 
 const COLORE = '#0f6e56'; // verde: diverso dal viola dei percorsi dell'archivio
 const ATTESA_PUNTI_MS = 1200; // rifugi e acqua si cercano quando il disegno si ferma un attimo

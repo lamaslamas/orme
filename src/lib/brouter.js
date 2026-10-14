@@ -4,9 +4,14 @@
 export const URL_BROUTER = 'https://brouter.de/brouter';
 export const PROFILO_ESCURSIONE = 'hiking-mountain';
 
-export function urlBrouter(punti, profilo = PROFILO_ESCURSIONE) {
+// "Crea un anello" chiede di preferire i sentieri segnati: nel profilo le vie fuori dai percorsi
+// escursionistici costano 1 + preferenza volte (parametro del profilo, da 0,1 a 2; di base 0,2).
+// Non troppo: con 2 conviene tornare indietro sul segnato invece di fare un tratto di strada
+export const PREFERENZA_SEGNATI = 0.6;
+export function urlBrouter(punti, profilo = PROFILO_ESCURSIONE, { preferenzaSegnati = null } = {}) {
   const lonlats = punti.map(([lon, lat]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join('|');
-  return `${URL_BROUTER}?lonlats=${encodeURIComponent(lonlats)}&profile=${profilo}&alternativeidx=0&format=geojson`;
+  const extra = preferenzaSegnati ? `&profile:hiking_routes_preference=${preferenzaSegnati}` : '';
+  return `${URL_BROUTER}?lonlats=${encodeURIComponent(lonlats)}&profile=${profilo}&alternativeidx=0&format=geojson${extra}`;
 }
 
 // "highway=path surface=ground" → { highway: 'path', surface: 'ground' }
@@ -44,16 +49,18 @@ export function interpretaBrouter(json) {
   };
 }
 
-export async function calcolaPercorso(punti, { fetchFn = fetch } = {}) {
+export async function calcolaPercorso(punti, { fetchFn = fetch, preferenzaSegnati = null } = {}) {
   if (punti.length < 2) throw new Error('Servono almeno due punti.');
   let risposta;
   try {
-    risposta = await fetchFn(urlBrouter(punti));
+    risposta = await fetchFn(urlBrouter(punti, PROFILO_ESCURSIONE, { preferenzaSegnati }));
   } catch {
     throw new Error('BRouter non risponde: controlla la connessione.');
   }
   if (!risposta.ok) {
     const testo = await risposta.text().catch(() => '');
+    // troppe richieste: il server pubblico chiede di riprovare più tardi
+    if (risposta.status === 403 || risposta.status === 429) throw Object.assign(new Error('BRouter è occupato: riprova tra qualche minuto.'), { occupato: true });
     throw new Error(/not.*found|position/i.test(testo) ? 'Uno dei punti è troppo lontano da un sentiero o da una strada.' : `BRouter ha risposto ${risposta.status}.`);
   }
   return interpretaBrouter(await risposta.json());

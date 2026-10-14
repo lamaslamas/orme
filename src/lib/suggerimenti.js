@@ -5,7 +5,8 @@ import { distanzaKm } from './geo.js';
 import { ANIMALI } from './costanti.js';
 import { durata } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { quando: 'oggi', tempo: 'mezza', cerco: [], fatica: 'media', distanza: '60', parco: '' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], fatica: 'media', distanza: '60', parco: '', lunghezza: '12' };
+export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };
 export const COSE = { fauna: 'Fauna', panorama: 'Panorama', bosco: 'Bosco', cresta: 'Cresta', acqua: 'Acqua', associazioni: 'Uscite delle associazioni' };

@@ -64,3 +64,17 @@ describe('esportazione GPX', () => {
     expect(nomeFileGpx('')).toBe('percorso.gpx');
   });
 });
+
+describe('urlBrouter con preferenza per i segnati', () => {
+  it('aggiunge il parametro del profilo solo se chiesto', () => {
+    expect(urlBrouter([[13.7, 41.8], [13.8, 41.9]])).not.toContain('hiking_routes_preference');
+    expect(urlBrouter([[13.7, 41.8], [13.8, 41.9]], 'hiking-mountain', { preferenzaSegnati: 2 })).toContain('&profile:hiking_routes_preference=2');
+  });
+});
+
+describe('BRouter occupato', () => {
+  it('403 o 429: errore chiaro, segnato come occupato', async () => {
+    const occupato = vi.fn().mockResolvedValue({ ok: false, status: 403, text: async () => 'Please, retry later!' });
+    await expect(calcolaPercorso([[13.7, 41.8], [13.8, 41.9]], { fetchFn: occupato })).rejects.toMatchObject({ occupato: true, message: expect.stringContaining('riprova') });
+  });
+});

@@ -1,6 +1,8 @@
 // "Suggeriscimi" (pagina iniziale): una sola schermata con tutte le scelte, già impostate e ricordate
 // sul telefono (src/lib/suggerimenti.js); "Suggerisci" mostra 3 proposte sulla mappa, ognuna con la riga
 // del perché, il meteo del giorno scelto e l'auto stimata. "Altre 3" scorre la classifica.
+// "Crea un anello": 3 giri nuovi dalla partenza, calcolati con BRouter (src/lib/anello.js); nei parchi
+// solo sentieri segnati e senza accesso regolato, fuori anche i non segnati, evidenziati.
 import L from 'leaflet';
 import { stato } from '../stato.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
@@ -9,13 +11,14 @@ import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero } from '../lib/tracce.js';
 import { possibilitaFauna } from '../lib/faunaPercorso.js';
 import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
-import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
+import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
 import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
 import { puntoDiPartenza } from '../lib/navigazione.js';
 import {
   SCELTE_PREDEFINITE,
+  MODI_SUGGERISCI,
   QUANDO,
   TEMPI,
   COSE,
@@ -28,12 +31,44 @@ import {
   ordinaProposte,
   testoPerche,
 } from '../lib/suggerimenti.js';
-import { escapeHtml, codici } from '../lib/formato.js';
+import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { caricaPunti } from './puntiUtili.js';
+import { zoneCoperte } from './copertura.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
 import { modoScelto } from './andataRitorno.js';
 import { tendinaTrascinabile } from './tendina.js';
+import { calcolaPercorso, PREFERENZA_SEGNATI } from '../lib/brouter.js';
+import { trattiARischio, ACCESSI_REGOLATI } from '../lib/avvisiParco.js';
+import { distanzaKm } from '../lib/geo.js';
+import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
+import { leggiBozza, salvaBozza } from '../lib/bozza.js';
+import {
+  LUNGHEZZE,
+  DIREZIONI,
+  direzioniDelGiro,
+  puntiDellAnello,
+  puntoA,
+  sovrapposizione,
+  quotaSegnata,
+  trattiNonSegnati,
+  ammessoNeiParchi,
+  vicinoAiSentieri,
+  agganciaAlSentiero,
+  senzaPunte,
+  gambo,
+  valutaAnello,
+  scegliAnelli,
+  correzioneLunghezza,
+  quotaComune,
+  MAX_SCARTO_LUNGHEZZA,
+  MAX_GAMBO,
+  testoQuotaSegnata,
+} from '../lib/anello.js';
+import { preparaAvvisi } from './avvisiParco.js';
+import { quoteDeiPezzi } from './quote.js';
+import { puntiDelRobot } from './puntiRobot.js';
+import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodiVicini, puntiLungo } from '../lib/reteSentieri.js';
 
 const CHIAVE = 'orme.suggerisci';
 const PER_VOLTA = 3;
@@ -90,7 +125,16 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   let richiesta = 0;
 
   function htmlScelte() {
-    return `
+    const modo = `<div class="segmenti due scelta-modo" role="radiogroup" aria-label="Cosa suggerire">${Object.entries(MODI_SUGGERISCI)
+      .map(([k, t]) => `<button type="button" role="radio" class="segmento ${k === scelte.modo ? 'attivo' : ''}" aria-checked="${k === scelte.modo}" data-scelta="modo" data-valore="${k}">${t}</button>`)
+      .join('')}</div>`;
+    if (scelte.modo === 'anello') {
+      return `${modo}
+        <h3>Lunghezza</h3>${htmlGruppo('lunghezza', LUNGHEZZE, scelte.lunghezza)}
+        <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
+        <p class="tenue piccolo partenza-anello">Partenza: ${posizione() ? 'la tua posizione' : 'il centro della mappa (sposta la mappa per cambiarla)'}. Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
+    }
+    return `${modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
       <h3>Quanto tempo</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
@@ -106,6 +150,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
+    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], FATICHE[scelte.fatica].toLowerCase(), posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
     const cerco = scelte.cerco.map((c) => COSE[c].toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : `entro ${DISTANZE[scelte.distanza]}`;
     return [QUANDO[scelte.quando], TEMPI[scelte.tempo].toLowerCase(), FATICHE[scelte.fatica].toLowerCase(), lontano, ...cerco].join(' · ');
@@ -117,11 +162,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         <div class="suggerisci-riepilogo" hidden><span></span><button type="button" class="bottone testo" data-azione="cambia">Cambia</button></div>
         <div class="suggerisci-form">
           <div class="suggerisci-scelte">${htmlScelte()}</div>
-          <button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">Suggerisci</button>
+          <button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">${testoBottone()}</button>
         </div>
         <div class="suggerisci-risultati" aria-live="polite"></div>
       </div>`;
   }
+  const testoBottone = () => (scelte.modo === 'anello' ? 'Crea l\'anello' : 'Suggerisci');
   // con le proposte: scelte in una riga sopra; "Cambia" le riapre
   function soloRisultati(si) {
     foglio.querySelector('.suggerisci-form').hidden = si;
@@ -328,6 +374,261 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   let paginaOra = [];
 
+  // --- Crea un anello ---
+  let anelliOra = [];
+  const centroMappa = () => {
+    const c = mappa.getCenter();
+    return [c.lng, c.lat];
+  };
+  // giro: 0 con "Crea l'anello", poi ogni "Rigenera" prova direzioni nuove (direzioniDelGiro)
+  let giroAnello = 0;
+  async function creaAnelli(giro = 0) {
+    const mia = ++richiesta;
+    giroAnello = giro;
+    const risultati = foglio.querySelector('.suggerisci-risultati');
+    const avanzamento = (n) => (risultati.innerHTML = `<p class="tenue">Calcolo gli anelli sui sentieri… ${n} di ${DIREZIONI}</p>`);
+    avanzamento(0);
+    const volutaKm = Number(scelte.lunghezza);
+    const voluta = posizione() ?? centroMappa();
+    // acqua: i punti dei parchi più i quadrati del robot della zona (file già pronti, niente Overpass)
+    const raggio = volutaKm / 2 + 1;
+    const [avvisi, parchi, robot] = await Promise.all([preparaAvvisi(), caricaPunti(), puntiDelRobot(riquadroDeiPezzi([[puntoA(voluta, raggio * 1.42, 225), puntoA(voluta, raggio * 1.42, 45)]], 0), { max: 9 })]);
+    if (mia !== richiesta) return;
+    const punti = [...new Map([...(parchi ?? []), ...robot.punti].map((p) => [p.id, p])).values()];
+    // dove i punti non sono stati scaricati l'acqua non si sa (non è "nessuna")
+    const zone = [...(await zoneCoperte(Boolean(parchi))), ...robot.coperti.map((bbox) => ({ bbox }))];
+    const acquaDi = (linea, geojson) => (percorsoCoperto([linea], zone) ? puntiLungoIlPercorso(punti, geojson).filter(conAcqua).length : null);
+    // nei parchi l'anello si fa con i soli sentieri dell'archivio, aperti a tutti
+    if (avvisi.parcoDi(voluta)) return anelliNelParco({ mia, giro, voluta, volutaKm, acquaDi });
+    // fuori dai parchi BRouter; i punti del giro che cadono in un parco si agganciano ai sentieri
+    const vertici = verticiDeiSentieri(voluta, volutaKm / 2 + 2);
+    const suiSentieri = vicinoAiSentieri(vertici);
+    const partenza = voluta;
+    const aggancia = (p) => (avvisi.parcoDi(p) ? agganciaAlSentiero(p, vertici)?.p ?? p : p);
+    const varianti = [];
+    const ottenute = []; // lunghezze riportate alla voluta: correggono le prossime
+    const conti = { fuoriRegole: 0, errori: 0, occupato: false };
+    const calcola = (tappe) => calcolaPercorso(tappe, { preferenzaSegnati: PREFERENZA_SEGNATI });
+    // una richiesta alla volta (il server pubblico di BRouter è di tutti); basta con 3 anelli buoni
+    for (const [k, gradi] of direzioniDelGiro(giro).entries()) {
+      if (scegliAnelli(varianti, PER_VOLTA).length === PER_VOLTA) break;
+      avanzamento(k + 1);
+      const kmRichiesti = volutaKm * correzioneLunghezza(ottenute, volutaKm);
+      let tappe = puntiDellAnello(partenza, kmRichiesti, gradi).map((p, i, x) => (i === 0 || i === x.length - 1 ? p : aggancia(p)));
+      let r = null;
+      try {
+        r = await calcola(tappe);
+        // punti raggiunti con un andata e ritorno: si spostano alla base e si ricalcola una volta
+        const senza = senzaPunte(r.coordinate, tappe);
+        if (senza && mia === richiesta) {
+          tappe = senza;
+          r = await calcola(tappe);
+        }
+      } catch (e) {
+        if (e.occupato) conti.occupato = true;
+        else conti.errori++;
+      }
+      if (mia !== richiesta) return;
+      if (conti.occupato) break;
+      if (!r) continue;
+      const linea = r.coordinate.map(([lon, lat]) => [lon, lat]);
+      ottenute.push(((r.lunghezzaM / 1000) * volutaKm) / kmRichiesti);
+      if (!ammessoNeiParchi(trattiARischio({ linea, terreno: r.terreno }, avvisi), { suiSentieri })) {
+        conti.fuoriRegole++;
+        continue;
+      }
+      const geojson = { type: 'MultiLineString', coordinates: [linea] };
+      const v = {
+        linea,
+        geojson,
+        tappe,
+        misure: misureDeiPezzi([r.coordinate]),
+        segnata: quotaSegnata(r.terreno),
+        gamboM: gambo(linea),
+        acqua: acquaDi(linea, geojson),
+        nonSegnati: trattiNonSegnati(linea, r.terreno),
+      };
+      v.sovrapposizione = sovrapposizione(linea, { gamboM: v.gamboM });
+      v.punteggio = valutaAnello({ ...v.misure, ...v }, { volutaKm, fatica: scelte.fatica });
+      varianti.push(v);
+    }
+    anelliOra = scegliAnelli(varianti, PER_VOLTA);
+    mostraAnelli({ ...conti, scartate: varianti.length - anelliOra.length, partenza });
+  }
+
+  // Nel parco: la rete dei sentieri dell'archivio intorno alla partenza e i giri da lì (anche con un
+  // gambo), ordinati; le quote (TINITALY) per i primi, finché ce ne sono 3 adatti alla fatica.
+  // "Rigenera" mostra i 3 successivi della stessa classifica
+  let nelParco = null; // { chiave, lista, partenza, distanzaM, mostrati }
+  async function anelliNelParco({ mia, giro, voluta, volutaKm, acquaDi }) {
+    const chiave = `${voluta.map((x) => x.toFixed(3))}|${volutaKm}|${scelte.fatica}`;
+    if (!giro || nelParco?.chiave !== chiave) {
+      const lista = [];
+      const adatti = sentieriAdatti();
+      for (const s of sentieri) {
+        if (!adatti.has(s.id) || ACCESSI_REGOLATI[s.accesso?.tipo] || ['uscita_guidata', 'rete_sentieri'].includes(s.tipoPercorso)) continue;
+        const g = tracce.get(s.id)?.geojson;
+        if (!g) continue;
+        const linee = g.type === 'LineString' ? [g.coordinates] : g.coordinates;
+        if (linee.some((l) => l.some((p) => distanzaKm(voluta, p) <= volutaKm / 2 + 3))) lista.push({ id: s.id, linee });
+      }
+      const rete = reteDeiSentieri(lista, { partenza: voluta });
+      const [nodo] = nodiVicini(rete, voluta, { n: 1, maxM: 2000 });
+      if (!nodo) {
+        anelliOra = [];
+        return mostraAnelli({ messaggio: 'Nessun sentiero segnato del parco entro 2 km da qui: sposta la partenza.' });
+      }
+      const giri = giriDallaPartenza(rete, nodo.id, { minKm: volutaKm * (1 - MAX_SCARTO_LUNGHEZZA), maxKm: volutaKm * (1 + MAX_SCARTO_LUNGHEZZA), maxGamboKm: (volutaKm * MAX_GAMBO) / 2 });
+      const nomi = new Map(sentieri.map((s) => [s.id, s.codici?.length ? codici(s) : s.nome]));
+      // prima classifica senza quote: lunghezza, tratti ripetuti e gambo
+      const prima = giri.map((g) => {
+        const linea = lineaDelGiro(rete, g);
+        const gamboM = g.gamboKm * 1000;
+        const v = { linea, gamboM, sovrapposizione: sovrapposizione(linea, { gamboM }), segnata: 1, nonSegnati: [], nomi: [...new Set(sentieriDelGiro(rete, g).map((id) => nomi.get(id)).filter(Boolean))] };
+        v.provvisorio = valutaAnello({ km: g.km, salita: 0, durataMin: 0, ...v }, { volutaKm, fatica: 'media' });
+        return v;
+      });
+      nelParco = { chiave, lista: prima.filter((v) => v.provvisorio != null).sort((a, b) => b.provvisorio - a.provvisorio), partenza: nodo.p, distanzaM: nodo.distanzaM, mostrati: 0 };
+    }
+    const pagina = [];
+    let scartate = 0;
+    // dal punto dove si era arrivati: quote e punteggio vero, finché ce ne sono 3 (o finisce la lista)
+    while (pagina.length < PER_VOLTA && nelParco.mostrati < nelParco.lista.length) {
+      const v = nelParco.lista[nelParco.mostrati++];
+      if (!v.misure) {
+        risultati().innerHTML = '<p class="tenue">Calcolo le quote degli anelli…</p>';
+        const { pezzi } = await quoteDeiPezzi([v.linea]).catch(() => ({ pezzi: [v.linea] }));
+        if (mia !== richiesta) return;
+        v.misure = misureDeiPezzi(pezzi);
+        v.geojson = { type: 'MultiLineString', coordinates: [v.linea] };
+        v.acqua = acquaDi(v.linea, v.geojson);
+        v.punteggio = valutaAnello({ ...v.misure, ...v }, { volutaKm, fatica: scelte.fatica });
+      }
+      if (v.punteggio == null || pagina.some((x) => quotaComune(x.linea, v.linea) > 0.6)) scartate++;
+      else pagina.push(v);
+    }
+    if (!pagina.length && nelParco.mostrati >= nelParco.lista.length && nelParco.lista.length && giro) {
+      nelParco.mostrati = 0; // finita la classifica: si ricomincia
+      return anelliNelParco({ mia, giro, voluta, volutaKm, punti });
+    }
+    anelliOra = pagina;
+    const restano = nelParco.lista.length - nelParco.mostrati;
+    mostraAnelli({
+      partenza: nelParco.partenza,
+      agganciata: { distanzaM: nelParco.distanzaM },
+      nelParco: true,
+      restano,
+      messaggio: pagina.length ? '' : `Nessun anello sui sentieri segnati del parco${scartate ? ' adatto alla fatica scelta' : ''} da qui: prova un'altra lunghezza o sposta la partenza.`,
+    });
+  }
+  const risultati = () => foglio.querySelector('.suggerisci-risultati');
+
+  // i sentieri compatibili con l'attività scelta (a piedi niente itinerari MTB), come negli elenchi
+  const sentieriAdatti = () => new Set(filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI }, stato.leggi().attivita).map((p) => p.sentiero.id));
+
+  // vertici dei sentieri dell'archivio entro raggioKm, senza quelli ad accesso regolato né le uscite
+  function verticiDeiSentieri(centro, raggioKm) {
+    const fuori = [];
+    const adatti = sentieriAdatti();
+    for (const s of sentieri) {
+      if (!adatti.has(s.id) || ACCESSI_REGOLATI[s.accesso?.tipo] || ['uscita_guidata', 'rete_sentieri'].includes(s.tipoPercorso)) continue;
+      const g = tracce.get(s.id)?.geojson;
+      if (!g) continue;
+      for (const l of g.type === 'LineString' ? [g.coordinates] : g.coordinates) for (const p of l) if (distanzaKm(centro, p) <= raggioKm) fuori.push(p);
+    }
+    return fuori;
+  }
+
+  function mostraAnelli({ mia = richiesta, fuoriRegole = 0, errori = 0, occupato = false, scartate = 0, partenza, agganciata, nelParco: suiSegnati = false, restano = 0, messaggio = '' }) {
+    const risultati = foglio.querySelector('.suggerisci-risultati');
+    disegnate.clearLayers();
+    soloRisultati(true);
+    if (!anelliOra.length && messaggio) {
+      risultati.innerHTML = `<p class="vuoto">${escapeHtml(messaggio)}</p>`;
+      tendina.vai('meta');
+      return;
+    }
+    if (!anelliOra.length) {
+      const perche = [
+        fuoriRegole ? `${fuoriRegole} ${fuoriRegole === 1 ? 'usciva' : 'uscivano'} dai sentieri segnati o aperti a tutti del parco` : '',
+        scartate ? `${scartate} troppo ${scartate === 1 ? 'lontano' : 'lontani'} dalla lunghezza o dalla fatica scelte, o con troppi tratti ripetuti` : '',
+        errori ? `${errori} non ${errori === 1 ? 'calcolato' : 'calcolati'} (punto lontano dai sentieri)` : '',
+      ]
+        .filter(Boolean)
+        .join('; ');
+      risultati.innerHTML = `${
+        occupato
+          ? '<p class="vuoto">Il server di BRouter è occupato: riprova tra qualche minuto.</p>'
+          : `<p class="vuoto">Nessun anello adatto da qui${perche ? `: ${escapeHtml(perche)}` : ''}. Prova Rigenera, un'altra lunghezza o sposta la partenza.</p>`
+      }
+        <div class="azioni-proposte"><button type="button" class="bottone" data-azione="rigenera">Rigenera</button></div>`;
+      tendina.vai('meta');
+      return;
+    }
+    const limiti = L.latLngBounds([]);
+    const latlng = (l) => l.map(([lon, lat]) => [lat, lon]);
+    anelliOra.forEach((v, i) => {
+      L.polyline(latlng(v.linea), { renderer: tela, pane: 'proposte', color: '#fff', weight: 10, opacity: 0.95, interactive: false }).addTo(disegnate);
+      const linea = L.polyline(latlng(v.linea), { renderer: tela, pane: 'proposte', color: COLORI_PROPOSTE[i], weight: 6, opacity: 1, interactive: false }).addTo(disegnate);
+      // i tratti non segnati (fuori dai parchi) tratteggiati in giallo sopra il colore
+      for (const t of v.nonSegnati) L.polyline(latlng(t.linea), { renderer: tela, pane: 'proposte', color: '#ffd43b', weight: 3, dashArray: '6 6', interactive: false }).addTo(disegnate);
+      const meta = v.linea[Math.floor(v.linea.length / 2)];
+      L.marker([meta[1], meta[0]], {
+        icon: L.divIcon({ className: 'segno-proposta', html: `<span style="background:${COLORI_PROPOSTE[i]}">${i + 1}</span>`, iconSize: [26, 26] }),
+        keyboard: false,
+        interactive: false,
+      }).addTo(disegnate);
+      limiti.extend(linea.getBounds());
+    });
+    L.marker([partenza[1], partenza[0]], {
+      icon: L.divIcon({ className: 'segno-proposta', html: '<span style="background:#222">P</span>', iconSize: [26, 26] }),
+      keyboard: false,
+      interactive: false,
+    }).addTo(disegnate);
+    risultati.innerHTML = `
+      <ol class="proposte">${anelliOra.map(htmlAnello).join('')}</ol>
+      <div class="azioni-proposte">${!suiSegnati || restano > 0 || anelliOra.length === PER_VOLTA ? '<button type="button" class="bottone" data-azione="rigenera">Rigenera</button>' : ''}</div>
+      ${occupato ? '<p class="tenue piccolo">Il server di BRouter è occupato: per altri anelli riprova tra qualche minuto.</p>' : ''}
+      ${agganciata?.distanzaM >= 50 ? `<p class="tenue piccolo">Nel parco la partenza è sul sentiero più vicino (P), a ${agganciata.distanzaM} m in linea d'aria.</p>` : ''}
+      <p class="tenue piccolo">${
+        suiSegnati
+          ? 'Nel parco: solo i sentieri segnati del nostro archivio, senza quelli chiusi, a numero chiuso o solo con guida. Quote TINITALY.'
+          : `Calcolati con BRouter sui dati OpenStreetMap, quote SRTM: controlla il percorso prima di partire.${fuoriRegole ? ` ${fuoriRegole} ${fuoriRegole === 1 ? 'variante scartata' : 'varianti scartate'} perché nel parco uscivano dai sentieri segnati o aperti a tutti.` : ''}`
+      }</p>`;
+    tendina.vai('meta');
+    foglio.querySelector('.suggerisci-corpo').scrollTop = 0;
+    // a tendina ferma (si sposta in 0,22 s): così si sa quanta mappa resta visibile
+    setTimeout(() => mia === richiesta && inquadra(limiti, 15), 260);
+  }
+
+  function htmlAnello(v, i) {
+    const m = v.misure;
+    const gamboKm = v.gamboM >= 300 ? km1(v.gamboM / 1000) : null;
+    const acqua = v.acqua == null ? 'acqua: dati non scaricati per questa zona' : v.acqua === 0 ? 'niente acqua entro 300 m' : v.acqua === 1 ? '1 punto acqua' : `${v.acqua} punti acqua`;
+    const numeri = [`${km1(m.km)} km`, m.salita != null ? `+${Math.round(m.salita)} m` : '', durata(m.durataMin), acqua].filter(Boolean).join(' · ');
+    const kmNonSegnati = v.nonSegnati.reduce((s, t) => s + (t.aM - t.daM), 0) / 1000;
+    return `<li class="proposta">
+      <button type="button" class="proposta-mappa" data-anello="${i}" aria-label="Mostra sulla mappa"><span class="numero-proposta" style="background:${COLORI_PROPOSTE[i]}">${i + 1}</span></button>
+      <div class="proposta-corpo">
+        <span class="nome">Anello ${i + 1}</span>
+        <span class="perche">${escapeHtml(numeri)}</span>
+        ${gamboKm ? `<span class="tenue piccolo">I primi ${gamboKm} km si rifanno al ritorno</span>` : ''}
+        ${v.nomi?.length ? `<span class="tenue piccolo">Sentieri ${escapeHtml(v.nomi.join(' · '))}</span>` : ''}
+        ${v.nomi ? '' : `<span class="tenue piccolo">${escapeHtml(testoQuotaSegnata(v.segnata))}${kmNonSegnati >= 0.05 ? ` · <span class="non-segnati-anello">${km1(kmNonSegnati)} km non segnati</span> (tratteggio giallo)` : ''}</span>`}
+        <button type="button" class="bottone testo modifica-anello" data-azione="modifica" data-anello="${i}">Modifica nel disegno</button>
+      </div>
+    </li>`;
+  }
+
+  // "Modifica nel disegno": punti lungo l'anello (uno ogni 1,2 km) diventano la bozza; nel disegno
+  // BRouter li collega e gli avvisi del parco restano
+  function modificaNelDisegno(v) {
+    const punti = puntiLungo(v.linea, 1.2);
+    if ((leggiBozza()?.punti?.length ?? 0) > 1 && !confirm('Sostituire il percorso che stai disegnando con questo anello?')) return;
+    salvaBozza(punti);
+    location.hash = '#/percorso-nuovo';
+  }
+
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('[data-scelta]');
     if (b) {
@@ -336,10 +637,13 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       else scelte[scelta] = valore;
       ricorda(scelte);
       foglio.querySelector('.suggerisci-scelte').innerHTML = htmlScelte();
+      foglio.querySelector('[data-azione="suggerisci"]').textContent = testoBottone();
       return;
     }
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
-    if (azione === 'suggerisci') suggerisci();
+    if (azione === 'suggerisci') scelte.modo === 'anello' ? creaAnelli(0) : suggerisci();
+    else if (azione === 'rigenera') creaAnelli(giroAnello + 1);
+    else if (azione === 'modifica') return modificaNelDisegno(anelliOra[e.target.closest('[data-anello]').dataset.anello]);
     else if (azione === 'altre') mostraAltre();
     else if (azione === 'cambia') {
       soloRisultati(false);
@@ -347,6 +651,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
     const n = e.target.closest('[data-proposta]')?.dataset.proposta;
     if (n != null && paginaOra[n]) inquadra(L.geoJSON(paginaOra[n].traccia.geojson).getBounds(), 15);
+    const a = e.target.closest('.proposta-mappa[data-anello]')?.dataset.anello;
+    if (a != null && anelliOra[a]) inquadra(L.geoJSON(anelliOra[a].geojson).getBounds(), 16);
   });
   foglio.addEventListener('change', (e) => {
     if (!e.target.matches('.scelta-parco')) return;

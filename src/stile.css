@@ -2022,3 +2022,8 @@ body.suggerisci-aperto .home-sotto, body.suggerisci-aperto .foglio-fauna { displ
 }
 .suggerisci-riepilogo { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 2px; font-size: 0.88rem; font-weight: 700; }
 .suggerisci-riepilogo[hidden], .suggerisci-form[hidden] { display: none; }
+.foglio-suggerisci .scelta-modo { grid-template-columns: 1fr 1fr; margin: 4px 0 6px; box-shadow: none; }
+.partenza-anello { margin: 10px 0 0; }
+.modifica-anello { justify-self: start; padding: 4px 0; min-height: 32px; }
+.non-segnati-anello { color: #9a6408; font-weight: 700; }
+:root[data-scuro] .non-segnati-anello { color: #fac775; }
