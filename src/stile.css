@@ -1974,3 +1974,10 @@ body.disegno main { padding: 0; }
 :root[data-scuro] .avviso-luce { background: rgba(239, 159, 39, 0.18); color: #fac775; }
 .avviso-luce svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
 .nota-numeri { margin: -4px 0 10px; }
+/* finestre dal basso (Filtri, Salva il percorso): si chiudono anche trascinandole in giù */
+@media (max-width: 1023.98px) {
+  .finestra-trascinabile { transition: transform 0.22s ease; }
+  .finestra-trascinabile.trascinando { transition: none; }
+  .finestra-trascinabile .foglio-maniglia { box-sizing: content-box; padding: 10px 70px; margin: -6px auto 0; background-clip: content-box; touch-action: none; cursor: grab; }
+  .finestra-trascinabile .foglio-titolo, .finestra-trascinabile .foglio-testa { touch-action: none; }
+}

@@ -3,7 +3,7 @@
 // acqua e rifugi entro 300 m; tirando su la barra il profilo grande e i punti con il km.
 // Punti: trascinare = spostare; tocco = menu (Togli / Sposta); pressione lunga = togliere.
 import L from 'leaflet';
-import { tendinaTrascinabile } from './tendina.js';
+import { tendinaTrascinabile, finestraTrascinabile } from './tendina.js';
 import { leggiPercorso, salvaPercorso } from '../db.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
@@ -381,6 +381,7 @@ export async function vistaDisegna(app, id = null) {
   }
 
   const finestraSalva = app.querySelector('.foglio-salva');
+  finestraTrascinabile(finestraSalva); // si chiude anche trascinandola in giù
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('[data-azione]');
     const azione = b?.dataset.azione;

@@ -16,3 +16,11 @@ export function posizioneFinale({ altezza, velocita = 0, altezze }) {
 export function altezzeTendina(spazio) {
   return { meta: Math.round(spazio * 0.48), aperta: Math.round(spazio - 8) };
 }
+
+// Finestra (Filtri, Salva): aperta o chiusa. Si chiude se trascinata in giù per più di un terzo della
+// sua altezza o con una spinta veloce; altrimenti torna su.
+export function chiudereFinestra({ spostamento, altezza, velocita = 0 }) {
+  if (velocita > SPINTA) return true;
+  if (velocita < -SPINTA) return false;
+  return spostamento > altezza / 3;
+}

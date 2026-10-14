@@ -6,7 +6,7 @@
 // niente trascinamento.
 // La tendina è alta come "aperta" e si sposta in giù (transform): spostarla non ridisegna il
 // contenuto. Una cornice intorno taglia la parte che finisce sotto la barra in basso.
-import { posizioneFinale, altezzeTendina } from '../lib/tendina.js';
+import { posizioneFinale, altezzeTendina, chiudereFinestra } from '../lib/tendina.js';
 
 const SOGLIA_PX = 6; // sotto: è un tocco, non un trascinamento
 const largo = () => window.matchMedia('(min-width: 1024px)').matches;
@@ -216,4 +216,96 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
     vai,
     posizione: () => posizione,
   };
+}
+
+// Finestra modale dal basso (Filtri, Salva il percorso): stessi gesti della tendina, ma due posizioni.
+// Si trascina dalla maniglia o dal titolo, e dalla lista quando è in cima; oltre un terzo o con una
+// spinta veloce in giù si chiude. Sul computer le finestre sono al centro: niente trascinamento.
+export function finestraTrascinabile(finestra, { maniglia = '.foglio-maniglia, .foglio-titolo, .foglio-testa', corpo = null } = {}) {
+  finestra.classList.add('finestra-trascinabile');
+  // chiusa in qualunque modo (pulsante, tocco fuori, trascinamento): la prossima volta riparte su
+  finestra.addEventListener('close', () => {
+    finestra.style.transform = '';
+    finestra.classList.remove('trascinando');
+  });
+  let inizio = null; // { y, h }
+  let ultimi = [];
+  const corpoDi = () => (corpo ? finestra.querySelector(corpo) : null) ?? finestra;
+  const comincia = (y) => {
+    inizio = { y, h: finestra.getBoundingClientRect().height };
+    ultimi = [{ y, t: performance.now() }];
+    finestra.classList.add('trascinando');
+  };
+  const segui = (y) => {
+    finestra.style.transform = `translateY(${Math.max(0, y - inizio.y)}px)`;
+    ultimi.push({ y, t: performance.now() });
+    if (ultimi.length > 6) ultimi.shift();
+  };
+  const finisci = (y) => {
+    finestra.classList.remove('trascinando');
+    const a = ultimi[0];
+    const b = ultimi.at(-1);
+    const velocita = b.t > a.t ? (b.y - a.y) / (b.t - a.t) : 0;
+    const chiudi = chiudereFinestra({ spostamento: Math.max(0, y - inizio.y), altezza: inizio.h, velocita });
+    inizio = null;
+    if (!chiudi) return void (finestra.style.transform = '');
+    // scende fino in fondo, poi si chiude
+    finestra.style.transform = 'translateY(100%)';
+    const fine = () => {
+      finestra.close();
+      finestra.style.transform = '';
+    };
+    finestra.addEventListener('transitionend', fine, { once: true });
+    setTimeout(() => finestra.open && fine(), 300);
+  };
+  let daManiglia = false;
+  finestra.addEventListener('pointerdown', (e) => {
+    if (largo() || !finestra.open || !e.target.closest(maniglia) || e.target.closest('button, a, input, select')) return;
+    finestra.setPointerCapture?.(e.pointerId);
+    daManiglia = true;
+    comincia(e.clientY);
+  });
+  finestra.addEventListener('pointermove', (e) => daManiglia && inizio && segui(e.clientY));
+  const rilascia = (e) => {
+    if (!daManiglia || !inizio) return;
+    daManiglia = false;
+    finisci(e.clientY);
+  };
+  finestra.addEventListener('pointerup', rilascia);
+  finestra.addEventListener('pointercancel', rilascia);
+
+  let tocco = null;
+  finestra.addEventListener(
+    'touchstart',
+    (e) => {
+      if (largo() || e.touches.length !== 1 || e.target.closest(maniglia)) return;
+      tocco = { y: e.touches[0].clientY, trascina: false, corpo: corpoDi() };
+    },
+    { passive: true },
+  );
+  finestra.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!tocco) return;
+      const y = e.touches[0].clientY;
+      if (!tocco.trascina) {
+        if (tocco.corpo.scrollTop > 0 || y - tocco.y < SOGLIA_PX) {
+          if (Math.abs(y - tocco.y) >= SOGLIA_PX) tocco = null;
+          return;
+        }
+        tocco.trascina = true;
+        comincia(tocco.y);
+      }
+      e.preventDefault();
+      segui(y);
+      tocco.ultimaY = y;
+    },
+    { passive: false },
+  );
+  const fineTocco = () => {
+    if (tocco?.trascina) finisci(tocco.ultimaY ?? tocco.y);
+    tocco = null;
+  };
+  finestra.addEventListener('touchend', fineTocco);
+  finestra.addEventListener('touchcancel', fineTocco);
 }

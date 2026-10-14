@@ -19,3 +19,13 @@ describe('tendina a tre posizioni', () => {
     expect(altezzeTendina(700)).toEqual({ meta: 336, aperta: 692 });
   });
 });
+
+import { chiudereFinestra } from '../src/lib/tendina.js';
+describe('finestre trascinabili', () => {
+  it('si chiudono oltre un terzo o con una spinta in giù', () => {
+    expect(chiudereFinestra({ spostamento: 200, altezza: 500 })).toBe(true);
+    expect(chiudereFinestra({ spostamento: 100, altezza: 500 })).toBe(false);
+    expect(chiudereFinestra({ spostamento: 40, altezza: 500, velocita: 1 })).toBe(true);
+    expect(chiudereFinestra({ spostamento: 300, altezza: 500, velocita: -1 })).toBe(false);
+  });
+});

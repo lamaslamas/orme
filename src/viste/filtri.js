@@ -8,6 +8,7 @@ import { PARCHI, parcoDa } from '../datiParchi.js';
 import { stato } from '../stato.js';
 import { INTERVALLI } from '../lib/motore.js';
 import { ICONE } from './icone.js';
+import { finestraTrascinabile } from './tendina.js';
 
 // I filtri vivono nello stato condiviso: parco e animale sono gli stessi della
 // heatmap e restano scelti passando da una sezione all'altra.
@@ -132,6 +133,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
   let attivita = stato.leggi().attivita;
   const ricerca = contenitore.querySelector('input[name=testo]');
   const foglio = contenitore.querySelector('.foglio-filtri');
+  finestraTrascinabile(foglio, { corpo: '.foglio-sezioni' }); // si chiude anche trascinandola in giù
   const scorciatoie = contenitore.querySelector('.scorciatoie-voci');
   const attivi = contenitore.querySelector('.filtri-attivi');
   // il filtro per paese non c'è più: un valore rimasto in memoria non deve nascondere percorsi
