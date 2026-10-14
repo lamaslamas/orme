@@ -16,6 +16,8 @@ import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { testoFonteQuote } from './quote.js';
 import { misureAR, misureScelte, eAnelloPezzi } from '../lib/andataRitorno.js';
 import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
+import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
+import { quoteMeteoDaiPezzi } from '../lib/quandoAndare.js';
 import L from 'leaflet';
 
 // numeri in alto: lo stesso calcolo del blocco Andata e ritorno, secondo la scelta
@@ -59,6 +61,7 @@ export async function vistaPercorso(app, id) {
       <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : 'Da file GPX'}</p>
       <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar)}</div>
       ${ar ? htmlAndataRitorno(ar) : ''}
+      ${htmlQuandoAndare()}
       ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
       <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
       ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
@@ -143,12 +146,21 @@ export async function vistaPercorso(app, id) {
   puntiDelPercorso.then(({ punti, avviso }) => {
     if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso, pezzi });
   });
-  // andata e ritorno: la scelta cambia i numeri in alto e "Su più giorni"
+  // meteo dei prossimi giorni, con la durata scelta (Solo andata / A/R)
+  const misureMeteo = (modo = modoScelto()) => (ar ? misureScelte(ar, modo) : misure);
+  const aggiornaMeteo = collegaQuandoAndare(app.querySelector('.quando-andare'), {
+    sentiero: { panorama: null },
+    traccia: { geojson: { type: 'MultiLineString', coordinates: pezzi } },
+    quote: quoteMeteoDaiPezzi(quote?.pezzi ?? pezzi),
+    misure: misureMeteo(),
+  });
+  // andata e ritorno: la scelta cambia i numeri in alto, "Su più giorni" e il meteo
   const collegaAR = () => collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
     ar,
     partenza: e ? e.inizio : null,
     alCambioModo: (modo) => {
       app.querySelector('#numeriPercorso').innerHTML = htmlNumeri(misure, fonteQuote, ar, modo);
+      aggiornaMeteo(misureMeteo(modo));
       const giorni = app.querySelector('#contenitoreGiorni');
       if (giorni) {
         giorni.hidden = !serveGiorni(modo);
@@ -171,6 +183,7 @@ export async function vistaPercorso(app, id) {
       fonteQuote = fonte;
       const numeri = app.querySelector('#numeriPercorso');
       if (numeri) numeri.innerHTML = htmlNumeri(misure, fonte, ar);
+      aggiornaMeteo(misureMeteo(), quoteMeteoDaiPezzi(pq));
       // anche il blocco Andata e ritorno, ora con le quote
       const blocco = app.querySelector('.andata-ritorno');
       if (blocco && ar) {

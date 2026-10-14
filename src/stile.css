@@ -2027,3 +2027,29 @@ body.suggerisci-aperto .home-sotto, body.suggerisci-aperto .foglio-fauna { displ
 .modifica-anello { justify-self: start; padding: 4px 0; min-height: 32px; }
 .non-segnati-anello { color: #9a6408; font-weight: 700; }
 :root[data-scuro] .non-segnati-anello { color: #fac775; }
+
+/* "Quando andare" nella scheda: 7 giorni in fila, si scorrono sul telefono */
+.striscia-meteo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(64px, 1fr); gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 4px 0 8px; padding-bottom: 2px; }
+.striscia-meteo::-webkit-scrollbar { display: none; }
+.giorno-striscia {
+  position: relative; display: grid; justify-items: center; gap: 4px; padding: 8px 4px 10px; min-height: 92px;
+  border: 1px solid var(--bordo); border-radius: 12px; background: var(--scheda-piena); color: inherit; font: inherit; cursor: pointer;
+}
+.giorno-striscia .icona { width: 24px; height: 24px; }
+.giorno-striscia.attivo { border-color: var(--verde); box-shadow: 0 0 0 2px var(--verde) inset; }
+.nome-giorno { font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+.temp-giorno { font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.segno-giudizio { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px; border-radius: 2px; background: var(--bordo); }
+.giudizio-ok .segno-giudizio { background: #2f7d3e; }
+.giudizio-attenzione .segno-giudizio { background: #d08a12; }
+.giudizio-sconsigliato .segno-giudizio { background: #c0392b; }
+.giorno-meteo { margin: 0 0 6px; font-weight: 600; }
+.giorno-meteo.meteo-ok { color: #2f7d3e; }
+.giorno-meteo.meteo-attenzione { color: #9a6408; }
+.giorno-meteo.meteo-sconsigliato { color: #a33b2e; }
+:root[data-scuro] .giorno-meteo.meteo-ok { color: #97c459; }
+:root[data-scuro] .giorno-meteo.meteo-attenzione { color: #fac775; }
+:root[data-scuro] .giorno-meteo.meteo-sconsigliato { color: #f09595; }
+:root[data-scuro] .giudizio-ok .segno-giudizio { background: #97c459; }
+:root[data-scuro] .giudizio-attenzione .segno-giudizio { background: #fac775; }
+:root[data-scuro] .giudizio-sconsigliato .segno-giudizio { background: #f09595; }

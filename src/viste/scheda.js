@@ -7,6 +7,7 @@ import { bollinoBici, bollinoDifficolta } from './lista.js';
 import { misureSentiero, quoteDellaTraccia } from '../lib/riassunto.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
 import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
+import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
@@ -359,6 +360,7 @@ export async function vistaScheda(app, id) {
       </div>
       <div id="numeriScheda">${numeriScelti(modoScelto())}</div>
       ${ar ? htmlAndataRitorno(ar) : ''}
+      ${htmlQuandoAndare()}
 
       <section class="riquadro traccia-stato traccia-${statoT.tipo}">
         <h2>Traccia</h2>
@@ -518,12 +520,17 @@ export async function vistaScheda(app, id) {
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
   if (traccia) collegaTerreno(app, s, traccia);
+  // meteo dei prossimi giorni con la durata scelta (Solo andata / A/R)
+  const aggiornaMeteo = collegaQuandoAndare(app.querySelector('.quando-andare'), { sentiero: s, traccia, quote: quoteDellaTraccia(s, traccia), misure: ar ? misureScelte(ar, modoScelto()) : misure });
   if (ar) {
     const inizio = pezziTraccia[0]?.[0];
     collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
       ar,
       partenza: inizio ? [inizio[0], inizio[1]] : puntoPartenza ? [puntoPartenza.lon, puntoPartenza.lat] : null,
-      alCambioModo: (modo) => (app.querySelector('#numeriScheda').innerHTML = numeriScelti(modo)),
+      alCambioModo: (modo) => {
+        app.querySelector('#numeriScheda').innerHTML = numeriScelti(modo);
+        aggiornaMeteo(misureScelte(ar, modo));
+      },
     });
   }
   if (traccia)
