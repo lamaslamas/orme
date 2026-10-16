@@ -259,9 +259,24 @@ export async function eliminaPercorso(id) {
   await eliminaDa('meta', `punti:${id}`);
 }
 
-// --- Quote TINITALY a celle di 0,01° (src/lib/tinitaly.js): la griglia, sul telefono ---
-export const leggiCellaDem = async (chiave) => (await leggiDa('meta', `dem:${chiave}`))?.griglia ?? null;
-export const salvaCellaDem = (chiave, griglia) => scriviIn('meta', { chiave: `dem:${chiave}`, griglia });
+// Le celle TINITALY che le versioni di prima salvavano sul telefono (dem:…): ora le quote vengono dalle
+// Terrain Tiles e dal profilo del robot, quindi si tolgono per liberare spazio. Una volta sola.
+export async function eliminaCelleDem() {
+  const db = await apriDb();
+  const tx = db.transaction('meta', 'readwrite');
+  const negozio = tx.objectStore('meta');
+  await new Promise((ok, no) => {
+    const richiesta = negozio.openCursor();
+    richiesta.onsuccess = () => {
+      const c = richiesta.result;
+      if (!c) return ok();
+      if (String(c.key).startsWith('dem:')) c.delete();
+      c.continue();
+    };
+    richiesta.onerror = () => no(richiesta.error);
+  });
+  await fine(tx);
+}
 
 // --- Rifugi e acqua fuori dai parchi, a celle (src/lib/puntiUtili.js): { punti, scaricato } ---
 export const leggiCellaPunti = (chiave) => leggiDa('meta', `cella:${chiave}`);

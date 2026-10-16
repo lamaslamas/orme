@@ -1,7 +1,7 @@
 import '@fontsource-variable/manrope';
 import '@fontsource-variable/inter';
 import './stile.css';
-import { caricaDatiIniziali, sincronizzaArchivio, infoArchivio } from './db.js';
+import { caricaDatiIniziali, sincronizzaArchivio, infoArchivio, eliminaCelleDem } from './db.js';
 import { vistaHome } from './viste/home.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
@@ -223,6 +223,7 @@ caricaDatiIniziali()
   .then(() => {
     globalThis.__ormeFase = 'pagina mostrata';
     // la mappa vettoriale si scarica a riposo, così le mappe non aspettano (né mostrano ripieghi)
+    (globalThis.requestIdleCallback ?? setTimeout)(() => eliminaCelleDem().catch(() => {}));
     const base = stato.leggi().base;
     if (base === 'chiara' || base === 'scura') (globalThis.requestIdleCallback ?? setTimeout)(() => preparaLibreria(base === 'scura' ? 'scuro' : 'chiaro').catch(() => {}));
   })

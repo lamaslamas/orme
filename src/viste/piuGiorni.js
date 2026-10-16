@@ -101,7 +101,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
       if (!pronti && mia === richiesta) risultato.innerHTML = '<p class="tenue">Cerco i rifugi di questa zona…</p>';
     });
     const [{ pezzi: pq, fonte }, { punti: tutti, avviso }] = await Promise.all([quote, punti]);
-    if (fonte === 'tinitaly' || fonte === 'open-meteo') conQuote(pq, fonte);
+    if (['tinitaly', 'terrain', 'open-meteo'].includes(fonte)) conQuote(pq, fonte);
     if (mia !== richiesta || !risultato.isConnected) return;
     // con Andata e ritorno le giornate continuano sul ritorno; i rifugi di una giornata che finisce
     // sul ritorno si cercano nel punto equivalente dell'andata

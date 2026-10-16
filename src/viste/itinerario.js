@@ -6,7 +6,7 @@ import { CAMPI_PERSONALI } from '../lib/archivio.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { queryItinerario, itinerarioDallaRisposta, zonaDellaTraccia } from '../lib/itinerario.js';
 import { improntaTraccia } from '../lib/panorama.js';
-import { profiloDaTinitaly } from './quote.js';
+import { profiloDaTerrain } from './quote.js';
 import { osservazioniDellaZona, faunaDelPercorso } from './zona.js';
 
 // idParco: il parco dove è stato toccato il tratto ("intorno" fuori dai parchi).
@@ -25,8 +25,8 @@ export async function scaricaItinerario(idRelazione, idParco, { avanzamento = ()
   // dislivello: TINITALY (10 m), come il disegno e le altre schede; se non risponde si riprova dalla scheda
   avanzamento('Calcolo il dislivello…');
   try {
-    const quote = await profiloDaTinitaly(g);
-    if (quote) await aggiornaCalcolati(r.sentiero.id, { quote: { ...quote, impronta: improntaTraccia(g).split('-')[1], fonte: 'tinitaly' } });
+    const quote = await profiloDaTerrain(g);
+    if (quote) await aggiornaCalcolati(r.sentiero.id, { quote: { ...quote, impronta: improntaTraccia(g).split('-')[1], fonte: 'terrain' } });
   } catch (e) {
     console.warn('Dislivello non calcolato', e);
   }

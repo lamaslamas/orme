@@ -68,6 +68,12 @@ export default defineConfig({
           cacheMappa('mappa-topo', /^https:\/\/[abc]\.tile\.opentopomap\.org\//),
           cacheMappa('mappa-sentieri', /^https:\/\/tile\.waymarkedtrails\.org\//),
           cacheMappa('mappa-satellite', /^https:\/\/server\.arcgisonline\.com\//),
+          // quote: tessere Terrain Tiles (~100 KB l'una), si tengono per riaprire le tracce anche senza rete
+          {
+            urlPattern: /^https:\/\/s3\.amazonaws\.com\/elevation-tiles-prod\//,
+            handler: 'CacheFirst',
+            options: { cacheName: 'quote-terrain', expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 90 }, cacheableResponse: { statuses: [0, 200] } },
+          },
           // archivio pubblico: prima la rete, la copia salvata solo offline
           {
             // rifugi e acqua di tutta Italia a quadrati: si tengono a lungo, si aggiornano in sottofondo

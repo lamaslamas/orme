@@ -6,7 +6,7 @@ import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello } from '../lib/quote.js';
 import { percorsoSentiero, invertiGeojson } from '../lib/tracce.js';
-import { quoteDeiPezzi } from './quote.js';
+import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
@@ -104,7 +104,7 @@ export async function vistaMappa(app, id) {
     const d = dislivelloTraccia();
     const lunghezza =
       km(lunghezzaKm(traccia.geojson).toFixed(1)) +
-      (d ? `, dislivello +${d.salita} m / −${d.discesa} m${traccia.dettagli?.quote === 'open-meteo' ? ' stimato da Open-Meteo' : traccia.dettagli?.quote === 'tinitaly' ? ' da TINITALY (INGV)' : ''}` : '');
+      (d ? `, dislivello +${d.salita} m / −${d.discesa} m${traccia.dettagli?.quote ? ` (${testoFonteQuote(traccia.dettagli.quote)})` : ''}` : '');
     if (traccia.origine === 'osm') {
       const rel = traccia.dettagli?.relazioniOsm ?? [];
       const link = rel
