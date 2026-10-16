@@ -86,13 +86,13 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
           // in basso si lascia libera solo la parte di mappa coperta dal foglio (mappe a tutto schermo)
           const r = mappa.getContainer().getBoundingClientRect();
           const coperta = Math.max(30, Math.min(r.height * 0.6, r.bottom - (window.innerHeight - 240)));
-          mappa.fitBounds(evidenziata.getBounds(), { paddingTopLeft: [30, 50], paddingBottomRight: [30, coperta], maxZoom: 15, animate: false });
+          mappa.fitBounds(evidenziata.getBounds(), { paddingTopLeft: [30, 50], paddingBottomRight: [30, coperta], maxZoom: 14, animate: false });
           dopoInquadrare();
           return;
         }
         if (inquadra) {
           primaDiInquadrare();
-          mappa.fitBounds(evidenziata.getBounds(), { paddingTopLeft: [40, 150], paddingBottomRight: [40, 30], maxZoom: 15, animate: false });
+          mappa.fitBounds(evidenziata.getBounds(), { paddingTopLeft: [40, 150], paddingBottomRight: [40, 30], maxZoom: 14, animate: false });
           dopoInquadrare(); // senza animazione lo spostamento è già avvenuto
           const b = evidenziata.getBounds();
           punto = [b.getNorth(), b.getCenter().lng];

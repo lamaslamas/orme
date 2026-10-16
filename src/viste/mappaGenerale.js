@@ -30,6 +30,7 @@ import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
 import { zonaDaCercare, raggioPerZoom, distanzaDiPartenza, testoPartenza } from '../lib/intorno.js';
+import { tipoZona, testoNessunoQui, piuVicino } from '../lib/zonaVuota.js';
 
 // La mia posizione, solo in memoria finché l'app è aperta (mai salvata): serve a ordinare
 // "Percorsi qui" per partenza più vicina. ordine: 'consigliato' | 'vicini'
@@ -293,7 +294,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let restaQui = false; // il prossimo cambio di filtri non sposta la mappa (es. tolto il parco per un luogo)
   // alla prima apertura (non tornando sulla mappa) e senza un parco scelto: la mappa su di me
   const centrataSuDiMe = !mappa.vistaRitrovata && !idParco && centraSuDiMe(mappa);
-  let ultimiFiltri = '';
 
   // "Vista iniziale": niente filtri, niente parco, tutti i parchi inquadrati
   const VistaIniziale = L.Control.extend({
@@ -312,7 +312,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
         L.DomEvent.preventDefault(e);
         controlli.azzera();
         stato.imposta({ parco: '' });
-        primaVolta = true;
+        mappa.sbloccaInquadrature?.();
+        mappa.fitBounds(limitiParco(null), margini(20));
       });
       return div;
     },
@@ -426,7 +427,16 @@ export async function vistaMappaGenerale(app, idParco = null) {
         })
         .join('') +
       (qui.length > 60 ? `<li class="tenue piccolo">e altri ${qui.length - 60}: avvicinati sulla mappa o usa i filtri</li>` : '') +
-      (inMappa.length && !qui.length ? '<li class="tenue piccolo">Nessun percorso in questa zona: sposta la mappa o allontanati.</li>' : '');
+      htmlZonaVuota(qui.length);
+  }
+  // zona senza risultati: dice perché e propone cosa fare (src/lib/zonaVuota.js)
+  function htmlZonaVuota(quanti) {
+    const tipo = tipoZona({ qui: quanti, altre: inMappa.length - quanti, filtri: filtriAttivi(filtri) > 0 || Boolean(filtri.parco) || stato.leggi().attivita !== 'trekking' });
+    if (tipo === 'filtri') {
+      return `<li class="zona-vuota"><p><b>${escapeHtml(testoNessunoQui(inMappa.length - quanti))}</b></p>
+        <div class="azioni-vuota"><button type="button" class="bottone primario" data-azione="vai-vicino">Vai al più vicino</button><button type="button" class="bottone" data-azione="togli-filtri">Togli i filtri</button></div></li>`;
+    }
+    return '';
   }
   // le foto di copertina arrivano dopo: quando ci sono, l'elenco si ridisegna
   if (!copertineCaricate()) caricaDaVedere().then((d) => d && app.isConnected && elencoInVista());
@@ -456,7 +466,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
     // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
     const ricerca = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
     mappa.attenuaSentieri(ricerca && conTraccia.length > 0);
-    const limiti = L.latLngBounds([]);
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
     for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
       const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
@@ -464,19 +473,14 @@ export async function vistaMappaGenerale(app, idParco = null) {
       const stile = ricerca ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;
       // bordo sotto la linea (stesso tracciato, più largo)
       L.geoJSON(traccia.geojson, { style: { color: coloreBordo(), weight: stile.weight + 3, opacity: 0.85 }, interactive: false }).addTo(livello);
-      const { linea, area } = toccabili.disegna(livello, sentiero, traccia, stile, colore);
+      const { area } = toccabili.disegna(livello, sentiero, traccia, stile, colore);
       aree.set(sentiero.id, area);
-      limiti.extend(linea.getBounds());
     }
-    // a ogni cambio di filtri la mappa si sposta sui risultati (o sul parco scelto)
-    const chiave = JSON.stringify(filtri);
+    // i filtri non spostano mai la mappa: filtrano la zona inquadrata. La mappa si sposta solo su richiesta
+    // (ricerca, "Vai al più vicino", parco scelto, tocco su un percorso) e alla prima apertura
     if (restaQui) restaQui = false;
-    else if ((primaVolta && !centrataSuDiMe) || (!primaVolta && chiave !== ultimiFiltri)) {
-      if (ricerca && limiti.isValid()) mappa.fitBounds(limiti, { ...margini(30), maxZoom: 14 });
-      else mappa.fitBounds(limitiParco(filtri.parco), margini(20));
-    }
+    else if (primaVolta && !centrataSuDiMe) mappa.fitBounds(limitiParco(filtri.parco), margini(20));
     primaVolta = false;
-    ultimiFiltri = chiave;
     app.querySelector('#nessunRisultato').hidden = !(ricerca && conTraccia.length === 0);
 
     testaParco();
@@ -512,9 +516,25 @@ export async function vistaMappaGenerale(app, idParco = null) {
   const controlli = collegaFiltri(app.querySelector('.filtri'), sentieri, filtri, disegna);
   const scollegaAttivita = collegaSelettoreAttivita(app);
   app.querySelector('#risultatiMappa').addEventListener('click', (e) => {
+    const azione = e.target.closest('[data-azione]')?.dataset.azione;
+    if (azione === 'vai-vicino') return vaiAlPiuVicino();
+    if (azione === 'togli-filtri') return togliIFiltri();
     const id = e.target.closest('[data-id]')?.dataset.id;
     aree.get(id)?.fire('click');
   });
+  // su richiesta: la mappa va al percorso più vicino (con gli stessi filtri), intero e senza zoomare troppo
+  function vaiAlPiuVicino() {
+    const c = mappa.getCenter();
+    const v = piuVicino([c.lng, c.lat], inMappa.map(({ sentiero, traccia }) => ({ id: sentiero.id, geojson: traccia.geojson })));
+    const area = v && aree.get(v.id);
+    if (!area) return;
+    mappa.sbloccaInquadrature?.();
+    mappa.fitBounds(area.getBounds(), { ...margini(30), maxZoom: 14 });
+  }
+  function togliIFiltri() {
+    controlli.azzera();
+    stato.imposta({ parco: '', attivita: 'trekking' });
+  }
   app.querySelector('#nessunRisultato').addEventListener('click', (e) => {
     if (e.target.closest('[data-azione="reimposta"]')) controlli.azzera();
   });
@@ -635,6 +655,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
     // (prima si apre il foglio, così il parco si inquadra nella parte di mappa che resta visibile)
     mostraFoglio(true);
     stato.imposta({ parco: parco.id });
+    mappa.sbloccaInquadrature?.();
+    mappa.fitBounds(limitiParco(parco.id), margini(20));
   });
 
   return () => {
