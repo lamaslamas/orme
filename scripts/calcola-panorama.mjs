@@ -17,6 +17,7 @@ import { urlOsservazioniGbif, interpretaGbif } from '../src/lib/gbif.js';
 import { PARCHI } from '../src/datiParchi.js';
 import { profiloQuote } from '../src/lib/profiloQuote.js';
 import { creaLettoreTinitaly, profiloTinitaly } from '../src/lib/tinitaly.js';
+import { profiloEquidistante } from '../src/lib/profiloCampionato.js';
 import { mkdirSync } from 'node:fs';
 import { lunghezzaKm } from '../src/lib/geo.js';
 import { existsSync } from 'node:fs';
@@ -217,7 +218,8 @@ for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
   if (!g?.coordinates?.length) continue;
   const geometria = improntaTraccia(g).split('-')[1];
-  const aggiornato = p.quote?.impronta === geometria && (p.quote.fonte === 'tinitaly' || (p.quote.fonte === 'terrarium' && giorniDa(p.quote.tinitalyNo) < 30));
+  // aggiornato: stessa traccia, fonte buona e profilo a 100 punti (quote.profilo) per la scheda
+  const aggiornato = p.quote?.impronta === geometria && Array.isArray(p.quote.profilo) && (p.quote.fonte === 'tinitaly' || (p.quote.fonte === 'terrarium' && giorniDa(p.quote.tinitalyNo) < 30));
   if (!tutti && aggiornato) continue;
   if (daTinitaly >= MAX_QUOTE) continue; // gli altri la notte dopo
   try {
@@ -230,6 +232,7 @@ for (const p of archivio.percorsi) {
     if (!r) {
       await terreno.prepara(riquadro(g, 0.005));
       r = profiloQuote(g, quota);
+      if (r) r = { ...r, profilo: profiloEquidistante(percorsoSentiero(g).pezzi, quota) };
       fonte = 'terrarium';
     }
     if (!r) continue;

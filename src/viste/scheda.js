@@ -18,6 +18,7 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { quoteDellaScheda, quotePerSalvare } from '../lib/quoteSalvate.js';
+import { serieDaProfilo } from '../lib/profiloCampionato.js';
 import { profiloPezzi } from '../lib/disegno.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
@@ -317,7 +318,9 @@ export async function vistaScheda(app, id) {
   // quote punto per punto: quelle della traccia o, se non ce l'ha, quelle scaricate da TINITALY e salvate accanto
   const impronta = traccia?.geojson ? improntaTraccia(traccia.geojson).split('-')[1] : null;
   const delleQuote = quoteDellaScheda(pezziGrezzi, traccia?.dettagli?.quoteScaricate, impronta);
-  const pezziTraccia = delleQuote?.pezzi ?? pezziGrezzi;
+  const delRobot = quoteDellaTraccia(s, traccia); // profilo TINITALY del robot (archivio), se la traccia è la stessa
+  // dislivello e tempi: le quote della traccia, poi quelle del robot (TINITALY, 10 m), poi quelle scaricate
+  const pezziTraccia = delleQuote && !(delleQuote.fonte !== 'traccia' && delRobot) ? delleQuote.pezzi : pezziGrezzi;
   const base = baseAndata(pezziTraccia, quoteDellaTraccia(s, traccia));
   const ar = base ? misureAR(base, { anello: eAnelloPezzi(pezziTraccia) }) : null;
   const numeriScelti = (modo) => {
@@ -534,14 +537,25 @@ export async function vistaScheda(app, id) {
   // il profilo sotto i numeri: sempre visibile; senza quote si scaricano da sole da TINITALY (una volta)
   const punto = creaPuntoProfilo();
   const boxProfilo = app.querySelector('#profiloScheda');
-  const serie = delleQuote ? profiloPezzi(delleQuote.pezzi) : [];
+  // 1. le quote della traccia (GPX con quote) o quelle scaricate e salvate; 2. il profilo a 100 punti che
+  // il robot ha calcolato con TINITALY per le tracce dell'archivio (subito, senza chiamare niente)
+  const proprie = delleQuote?.fonte === 'traccia';
+  const daRobot = !proprie && delRobot?.profilo ? serieDaProfilo(pezziGrezzi, delRobot.profilo) : null;
+  const serie = proprie || (delleQuote && !daRobot) ? profiloPezzi(delleQuote.pezzi) : daRobot ?? [];
   if (serie.length > 1) {
-    const fonte = delleQuote.fonte === 'traccia' ? (traccia.dettagli?.quote ? testoFonteQuote(traccia.dettagli.quote) : 'Quote della traccia') : testoFonteQuote(delleQuote.fonte);
+    // la fonte vera delle quote che si vedono
+    const fonte = daRobot
+      ? testoFonteQuote(delRobot.fonte)
+      : proprie
+        ? traccia.dettagli?.quote
+          ? testoFonteQuote(traccia.dettagli.quote)
+          : 'Quote della traccia (GPS)'
+        : testoFonteQuote(delleQuote.fonte);
     boxProfilo.innerHTML = htmlProfiloMini(serie, fonte);
     collegaProfiloMini(boxProfilo, () => serie, (x) => punto.mostra(x.p));
   } else if (pezziGrezzi.length && !quoteTentate.has(s.id)) {
     quoteTentate.add(s.id);
-    boxProfilo.innerHTML = '<p class="tenue piccolo">Scarico le quote da TINITALY…</p>';
+    boxProfilo.innerHTML = '<p class="tenue piccolo">Scarico le quote (Terrain Tiles)…</p>';
     quoteDeiPezzi(pezziGrezzi, { fitti: false })
       .then(async ({ pezzi, fonte }) => {
         const z = quotePerSalvare(pezzi);

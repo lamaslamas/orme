@@ -7,9 +7,10 @@ import { distanzaKm } from './geo.js';
 import { percorsoSentiero } from './tracce.js';
 import { campionaPercorso } from './panorama.js';
 import { profiloQuote, PASSO_PROFILO_M } from './profiloQuote.js';
+import { campionaEquidistanti, elencoQuote, PUNTI_PROFILO } from './profiloCampionato.js';
 
 export const URL_TINITALY = 'https://tinitaly.pi.ingv.it/TINItaly_1_1/wcs';
-export const CREDITO_TINITALY = 'Quote TINITALY 10 m (INGV, CC BY 4.0)';
+export const CREDITO_TINITALY = 'TINITALY 10 m (INGV, CC BY 4.0)';
 export const LATO_CELLA_M = 1000;
 export const RIPROVE = 2;
 export const ATTESA_RIPROVA_MS = 1500;
@@ -177,11 +178,11 @@ export function creaLettoreTinitaly({ fetchFn = fetch, leggiCella = async () => 
   return { quote, cella };
 }
 
-// Pezzi con le quote: TINITALY ogni 25 m; se manca più del 10% dei punti (mare, fuori Italia) o il
+// Pezzi con le quote da un lettore (TINITALY, o le Terrain Tiles sul telefono) ogni 25 m; se manca più del 10% dei punti (mare, fuori Italia) o il
 // servizio non risponde, riserva(pezzi) (Open-Meteo). → { pezzi, fonte: 'tinitaly' | 'open-meteo' }
 // fitti: false per lasciare la traccia com'è (es. la traccia di un sentiero: cambiarla cambierebbe
 // la sua impronta), con le quote solo nei suoi punti
-export async function pezziConQuoteTinitaly(pezzi, lettore, riserva, { fitti: infittire = true } = {}) {
+export async function pezziConQuoteTinitaly(pezzi, lettore, riserva, { fitti: infittire = true, fonte = 'tinitaly' } = {}) {
   const fitti = infittire ? infittisci(pezzi) : pezzi.map((l) => l.map(([lon, lat]) => [lon, lat]));
   try {
     const tutti = fitti.flat();
@@ -198,10 +199,10 @@ export async function pezziConQuoteTinitaly(pezzi, lettore, riserva, { fitti: in
           return [lon, lat, z ?? ultima];
         }),
       );
-      return { pezzi: conQuote, fonte: 'tinitaly' };
+      return { pezzi: conQuote, fonte };
     }
   } catch (e) {
-    console.warn('TINITALY non disponibile', e);
+    console.warn('Quote non disponibili, riserva Open-Meteo', e);
   }
   return { pezzi: await riserva(pezzi), fonte: 'open-meteo' };
 }
@@ -215,5 +216,10 @@ export async function profiloTinitaly(geojson, lettore, passoM = PASSO_PROFILO_M
   if (!punti.length) return null;
   const quote = await lettore.quote(punti);
   const memoria = new Map(punti.map(([lon, lat], i) => [`${lon.toFixed(6)},${lat.toFixed(6)}`, quote[i]]));
-  return profiloQuote(geojson, (lon, lat) => memoria.get(`${lon.toFixed(6)},${lat.toFixed(6)}`) ?? null, passoM);
+  const r = profiloQuote(geojson, (lon, lat) => memoria.get(`${lon.toFixed(6)},${lat.toFixed(6)}`) ?? null, passoM);
+  if (!r) return null;
+  // il profilo a 100 punti equidistanti, per la scheda (le celle sono già scaricate: quasi sempre le stesse)
+  const campioni = campionaEquidistanti(pezzi, PUNTI_PROFILO);
+  const profilo = campioni.length ? elencoQuote(await lettore.quote(campioni.map((c) => [c.lon, c.lat]))) : null;
+  return { ...r, profilo };
 }
