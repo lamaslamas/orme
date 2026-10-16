@@ -352,6 +352,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     intorno: true,
     personalizza: fauna.personalizza,
     pannelloIn: fauna.pannello,
+    riapriPannello: () => fauna.riapri(),
   });
   fauna.collega(heat);
   // tocco su un sentiero qualsiasi (non nostro): foglio con i dati di OpenStreetMap. I nostri percorsi

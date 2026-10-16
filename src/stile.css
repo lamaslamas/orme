@@ -1642,15 +1642,18 @@ body.home-mappa main { padding: 0; }
 .foglio-home-corpo { overflow: auto; padding: 0 16px 16px; overscroll-behavior: contain; }
 .foglio-home .mappa-barra { background: none; padding: 0; border: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .foglio-home .pannello { padding: 8px 0 0; }
-body.elenco-aperto .home-sotto { display: none; }
 .testa-parco h2 { margin: 4px 0; font-size: 1.15rem; }
 .testa-parco p { margin: 0 0 6px; font-size: 0.9rem; }
 .testa-parco a { display: inline-block; margin-bottom: 10px; font-weight: 700; }
 @media (min-width: 1024px) {
+  :root { --altezza-pills: 74px; }
   .mappa-home { left: var(--larghezza-nav); bottom: 0; }
   .cerca-luogo { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 380px; }
   .home-sotto { left: calc(var(--larghezza-nav) + 16px); bottom: 20px; }
-  .foglio-home { left: var(--larghezza-nav); right: auto; width: 420px; top: 0; bottom: 0; max-height: none; border-radius: 0; }
+  /* i pannelli sono schede a sinistra: sotto la ricerca, sopra i pulsanti in basso, chiudibili con la X o Esc */
+  .foglio-home { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; top: 70px; bottom: calc(var(--altezza-pills) + 6px + var(--altezza-strumento, 0px)); max-height: none; border-radius: 20px; }
+  /* zoom, GPS e gli altri comandi a sinistra restano a destra della scheda, mai sotto */
+  body.pannello-aperto .mappa-home .leaflet-left { margin-left: 420px; }
 }
 @media (max-width: 1023.98px) {
   /* sul telefono si ingrandisce con le dita: niente pulsanti + e − sulla pagina iniziale */
@@ -1674,18 +1677,15 @@ body.elenco-aperto .home-sotto { display: none; }
 .fauna-corpo .specie-zona > li { flex: 0 0 auto; }
 .fauna-corpo .specie-zona > li.tenue { flex: 1; padding: 6px 0; }
 .foglio-fauna.ridotto .fauna-corpo { display: none; }
-body.fauna-aperta .home-sotto { display: none; }
 @media (min-width: 1024px) {
-  .foglio-fauna { left: var(--larghezza-nav); right: auto; width: 420px; }
+  .foglio-fauna { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: calc(var(--altezza-pills) + 6px + var(--altezza-strumento, 0px)); max-height: calc(100dvh - 160px); border-radius: 20px; }
 }
-body.elenco-aperto .foglio-fauna { display: none; }
 .fauna-azioni { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .fauna-azioni .chip-scorciatoia { flex: 0 0 auto; }
 /* "Cerca percorsi qui": in alto al centro, sotto la ricerca (fuori dai parchi) */
 .cerca-zona { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 64px); left: 50%; transform: translateX(-50%); min-height: 40px; font-size: 0.92rem; }
 .cerca-zona[hidden] { display: none; }
 .cerca-zona:disabled { opacity: 1; font-weight: 600; }
-body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 @media (min-width: 1024px) { .cerca-zona { left: calc(var(--larghezza-nav) + 50% - var(--larghezza-nav) / 2); } }
 .cerca-zona { max-width: calc(100vw - 24px); }
 .cerca-zona span { overflow: hidden; text-overflow: ellipsis; }
@@ -1720,12 +1720,11 @@ body.elenco-aperto .cerca-zona, body.fauna-aperta .cerca-zona { display: none; }
 :root[data-scuro] .chip-segnato { background: rgba(175, 169, 236, 0.18); color: #cecbf6; }
 .foglio-via .foglio-sotto { margin: 2px 0 8px; }
 .foglio-via .link-osm { display: inline-block; margin-top: 6px; }
-body:has(.foglio-percorso:not([hidden])) .home-sotto, body:has(.foglio-percorso:not([hidden])) .cerca-zona { display: none; }
 .foglio-percorso.foglio-via { max-height: 60vh; max-height: 60dvh; }
 .foglio-via .foglio-corpo { overflow: auto; }
 /* da computer il foglio del sentiero toccato resta (quello dei nostri percorsi è un riquadro sulla mappa) */
 @media (min-width: 1024px) {
-  .foglio-percorso.foglio-via:not([hidden]) { display: flex; left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 20px; border-radius: 20px; }
+  .foglio-percorso.foglio-via:not([hidden]) { display: flex; left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: calc(var(--altezza-pills) + 6px + var(--altezza-strumento, 0px)); max-height: calc(100dvh - 160px); border-radius: 20px; }
 }
 .legenda-sentieri { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
 .legenda-sentieri li { display: flex; align-items: center; gap: 8px; }
@@ -1912,9 +1911,8 @@ body.disegno main { padding: 0; }
 :root[data-scuro] .meteo-attenzione { color: #fac775; }
 :root[data-scuro] .meteo-sconsigliato { color: #f09595; }
 .azioni-proposte { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-body.suggerisci-aperto .home-sotto, body.suggerisci-aperto .foglio-fauna { display: none; }
 @media (min-width: 1024px) {
-  .foglio-suggerisci { left: var(--larghezza-nav); right: auto; width: 420px; top: 0; bottom: 0; max-height: none; border-radius: 0; }
+  .foglio-suggerisci { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; top: auto; bottom: calc(var(--altezza-pills) + 6px + var(--altezza-strumento, 0px)); max-height: calc(100dvh - 160px); border-radius: 20px; }
 }
 /* in basso tre pulsanti (Suggerisci, Percorsi qui, matita): sul telefono stretti, ci stanno tutti */
 @media (max-width: 480px) {
@@ -1963,3 +1961,36 @@ body.suggerisci-aperto .home-sotto, body.suggerisci-aperto .foglio-fauna { displ
 .zona-vuota { list-style: none; padding: 12px; border-radius: 14px; background: var(--scheda-piena); }
 .zona-vuota p { margin: 0 0 8px; }
 .azioni-vuota { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* --- Pannelli: uno alla volta, X sempre visibile, mai sopra ricerca e pulsanti --- */
+:root { --altezza-pills: 64px; }
+.x-pannello {
+  position: absolute; top: 2px; right: 6px; z-index: 5; width: 36px; height: 36px; display: grid; place-items: center;
+  border: none; border-radius: 50%; background: var(--vetro-forte); color: var(--testo); cursor: pointer; padding: 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+.x-pannello:hover { background: var(--bordo); }
+@media (max-width: 1023.98px) {
+  /* sulla mappa iniziale le tendine finiscono sopra i tre pulsanti (Suggerisci, Percorsi qui, matita) */
+  body.home-mappa .cornice-tendina { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + var(--altezza-pills) + var(--altezza-strumento, 0px)); }
+}
+/* strumenti attivi (righello, percorsi da qui): sopra i pulsanti in basso; con un pannello aperto si riducono a una riga */
+.mappa-home .misura-barra, .mappa-home .barra-daqui { bottom: calc(var(--altezza-pills) + 6px); }
+body.strumento-misura.pannello-aperto, body.strumento-daqui.pannello-aperto { --altezza-strumento: 66px; }
+body.pannello-aperto .misura-barra .misura-modi, body.pannello-aperto .misura-barra .misura-comandi, body.pannello-aperto .misura-barra .misura-nota,
+body.pannello-aperto .barra-daqui .daqui-raggi, body.pannello-aperto .barra-daqui .daqui-elenco { display: none; }
+body.pannello-aperto .misura-barra, body.pannello-aperto .barra-daqui { z-index: 1060; }
+
+/* --- Disegno: comandi sopra il pannello (mai sotto), niente barra Fauna e comandi inutili --- */
+body.disegno .mappa-disegno .leaflet-bottom.leaflet-left, body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: calc(var(--altezza-foglio, 190px) + 8px); }
+body.disegno .gps-stato { bottom: calc(var(--altezza-foglio, 190px) + 12px); }
+/* la fauna nel disegno si guarda soltanto: restano il pulsante Fauna e la mappa, senza scala e filtri */
+body.disegno .pannello-heatmap { display: none; }
+@media (min-width: 1024px) {
+  /* il pannello è una scheda a sinistra: scala e crediti a sinistra restano a destra di lei */
+  body.disegno .mappa-disegno .leaflet-bottom.leaflet-left { margin-left: 420px; bottom: 16px; }
+  body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: 16px; }
+  body.disegno .gps-stato { bottom: 16px; left: calc(50% + 210px); }
+}
+.misura-barra .x-pannello { top: -18px; right: 6px; }
+.barra-daqui .x-pannello { top: 4px; }

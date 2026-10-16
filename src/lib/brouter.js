@@ -3,6 +3,7 @@
 
 export const URL_BROUTER = 'https://brouter.de/brouter';
 export const PROFILO_ESCURSIONE = 'hiking-mountain';
+export const TEMPO_MAX_MS = 25_000;
 
 // "Crea un anello" chiede di preferire i sentieri segnati: nel profilo le vie fuori dai percorsi
 // escursionistici costano 1 + preferenza volte (parametro del profilo, da 0,1 a 2; di base 0,2).
@@ -53,9 +54,10 @@ export async function calcolaPercorso(punti, { fetchFn = fetch, preferenzaSegnat
   if (punti.length < 2) throw new Error('Servono almeno due punti.');
   let risposta;
   try {
-    risposta = await fetchFn(urlBrouter(punti, PROFILO_ESCURSIONE, { preferenzaSegnati }));
+    // senza risposta entro 25 secondi si rinuncia (il disegno offre la mano libera)
+    risposta = await fetchFn(urlBrouter(punti, PROFILO_ESCURSIONE, { preferenzaSegnati }), { signal: AbortSignal.timeout(TEMPO_MAX_MS) });
   } catch {
-    throw new Error('BRouter non risponde: controlla la connessione.');
+    throw new Error('Il server dei sentieri (BRouter) non risponde: controlla la connessione.');
   }
   if (!risposta.ok) {
     const testo = await risposta.text().catch(() => '');

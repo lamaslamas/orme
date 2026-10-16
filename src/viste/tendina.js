@@ -7,8 +7,10 @@
 // La tendina è alta come "aperta" e si sposta in giù (transform): spostarla non ridisegna il
 // contenuto. Una cornice intorno taglia la parte che finisce sotto la barra in basso.
 import { posizioneFinale, altezzeTendina, chiudereFinestra } from '../lib/tendina.js';
+import { nuovoIdPannello, registraPannello, annunciaPannello, aggiornaClasse, collegaEsc, HTML_X } from './pannelli.js';
 
 const SOGLIA_PX = 6; // sotto: è un tocco, non un trascinamento
+const RISERVA_HOME = 270; // px in alto sempre liberi sulla mappa iniziale
 const largo = () => window.matchMedia('(min-width: 1024px)').matches;
 
 // la cornice: un riquadro fisso fino alla barra in basso, che taglia ciò che esce sotto
@@ -30,8 +32,13 @@ function cornice(foglio) {
 // quotaMeta: altezza di "metà" rispetto allo spazio disponibile; fineMeta: selettore dell'elemento
 // che deve vedersi tutto a metà (es. il pulsante Salva): "metà" arriva fin lì.
 // allaChiusura(): chi apre e chiude il foglio (aria, livelli, pulsanti) sa che si è chiuso.
-export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona', corpo = null, allaChiusura = () => {}, naturale = false, chiudibile = true, quotaMeta = 0.48, fineMeta = null } = {}) {
+// riserva: px in alto che la tendina aperta lascia liberi (ricerca, zoom, GPS, livelli);
+// conX: la X "Chiudi" sempre visibile in alto a destra (di base c'è se la tendina è chiudibile);
+// variabileAltezza: nome di una variabile CSS (es. '--altezza-foglio') aggiornata con i px visibili, per i
+// comandi della mappa che devono stare sopra la tendina (GPS, scala, crediti).
+export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona', corpo = null, allaChiusura = () => {}, naturale = false, chiudibile = true, quotaMeta = 0.48, fineMeta = null, riserva = 72, conX = chiudibile, variabileAltezza = null } = {}) {
   let posizione = 'chiusa';
+  const id = nuovoIdPannello();
   foglio.classList.add('trascinabile');
   const contenitore = cornice(foglio);
   const corpoDi = () => (corpo ? foglio.querySelector(corpo) : foglio) ?? foglio;
@@ -52,7 +59,9 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
   }
   // spazio tra la ricerca in alto e la barra in basso (l'altezza della cornice)
   function altezze() {
-    const spazio = (contenitore.clientHeight || window.innerHeight) - 72;
+    // sulla mappa iniziale restano liberi anche zoom, GPS e livelli (le colonne di pulsanti in alto)
+    const alto = document.body.classList.contains('home-mappa') ? Math.max(riserva, RISERVA_HOME) : riserva;
+    const spazio = Math.max(220, (contenitore.clientHeight || window.innerHeight) - alto);
     const a = altezzeTendina(spazio);
     a.meta = Math.round(spazio * quotaMeta);
     if (naturale) a.aperta = Math.min(a.aperta, contenuto());
@@ -64,10 +73,12 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
   const sposta = (visibile, aperta) => {
     const giu = Math.max(0, aperta - visibile);
     foglio.style.transform = `translateY(${giu}px)`;
+    if (variabileAltezza) document.body.style.setProperty(variabileAltezza, `${Math.round(visibile)}px`);
     return giu;
   };
   const visibileOra = () => (parseFloat(foglio.style.height) || foglio.getBoundingClientRect().height) - (new DOMMatrixReadOnly(getComputedStyle(foglio).transform).m42 || 0);
   function pulisci() {
+    if (variabileAltezza) document.body.style.removeProperty(variabileAltezza);
     foglio.style.height = '';
     foglio.style.transform = '';
     corpoDi().style.paddingBottom = '';
@@ -77,6 +88,8 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
     if (p === 'chiusa' && !chiudibile) p = 'meta';
     const daChiusa = posizione === 'chiusa';
     posizione = p;
+    // si apre: gli altri pannelli si chiudono (uno alla volta)
+    if (daChiusa && p !== 'chiusa' && chiudibile) annunciaPannello(id);
     if (largo()) {
       pulisci();
       foglio.classList.toggle('aperto', p === 'aperta');
@@ -85,6 +98,7 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
     if (p === 'chiusa') {
       pulisci();
       allaChiusura();
+      aggiornaClasse();
       return;
     }
     // la classe prima di misurare: da aperto alcuni fogli mostrano di più (es. il profilo più alto)
@@ -191,6 +205,36 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
   };
   foglio.addEventListener('touchend', fineTocco);
   foglio.addEventListener('touchcancel', fineTocco);
+
+  // la X "Chiudi" e Esc: stesso effetto di trascinare la tendina in fondo
+  const chiudiDaX = () => {
+    if (foglio.hidden) return;
+    posizione = 'chiusa';
+    pulisci();
+    allaChiusura();
+    aggiornaClasse();
+  };
+  if (chiudibile) {
+    registraPannello({ id, aperto: () => !foglio.hidden, chiudi: chiudiDaX, collegato: () => foglio.isConnected });
+    collegaEsc();
+    new MutationObserver(aggiornaClasse).observe(foglio, { attributes: true, attributeFilter: ['hidden'] });
+  }
+  if (conX) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'x-pannello';
+    x.setAttribute('aria-label', 'Chiudi');
+    x.title = 'Chiudi (Esc)';
+    x.innerHTML = HTML_X;
+    x.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chiudiDaX();
+    });
+    // i fogli riscrivono il loro contenuto: la X torna al suo posto
+    const rimetti = () => foglio.contains(x) || foglio.appendChild(x);
+    rimetti();
+    new MutationObserver(rimetti).observe(foglio, { childList: true });
+  }
 
   // girando il telefono le altezze cambiano
   window.addEventListener('resize', () => posizione !== 'chiusa' && vai(posizione));

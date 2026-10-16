@@ -91,7 +91,8 @@ function opzioniSpecie(scelta, intorno) {
 export const ZOOM_HEATMAP_GRUPPI = 10;
 
 // pannelloIn: dove mettere legenda e filtri (di base sulla mappa; nella pagina iniziale nel foglio della fauna)
-export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false, personalizza = () => ({}), pannelloIn = null } = {}) {
+// riapriPannello(): Fauna accesa con il pannello chiuso: il tocco su "Fauna" lo riapre invece di spegnere
+export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false, personalizza = () => ({}), pannelloIn = null, riapriPannello = () => false } = {}) {
   const calcolaFiltri = (st) => ({ ...filtriHeatmap(st, { intorno }), ...personalizza() });
   let filtri = calcolaFiltri(stato.leggi());
   let richiestaZona = 0;
@@ -141,6 +142,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       L.DomEvent.disableClickPropagation(div);
       L.DomEvent.on(b, 'click', (e) => {
         L.DomEvent.preventDefault(e);
+        if (attiva && riapriPannello()) return;
         stato.imposta({ livelli: { heatmap: !attiva } });
       });
       this.bottone = b;
@@ -385,7 +387,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, intorno = false
       // le posizioni approssimate (specie protette, atlanti) a parte, sbiadite e tratteggiate
       for (const g of raggruppa(oss)) {
         // sulla tela, non come segnaposto HTML: lo spillo sta sopra il punto (lì si tocca)
-        new SegnoSuTela([g.lat, g.lon], { renderer: telaSegni(mappa), radius: 15, centro: [0, -22], disegno: disegnoSpillo(g, telaSegni(mappa)) })
+        new SegnoSuTela([g.lat, g.lon], { renderer: telaSegni(mappa), radius: 15, centro: [0, -22], disegno: disegnoSpillo(g, telaSegni(mappa)), inattivo: occupata })
           .bindPopup(() => popupGruppo(g), { offset: [0, -34] })
           .on('popupopen', (ev) => {
             if (g.animale || NOMI_IT.get(g.scientifico)) return;

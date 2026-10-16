@@ -19,13 +19,15 @@ export function telaSegni(mappa) {
 // Segno: disegno(ctx, x, y) disegna intorno al punto (x, y) in pixel della tela;
 // centro: [dx, dy] del centro della zona toccabile rispetto al punto (es. lo spillo sopra il punto)
 export const SegnoSuTela = L.CircleMarker.extend({
-  options: { radius: 12, centro: [0, 0], disegno: null, interactive: true },
+  // inattivo(): se vero il segno non si tocca (un altro strumento usa i tocchi: disegno, righello, da qui)
+  options: { radius: 12, centro: [0, 0], disegno: null, interactive: true, inattivo: null },
   _updatePath() {
     const r = this._renderer;
     if (!r?._drawing || this._empty() || !this.options.disegno) return;
     this.options.disegno(r._ctx, this._point.x, this._point.y);
   },
   _containsPoint(p) {
+    if (this.options.inattivo?.()) return false;
     const [dx, dy] = this.options.centro;
     return p.distanceTo(this._point.add([dx, dy])) <= this._radius + this._clickTolerance();
   },

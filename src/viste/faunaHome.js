@@ -48,6 +48,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     <div class="fauna-heat"></div>
     <div class="fauna-corpo">
       <div class="fauna-azioni">
+        <button type="button" class="chip-scorciatoia attiva" data-azione="spegni" aria-pressed="true" title="Spegni la heatmap della fauna">${ICONE.zampa}<span>Fauna accesa</span></button>
         <button type="button" class="chip-scorciatoia" data-azione="ricco">${ICONE.zampa}<span>Ricco di fauna · periodo attuale</span></button>
         <button type="button" class="chip-scorciatoia" data-azione="elenco">${ICONE.percorso}<span>Percorsi qui</span></button>
       </div>
@@ -58,8 +59,9 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       <ul class="specie-zona"></ul>
     </div>`;
   contenitore.appendChild(foglio);
-  // la stessa tendina di "Percorsi qui": chiudendola si spegne la Fauna (il pulsante sulla mappa la riaccende)
-  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', naturale: true, allaChiusura: () => stato.imposta({ livelli: { heatmap: false } }) });
+  // la stessa tendina di "Percorsi qui": chiuderla (X, Esc, trascinandola in giù, o aprendone un'altra) nasconde
+  // il pannello ma la Fauna resta accesa; un tocco su "Fauna" lo riapre. Si spegne dall'interruttore nel pannello
+  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', naturale: true, allaChiusura: () => mostra(false) });
   const elenco = foglio.querySelector('.specie-zona');
 
   function disegnaScelte() {
@@ -117,7 +119,9 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.azione === 'elenco') {
+    if (b.dataset.azione === 'spegni') {
+      stato.imposta({ livelli: { heatmap: false } });
+    } else if (b.dataset.azione === 'elenco') {
       apriElenco();
     } else if (b.dataset.azione === 'ricco') {
       // per i percorsi in elenco: avvistamenti frequenti nel mese corrente e in quelli accanto
@@ -156,9 +160,14 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   }
   // "Cosa vedere qui" segue la zona inquadrata, solo con il foglio della fauna aperto
   const togliDallaCoda = mappa.dopoIlMovimento('fauna: specie della zona', () => mostraSpecie(), { visibile: () => !foglio.hidden, priorita: 4 });
+  // il pannello si apre quando la Fauna si accende e si chiude quando si spegne; da accesa può restare chiuso
+  let heatPrima = Boolean(stato.leggi().livelli.heatmap);
   const scollega = stato.ascolta((s) => {
-    if (s.livelli.heatmap === foglio.hidden) mostra(s.livelli.heatmap);
-    else disegnaScelte();
+    const acceso = Boolean(s.livelli.heatmap);
+    if (acceso !== heatPrima) {
+      heatPrima = acceso;
+      mostra(acceso);
+    } else disegnaScelte();
   });
 
   return {
@@ -169,6 +178,12 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       mostra(Boolean(stato.leggi().livelli.heatmap));
     },
     pannello: foglio.querySelector('.fauna-heat'),
+    // Fauna accesa ma pannello chiuso: un tocco su "Fauna" lo riapre (restituisce true se l'ha riaperto)
+    riapri() {
+      if (!foglio.hidden || !stato.leggi().livelli.heatmap) return false;
+      mostra(true);
+      return true;
+    },
     chiudi() {
       scollega();
       togliDallaCoda();

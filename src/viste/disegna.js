@@ -12,6 +12,7 @@ import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerren
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
 import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 import { leggiGpx } from '../lib/gpx.js';
+import { distanzaKm } from '../lib/geo.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
@@ -26,6 +27,8 @@ import { preparaAvvisi } from './avvisiParco.js';
 
 const COLORE = '#0f6e56'; // verde: diverso dal viola dei percorsi dell'archivio
 const ATTESA_PUNTI_MS = 1200; // rifugi e acqua si cercano quando il disegno si ferma un attimo
+const ZOOM_SENTIERI = 12; // sotto questo zoom i tratti non si calcolano sui sentieri: prima ci si avvicina
+const TRATTO_MAX_KM = 50; // oltre, il server dei sentieri (BRouter) non è adatto: mano libera
 
 export async function vistaDisegna(app, id = null) {
   const esistente = id ? await leggiPercorso(id) : null;
@@ -87,7 +90,8 @@ export async function vistaDisegna(app, id = null) {
   const segnaProfilo = L.circleMarker([0, 0], { radius: 7, color: '#fff', weight: 3, fillColor: '#ef9f27', fillOpacity: 1, interactive: false });
   const foglio = app.querySelector('.foglio-disegno');
   // la stessa tendina degli altri fogli, ma resta sempre (la posizione più bassa è metà)
-  const tendina = tendinaTrascinabile(foglio, { naturale: true, chiudibile: false, fineMeta: '[data-azione="salva"]' });
+  // riserva: restano liberi gli strumenti in alto e le colonne di comandi; variabileAltezza: GPS, scala e crediti stanno sopra
+  const tendina = tendinaTrascinabile(foglio, { naturale: true, chiudibile: false, fineMeta: '[data-azione="salva"]', riserva: 280, variabileAltezza: '--altezza-foglio' });
   tendina.apri('meta');
   const suggerimento = app.querySelector('#suggerimento');
 
@@ -98,6 +102,7 @@ export async function vistaDisegna(app, id = null) {
   function suggerimentoBase() {
     if (puntoDaSpostare != null) return scriviSuggerimento('Tocca la mappa dove spostare il punto');
     if (!punti.length) return scriviSuggerimento('Tocca la mappa per la partenza');
+    if (!manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return scriviSuggerimento('Avvicinati per disegnare sui sentieri');
     if (punti.length === 1) return scriviSuggerimento(manoLibera ? 'Mano libera: tocca il prossimo punto' : 'Tocca il prossimo punto: il percorso segue i sentieri');
     scriviSuggerimento(manoLibera ? 'Mano libera: linea dritta fino al prossimo punto' : '');
   }
@@ -159,19 +164,43 @@ export async function vistaDisegna(app, id = null) {
     aggiorna();
   }
 
-  mappa.on('click', (e) => {
-    const p = [Number(e.latlng.lng.toFixed(6)), Number(e.latlng.lat.toFixed(6))];
+  // i tocchi sulla mappa servono solo al disegno (la fauna, con i suoi segnaposto, si guarda soltanto)
+  function aggiungiPunto(latlng) {
+    const p = [Number(latlng.lng.toFixed(6)), Number(latlng.lat.toFixed(6))];
     menu.hidden = true;
     if (puntoDaSpostare != null) {
       const i = puntoDaSpostare;
       puntoDaSpostare = null;
       return spostaPunto(i, p);
     }
+    // da lontano i tratti non seguono i sentieri: la partenza si mette sempre, il resto dopo essersi avvicinati
+    if (punti.length > 0 && !manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return suggerimentoBase();
     // un anello chiuso si riapre togliendo l'arrivo, poi si allunga
     if (eAnello(punti)) punti.pop();
     punti.push({ p, libero: punti.length > 0 && manoLibera });
     aggiorna();
+  }
+  let ultimoClick = 0;
+  mappa.on('click', (e) => {
+    ultimoClick = performance.now();
+    aggiungiPunto(e.latlng);
   });
+  // rete di sicurezza: un tocco pulito sulla mappa non va mai perso (Leaflet a volte non lo segnala come
+  // click: mappa ancora in movimento, segnaposto sotto il dito…). Se entro un attimo non è arrivato, si aggiunge
+  const contenitoreMappa = mappa.getContainer();
+  let giu = null;
+  contenitoreMappa.addEventListener('pointerdown', (e) => {
+    const sulla = e.isPrimary && !e.target.closest('.leaflet-control, .leaflet-marker-icon, .leaflet-popup');
+    giu = sulla ? { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId } : null;
+  });
+  contenitoreMappa.addEventListener('pointerup', (e) => {
+    const g = giu;
+    giu = null;
+    if (!g || e.pointerId !== g.id || Math.hypot(e.clientX - g.x, e.clientY - g.y) > 8 || performance.now() - g.t > 700) return;
+    const latlng = mappa.mouseEventToLatLng(e);
+    setTimeout(() => ultimoClick < g.t && !chiusa && aggiungiPunto(latlng), 120);
+  });
+  mappa.on('zoomend', suggerimentoBase);
 
   // --- calcolo ---
   function tratto(a, b) {
@@ -179,7 +208,9 @@ export async function vistaDisegna(app, id = null) {
     if (!tratti.has(k)) {
       const calcolo = b.libero
         ? Promise.resolve(trattoLibero(a, b))
-        : calcolaPercorso([a.p, b.p]).then((r) => ({ coordinate: r.coordinate.map(([lon, lat]) => [lon, lat]), terreno: r.terreno, libero: false }));
+        : distanzaKm(a.p, b.p) > TRATTO_MAX_KM
+          ? Promise.reject(new Error(`Tratto troppo lungo per seguire i sentieri (oltre ${TRATTO_MAX_KM} km).`))
+          : calcolaPercorso([a.p, b.p]).then((r) => ({ coordinate: r.coordinate.map(([lon, lat]) => [lon, lat]), terreno: r.terreno, libero: false }));
       calcolo.catch(() => tratti.delete(k)); // un tratto non calcolato si riprova
       tratti.set(k, calcolo);
     }
@@ -200,15 +231,20 @@ export async function vistaDisegna(app, id = null) {
       app.querySelector('#dettagli').innerHTML = '';
       return mostraBarra();
     }
-    mostraBarra('Calcolo il percorso…');
-    let fatti;
-    try {
-      fatti = await Promise.all(punti.slice(1).map((b, i) => tratto(punti[i], b)));
-    } catch (e) {
-      if (mia === richiesta) mostraBarra(`<span class="errore">${escapeHtml(e.message)}</span>`);
+    mostraBarra('Calcolo del tratto…');
+    scriviSuggerimento('Calcolo del tratto…');
+    const esiti = await Promise.allSettled(punti.slice(1).map((b, i) => tratto(punti[i], b)));
+    if (mia !== richiesta || chiusa) return;
+    suggerimentoBase();
+    const fallito = esiti.findIndex((x) => x.status === 'rejected');
+    if (fallito >= 0) {
+      // un tratto che non si calcola: si dice perché e si può farlo a mano libera
+      risultato = null;
+      mostraBarra(`<span class="errore">${escapeHtml(esiti[fallito].reason?.message ?? 'Il tratto non si è calcolato.')}</span>
+        <button type="button" class="bottone piccolo" data-azione="libera-tratto" data-indice="${fallito + 1}">Mano libera per questo tratto</button>`);
       return;
     }
-    if (mia !== richiesta || chiusa) return;
+    const fatti = esiti.map((x) => x.value);
     const linea = unisciTratti(fatti);
     livelloLinea.clearLayers();
     // tratti agganciati pieni, a mano libera tratteggiati
@@ -366,6 +402,11 @@ export async function vistaDisegna(app, id = null) {
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('[data-azione]');
     const azione = b?.dataset.azione;
+    if (azione === 'libera-tratto') {
+      const i = Number(b.dataset.indice);
+      if (punti[i]) punti[i] = { ...punti[i], libero: true };
+      return aggiorna();
+    }
     if (azione === 'salva' && risultato) {
       const m = risultato.misure;
       app.querySelector('#riepilogoSalva').textContent = `${km1(m.km)} km${m.salita != null ? ` · +${m.salita} m` : ''}${m.durataMin != null ? ` · ${durata(m.durataMin)}` : ''}${eAnello(punti) ? ' · anello' : ''}`;

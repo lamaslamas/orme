@@ -7,6 +7,7 @@ import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { percorsiDaQui, RAGGI_DA_QUI, RAGGIO_DA_QUI } from '../lib/daQui.js';
 import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
+import { registraPannello, annunciaPannello, aggiornaClasse, collegaEsc } from './pannelli.js';
 
 const MOSTRATI = 10;
 // segnaposto con un percorso che ci passa (diverso dal mirino del GPS)
@@ -57,8 +58,15 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
   const fauna = angolo.querySelector('.heat-bottone')?.closest('.leaflet-bar');
   angolo.insertBefore(controllo.getContainer(), fauna ? fauna.nextSibling : angolo.firstChild);
 
+  // Esc chiude lo strumento; con una tendina aperta si riduce a una riga (stile.css, body.pannello-aperto)
+  registraPannello({ id: 'daqui', sheet: false, aperto: () => scegliendo || Boolean(punto), chiudi: () => chiudi(), collegato: () => barra.isConnected });
+  collegaEsc();
+  mappa.on('unload', () => document.body.classList.remove('strumento-daqui'));
+
   function scegli() {
     scegliendo = true;
+    document.body.classList.add('strumento-daqui');
+    annunciaPannello('daqui', { strumento: true }); // le tendine si chiudono: lo strumento ha la sua barra
     mappa.strumento = 'daqui';
     mappa.closePopup();
     controllo.bottone.classList.add('attivo');
@@ -75,6 +83,8 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
     barra.hidden = true;
     controllo.bottone.classList.remove('attivo');
     mappa.getContainer().classList.remove('scegli-punto', 'con-daqui', 'con-elenco-daqui');
+    document.body.classList.remove('strumento-daqui');
+    aggiornaClasse();
   }
 
   function mostra() {

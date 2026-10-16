@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import { misuraLineaAria, lineaPiuVicina, puntoSullaLinea, trattoLungoLinea, testoDistanza } from '../lib/misure.js';
 import { percorsoSentiero } from '../lib/tracce.js';
+import { registraPannello, annunciaPannello, aggiornaClasse, collegaEsc, HTML_X } from './pannelli.js';
 
 // oltre questa distanza dal tocco, il punto non viene agganciato alla traccia
 const MAX_AGGANCIO_M = 150;
@@ -45,6 +46,10 @@ export function aggiungiMisura(mappa, leggiTracce) {
     },
   });
   const controllo = new Controllo().addTo(mappa);
+  // Esc chiude il righello; chi apre una tendina lo riduce a una riga (stile.css, body.pannello-aperto)
+  registraPannello({ id: 'misura', sheet: false, aperto: () => attiva, chiudi: () => chiudi(), collegato: () => barra.isConnected });
+  collegaEsc();
+  mappa.on('unload', () => document.body.classList.remove('strumento-misura'));
 
   function lineeDisponibili() {
     return (leggiTracce() ?? []).flatMap((g) => percorsoSentiero(g).pezzi);
@@ -57,6 +62,8 @@ export function aggiungiMisura(mappa, leggiTracce) {
     controllo.bottone.classList.add('attivo');
     mappa.getContainer().classList.add('misurando');
     mappa.closePopup();
+    document.body.classList.add('strumento-misura');
+    annunciaPannello('misura', { strumento: true }); // le tendine si chiudono: il righello ha la barra
   }
 
   function chiudi() {
@@ -65,6 +72,8 @@ export function aggiungiMisura(mappa, leggiTracce) {
     barra.hidden = true;
     controllo.bottone.classList.remove('attivo');
     mappa.getContainer().classList.remove('misurando');
+    document.body.classList.remove('strumento-misura');
+    aggiornaClasse();
   }
 
   function azzera() {
@@ -115,6 +124,7 @@ export function aggiungiMisura(mappa, leggiTracce) {
       }`;
     }
     barra.innerHTML = `
+      <button type="button" class="x-pannello" data-azione="chiudi" aria-label="Chiudi il righello" title="Chiudi (Esc)">${HTML_X}</button>
       <div class="misura-modi" role="group" aria-label="Tipo di misura">
         <button type="button" data-modo="aria" class="${modo === 'aria' ? 'scelto' : ''}">Linea d'aria</button>
         <button type="button" data-modo="traccia" class="${modo === 'traccia' ? 'scelto' : ''}" ${haTracce ? '' : 'disabled'}>Lungo la traccia</button>
