@@ -2003,3 +2003,7 @@ body.disegno .pannello-heatmap { display: none; }
 
 .heat-cosa { margin: 6px 0 2px; font-size: 0.85rem; font-weight: 700; text-align: center; }
 .heat-gruppi { margin: 4px 0 6px; }
+
+/* profilo altimetrico sotto i numeri della scheda (stesso del disegno) */
+.profilo-scheda { margin: 6px 0 10px; }
+.profilo-scheda svg { display: block; width: 100%; height: 64px; touch-action: none; cursor: crosshair; }

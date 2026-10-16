@@ -8,10 +8,11 @@ import { leggiPercorso, salvaPercorso } from '../db.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
 import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozza.js';
-import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi, puntoAlKm } from '../lib/disegno.js';
+import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi } from '../lib/disegno.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
 import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 import { importaGpxComePercorso } from './importaGpx.js';
+import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { distanzaKm } from '../lib/geo.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml, durata } from '../lib/formato.js';
@@ -287,31 +288,10 @@ export async function vistaDisegna(app, id = null) {
       box.innerHTML = '';
       return;
     }
-    const zs = serieProfilo.map((x) => x.z);
-    const [min, max] = [Math.min(...zs), Math.max(...zs)];
-    const tot = serieProfilo.at(-1).km || 1;
-    const X = (km) => (km / tot) * 300;
-    const Y = (z) => 56 - ((z - min) / (max - min || 1)) * 50;
-    const d = serieProfilo.map((x, i) => `${i ? 'L' : 'M'}${X(x.km).toFixed(1)} ${Y(x.z).toFixed(1)}`).join(' ');
-    box.innerHTML = `<svg viewBox="0 0 300 60" preserveAspectRatio="none" role="img" aria-label="Profilo altimetrico: da ${Math.round(min)} a ${Math.round(max)} m">
-        <path d="${d} L300 60 L0 60 Z" class="profilo-area"/><path d="${d}" class="profilo-linea" fill="none" vector-effect="non-scaling-stroke"/>
-        <line class="profilo-cursore" x1="-10" x2="-10" y1="0" y2="60" vector-effect="non-scaling-stroke"/></svg>
-      <p class="profilo-dati"><span>${Math.round(min)}–${Math.round(max)} m</span><span id="datoProfilo"></span></p>
-      <p class="profilo-fonte tenue">${escapeHtml(testoFonteQuote(risultato.fonte))}</p>`;
+    box.innerHTML = htmlProfiloMini(serieProfilo, testoFonteQuote(risultato.fonte));
   }
   // tocco sul profilo: il punto sulla mappa
-  app.querySelector('#profilo').addEventListener('pointerdown', (e) => {
-    const svg = e.target.closest('svg');
-    if (!svg || serieProfilo.length < 2) return;
-    const r = svg.getBoundingClientRect();
-    const tot = serieProfilo.at(-1).km;
-    const x = puntoAlKm(serieProfilo, ((e.clientX - r.left) / r.width) * tot);
-    segnaProfilo.setLatLng([x.p[1], x.p[0]]).addTo(mappa);
-    const cursore = svg.querySelector('.profilo-cursore');
-    cursore.setAttribute('x1', ((x.km / tot) * 300).toFixed(1));
-    cursore.setAttribute('x2', ((x.km / tot) * 300).toFixed(1));
-    app.querySelector('#datoProfilo').textContent = `km ${km1(x.km)} · ${Math.round(x.z)} m`;
-  });
+  collegaProfiloMini(app.querySelector('#profilo'), () => serieProfilo, (x) => segnaProfilo.setLatLng([x.p[1], x.p[0]]).addTo(mappa));
 
   // nei parchi: tratti non segnati, a mano libera o su sentieri ad accesso regolato, in arancione
   async function mostraAvvisi(mia) {

@@ -17,6 +17,11 @@ import { htmlFotoPersonali, collegaFotoPersonali } from './fotoPersonali.js';
 import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
 import { improntaTraccia } from '../lib/panorama.js';
+import { quoteDellaScheda, quotePerSalvare } from '../lib/quoteSalvate.js';
+import { profiloPezzi } from '../lib/disegno.js';
+import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
+import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
+import { creaPuntoProfilo } from './puntoProfilo.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { htmlProbabili, collegaProbabili, serveProbabili, testoConferma } from './sentieriProbabili.js';
 
@@ -290,6 +295,7 @@ export function linkSicuro(url) {
   }
 }
 
+const quoteTentate = new Set(); // sentieri per cui si è già provato a scaricare le quote in questa visita
 export async function vistaScheda(app, id) {
   const [s, traccia, giri] = await Promise.all([leggiSentiero(id), leggiTraccia(id), tuttiIGiri()]);
   if (!s) {
@@ -307,7 +313,11 @@ export async function vistaScheda(app, id) {
   const haEscursione = e.associazione || e.nomeUscita || e.periodo || e.fonte;
   // Andata e ritorno: dalla traccia con le quote (della traccia o TINITALY) e il metodo CAI. I numeri
   // in alto usano lo stesso calcolo e seguono la scelta; il dato della fonte, se diverso, in piccolo
-  const pezziTraccia = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' ? percorsoSentiero(traccia.geojson).pezzi : [];
+  const pezziGrezzi = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' ? percorsoSentiero(traccia.geojson).pezzi : [];
+  // quote punto per punto: quelle della traccia o, se non ce l'ha, quelle scaricate da TINITALY e salvate accanto
+  const impronta = traccia?.geojson ? improntaTraccia(traccia.geojson).split('-')[1] : null;
+  const delleQuote = quoteDellaScheda(pezziGrezzi, traccia?.dettagli?.quoteScaricate, impronta);
+  const pezziTraccia = delleQuote?.pezzi ?? pezziGrezzi;
   const base = baseAndata(pezziTraccia, quoteDellaTraccia(s, traccia));
   const ar = base ? misureAR(base, { anello: eAnelloPezzi(pezziTraccia) }) : null;
   const numeriScelti = (modo) => {
@@ -359,6 +369,7 @@ export async function vistaScheda(app, id) {
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
       <div id="numeriScheda">${numeriScelti(modoScelto())}</div>
+      <div id="profiloScheda" class="profilo-scheda" aria-live="polite"></div>
       ${ar ? htmlAndataRitorno(ar) : ''}
       ${htmlQuandoAndare()}
 
@@ -394,7 +405,7 @@ export async function vistaScheda(app, id) {
 
       ${traccia ? htmlSezione('rifugi', { icona: 'casa', titolo: 'Rifugi e acqua', riassunto: 'Cerco lungo il percorso…' }, '<div id="puntiLungo"></div>') : ''}
 
-      ${traccia ? htmlSezione('terreno', { icona: 'montagna', titolo: 'Terreno e pendenze', riassunto: riassuntoTerreno(misure) }, `${htmlProfiloPendenze(percorsoSentiero(traccia.geojson).pezzi)}<div id="contenitoreTerreno"></div>`) : ''}
+      ${traccia ? htmlSezione('terreno', { icona: 'montagna', titolo: 'Terreno e pendenze', riassunto: riassuntoTerreno(misure) }, `${htmlProfiloPendenze(pezziTraccia)}<div id="contenitoreTerreno"></div>`) : ''}
 
       ${htmlSezione('compatibilita', { icona: 'scudo', titolo: 'Compatibilità', riassunto: riassuntoCompatibilita(s, traccia) }, htmlCompatibilita(s, traccia))}
 
@@ -520,6 +531,29 @@ export async function vistaScheda(app, id) {
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
   if (traccia) collegaTerreno(app, s, traccia);
+  // il profilo sotto i numeri: sempre visibile; senza quote si scaricano da sole da TINITALY (una volta)
+  const punto = creaPuntoProfilo();
+  const boxProfilo = app.querySelector('#profiloScheda');
+  const serie = delleQuote ? profiloPezzi(delleQuote.pezzi) : [];
+  if (serie.length > 1) {
+    const fonte = delleQuote.fonte === 'traccia' ? (traccia.dettagli?.quote ? testoFonteQuote(traccia.dettagli.quote) : 'Quote della traccia') : testoFonteQuote(delleQuote.fonte);
+    boxProfilo.innerHTML = htmlProfiloMini(serie, fonte);
+    collegaProfiloMini(boxProfilo, () => serie, (x) => punto.mostra(x.p));
+  } else if (pezziGrezzi.length && !quoteTentate.has(s.id)) {
+    quoteTentate.add(s.id);
+    boxProfilo.innerHTML = '<p class="tenue piccolo">Scarico le quote da TINITALY…</p>';
+    quoteDeiPezzi(pezziGrezzi, { fitti: false })
+      .then(async ({ pezzi, fonte }) => {
+        const z = quotePerSalvare(pezzi);
+        if (!z) throw new Error('quote incomplete');
+        await salvaTraccia({ ...traccia, dettagli: { ...traccia.dettagli, quoteScaricate: { impronta, fonte, z } } });
+        // la pagina si ridisegna con profilo, dislivello e tempi calcolati sulle quote
+        if (location.hash === `#/sentiero/${idUrl}`) vistaScheda(app, id);
+      })
+      .catch(() => {
+        if (boxProfilo.isConnected) boxProfilo.innerHTML = '<p class="tenue piccolo">Quote non disponibili ora (sei offline?): il profilo comparirà alla prossima apertura.</p>';
+      });
+  }
   // meteo dei prossimi giorni con la durata scelta (Solo andata / A/R)
   const aggiornaMeteo = collegaQuandoAndare(app.querySelector('.quando-andare'), { sentiero: s, traccia, quote: quoteDellaTraccia(s, traccia), misure: ar ? misureScelte(ar, modoScelto()) : misure });
   if (ar) {
@@ -609,6 +643,7 @@ export async function vistaScheda(app, id) {
   const contenitoreMini = app.querySelector('#miniMappa');
   if (!contenitoreMini) return liberaFoto;
   const mini = creaMappa(contenitoreMini, { anteprima: true });
+  punto.collega(mini);
   const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false, estremi: !traccia.dettagli?.rete }).addTo(mini);
   mini.attenuaSentieri(true);
   requestAnimationFrame(() => {
