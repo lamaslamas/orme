@@ -1652,8 +1652,11 @@ body.home-mappa main { padding: 0; }
   .home-sotto { left: calc(var(--larghezza-nav) + 16px); bottom: 20px; }
   /* i pannelli sono schede a sinistra: sotto la ricerca, sopra i pulsanti in basso, chiudibili con la X o Esc */
   .foglio-home { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; top: 70px; bottom: calc(var(--altezza-pills) + 6px + var(--altezza-strumento, 0px)); max-height: none; border-radius: 20px; }
-  /* zoom, GPS e gli altri comandi a sinistra restano a destra della scheda, mai sotto */
-  body.pannello-aperto .mappa-home .leaflet-left { margin-left: 420px; }
+  /* con una scheda aperta la colonna dei comandi (casa, posizione, righello, occhio, zoom) passa sul bordo destro,
+     sotto Fauna, Da qui e livelli; la scala in basso a sinistra resta a destra della scheda */
+  body.pannello-aperto .mappa-home .leaflet-top.leaflet-left { left: auto; right: 0; top: calc(env(safe-area-inset-top) + 236px); }
+  body.pannello-aperto .mappa-home .leaflet-top.leaflet-left .leaflet-control { margin-left: 0; margin-right: 10px; float: right; }
+  body.pannello-aperto .mappa-home .leaflet-bottom.leaflet-left { margin-left: 420px; }
 }
 @media (max-width: 1023.98px) {
   /* sul telefono si ingrandisce con le dita: niente pulsanti + e − sulla pagina iniziale */
@@ -1997,3 +2000,6 @@ body.disegno .pannello-heatmap { display: none; }
 .ordina-elenco[hidden] { display: none; }
 .azioni-vuota .bottone { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; flex: 0 1 auto; }
 .azioni-vuota .bottone svg { width: 18px; height: 18px; }
+
+.heat-cosa { margin: 6px 0 2px; font-size: 0.85rem; font-weight: 700; text-align: center; }
+.heat-gruppi { margin: 4px 0 6px; }

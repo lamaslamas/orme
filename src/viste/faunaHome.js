@@ -3,30 +3,17 @@
 // percorsi, i gruppi di animali che interessano e "Cosa vedere qui" per la zona inquadrata.
 // Toccando un animale la heatmap mostra solo quello; ritoccandolo si torna ai gruppi.
 import L from 'leaflet';
-import { GRUPPI_FAUNA, GRUPPI_FAUNA_PREDEFINITI } from '../lib/costanti.js';
+import { GRUPPI_FAUNA } from '../lib/costanti.js';
+import { leggiGruppiSalvati, salvaGruppiSalvati } from '../lib/gruppiFauna.js';
 import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib/intorno.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { tendinaTrascinabile } from './tendina.js';
 
-// gli stessi gruppi scelti in "Intorno a me" (preferenza del telefono)
-const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
-function leggiGruppi() {
-  try {
-    const g = JSON.parse(localStorage.getItem(CHIAVE_GRUPPI) ?? 'null');
-    return Array.isArray(g) ? g.filter((x) => GRUPPI_FAUNA[x]) : [...GRUPPI_FAUNA_PREDEFINITI];
-  } catch {
-    return [...GRUPPI_FAUNA_PREDEFINITI];
-  }
-}
-function salvaGruppi(g) {
-  try {
-    localStorage.setItem(CHIAVE_GRUPPI, JSON.stringify(g));
-  } catch {
-    // memoria non disponibile: la scelta vale per questa visita
-  }
-}
+// i gruppi scelti sono una preferenza del telefono, la stessa in tutte le mappe (src/lib/gruppiFauna.js)
+const leggiGruppi = leggiGruppiSalvati;
+const salvaGruppi = salvaGruppiSalvati;
 
 const riccoOra = (f) => f.fauna === 'frequenti' && f.stagione === 'adesso';
 
@@ -172,7 +159,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
 
   return {
     // campi in più per la heatmap: i gruppi scelti o l'animale toccato
-    personalizza: () => ({ gruppi, ...(scelta ? { taxon: { inat: scelta.inat, scientifico: scelta.scientifico } } : {}) }),
+    personalizza: () => ({ gruppi, ...(scelta ? { taxon: { inat: scelta.inat, scientifico: scelta.scientifico, nome: scelta.nome } } : {}) }),
     collega(h) {
       heat = h;
       mostra(Boolean(stato.leggi().livelli.heatmap));
