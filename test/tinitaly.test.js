@@ -60,8 +60,21 @@ describe('quote TINITALY', () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it('un errore del servizio (500, connessione chiusa) si riprova prima di rinunciare', async () => {
+    const risposte = [{ ok: false, status: 500 }, new Error('connessione chiusa'), { ok: true, text: async () => testoUtm }];
+    const fetchFn = vi.fn(async () => {
+      const r = risposte.shift();
+      if (r instanceof Error) throw r;
+      return r;
+    });
+    const l = creaLettoreTinitaly({ fetchFn, attesaMs: 0 });
+    const q = await l.quote([[13.79, 41.81]]);
+    expect(q[0]).toBeGreaterThan(1000);
+    expect(fetchFn).toHaveBeenCalledTimes(3);
+  });
+
   it('se TINITALY non risponde o mancano troppe quote, Open-Meteo', async () => {
-    const giu = creaLettoreTinitaly({ fetchFn: async () => ({ ok: false, status: 503 }) });
+    const giu = creaLettoreTinitaly({ fetchFn: async () => ({ ok: false, status: 503 }), attesaMs: 0 });
     const riserva = vi.fn(async (p) => p.map((l) => l.map(([x, y]) => [x, y, 5])));
     const r = await pezziConQuoteTinitaly([[[13.79, 41.81], [13.79002, 41.81]]], giu, riserva);
     expect(r.fonte).toBe('open-meteo');

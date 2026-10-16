@@ -11,6 +11,9 @@ import { profiloQuote, PASSO_PROFILO_M } from './profiloQuote.js';
 export const URL_TINITALY = 'https://tinitaly.pi.ingv.it/TINItaly_1_1/wcs';
 export const CREDITO_TINITALY = 'Quote TINITALY 10 m (INGV, CC BY 4.0)';
 export const LATO_CELLA_M = 1000;
+export const RIPROVE = 2;
+export const ATTESA_RIPROVA_MS = 1500;
+export const TEMPO_MAX_CELLA_MS = 30_000;
 // margine attorno alla cella (due celle di griglia): l'interpolazione sul bordo ha i vicini
 const MARGINE_M = 20;
 export const PASSO_QUOTE_M = 25;
@@ -117,8 +120,27 @@ export function infittisci(pezzi, passoM = PASSO_QUOTE_M) {
 }
 
 // Lettore con cache: leggiCella(chiave) → griglia salvata o null; salvaCella(chiave, griglia)
-export function creaLettoreTinitaly({ fetchFn = fetch, leggiCella = async () => null, salvaCella = async () => {}, parallele = 4 } = {}) {
+export function creaLettoreTinitaly({ fetchFn = fetch, leggiCella = async () => null, salvaCella = async () => {}, parallele = 4, attesaMs = ATTESA_RIPROVA_MS } = {}) {
   const inCorso = new Map();
+  // Il servizio INGV è lento (8–15 s per quadrato) e a volte risponde 500 o chiude la connessione:
+  // gli errori non portano l'intestazione CORS e al browser sembrano "bloccati". Si riprova qualche volta,
+  // con un tempo massimo per ogni richiesta
+  async function scaricaCella(chiave) {
+    let ultimo;
+    for (let tentativo = 0; tentativo <= RIPROVE; tentativo++) {
+      if (tentativo) await new Promise((r) => setTimeout(r, attesaMs * tentativo));
+      try {
+        const r = await fetchFn(urlCella(chiave), { signal: AbortSignal.timeout(TEMPO_MAX_CELLA_MS) });
+        if (!r.ok) throw new Error(`TINITALY ha risposto ${r.status}`);
+        const g = leggiGriglia(await r.text());
+        if (!g) throw new Error('TINITALY: risposta non leggibile');
+        return g;
+      } catch (e) {
+        ultimo = e;
+      }
+    }
+    throw ultimo;
+  }
   function cella(chiave) {
     if (!inCorso.has(chiave)) {
       inCorso.set(
@@ -126,10 +148,7 @@ export function creaLettoreTinitaly({ fetchFn = fetch, leggiCella = async () => 
         (async () => {
           const salvata = await leggiCella(chiave).catch(() => null);
           if (salvata) return salvata;
-          const r = await fetchFn(urlCella(chiave));
-          if (!r.ok) throw new Error(`TINITALY ha risposto ${r.status}`);
-          const g = leggiGriglia(await r.text());
-          if (!g) throw new Error('TINITALY: risposta non leggibile');
+          const g = await scaricaCella(chiave);
           await salvaCella(chiave, g).catch(() => {});
           return g;
         })().catch((e) => {

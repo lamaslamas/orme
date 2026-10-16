@@ -411,7 +411,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     el.textContent = !attiva || filtri.correggiSforzo
       ? ''
       : senzaGruppi(filtri)
-        ? 'nessun gruppo scelto'
+        ? '' // lo dice già la scritta sopra la scala
         : mappa.getZoom() < ZOOM_ICONE
         ? 'avvicinati per gli animali'
         : contoIcone == null
@@ -489,7 +489,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
               .map((c) => `<b style="background:${COLORI_CLASSI[c]}"></b>`)
               .join('')}<span>molte</span><b class="insufficiente"></b><span>dati scarsi</span></div>
              <p class="misura-nota" id="statoGriglia"></p>`
-          : `<p class="heat-cosa">${escapeHtml(cosaSiVede())}</p><div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div>`
+          : `<div class="heat-scala"><p class="heat-cosa">${escapeHtml(cosaSiVede())}</p><div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div></div>`
       }
       <p class="misura-nota">Tocca una zona colorata o un'icona per vedere le osservazioni. Heatmap iNaturalist; icone ed elenchi da tutte le fonti (GBIF: iNaturalist, eBird, Observation.org…).</p>`;
     pannello.hidden = false;

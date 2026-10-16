@@ -11,18 +11,21 @@ export const conMinacciate = (filtri) => gruppiScelti(filtri).includes('rare');
 
 // I gruppi scelti sono una preferenza del telefono, la stessa in tutte le mappe e nel pannello Fauna:
 // di base ci sono tutti. Nessun gruppo = nessuna heatmap (non una heatmap piena).
-export const CHIAVE_GRUPPI = 'orme.gruppiIntorno';
+// Formato { v: 2, gruppi }: la chiave di prima ("orme.gruppiIntorno", un elenco semplice, a volte vuoto
+// per un'altra storia) non si legge più, così "nessun gruppo" c'è solo se i gruppi li ha tolti chi usa l'app.
+export const CHIAVE_GRUPPI = 'orme.gruppiFauna';
 export function leggiGruppiSalvati(memoria = globalThis.localStorage) {
   try {
-    const g = JSON.parse(memoria?.getItem(CHIAVE_GRUPPI) ?? 'null');
-    return Array.isArray(g) ? g.filter((x) => GRUPPI_FAUNA[x]) : [...GRUPPI_FAUNA_PREDEFINITI];
+    const dato = JSON.parse(memoria?.getItem(CHIAVE_GRUPPI) ?? 'null');
+    if (dato?.v === 2 && Array.isArray(dato.gruppi)) return dato.gruppi.filter((x) => GRUPPI_FAUNA[x]);
   } catch {
-    return [...GRUPPI_FAUNA_PREDEFINITI];
+    // dato rovinato: si riparte da tutti
   }
+  return [...GRUPPI_FAUNA_PREDEFINITI];
 }
 export function salvaGruppiSalvati(gruppi, memoria = globalThis.localStorage) {
   try {
-    memoria?.setItem(CHIAVE_GRUPPI, JSON.stringify(gruppi));
+    memoria?.setItem(CHIAVE_GRUPPI, JSON.stringify({ v: 2, gruppi }));
   } catch {
     // memoria non disponibile: la scelta vale per questa visita
   }

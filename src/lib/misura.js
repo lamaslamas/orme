@@ -5,17 +5,11 @@
 export const MISURA_ATTIVA = (() => {
   try {
     if (typeof location === 'undefined') return false;
-    // resta acceso nella stessa scheda anche cambiando pagina; ?misura=0 lo spegne
+    // solo con ?misura nell'indirizzo (resta anche cambiando pagina: cambia solo la parte dopo #);
+    // non si memorizza niente nel browser; ?misura=0 lo spegne
     const p = new URLSearchParams(location.search);
-    if (p.get('misura') === '0') {
-      sessionStorage.removeItem('orme.misura');
-      return false;
-    }
-    if (p.has('misura')) {
-      sessionStorage.setItem('orme.misura', '1');
-      return true;
-    }
-    return sessionStorage.getItem('orme.misura') === '1';
+    sessionStorage.removeItem('orme.misura'); // il ricordo delle versioni di prima
+    return p.has('misura') && p.get('misura') !== '0';
   } catch {
     return false;
   }

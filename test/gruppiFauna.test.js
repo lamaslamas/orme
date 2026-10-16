@@ -13,8 +13,19 @@ describe('gruppi della fauna, uguali in tutte le mappe', () => {
     salvaGruppiSalvati(['rapaci'], m);
     expect(leggiGruppiSalvati(m)).toEqual(['rapaci']);
     salvaGruppiSalvati([], m);
-    expect(leggiGruppiSalvati(m)).toEqual([]); // nessun gruppo: scelta valida, non "tutti"
+    expect(leggiGruppiSalvati(m)).toEqual([]); // tolti uno per uno: nessun gruppo
     expect(leggiGruppiSalvati(null)).toHaveLength(4);
+  });
+  it('assente, rovinata o del formato vecchio: si riparte da tutti', () => {
+    const tutti = ['rapaci', 'acqua', 'mammiferi', 'rare'];
+    const m = memoria();
+    expect(leggiGruppiSalvati(m)).toEqual(tutti); // assente
+    m.setItem('orme.gruppiFauna', '{rotto');
+    expect(leggiGruppiSalvati(m)).toEqual(tutti);
+    m.setItem('orme.gruppiFauna', JSON.stringify(['rapaci'])); // elenco semplice: non è il formato nuovo
+    expect(leggiGruppiSalvati(m)).toEqual(tutti);
+    m.setItem('orme.gruppiIntorno', '[]'); // la chiave di prima non conta
+    expect(leggiGruppiSalvati(m)).toEqual(tutti);
   });
   it('la scritta sopra la scala', () => {
     expect(testoGruppi(['rapaci', 'acqua', 'mammiferi', 'rare'])).toBe('Tutti gli animali');

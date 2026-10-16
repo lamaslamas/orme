@@ -102,7 +102,7 @@ export function avviaMisuratore() {
   function iniziale() {
     pannello.classList.remove('in-corso');
     pannello.innerHTML = `
-      <div class="misuratore-testa"><b>Misura</b><span class="piccolo">versione ${VERSIONE.split(' ')[0]}</span><button type="button" class="bottone testo" data-m="riduci" aria-label="Riduci">–</button></div>
+      <div class="misuratore-testa"><b>Misura</b><span class="piccolo">versione ${VERSIONE.split(' ')[0]}</span><span><button type="button" class="bottone testo" data-m="riduci" aria-label="Riduci">–</button><button type="button" class="bottone testo" data-m="chiudi" aria-label="Chiudi il misuratore" title="Chiudi">✕</button></span></div>
       <div class="misuratore-corpo">
         <p class="piccolo"><button type="button" class="bottone testo" data-m="aggiorna">Aggiorna l'app</button> <span data-aggiornamento></span></p>
         <ol>
@@ -225,6 +225,7 @@ export function avviaMisuratore() {
   pannello.addEventListener('click', async (e) => {
     const azione = e.target.closest('[data-m]')?.dataset.m;
     if (azione === 'riduci') pannello.classList.toggle('ridotto');
+    else if (azione === 'chiudi') pannello.remove(); // torna con ?misura alla prossima apertura
     else if (azione === 'aggiorna') aggiorna();
     else if (PROVE[azione]) prova(azione);
     else if (azione === 'copia') {
