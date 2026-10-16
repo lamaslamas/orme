@@ -10,6 +10,7 @@ import { profiloQuote } from './profiloQuote.js';
 import { improntaTraccia } from './panorama.js';
 import { percorsiDaQui } from './daQui.js';
 import { urlOsservazioniGbif } from './gbif.js';
+import { eDomestico } from './domestici.js';
 import { API_INATURALIST, parametriRare, iconaDaAntenati } from './inaturalist.js';
 export { iconaDaAntenati };
 import { ANIMALI, TAXON_INATURALIST } from './costanti.js';
@@ -268,6 +269,7 @@ export function urlSpecieDellaZona(centro, km, gruppi, { minacciate = false } = 
   if (minacciate) parametriRare(p);
   else p.set('taxon_id', taxaDeiGruppi({ gruppi }, 'inat').join(','));
   p.set('quality_grade', 'research');
+  p.set('captive', 'false'); // niente osservazioni in cattività (animali domestici, di allevamento, zoo)
   p.set('locale', 'it');
   p.set('per_page', String(SPECIE_IN_EVIDENZA));
   return `${API_INATURALIST}/observations/species_counts?${p}`;
@@ -289,7 +291,7 @@ export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [] 
   const idRare = new Set(risposte.filter((_, i) => rare.includes(i)).flatMap((j) => (j?.results ?? []).map((r) => r.taxon?.id)));
   for (const r of risposte.flatMap((j) => j?.results ?? [])) {
     const t = r.taxon ?? {};
-    if (!t.id || perId.has(t.id)) continue;
+    if (!t.id || perId.has(t.id) || eDomestico({ scientifico: t.name, nome: t.preferred_common_name })) continue;
     const foto = t.default_photo;
     const animale = Object.entries(TAXON_INATURALIST).find(([, x]) => x.id === t.id)?.[0];
     perId.set(t.id, {

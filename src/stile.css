@@ -1958,7 +1958,7 @@ body.disegno main { padding: 0; }
 .mappa-in-movimento *, .mappa-in-movimento .leaflet-bar a { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 
 /* zona senza risultati: il perché e cosa fare */
-.zona-vuota { list-style: none; padding: 12px; border-radius: 14px; background: var(--scheda-piena); }
+.zona-vuota { padding: 12px; margin: 6px 0; border-radius: 14px; background: var(--scheda-piena); }
 .zona-vuota p { margin: 0 0 8px; }
 .azioni-vuota { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -1994,3 +1994,6 @@ body.disegno .pannello-heatmap { display: none; }
 }
 .misura-barra .x-pannello { top: -18px; right: 6px; }
 .barra-daqui .x-pannello { top: 4px; }
+.ordina-elenco[hidden] { display: none; }
+.azioni-vuota .bottone { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; flex: 0 1 auto; }
+.azioni-vuota .bottone svg { width: 18px; height: 18px; }

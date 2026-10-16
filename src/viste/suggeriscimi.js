@@ -132,7 +132,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       return `${modo}
         <h3>Lunghezza</h3>${htmlGruppo('lunghezza', LUNGHEZZE, scelte.lunghezza)}
         <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
-        <p class="tenue piccolo partenza-anello">Partenza: ${posizione() ? 'la tua posizione' : 'il centro della mappa (sposta la mappa per cambiarla)'}. Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
+        <p class="tenue piccolo partenza-anello">Partenza: ${partenzaManuale ? 'il punto scelto sulla mappa' : posizione() ? 'la tua posizione' : 'il centro della mappa (sposta la mappa per cambiarla)'}. Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
     }
     return `${modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
@@ -150,7 +150,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
-    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], FATICHE[scelte.fatica].toLowerCase(), posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
+    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], FATICHE[scelte.fatica].toLowerCase(), partenzaManuale ? 'dal punto scelto' : posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
     const cerco = scelte.cerco.map((c) => COSE[c].toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : `entro ${DISTANZE[scelte.distanza]}`;
     return [QUANDO[scelte.quando], TEMPI[scelte.tempo].toLowerCase(), FATICHE[scelte.fatica].toLowerCase(), lontano, ...cerco].join(' · ');
@@ -376,6 +376,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // --- Crea un anello ---
   let anelliOra = [];
+  let partenzaManuale = null; // "Crea un anello da qui": il punto scelto sulla mappa (vale finché la tendina resta aperta)
   const centroMappa = () => {
     const c = mappa.getCenter();
     return [c.lng, c.lat];
@@ -389,7 +390,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const avanzamento = (n) => (risultati.innerHTML = `<p class="tenue">Calcolo gli anelli sui sentieri… ${n} di ${DIREZIONI}</p>`);
     avanzamento(0);
     const volutaKm = Number(scelte.lunghezza);
-    const voluta = posizione() ?? centroMappa();
+    const voluta = partenzaManuale ?? posizione() ?? centroMappa();
     // acqua: i punti dei parchi più i quadrati del robot della zona (file già pronti, niente Overpass)
     const raggio = volutaKm / 2 + 1;
     const [avvisi, parchi, robot] = await Promise.all([preparaAvvisi(), caricaPunti(), puntiDelRobot(riquadroDeiPezzi([[puntoA(voluta, raggio * 1.42, 225), puntoA(voluta, raggio * 1.42, 45)]], 0), { max: 9 })]);
@@ -667,7 +668,15 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     document.body.classList.add('suggerisci-aperto');
     tendina.apri('aperta');
   }
+  // "Crea un anello da qui" (da «Nessun percorso passa da qui»): la tendina si apre sugli anelli, con quel punto
+  function apriAnelloDa(punto) {
+    partenzaManuale = punto;
+    scelte.modo = 'anello';
+    ricorda(scelte);
+    apri();
+  }
   function chiudi() {
+    partenzaManuale = null;
     if (foglio.hidden) return;
     foglio.hidden = true;
     tendina.chiudi();
@@ -676,5 +685,5 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     document.body.classList.remove('suggerisci-aperto');
   }
   mappa.on('unload', () => foglio.parentElement?.remove());
-  return { apri, chiudi, aperto: () => !foglio.hidden };
+  return { apri, apriAnelloDa, chiudi, aperto: () => !foglio.hidden };
 }

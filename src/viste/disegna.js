@@ -11,7 +11,7 @@ import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozza.js';
 import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi, puntoAlKm } from '../lib/disegno.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
 import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
-import { leggiGpx } from '../lib/gpx.js';
+import { importaGpxComePercorso } from './importaGpx.js';
 import { distanzaKm } from '../lib/geo.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml, durata } from '../lib/formato.js';
@@ -378,10 +378,7 @@ export async function vistaDisegna(app, id = null) {
     file.value = '';
     if (!f) return;
     try {
-      const { geojson, nome } = leggiGpx(await f.text());
-      const nuovo = { id: nuovoIdPercorso(), nome: nome || f.name.replace(/\.gpx$/i, ''), origine: 'gpx', geojson, note: '' };
-      await salvaPercorso(nuovo);
-      location.hash = `#/percorso/${encodeURIComponent(nuovo.id)}`;
+      location.hash = `#/percorso/${encodeURIComponent(await importaGpxComePercorso(f))}`;
     } catch (err) {
       mostraBarra(`<span class="errore">${escapeHtml(err.message)}</span>`);
     }

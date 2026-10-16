@@ -7,6 +7,7 @@ import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { percorsiDaQui, RAGGI_DA_QUI, RAGGIO_DA_QUI } from '../lib/daQui.js';
 import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
+import { iniziaBozza } from '../lib/bozza.js';
 import { registraPannello, annunciaPannello, aggiornaClasse, collegaEsc } from './pannelli.js';
 
 const MOSTRATI = 10;
@@ -17,7 +18,8 @@ const ICONA_DA_QUI =
 const EVIDENZA = '#e8590c';
 
 // leggiPercorsi(): [{ sentiero, traccia, misure }]; attenua: le altre tracce si fanno tenui
-export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
+// disegnaDaQui(punto) e creaAnelloDaQui(punto): cosa fare quando nessun percorso passa dal punto scelto
+export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false, creaAnelloDaQui = null } = {}) {
   if (!mappa.getPane('evidenza')) {
     mappa.createPane('evidenza');
     mappa.getPane('evidenza').style.zIndex = 445; // sopra le tracce, sotto i nomi dei luoghi
@@ -114,6 +116,15 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
     barra.innerHTML = `
       <div class="daqui-testa"><b>${trovati.length ? `Passano da qui: ${trovati.length}` : 'Nessun percorso passa da qui'}</b>
         <span><button type="button" class="link" data-azione="altro">Altro punto</button> · <button type="button" class="link" data-azione="chiudi">Chiudi</button></span></div>
+      ${
+        trovati.length
+          ? ''
+          : `<div class="azioni-vuota">
+        <button type="button" class="bottone primario" data-azione="disegna">Disegna da qui</button>
+        ${creaAnelloDaQui ? '<button type="button" class="bottone" data-azione="anello">Crea un anello da qui</button>' : ''}
+        ${raggio < 500 ? '<button type="button" class="bottone" data-raggio="500">Allarga a 500 m</button>' : ''}
+      </div>`
+      }
       <div class="pillole daqui-raggi" role="group" aria-label="Distanza dal punto">${RAGGI_DA_QUI.map(
         (r) => `<button type="button" class="pillola ${r === raggio ? 'attiva' : ''}" data-raggio="${r}">entro ${r} m</button>`,
       ).join('')}</div>
@@ -142,6 +153,15 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false } = {}) {
         return mostra();
       }
       if (azione === 'chiudi') chiudi();
+      if (azione === 'disegna' && punto) {
+        iniziaBozza(punto);
+        location.hash = '#/percorso-nuovo';
+      }
+      if (azione === 'anello' && punto) {
+        const p = punto;
+        chiudi();
+        creaAnelloDaQui?.(p);
+      }
       if (azione === 'altro') {
         livello.clearLayers();
         mappa.getContainer().classList.remove('con-daqui');

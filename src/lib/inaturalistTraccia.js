@@ -1,5 +1,6 @@
 // Osservazioni iNaturalist lungo una traccia: fascia attorno al percorso e statistiche per specie.
 import { distanzaDallaTracciaM } from './geo.js';
+import { eDomestico } from './domestici.js';
 
 export const FASCE_M = [100, 250, 500];
 export const RAGGIO_SENTIERI_M = 500;
@@ -49,6 +50,7 @@ export function specieConsistenti(osservazioni, { minimo = MINIMO_OSSERVAZIONI, 
     perSpecie.set(chiave, s);
   }
   return [...perSpecie.values()]
+    .filter((s) => !eDomestico({ scientifico: s.nomeScientifico, nome: s.specie }))
     .map((s) => ({ specie: s.specie, nomeScientifico: s.nomeScientifico, osservazioni: s.n, persone: s.osservatori.size, mesiMigliori: mesiMigliori(s.mesi) }))
     .filter((s) => s.osservazioni >= minimo && s.persone >= persone)
     .sort((a, b) => b.osservazioni - a.osservazioni);

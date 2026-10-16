@@ -30,7 +30,9 @@ import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
 import { zonaDaCercare, raggioPerZoom, distanzaDiPartenza, testoPartenza } from '../lib/intorno.js';
-import { tipoZona, testoNessunoQui, piuVicino } from '../lib/zonaVuota.js';
+import { tipoZona, testoNessunoQui, testoZonaCercata, piuVicino, ZOOM_SENTIERI_NON_SEGNATI } from '../lib/zonaVuota.js';
+import { importaGpxComePercorso } from './importaGpx.js';
+import { distanzaKm } from '../lib/geo.js';
 
 // La mia posizione, solo in memoria finché l'app è aperta (mai salvata): serve a ordinare
 // "Percorsi qui" per partenza più vicina. ordine: 'consigliato' | 'vicini'
@@ -217,6 +219,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <label class="ricerca">${ICONE.cerca ?? ''}<input type="search" name="luogo" placeholder="Luogo o parco" aria-label="Cerca un luogo o un parco" autocomplete="off" enterkeyhint="search" /></label>
       <ul class="risultati-luogo" hidden></ul>
     </form>
+    <input type="file" id="fileGpxHome" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
     <button type="button" class="pill-mappa cerca-zona" id="cercaZona" hidden>${ICONE.cerca}<span>Cerca percorsi qui</span></button>
     <div class="home-sotto">
       <button type="button" class="pill-mappa" id="apriSuggerisci">${ICONE.bussola}<span>Suggerisci</span></button>
@@ -228,6 +231,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire o abbassare l'elenco"><span class="foglio-maniglia"></span></button>
       <div class="foglio-home-corpo">
         <div id="testaParco"></div>
+        <div id="zonaVuota" aria-live="polite"></div>
         <div class="mappa-barra">
           ${htmlSelettoreAttivita({ titolo: false })}
           ${htmlFiltri(sentieri, filtri)}
@@ -292,6 +296,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let visibili = [];
   let primaVolta = true;
   let restaQui = false; // il prossimo cambio di filtri non sposta la mappa (es. tolto il parco per un luogo)
+  let zonaSalvata = null; // l'ultima zona cercata fuori dai parchi (la legge più sotto)
+  let erroreGpx = ''; // l'ultimo file GPX che non si è potuto importare
   // alla prima apertura (non tornando sulla mappa) e senza un parco scelto: la mappa su di me
   const centrataSuDiMe = !mappa.vistaRitrovata && !idParco && centraSuDiMe(mappa);
 
@@ -367,7 +373,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   });
   // "Percorsi da qui": tra i percorsi con i filtri e la modalità scelti
   let filtratiOra = [];
-  const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true });
+  const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true, creaAnelloDaQui: (punto) => suggerisci?.apriAnelloDa(punto) });
 
   const preparati = preparaPercorsi(sentieri, tracce);
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
@@ -401,9 +407,12 @@ export async function vistaMappaGenerale(app, idParco = null) {
     }
     elencoVecchio = false;
     senzaTracciaInVista();
-    app.querySelector('#titoloRisultati').textContent = inMappa.length
+    // zona vuota: niente titolo né ordine, subito cosa fare (htmlZonaVuota)
+    app.querySelector('#titoloRisultati').textContent = inMappa.length && qui.length
       ? `Nella zona inquadrata (${qui.length}${qui.length < inMappa.length ? ` su ${inMappa.length}` : ''})`
       : '';
+    app.querySelector('.ordina-elenco').hidden = !qui.length;
+    const tipoQui = tipoZonaOra(qui.length);
     app.querySelector('#risultatiMappa').innerHTML =
       qui
         .slice(0, 60)
@@ -428,16 +437,33 @@ export async function vistaMappaGenerale(app, idParco = null) {
         })
         .join('') +
       (qui.length > 60 ? `<li class="tenue piccolo">e altri ${qui.length - 60}: avvicinati sulla mappa o usa i filtri</li>` : '') +
-      htmlZonaVuota(qui.length);
+      (tipoQui === 'pochi' ? `<li>${htmlZonaVuota(qui.length, tipoQui)}</li>` : '');
+    // zona vuota: il perché e cosa fare stanno in cima alla tendina, ben visibili anche a metà
+    app.querySelector('#zonaVuota').innerHTML = tipoQui === 'vuota' || tipoQui === 'filtri' ? htmlZonaVuota(qui.length, tipoQui) : '';
   }
+  const tipoZonaOra = (quanti) => tipoZona({ qui: quanti, altre: inMappa.length - quanti, filtri: filtriAttivi(filtri) > 0 || Boolean(filtri.parco) || stato.leggi().attivita !== 'trekking' });
   // zona senza risultati: dice perché e propone cosa fare (src/lib/zonaVuota.js)
-  function htmlZonaVuota(quanti) {
-    const tipo = tipoZona({ qui: quanti, altre: inMappa.length - quanti, filtri: filtriAttivi(filtri) > 0 || Boolean(filtri.parco) || stato.leggi().attivita !== 'trekking' });
+  function htmlZonaVuota(quanti, tipo) {
     if (tipo === 'filtri') {
-      return `<li class="zona-vuota"><p><b>${escapeHtml(testoNessunoQui(inMappa.length - quanti))}</b></p>
-        <div class="azioni-vuota"><button type="button" class="bottone primario" data-azione="vai-vicino">Vai al più vicino</button><button type="button" class="bottone" data-azione="togli-filtri">Togli i filtri</button></div></li>`;
+      return `<div class="zona-vuota"><p><b>${escapeHtml(testoNessunoQui(inMappa.length - quanti))}</b></p>
+        <div class="azioni-vuota"><button type="button" class="bottone primario" data-azione="vai-vicino">Vai al più vicino</button><button type="button" class="bottone" data-azione="togli-filtri">Togli i filtri</button></div></div>`;
     }
-    return '';
+    if (tipo === 'ok') return '';
+    // zona vuota o con pochi percorsi: cosa si può fare qui
+    const c = mappa.getCenter();
+    const cercabile = zonaDaCercare([c.lng, c.lat], mappa.getZoom(), { zona: zonaSalvata, parchi: PARCHI });
+    const cercata = !cercabile && zonaSalvata?.centro && distanzaKm([c.lng, c.lat], zonaSalvata.centro) <= zonaSalvata.raggioKm ? testoZonaCercata(zonaSalvata) : '';
+    return `<div class="zona-vuota"><p><b>${quanti ? 'Pochi percorsi in questa zona' : 'Nessun percorso in questa zona'}</b></p>
+      <div class="azioni-vuota">
+        ${cercabile ? `<button type="button" class="bottone primario" data-azione="cerca-qui">${ICONE.cerca}<span>Cerca percorsi qui</span></button>` : ''}
+        <button type="button" class="bottone${cercabile ? '' : ' primario'}" data-azione="anello-qui">${ICONE.anello}<span>Crea un anello da qui</span></button>
+        <a class="bottone" href="#/percorso-nuovo">${ICONE.matita}<span>Disegna un percorso</span></a>
+        <button type="button" class="bottone" data-azione="importa-gpx">${ICONE.carica}<span>Importa GPX</span></button>
+      </div>
+      ${cercata ? `<p class="tenue piccolo">${escapeHtml(cercata)}</p>` : ''}
+      ${mappa.getZoom() < ZOOM_SENTIERI_NON_SEGNATI ? '<p class="tenue piccolo">Avvicinati per vedere carrarecce e sentieri non segnati.</p>' : ''}
+      ${erroreGpx ? `<p class="errore piccolo">${escapeHtml(erroreGpx)}</p>` : ''}
+    </div>`;
   }
   // le foto di copertina arrivano dopo: quando ci sono, l'elenco si ridisegna
   if (!copertineCaricate()) caricaDaVedere().then((d) => d && app.isConnected && elencoInVista());
@@ -520,6 +546,12 @@ export async function vistaMappaGenerale(app, idParco = null) {
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'vai-vicino') return vaiAlPiuVicino();
     if (azione === 'togli-filtri') return togliIFiltri();
+    if (azione === 'cerca-qui') return app.querySelector('#cercaZona').click();
+    if (azione === 'anello-qui') {
+      const c = mappa.getCenter();
+      return suggerisci?.apriAnelloDa([Math.round(c.lng * 1e5) / 1e5, Math.round(c.lat * 1e5) / 1e5]);
+    }
+    if (azione === 'importa-gpx') return app.querySelector('#fileGpxHome').click();
     const id = e.target.closest('[data-id]')?.dataset.id;
     aree.get(id)?.fire('click');
   });
@@ -532,6 +564,17 @@ export async function vistaMappaGenerale(app, idParco = null) {
     mappa.sbloccaInquadrature?.();
     mappa.fitBounds(area.getBounds(), { ...margini(30), maxZoom: 14 });
   }
+  app.querySelector('#fileGpxHome').addEventListener('change', async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      location.hash = `#/percorso/${encodeURIComponent(await importaGpxComePercorso(f))}`;
+    } catch (err) {
+      erroreGpx = err.message;
+      elencoInVista();
+    }
+  });
   function togliIFiltri() {
     controlli.azzera();
     stato.imposta({ parco: '', attivita: 'trekking' });
@@ -607,7 +650,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
 
   // fuori dai parchi: "Cerca percorsi qui" scarica i percorsi della zona inquadrata
   const bottoneZona = app.querySelector('#cercaZona');
-  let zonaSalvata = await leggiIntorno();
+  zonaSalvata = await leggiIntorno();
+  elencoInVista(); // ora si sa se la zona è già stata cercata
   const aggiornaBottoneZona = () => {
     // la mappa può essere già chiusa (si è passati a un'altra schermata)
     if (testoZona || !bottoneZona.isConnected || !mappa._loaded) return;
@@ -616,6 +660,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   };
   rivalutaBottone = async () => {
     zonaSalvata = await leggiIntorno();
+    elencoInVista();
     if (bottoneZona.isConnected) aggiornaBottoneZona();
   };
   mappa.dopoIlMovimento('pulsante «Cerca percorsi qui»', aggiornaBottoneZona, { priorita: 2 });
