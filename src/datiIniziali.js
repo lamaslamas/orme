@@ -74,7 +74,6 @@ export const PNALM_ORIGINALI = [
     descrizione: 'Fino alla Sorgente Tornareccia, andata e ritorno.',
     animali: ['lupo'],
     escursione: { associazione: 'Ecotur', nomeUscita: '', periodo: '' },
-    lunghezzaKm: 5,
     partenza: { paese: 'Opi', descrizione: 'Val Fondillo', lat: null, lon: null },
   }),
   sentiero({
@@ -350,7 +349,6 @@ export const AGGIORNAMENTI = {
   },
   'f2-val-fondillo': {
     dislivelloM: { da: null, a: 100 },
-    durataMin: { da: null, a: 180 },
     'escursione.nomeUscita': { da: '', a: 'Val Fondillo' },
     'escursione.periodo': { da: '', a: 'Settembre (calendario Ecotur)' },
     'escursione.fonte': { da: undefined, a: 'Ecotur' },
