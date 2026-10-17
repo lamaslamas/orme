@@ -625,7 +625,6 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .pillole-terreno { margin: 0 -14px; padding: 4px 14px 0; }
 .quadretto { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
 .mtb summary { font-weight: 700; }
-.vista-iniziale { display: grid !important; place-items: center; color: var(--testo); }
 .avviso-vuoto { margin: 6px 2px 0; font-size: 0.85rem; color: #8a2f0f; }
 
 /* --- Pannello dei livelli (uguale in tutte le mappe) --- */
@@ -2044,3 +2043,22 @@ body.percorso-mappa main { padding: 0; }
 }
 .scelta-ora { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-weight: 700; font-size: 0.9rem; }
 .scelta-ora input { min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; font: inherit; padding: 0 8px; }
+
+/* --- Telefono: aree di tocco di almeno 44×44 senza cambiare l'aspetto --- */
+@media (max-width: 1023.98px) {
+  /* controlli della mappa (30×30): l'area si allarga di 7 px per lato, fuori dal riquadro visibile */
+  .leaflet-bar:has(a:only-child) { overflow: visible; }
+  .leaflet-bar a:only-child { position: relative; }
+  .leaflet-bar a:only-child::after { content: ''; position: absolute; inset: -7px; }
+  /* barre con più pulsanti impilati: non c'è spazio per allargare l'area, quindi sono alti 44 px (larghezza resta 30, +7 per lato) */
+  .leaflet-bar a:not(:only-child) { position: relative; height: 44px !important; line-height: 44px !important; }
+  .leaflet-bar a:not(:only-child)::after { content: ''; position: absolute; inset: 0 -7px; }
+  .leaflet-bar:has(a:not(:only-child)) { overflow: visible; }
+  .leaflet-bar a:first-child:not(:only-child) { border-radius: 14px 14px 0 0; }
+  .leaflet-bar a:last-child:not(:only-child) { border-radius: 0 0 14px 14px; }
+  /* link di testo alti 15–20 px: il riempimento allarga il tocco, il margine negativo tiene l'aspetto */
+  .indietro, .link-parco, .link-modifica, .vedi-tutti { display: inline-block; padding: 14px 10px; margin: -14px -10px; }
+  .indietro { margin-bottom: -4px; }
+  .mappa-barra .indietro { display: block; margin: -14px -10px; }
+  .link-parco { margin-bottom: -8px; }
+}

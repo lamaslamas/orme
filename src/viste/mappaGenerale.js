@@ -94,10 +94,16 @@ async function avviaCompletamento(dentroLavoro = false) {
 import { creaFaunaHome } from './faunaHome.js';
 import { creaFoglioVia } from './foglioVia.js';
 
+// Italia intera: la vista di riserva quando non c'è né la posizione né una vista salvata
+const LIMITI_ITALIA = [[36.4, 6.6], [47.1, 18.6]];
+
 // Alla prima apertura la mappa va sulla mia posizione (se il telefono la dà): un punto con l'alone,
-// senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). true se ci prova.
+// senza seguire né tenere acceso lo schermo (per quello c'è il pulsante GPS). Se non c'è la posizione
+// resta l'ultima vista salvata, e senza nemmeno quella l'Italia intera. true se ci prova.
+let giaCentrata = false;
 function centraSuDiMe(mappa) {
-  if (!navigator.geolocation) return false;
+  if (giaCentrata || !navigator.geolocation) return false;
+  giaCentrata = true;
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => {
       miaPosizione = [coords.longitude, coords.latitude];
@@ -106,8 +112,8 @@ function centraSuDiMe(mappa) {
       mappa.mostraPosizione?.(coords);
     },
     () => {
-      // niente posizione: si resta sui parchi
-      if (mappa.getContainer().isConnected) mappa.fitBounds(limitiParco(null), { padding: [20, 20] });
+      // niente posizione: l'ultima vista salvata, altrimenti l'Italia intera
+      if (!mappa.vistaRitrovata && mappa.getContainer().isConnected) mappa.fitBounds(LIMITI_ITALIA, { padding: [10, 10] });
     },
     { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
   );
@@ -297,32 +303,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let restaQui = false; // il prossimo cambio di filtri non sposta la mappa (es. tolto il parco per un luogo)
   let zonaSalvata = null; // l'ultima zona cercata fuori dai parchi (la legge più sotto)
   // alla prima apertura (non tornando sulla mappa) e senza un parco scelto: la mappa su di me
-  const centrataSuDiMe = !mappa.vistaRitrovata && !idParco && centraSuDiMe(mappa);
+  const centrataSuDiMe = !idParco && centraSuDiMe(mappa);
 
-  // "Vista iniziale": niente filtri, niente parco, tutti i parchi inquadrati
-  const VistaIniziale = L.Control.extend({
-    options: { position: 'topleft' },
-    onAdd() {
-      const div = L.DomUtil.create('div', 'leaflet-bar');
-      const b = L.DomUtil.create('a', 'vista-iniziale', div);
-      b.href = '#';
-      b.title = 'Vista iniziale';
-      b.setAttribute('role', 'button');
-      b.setAttribute('aria-label', 'Torna alla vista iniziale');
-      b.innerHTML =
-        '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 11 12 4l9 7M6 9.5V20h12V9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>';
-      L.DomEvent.disableClickPropagation(div);
-      L.DomEvent.on(b, 'click', (e) => {
-        L.DomEvent.preventDefault(e);
-        controlli.azzera();
-        stato.imposta({ parco: '' });
-        mappa.sbloccaInquadrature?.();
-        mappa.fitBounds(limitiParco(null), margini(20));
-      });
-      return div;
-    },
-  });
-  new VistaIniziale().addTo(mappa);
 
 
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
@@ -503,7 +485,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     // i filtri non spostano mai la mappa: filtrano la zona inquadrata. La mappa si sposta solo su richiesta
     // (ricerca, "Vai al più vicino", parco scelto, tocco su un percorso) e alla prima apertura
     if (restaQui) restaQui = false;
-    else if (primaVolta && !centrataSuDiMe) mappa.fitBounds(limitiParco(filtri.parco), margini(20));
+    else if (primaVolta && !centrataSuDiMe) mappa.fitBounds(filtri.parco ? limitiParco(filtri.parco) : LIMITI_ITALIA, margini(20));
     primaVolta = false;
     app.querySelector('#nessunRisultato').hidden = !(ricerca && conTraccia.length === 0);
 
