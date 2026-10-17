@@ -85,3 +85,30 @@ describe('punti fuori dall\'Italia scartati con il confine salvato', () => {
     expect(soloInItalia(punti, anelli).map((x) => x.nome)).toEqual(['Roma', 'Lampedusa', 'Campione d\'Italia']);
   });
 });
+
+describe('quadrati che toccano l\'Italia', () => {
+  // un'isola di 0,2° dentro il quadrato 83_27 (41,5–42° N, 13,5–14° E) e un lungo lato che ne attraversa un altro
+  const isola = [[[13.6, 41.6], [13.8, 41.6], [13.8, 41.8], [13.6, 41.8], [13.6, 41.6]]];
+  const striscia = [[[10.0, 40.1], [12.0, 40.1], [12.0, 40.2], [10.0, 40.2], [10.0, 40.1]]];
+  it('vero se il confine è dentro il quadrato, o lo attraversa', async () => {
+    const { quadratoTocca } = await import('../src/lib/puntiItalia.js');
+    expect(quadratoTocca('83_27', isola)).toBe(true);
+    expect(quadratoTocca('80_22', striscia)).toBe(true); // 40–40,5° N, 11–11,5° E: solo attraversato
+  });
+  it('falso per il mare aperto e i paesi vicini', async () => {
+    const { quadratoTocca } = await import('../src/lib/puntiItalia.js');
+    expect(quadratoTocca('70_20', isola)).toBe(false);
+    expect(quadratoTocca('83_28', isola)).toBe(false);
+  });
+  it('vero se il quadrato sta tutto dentro un poligono grande', async () => {
+    const { quadratoTocca } = await import('../src/lib/puntiItalia.js');
+    const grande = [[[10, 38], [16, 38], [16, 44], [10, 44], [10, 38]]];
+    expect(quadratoTocca('83_27', grande)).toBe(true);
+  });
+  it('quadratiItalia con il confine toglie quelli lontani', async () => {
+    const { quadratiItalia } = await import('../src/lib/puntiItalia.js');
+    const solo = quadratiItalia(isola);
+    expect(solo).toEqual(['83_27']);
+    expect(quadratiItalia().length).toBeGreaterThan(300);
+  });
+});

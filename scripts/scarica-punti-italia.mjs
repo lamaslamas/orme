@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node
 import { join } from 'node:path';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { puntiDallaRisposta } from '../src/lib/puntiUtili.js';
-import { quadratiDaFare, queryQuadrato, riquadroQuadrato, quartiDi, PESO_MASSIMO, abitatiNellaRisposta, valutaCalo, soloInItalia } from '../src/lib/puntiItalia.js';
+import { quadratiDaFare, queryQuadrato, riquadroQuadrato, quartiDi, PESO_MASSIMO, abitatiNellaRisposta, valutaCalo, soloInItalia, quadratiItalia } from '../src/lib/puntiItalia.js';
 
 const arg = (nome, base) => {
   const i = process.argv.indexOf(`--${nome}`);
@@ -41,8 +41,18 @@ function scrivi(id, punti) {
 const togli = (id) => existsSync(join(CARTELLA, `${id}.json`)) && rmSync(join(CARTELLA, `${id}.json`));
 const dentro = (p, [s, o, n, e]) => p.lat >= s && p.lat < n && p.lon >= o && p.lon < e;
 
+// quadrati fuori dall'Italia (mare aperto, Nord Africa, altri paesi) già nell'indice: via dall'indice e dai file
+const italiani = new Set(quadratiItalia(CONFINE));
+const fuori = Object.keys(indice.quadrati).filter((id) => !italiani.has(id.split('-')[0]));
+for (const id of fuori) {
+  delete indice.quadrati[id];
+  togli(id);
+  quartiDi(id).forEach(togli);
+}
+if (fuori.length) console.log(`Tolti dall'indice ${fuori.length} quadrati fuori dall'Italia: ${fuori.join(', ')}`);
+
 const segnalati = []; // per il riepilogo: cali trattenuti o accettati, errori
-const daFare = SCELTI.length ? SCELTI : quadratiDaFare(indice.quadrati, oggi, MAX);
+const daFare = SCELTI.length ? SCELTI : quadratiDaFare(indice.quadrati, oggi, MAX, CONFINE);
 console.log(`Quadrati: ${daFare.join(', ')}`);
 for (const [i, id] of daFare.entries()) {
   if (i) await attendi(PAUSA_MS);
@@ -99,6 +109,8 @@ for (const [i, id] of daFare.entries()) {
   // l'indice si salva a ogni quadrato: se il robot si ferma, il lavoro fatto resta
   writeFileSync(FILE_INDICE, JSON.stringify({ ...indice, aggiornato: oggi }));
 }
+const restano = [...italiani].filter((id) => !indice.quadrati[id] || indice.quadrati[id].errore === oggi || indice.quadrati[id].calo);
+console.log(`Quadrati italiani: ${italiani.size} in tutto, ${restano.length} ancora da fare o da riprovare, circa ${Math.ceil(restano.length / MAX)} notti a ${MAX} per notte.`);
 const pieni = Object.values(indice.quadrati).filter((x) => x.n);
 const totale = pieni.reduce((s, x) => s + x.byte, 0);
 console.log(segnalati.length ? `\nDa guardare:\n  ${segnalati.join('\n  ')}` : '\nNessun calo sospetto né errore.');

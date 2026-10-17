@@ -30,12 +30,37 @@ export function riquadroQuadrato(id) {
 }
 export const quartiDi = (id) => ['a', 'b', 'c', 'd'].map((q) => `${id}-${q}`);
 
-// tutti i quadrati del riquadro dell'Italia (mare ed estero compresi: la richiesta è limitata
-// all'Italia, quelli vuoti si segnano e si saltano)
-export function quadratiItalia() {
+// Il quadrato tocca il confine dell'Italia? (anelli [lon, lat]): vero se un vertice del confine cade nel
+// quadrato, se un lato del confine ne attraversa un bordo, o se il quadrato sta tutto dentro l'Italia.
+// Serve a non interrogare Overpass per il mare aperto e per i paesi vicini.
+export function quadratoTocca(id, anelli) {
+  const [s, o, n, e] = riquadroQuadrato(id);
+  const lati = [[[o, s], [e, s]], [[e, s], [e, n]], [[e, n], [o, n]], [[o, n], [o, s]]];
+  const orient = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+  const siIncrociano = ([a, b], [c, d]) => orient(a, b, c) !== orient(a, b, d) && orient(c, d, a) !== orient(c, d, b);
+  const nelQuadrato = ([x, y]) => x >= o && x <= e && y >= s && y <= n;
+  for (const anello of anelli) {
+    let [minX, minY, maxX, maxY] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [x, y] of anello) [minX, minY, maxX, maxY] = [Math.min(minX, x), Math.min(minY, y), Math.max(maxX, x), Math.max(maxY, y)];
+    if (maxX < o || minX > e || maxY < s || minY > n) continue; // lontano
+    for (let i = 0; i < anello.length - 1; i++) {
+      if (nelQuadrato(anello[i])) return true;
+      const lato = [anello[i], anello[i + 1]];
+      if (lati.some((l) => siIncrociano(lato, l))) return true;
+    }
+  }
+  return puntoNelPoligono([(o + e) / 2, (s + n) / 2], anelli);
+}
+
+// tutti i quadrati del riquadro dell'Italia; con il confine (anelli) solo quelli che lo toccano: il
+// mare aperto, l'Africa e gli altri paesi non si interrogano
+export function quadratiItalia(anelli = null) {
   const ids = [];
   for (let la = Math.floor(ITALIA.sud / LATO_QUADRATO); la * LATO_QUADRATO < ITALIA.nord; la++) {
-    for (let lo = Math.floor(ITALIA.ovest / LATO_QUADRATO); lo * LATO_QUADRATO < ITALIA.est; lo++) ids.push(`${la}_${lo}`);
+    for (let lo = Math.floor(ITALIA.ovest / LATO_QUADRATO); lo * LATO_QUADRATO < ITALIA.est; lo++) {
+      const id = `${la}_${lo}`;
+      if (!anelli || quadratoTocca(id, anelli)) ids.push(id);
+    }
   }
   return ids;
 }
@@ -57,7 +82,7 @@ export const ZONE_PRIMA = [
 
 // ordine del giro: prima le zone prioritarie mai fatte, poi i quadrati dal più vecchio (mai fatti
 // prima di tutti); i vuoti solo se è passato il loro tempo. indice: { id: { aggiornato, n } }
-export function quadratiDaFare(indice, oggi, max) {
+export function quadratiDaFare(indice, oggi, max, anelli = null) {
   const prima = ZONE_PRIMA.map(([, [lat, lon]]) => idQuadrato(lon, lat));
   const giorni = (d) => (d ? (new Date(oggi) - new Date(d)) / 86_400_000 : Infinity);
   const dovuto = (id) => {
@@ -65,7 +90,7 @@ export function quadratiDaFare(indice, oggi, max) {
     if (!x) return true;
     return x.n === 0 ? giorni(x.aggiornato) >= GIORNI_VUOTO : true;
   };
-  const tutti = quadratiItalia().filter(dovuto);
+  const tutti = quadratiItalia(anelli).filter(dovuto);
   // prima i quadrati da riprovare (errore o calo sospetto la notte prima), poi le zone prioritarie mai fatte
   const priorita = (id) => (indice[id]?.calo || indice[id]?.errore ? -1 : indice[id] ? 1 : prima.includes(id) ? 0 : 1);
   return tutti
