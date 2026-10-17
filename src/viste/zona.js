@@ -23,7 +23,9 @@ import {
   faunaDaRicalcolare,
   VERSIONE_RICERCA,
   retiAreeProtette,
+  senzaAree,
 } from '../lib/intorno.js';
+import { sentieriConNome } from '../lib/sentieriConNome.js';
 import { dimenticaPunti } from './puntiUtili.js';
 import { profiloDaTerrain } from './quote.js';
 
@@ -45,7 +47,9 @@ export async function scaricaZona(centro, raggio, { avanzamento = () => {}, chiu
   const esistenti = new Set((await tuttiISentieri()).filter((s) => s.parco !== ID_INTORNO).map((s) => s.id));
   // nella stessa risposta anche i sentieri non segnati delle aree protette
   const reti = retiAreeProtette(json, centro, raggio);
-  const percorsi = [...percorsiIntorno(json, centro, raggio, { esistenti }), ...reti];
+  // e i sentieri con nome che non sono un itinerario segnato (≥ 1 km, nomi da sentiero)
+  const conNome = sentieriConNome(senzaAree(json), { esistenti });
+  const percorsi = [...percorsiIntorno(json, centro, raggio, { esistenti }), ...reti, ...conNome];
   await salvaIntorno({ centro, raggioKm: raggio, versione: VERSIONE_RICERCA, percorsi });
   if (!chiusa()) await scaricaPunti(centro, raggio, { avanzamento, chiusa });
   return percorsi.length;

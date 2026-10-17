@@ -10,6 +10,7 @@ import { profiloQuote } from './profiloQuote.js';
 import { improntaTraccia } from './panorama.js';
 import { percorsiDaQui } from './daQui.js';
 import { urlOsservazioniGbif } from './gbif.js';
+import { queryVieConNome } from './sentieriConNome.js';
 import { eDomestico } from './domestici.js';
 import { API_INATURALIST, parametriRare, iconaDaAntenati } from './inaturalist.js';
 export { iconaDaAntenati };
@@ -19,7 +20,7 @@ import { ID_INTORNO, INTORNO } from '../datiParchi.js';
 
 // cambia quando cambia cosa si cerca: le zone scaricate prima si riscaricano da sole
 // (2: anche itinerari ciclabili e percorsi a piedi non escursionistici)
-export const VERSIONE_RICERCA = 3; // 3: anche i sentieri non segnati delle aree protette
+export const VERSIONE_RICERCA = 4; // 3: anche i sentieri non segnati delle aree protette; 4: anche i sentieri con nome
 
 // Riquadro [sud, ovest, nord, est] che contiene il cerchio; centro: [lon, lat]
 export function riquadroIntorno([lon, lat], km) {
@@ -45,7 +46,15 @@ export function queryIntorno(centro, km) {
 .percorsi out geom(${s},${o},${n},${e});
 way(r.percorsi)(${s},${o},${n},${e});
 out tags;
+${queryVieConNome([s, o, n, e])}
 ${parteAreeProtette(centro, km)}`;
+}
+
+// la parte della risposta prima delle aree protette: percorsi segnati e sentieri con nome
+export function senzaAree(json) {
+  const elementi = json?.elements ?? [];
+  const fine = elementi.findIndex((el) => el.type === SEGNAPOSTO_AREE);
+  return { elements: fine >= 0 ? elementi.slice(0, fine) : elementi };
 }
 
 const A_PIEDI = new Set(['hiking', 'foot', 'walking']);
