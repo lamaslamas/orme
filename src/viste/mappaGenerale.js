@@ -31,7 +31,7 @@ import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
 import { zonaDaCercare, raggioPerZoom, distanzaDiPartenza, testoPartenza } from '../lib/intorno.js';
 import { tipoZona, testoNessunoQui, testoZonaCercata, piuVicino, ZOOM_SENTIERI_NON_SEGNATI } from '../lib/zonaVuota.js';
-import { importaGpxComePercorso } from './importaGpx.js';
+import { avviaImportazione } from './importaFile.js';
 import { distanzaKm } from '../lib/geo.js';
 
 // La mia posizione, solo in memoria finché l'app è aperta (mai salvata): serve a ordinare
@@ -219,7 +219,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <label class="ricerca">${ICONE.cerca ?? ''}<input type="search" name="luogo" placeholder="Luogo o parco" aria-label="Cerca un luogo o un parco" autocomplete="off" enterkeyhint="search" /></label>
       <ul class="risultati-luogo" hidden></ul>
     </form>
-    <input type="file" id="fileGpxHome" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
     <button type="button" class="pill-mappa cerca-zona" id="cercaZona" hidden>${ICONE.cerca}<span>Cerca percorsi qui</span></button>
     <div class="home-sotto">
       <button type="button" class="pill-mappa" id="apriSuggerisci">${ICONE.bussola}<span>Suggerisci</span></button>
@@ -297,7 +296,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let primaVolta = true;
   let restaQui = false; // il prossimo cambio di filtri non sposta la mappa (es. tolto il parco per un luogo)
   let zonaSalvata = null; // l'ultima zona cercata fuori dai parchi (la legge più sotto)
-  let erroreGpx = ''; // l'ultimo file GPX che non si è potuto importare
   // alla prima apertura (non tornando sulla mappa) e senza un parco scelto: la mappa su di me
   const centrataSuDiMe = !mappa.vistaRitrovata && !idParco && centraSuDiMe(mappa);
 
@@ -458,11 +456,10 @@ export async function vistaMappaGenerale(app, idParco = null) {
         ${cercabile ? `<button type="button" class="bottone primario" data-azione="cerca-qui">${ICONE.cerca}<span>Cerca percorsi qui</span></button>` : ''}
         <button type="button" class="bottone${cercabile ? '' : ' primario'}" data-azione="anello-qui">${ICONE.anello}<span>Crea un anello da qui</span></button>
         <a class="bottone" href="#/percorso-nuovo">${ICONE.matita}<span>Disegna un percorso</span></a>
-        <button type="button" class="bottone" data-azione="importa-gpx">${ICONE.carica}<span>Importa GPX</span></button>
+        <button type="button" class="bottone" data-azione="importa-gpx">${ICONE.carica}<span>Importa file</span></button>
       </div>
       ${cercata ? `<p class="tenue piccolo">${escapeHtml(cercata)}</p>` : ''}
       ${mappa.getZoom() < ZOOM_SENTIERI_NON_SEGNATI ? '<p class="tenue piccolo">Avvicinati per vedere carrarecce e sentieri non segnati.</p>' : ''}
-      ${erroreGpx ? `<p class="errore piccolo">${escapeHtml(erroreGpx)}</p>` : ''}
     </div>`;
   }
   // le foto di copertina arrivano dopo: quando ci sono, l'elenco si ridisegna
@@ -551,7 +548,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
       const c = mappa.getCenter();
       return suggerisci?.apriAnelloDa([Math.round(c.lng * 1e5) / 1e5, Math.round(c.lat * 1e5) / 1e5]);
     }
-    if (azione === 'importa-gpx') return app.querySelector('#fileGpxHome').click();
+    if (azione === 'importa-gpx') return avviaImportazione();
     const id = e.target.closest('[data-id]')?.dataset.id;
     aree.get(id)?.fire('click');
   });
@@ -564,17 +561,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
     mappa.sbloccaInquadrature?.();
     mappa.fitBounds(area.getBounds(), { ...margini(30), maxZoom: 14 });
   }
-  app.querySelector('#fileGpxHome').addEventListener('change', async (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';
-    if (!f) return;
-    try {
-      location.hash = `#/percorso/${encodeURIComponent(await importaGpxComePercorso(f))}`;
-    } catch (err) {
-      erroreGpx = err.message;
-      elencoInVista();
-    }
-  });
   function togliIFiltri() {
     controlli.azzera();
     stato.imposta({ parco: '', attivita: 'trekking' });

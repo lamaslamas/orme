@@ -11,7 +11,7 @@ import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozza.js';
 import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi } from '../lib/disegno.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
 import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
-import { importaGpxComePercorso } from './importaGpx.js';
+import { avviaImportazione } from './importaFile.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { distanzaKm } from '../lib/geo.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
@@ -55,11 +55,10 @@ export async function vistaDisegna(app, id = null) {
         <button type="button" class="pill-mappa tondo" data-azione="menu" aria-expanded="false" aria-label="Altro" title="Altro">${ICONE.altro}</button>
       </div>
       <div class="disegno-menu" hidden>
-        <button type="button" data-azione="importa">${ICONE.carica}<span>Importa GPX</span></button>
+        <button type="button" data-azione="importa">${ICONE.carica}<span>Importa file (GPX, KML, zip)</span></button>
         <button type="button" data-azione="esporta">${ICONE.scarica}<span>Esporta GPX</span></button>
         <button type="button" data-azione="ricomincia">${ICONE.cestino}<span>Ricomincia</span></button>
       </div>
-      <input type="file" id="fileGpxDisegno" accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden />
     </div>
     <p class="disegno-suggerimento" id="suggerimento" hidden></p>
     <section class="foglio-disegno" aria-label="Il percorso disegnato">
@@ -323,7 +322,6 @@ export async function vistaDisegna(app, id = null) {
   // --- comandi ---
   const strumenti = app.querySelector('.disegno-sopra');
   const menu = app.querySelector('.disegno-menu');
-  const file = app.querySelector('#fileGpxDisegno');
   strumenti.addEventListener('click', (e) => {
     const b = e.target.closest('[data-azione]');
     const azione = b?.dataset.azione;
@@ -346,21 +344,11 @@ export async function vistaDisegna(app, id = null) {
     } else if (azione === 'menu') {
       menu.hidden = !menu.hidden;
       b.setAttribute('aria-expanded', String(!menu.hidden));
-    } else if (azione === 'importa') file.click();
+    } else if (azione === 'importa') avviaImportazione();
     else if (azione === 'esporta' && risultato) esporta();
     else if (azione === 'ricomincia' && (punti.length < 3 || confirm('Cancellare tutti i punti?'))) {
       punti = [];
       aggiorna();
-    }
-  });
-  file.addEventListener('change', async () => {
-    const f = file.files?.[0];
-    file.value = '';
-    if (!f) return;
-    try {
-      location.hash = `#/percorso/${encodeURIComponent(await importaGpxComePercorso(f))}`;
-    } catch (err) {
-      mostraBarra(`<span class="errore">${escapeHtml(err.message)}</span>`);
     }
   });
   function esporta() {

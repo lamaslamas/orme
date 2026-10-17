@@ -58,7 +58,7 @@ export async function vistaPercorso(app, id) {
     <article class="scheda">
       <a class="anteprima-mappa" href="#/percorso/${idUrl}/disegna" aria-label="Apri la mappa del percorso"><div id="miniMappa"></div></a>
       <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
-      <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : 'Da file GPX'}</p>
+      <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
       <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar)}</div>
       ${ar ? htmlAndataRitorno(ar) : ''}
       ${htmlQuandoAndare()}

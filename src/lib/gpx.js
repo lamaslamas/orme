@@ -46,3 +46,36 @@ export function leggiGpx(testo) {
 function round(n) {
   return Math.round(n * 1e6) / 1e6;
 }
+
+// Tutti i percorsi di un file GPX, uno per ogni traccia (trk) o rotta (rte): [{ nome, geojson }].
+// Le tracce con più segmenti restano un percorso solo. I punti (waypoint) si ignorano.
+export function leggiGpxTracce(testo) {
+  const doc = new DOMParser().parseFromString(testo, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('Il file non è un GPX valido.');
+  if (doc.documentElement.localName !== 'gpx') throw new Error('Il file non è un GPX.');
+  const figli = (radice, nome) => [...radice.getElementsByTagName('*')].filter((el) => el.localName === nome);
+  const punti = (elementi) =>
+    elementi
+      .map((el) => {
+        const lat = Number(el.getAttribute('lat'));
+        const lon = Number(el.getAttribute('lon'));
+        if (!(Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) return null;
+        const eleEl = [...el.children].find((c) => c.localName === 'ele');
+        const ele = eleEl ? Number(eleEl.textContent) : NaN;
+        return Number.isFinite(ele) && eleEl.textContent.trim() !== '' ? [round(lon), round(lat), Math.round(ele * 10) / 10] : [round(lon), round(lat)];
+      })
+      .filter(Boolean);
+  const nomeDi = (el) => [...el.children].find((c) => c.localName === 'name')?.textContent?.trim() ?? '';
+  const percorsi = [];
+  for (const trk of figli(doc, 'trk')) {
+    const linee = figli(trk, 'trkseg').map((seg) => punti(figli(seg, 'trkpt'))).filter((l) => l.length > 1);
+    if (linee.length) percorsi.push({ nome: nomeDi(trk), geojson: { type: 'MultiLineString', coordinates: linee } });
+  }
+  // le rotte solo se non ci sono tracce (molti file le hanno doppie)
+  for (const rte of percorsi.length ? [] : figli(doc, 'rte')) {
+    const linea = punti(figli(rte, 'rtept'));
+    if (linea.length > 1) percorsi.push({ nome: nomeDi(rte), geojson: { type: 'MultiLineString', coordinates: [linea] } });
+  }
+  if (!percorsi.length) throw new Error('Nel file GPX non ci sono tracce o rotte.');
+  return percorsi;
+}
