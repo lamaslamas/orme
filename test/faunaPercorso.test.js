@@ -48,7 +48,7 @@ describe('fauna del parco', () => {
       { anelli, bbox: [40.9, 12.9, 42.5, 14.1] },
     );
     expect(r.osservazioni).toBe(5); // quella fuori dal confine e dal riquadro non conta
-    expect(r.specie).toEqual([{ animale: 'cervo', osservazioni: 3, persone: 3, mesi: 'set', sfumate: 0 }]); // il lupo ha solo 2 osservazioni
+    expect(r.specie).toEqual([{ animale: 'cervo', osservazioni: 3, persone: 3, mesi: 'set', sfumate: 0, ultimoAnno: 2025 }]); // il lupo ha solo 2 osservazioni
   });
 });
 
@@ -120,5 +120,42 @@ describe('fauna nel periodo attuale', () => {
     const vecchio = { faunaInat: { specie: [{ animale: 'cervo', livello: 'percorso', osservazioni: 20, mesi: 'giu' }] } };
     expect(possibilitaFauna(vecchio, 7, { stagione: true })?.specie).toEqual(['cervo']);
     expect(possibilitaFauna(vecchio, 2, { stagione: true })).toBeNull();
+  });
+});
+
+describe('affidabilità: osservatori diversi e ultimo anno', () => {
+  it('tre livelli a parole, sulle persone diverse', async () => {
+    const { affidabilita } = await import('../src/lib/faunaPercorso.js');
+    expect(affidabilita({ persone: 146, ultimoAnno: 2025, mesi: 'mag, ago–set' })).toMatchObject({ livello: 'molto', nome: 'molto segnalato', testo: '146 osservatori, ultima osservazione nel 2025' });
+    expect(affidabilita({ persone: 7 }).nome).toBe('segnalato');
+    expect(affidabilita({ persone: 1 })).toMatchObject({ nome: 'poche segnalazioni', testo: '1 osservatore' });
+  });
+  it('faunaDalleOsservazioni salva l\'anno dell\'ultima osservazione', () => {
+    const o = (u, d) => ({ taxon: CERVO, location: '41.5,13.5', user: { id: u }, observed_on: d, quality_grade: 'research' });
+    const g = { type: 'MultiLineString', coordinates: [[[13.5, 41.5], [13.51, 41.5]]] };
+    const r = faunaDalleOsservazioni([o(1, '2021-05-01'), o(2, '2024-09-10'), o(3, '2023-01-01')], g);
+    expect(r[0].ultimoAnno).toBe(2024);
+  });
+});
+
+describe('specie cercata in un mese', () => {
+  const sp = (animale, livello, osservazioni, persone, perMese, ultimoAnno) => ({ animale, livello, osservazioni, persone, perMese, mesi: '', ultimoAnno });
+  const mesi = (m, n) => Array.from({ length: 12 }, (_, i) => (i + 1 === m ? n : 0));
+  it('conta gli osservatori diversi, non solo le osservazioni', async () => {
+    const { puntiSpecie } = await import('../src/lib/faunaPercorso.js');
+    const tanti = { faunaInat: { specie: [sp('cervo', 'zona', 20, 15, mesi(9, 20), 2025)] } };
+    const uno = { faunaInat: { specie: [sp('cervo', 'zona', 20, 1, mesi(9, 20), 2025)] } };
+    expect(puntiSpecie(tanti, 'cervo', 9).punti).toBeGreaterThan(puntiSpecie(uno, 'cervo', 9).punti);
+  });
+  it('null se nel periodo non ci sono segnalazioni; un gruppo riporta la specie migliore', async () => {
+    const { puntiSpecie } = await import('../src/lib/faunaPercorso.js');
+    const s = { faunaInat: { specie: [sp('cervo', 'percorso', 10, 8, mesi(9, 10), 2024), sp('lupo', 'zona', 4, 3, mesi(9, 4), 2023)] } };
+    expect(puntiSpecie(s, 'cervo', 2)).toBeNull();
+    expect(puntiSpecie(s, 'mammiferi', 9)).toMatchObject({ animale: 'cervo', ultimoAnno: 2024 });
+    expect(puntiSpecie(s, 'lupo', 9)).toMatchObject({ sensibile: true });
+  });
+  it('le uscite delle associazioni valgono come segnalazione', async () => {
+    const { puntiSpecie } = await import('../src/lib/faunaPercorso.js');
+    expect(puntiSpecie({ animali: ['orso'], faunaInat: { specie: [] } }, 'orso', 9)).toMatchObject({ animale: 'orso', dove: 'uscite' });
   });
 });

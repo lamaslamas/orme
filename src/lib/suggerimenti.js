@@ -5,7 +5,7 @@ import { distanzaKm } from './geo.js';
 import { ANIMALI } from './costanti.js';
 import { durata } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], fatica: 'media', distanza: '60', parco: '', lunghezza: '12' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', fatica: 'media', distanza: '60', parco: '', lunghezza: '12' };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };
@@ -61,8 +61,11 @@ export function valuta(c, scelte) {
   if (tempo === 'due' && !c.rifugioNotte) return null;
   if (!adattoAllaFatica(c.misure, c.difficolta, scelte.fatica ?? 'media')) return null;
   if (!entroDistanza(c.auto, scelte.distanza)) return null;
+  // una specie scelta (con "Fauna" tra le cose cercate): solo i percorsi con segnalazioni nel periodo
+  const specie = (scelte.cerco ?? []).includes('fauna') && scelte.specie ? c.specie ?? null : undefined;
+  if (specie === null || (specie && specie.punti <= 0)) return null;
   const trova = {
-    fauna: c.fauna?.livello === 'frequenti' || c.fauna?.livello === 'possibili',
+    fauna: specie ? true : c.fauna?.livello === 'frequenti' || c.fauna?.livello === 'possibili',
     panorama: (c.panorama ?? 0) >= 60,
     bosco: (c.bosco ?? 0) >= 50,
     cresta: (c.apertura ?? 0) >= 50 && (c.quotaMax ?? 0) >= 1400,
@@ -74,7 +77,7 @@ export function valuta(c, scelte) {
   for (const cosa of scelte.cerco ?? []) {
     if (trova[cosa]) {
       trovati.push(cosa);
-      punteggio += cosa === 'fauna' ? (c.fauna.livello === 'frequenti' ? 30 : 15) : 20;
+      punteggio += cosa === 'fauna' ? (specie ? Math.min(150, specie.punti * 4) : c.fauna.livello === 'frequenti' ? 30 : 15) : 20;
     } else punteggio -= 30; // cercato e non trovato: pesa più della distanza
   }
   if (c.anello) punteggio += 6;
@@ -95,7 +98,10 @@ export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   const nomi = (xs) => xs.map((a) => (ANIMALI[a] ?? a).toLowerCase()).join(', ');
   const parti = [c.anello ? 'Anello' : modo === 'ar' ? 'Andata e ritorno' : 'Solo andata'];
   if ((c.bosco ?? 0) >= 50) parti[0] += ' nel bosco';
-  if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
+  if (c.specie) {
+    const z = c.specie.dove === 'percorso' && !c.specie.sensibile ? '' : ', dato di zona';
+    parti.push(`${(ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}`);
+  } else if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
   else if (c.fauna?.livello === 'possibili' && trovati.includes('fauna')) parti.push(`fauna possibile${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
   if ((c.panorama ?? 0) >= 60) parti.push(`panoramico (${c.panorama}/100)`);
   if (trovati.includes('cresta')) parti.push('tratti in cresta');

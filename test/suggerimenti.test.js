@@ -68,3 +68,22 @@ describe('Suggeriscimi: regole', () => {
     expect(testoPerche(base({ rifugioNotte: 'Rifugio Acquanera' }), { modo: 'ar' })).toBe('Andata e ritorno, Rifugio Acquanera a fine primo giorno, +450 m · 3 h 20');
   });
 });
+
+describe('specie scelta in "Cosa cerchi"', () => {
+  const base = { misure: { km: 8, salita: 300, durataMin: 200 }, anello: false, difficolta: 'E', auto: null };
+  const scelte = { ...SCELTE_PREDEFINITE, tempo: 'mezza', cerco: ['fauna'], specie: 'cervo' };
+  const specie = (punti) => ({ punti, animale: 'cervo', dove: 'zona', sensibile: false, nelPeriodo: 10, nome: 'molto segnalato', persone: 146, ultimoAnno: 2025, testo: '146 osservatori, ultima osservazione nel 2025' });
+  it('senza segnalazioni nel periodo il percorso non si propone; più punti salgono in classifica', () => {
+    expect(valuta({ ...base, specie: null }, scelte)).toBeNull();
+    expect(valuta({ ...base, specie: specie(0) }, scelte)).toBeNull();
+    expect(valuta({ ...base, specie: specie(30) }, scelte).punteggio).toBeGreaterThan(valuta({ ...base, specie: specie(5) }, scelte).punteggio);
+  });
+  it('senza "Fauna" tra le cose cercate la specie non conta', () => {
+    expect(valuta({ ...base, specie: null }, { ...scelte, cerco: [] })).not.toBeNull();
+  });
+  it('la riga dice la specie, l\'affidabilità e l\'anno', () => {
+    const t = testoPerche({ ...base, specie: specie(30) }, { trovati: ['fauna'] });
+    expect(t).toContain('cervo molto segnalato');
+    expect(t).toContain('146 osservatori, ultima osservazione nel 2025, dato di zona');
+  });
+});

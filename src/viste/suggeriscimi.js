@@ -9,7 +9,8 @@ import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { eUscita, FILTRI_VUOTI } from '../lib/filtri.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare } from '../lib/tracce.js';
-import { possibilitaFauna } from '../lib/faunaPercorso.js';
+import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI, SPECIE_SENSIBILI } from '../lib/faunaPercorso.js';
+import { ANIMALI } from '../lib/costanti.js';
 import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
@@ -92,6 +93,8 @@ function ricorda(scelte) {
     // senza memoria del browser le scelte valgono solo ora
   }
 }
+// le scelte di "Quale animale": qualsiasi, i gruppi, poi le singole specie
+const VOCI_SPECIE = { '': 'Qualsiasi', ...Object.fromEntries(Object.entries(GRUPPI_SPECIE).map(([k, g]) => [k, g.nome])), ...Object.fromEntries(SPECIE_SCEGLIBILI.map((a) => [a, ANIMALI[a] ?? a])) };
 const oggiItalia = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' });
 
 // gruppo di scelte a pillole: una sola (radio) o più (cerco)
@@ -142,6 +145,16 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
       <h3>Quanto tempo</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
+      ${
+        scelte.cerco.includes('fauna')
+          ? `<h3>Quale animale</h3>${htmlGruppo('specie', VOCI_SPECIE, scelte.specie ?? '')}
+      <p class="tenue piccolo">${
+        SPECIE_SENSIBILI.includes(scelte.specie)
+          ? 'Per orso e lupo i dati sono di zona, non del percorso: la posizione esatta non è pubblica.'
+          : 'In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo.'
+      }</p>`
+          : ''
+      }
       <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
       <h3>Quanto lontano</h3>${htmlGruppo('distanza', DISTANZE, scelte.distanza)}
       ${
@@ -155,7 +168,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
     if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], FATICHE[scelte.fatica].toLowerCase(), partenzaManuale ? 'dal punto scelto' : posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
-    const cerco = scelte.cerco.map((c) => COSE[c].toLowerCase());
+    const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? VOCI_SPECIE[scelte.specie] ?? COSE[c] : COSE[c]).toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : `entro ${DISTANZE[scelte.distanza]}`;
     return [QUANDO[scelte.quando], TEMPI[scelte.tempo].toLowerCase(), FATICHE[scelte.fatica].toLowerCase(), lontano, ...cerco].join(' · ');
   }
@@ -225,6 +238,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           anello,
           difficolta: s.difficolta,
           fauna: possibilitaFauna(s, mese, { stagione: true }),
+          specie: scelte.cerco.includes('fauna') && scelte.specie ? puntiSpecie(s, scelte.specie, mese) : null,
           panorama: s.panorama?.punteggio ?? null,
           bosco: s.panorama?.boscoPercento ?? null,
           apertura: s.panorama?.criteri?.apertura ?? null,

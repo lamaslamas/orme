@@ -14,6 +14,9 @@ export const RAGGIO_ZONA_M = 5000;
 export const MINIMO_OSSERVAZIONI = 3;
 export const MINIMO_PERSONE = 2;
 
+// anno di una data "aaaa-mm-gg" (0 se manca)
+const annoDi = (data) => Number(String(data ?? '').slice(0, 4)) || 0;
+
 const PER_TAXON = new Map(Object.entries(TAXON_INATURALIST).map(([k, t]) => [t.id, k]));
 
 // Il nostro animale per un taxon iNaturalist (anche sottospecie: si guardano gli antenati)
@@ -47,12 +50,14 @@ export function faunaDalleOsservazioni(risultati, geojson) {
     const d = distanzaDallaTracciaM([lon, lat], geojson);
     const vicino = !o.sfumata && d <= RAGGIO_PERCORSO_M;
     if (!vicino && d > RAGGIO_ZONA_M + (o.sfumata ? 10_000 : 0)) continue; // le sfumate possono essere spostate di ~10 km
-    const a = perAnimale.get(animale) ?? { percorso: { n: 0, persone: new Set(), mesi: Array(12).fill(0) }, zona: { n: 0, persone: new Set(), mesi: Array(12).fill(0) } };
+    const nuovo = () => ({ n: 0, persone: new Set(), mesi: Array(12).fill(0), ultimo: 0 });
+    const a = perAnimale.get(animale) ?? { percorso: nuovo(), zona: nuovo() };
     for (const livello of vicino ? ['percorso', 'zona'] : ['zona']) {
       const l = a[livello];
       l.n++;
       if (o.persona != null) l.persone.add(o.persona);
       if (o.data) l.mesi[Number(o.data.slice(5, 7)) - 1]++;
+      l.ultimo = Math.max(l.ultimo, annoDi(o.data));
     }
     perAnimale.set(animale, a);
   }
@@ -63,7 +68,7 @@ export function faunaDalleOsservazioni(risultati, geojson) {
     if (!livello) continue;
     const l = a[livello];
     // perMese: osservazioni di ogni mese (gen…dic), per il giudizio "nel periodo attuale"
-    specie.push({ animale, livello, osservazioni: l.n, persone: l.persone.size, mesi: mesiMigliori(l.mesi), perMese: l.mesi });
+    specie.push({ animale, livello, osservazioni: l.n, persone: l.persone.size, mesi: mesiMigliori(l.mesi), perMese: l.mesi, ...(l.ultimo ? { ultimoAnno: l.ultimo } : {}) });
   }
   return specie.sort((x, y) => (x.livello === y.livello ? y.osservazioni - x.osservazioni : x.livello === 'percorso' ? -1 : 1));
 }
@@ -92,8 +97,9 @@ export function faunaDelParco(risultati, { anelli = null, bbox }) {
     if (!nelRiquadro(lat, lon)) continue;
     if (!x.sfumata && anelli?.length && !puntoNelPoligono([lon, lat], anelli)) continue;
     totale++;
-    const a = perAnimale.get(animale) ?? { n: 0, persone: new Set(), mesi: Array(12).fill(0), sfumate: 0 };
+    const a = perAnimale.get(animale) ?? { n: 0, persone: new Set(), mesi: Array(12).fill(0), sfumate: 0, ultimo: 0 };
     a.n++;
+    a.ultimo = Math.max(a.ultimo, annoDi(x.data));
     if (x.sfumata) a.sfumate++;
     if (x.persona != null) a.persone.add(x.persona);
     if (x.data) a.mesi[Number(x.data.slice(5, 7)) - 1]++;
@@ -101,7 +107,7 @@ export function faunaDelParco(risultati, { anelli = null, bbox }) {
   }
   const specie = [...perAnimale]
     .filter(([, a]) => a.n >= MINIMO_OSSERVAZIONI && a.persone.size >= MINIMO_PERSONE)
-    .map(([animale, a]) => ({ animale, osservazioni: a.n, persone: a.persone.size, mesi: mesiMigliori(a.mesi), sfumate: a.sfumate }))
+    .map(([animale, a]) => ({ animale, osservazioni: a.n, persone: a.persone.size, mesi: mesiMigliori(a.mesi), sfumate: a.sfumate, ...(a.ultimo ? { ultimoAnno: a.ultimo } : {}) }))
     .sort((x, y) => y.osservazioni - x.osservazioni);
   return { osservazioni: totale, specie };
 }
@@ -187,4 +193,57 @@ export function possibilitaFauna(s, mese = null, { km = null, stagione = false }
   ].sort((a, b) => b.mese - a.mese || b.peso - a.peso);
   const specie = [...new Set(ordinate.map((x) => x.animale))].slice(0, 3);
   return { livello, specie, nelPeriodo: ordinate.some((x) => x.mese), periodo, stagione: Boolean(mesi) };
+}
+
+// --- Affidabilità e specie cercate ---------------------------------------------------------
+// Non sono probabilità: dicono quante persone diverse hanno segnalato una specie e quando è stata vista
+// l'ultima volta. Le soglie sono sugli osservatori diversi, non sulle osservazioni (una persona che
+// fotografa lo stesso animale cento volte conta uno).
+export const OSSERVATORI_MOLTO = 20;
+export const OSSERVATORI_SEGNALATO = 5;
+export const NOMI_AFFIDABILITA = { molto: 'molto segnalato', segnalato: 'segnalato', poche: 'poche segnalazioni' };
+export function affidabilita(x) {
+  const persone = x?.persone ?? 0;
+  const livello = persone >= OSSERVATORI_MOLTO ? 'molto' : persone >= OSSERVATORI_SEGNALATO ? 'segnalato' : 'poche';
+  const ultimoAnno = x?.ultimoAnno ?? null;
+  const testo = `${persone} ${persone === 1 ? 'osservatore' : 'osservatori'}${ultimoAnno ? `, ultima osservazione nel ${ultimoAnno}` : ''}`;
+  return { livello, nome: NOMI_AFFIDABILITA[livello], persone, ultimoAnno, mesi: x?.mesi ?? '', testo };
+}
+
+// Specie e gruppi che si possono scegliere in Suggerisci (solo quelle con dati nell'archivio)
+export const GRUPPI_SPECIE = {
+  mammiferi: { nome: 'Mammiferi', specie: ['cervo', 'camoscio', 'capriolo', 'daino', 'cinghiale', 'volpe', 'lupo', 'orso', 'lontra', 'gatto_selvatico', 'muflone'] },
+  rapaci: { nome: 'Rapaci', specie: ['aquila_reale', 'nibbio_reale', 'gufo_reale', 'falco_grillaio'] },
+};
+export const SPECIE_SCEGLIBILI = ['cervo', 'camoscio', 'lupo', 'orso', 'capriolo', 'cinghiale', 'volpe', 'daino', 'aquila_reale', 'nibbio_reale', 'cicogna_nera'];
+// Orso e lupo: i dati sono di zona (posizioni sfumate), mai del singolo percorso
+export const SPECIE_SENSIBILI = ['orso', 'lupo', 'gatto_selvatico'];
+export const animaliDellaScelta = (valore) => (GRUPPI_SPECIE[valore] ? GRUPPI_SPECIE[valore].specie : valore ? [valore] : []);
+
+// Quanto un percorso è adatto a una specie (o gruppo) nel mese scelto e in quelli accanto.
+// punti = osservazioni del periodo × quanti osservatori diversi (al massimo 10 contano), doppio se lungo il
+// percorso. null se non c'è nessuna segnalazione nel periodo.
+export function puntiSpecie(s, valore, mese) {
+  const animali = animaliDellaScelta(valore);
+  if (!animali.length) return null;
+  const mesi = mese ? mesiVicini(mese) : null;
+  let punti = 0;
+  let migliore = null;
+  for (const x of s?.faunaInat?.specie ?? []) {
+    if (!animali.includes(x.animale)) continue;
+    const n = mesi ? nelPeriodo(x, mesi) : x.osservazioni;
+    if (!n) continue;
+    const p = n * Math.min(1, (x.persone ?? 0) / 10) * (x.livello === 'percorso' && !SPECIE_SENSIBILI.includes(x.animale) ? 2 : 1);
+    punti += p;
+    if (!migliore || p > migliore.p) migliore = { p, x, n };
+  }
+  // le uscite delle associazioni che la cercano valgono come una segnalazione sicura
+  const uscite = (s?.animali ?? []).filter((a) => animali.includes(a));
+  if (uscite.length) {
+    punti += 5;
+    migliore ??= { p: 5, x: { animale: uscite[0], persone: 0 }, n: 0 };
+  }
+  if (!migliore) return null;
+  const { x } = migliore;
+  return { punti: Math.round(punti * 10) / 10, animale: x.animale, dove: x.livello ?? 'uscite', sensibile: SPECIE_SENSIBILI.includes(x.animale), nelPeriodo: migliore.n, ...affidabilita(x) };
 }

@@ -84,16 +84,18 @@ function htmlFauna(s, traccia) {
     return `<section class="riquadro fauna"><h2>Animali che si possono incontrare</h2><p class="stato-dati ${s.faunaInat ? 'stato-scarso' : 'stato-assente'}">${motivo}</p></section>`;
   }
   // etichette leggere: icona, nome e mesi migliori, divise per dove sono state viste
-  const etichetta = (a, mesi = '') =>
-    `<li class="animale-fauna">${iconaAnimale(a)}<b>${escapeHtml(ANIMALI[a] ?? a)}</b>${mesi ? `<span class="tenue">${escapeHtml(mesi)}</span>` : ''}</li>`;
+  const etichetta = (a, x = null) => {
+    const af = x ? affidabilita(x) : null;
+    return `<li class="animale-fauna">${iconaAnimale(a)}<b>${escapeHtml(ANIMALI[a] ?? a)}</b>${x?.mesi ? `<span class="tenue">${escapeHtml(x.mesi)}</span>` : ''}${af ? `<span class="tenue piccolo affidabilita affidabilita-${af.livello}">${escapeHtml(`${af.nome} · ${af.testo}`)}</span>` : ''}</li>`;
+  };
   const gruppo = (titolo, voci) => (voci.length ? `<p class="gruppo-fauna">${titolo}</p><ul class="elenco-fauna-leggero">${voci.join('')}</ul>` : '');
   const altri = inat.filter((x) => !associazioni.includes(x.animale));
   return `<section class="riquadro fauna">
     <h2>Animali che si possono incontrare</h2>
     ${gruppo('Uscite di osservazione', associazioni.map((a) => etichetta(a)))}
-    ${gruppo('Lungo il percorso', altri.filter((x) => x.livello === 'percorso').map((x) => etichetta(x.animale, x.mesi)))}
-    ${gruppo('Nella zona', altri.filter((x) => x.livello !== 'percorso').map((x) => etichetta(x.animale, x.mesi)))}
-    <p class="tenue piccolo">Osservazioni verificate (GBIF)${s.faunaInat?.calcolato ? ` · ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''} · non garantiscono un incontro</p>
+    ${gruppo('Lungo il percorso', altri.filter((x) => x.livello === 'percorso').map((x) => etichetta(x.animale, x)))}
+    ${gruppo('Nella zona', altri.filter((x) => x.livello !== 'percorso').map((x) => etichetta(x.animale, x)))}
+    <p class="tenue piccolo">Osservazioni verificate (GBIF)${s.faunaInat?.calcolato ? ` · ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''} · osservazioni di volontari: non garantiscono un incontro e non sono una probabilità</p>
   </section>`;
 }
 
@@ -208,7 +210,7 @@ import { COLORI } from './colori.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
-import { possibilitaFauna, POSSIBILITA_FAUNA } from '../lib/faunaPercorso.js';
+import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
 import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 
 // Righe di riassunto delle sezioni richiudibili

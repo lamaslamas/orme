@@ -214,7 +214,7 @@ const oggiData = new Date().toISOString().slice(0, 10);
 const giorniDa = (d) => (d ? (new Date(oggiData) - new Date(d)) / 86_400_000 : Infinity);
 let profili = 0;
 let daTinitaly = 0;
-for (const p of archivio.percorsi) {
+for (const p of soloFauna ? [] : archivio.percorsi) {
   const g = p.traccia?.geojson;
   if (!g?.coordinates?.length) continue;
   const geometria = improntaTraccia(g).split('-')[1];
@@ -272,6 +272,8 @@ async function osservazioniDelParco(idParco) {
   return risultati;
 }
 
+// versione 2: le specie hanno anche l'anno dell'ultima osservazione
+const VERSIONE_FAUNA = 2;
 let faune = 0;
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
@@ -280,12 +282,12 @@ for (const p of archivio.percorsi) {
   const f = p.faunaInat;
   // si ricalcola se cambia la traccia o una volta al mese
   // anche se mancano i conteggi mese per mese (dati calcolati prima del filtro "nel periodo attuale")
-  const senzaMesi = (f?.specie ?? []).some((x) => !Array.isArray(x.perMese));
+  const senzaMesi = (f?.specie ?? []).some((x) => !Array.isArray(x.perMese)) || (f && f.versione !== VERSIONE_FAUNA);
   if (!tutti && !soloFauna && !senzaMesi && f?.impronta === geometria && f.calcolato && (new Date(oggi) - new Date(f.calcolato)) / 86_400_000 < 30) continue;
   try {
     const tutteLeOss = (await Promise.all((p.parchi ?? [p.parco]).map(osservazioniDelParco))).flat();
     // con i km della traccia: il livello "Ricco di fauna" pesa le osservazioni sulla lunghezza
-    p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, impronta: geometria, km: Math.round(lunghezzaKm(g) * 10) / 10 };
+    p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, versione: VERSIONE_FAUNA, impronta: geometria, km: Math.round(lunghezzaKm(g) * 10) / 10 };
     faune++;
   } catch (e) {
     console.warn(`  fauna ${p.id}: ${e.message}`);
@@ -299,10 +301,10 @@ const confiniParchi = existsSync('public/dati/confini.json') ? JSON.parse(readFi
 let parchiFauna = 0;
 for (const parco of PARCHI) {
   const prima = faunaParchi.parchi[parco.id];
-  if (!tutti && !soloFauna && prima?.calcolato && (new Date(oggi) - new Date(prima.calcolato)) / 86_400_000 < 7) continue;
+  if (!tutti && !soloFauna && prima?.versione === VERSIONE_FAUNA && prima?.calcolato && (new Date(oggi) - new Date(prima.calcolato)) / 86_400_000 < 7) continue;
   try {
     const r = faunaDelParco(await osservazioniDelParco(parco.id), { anelli: confiniParchi[parco.id], bbox: parco.bbox });
-    faunaParchi.parchi[parco.id] = { ...r, calcolato: oggi };
+    faunaParchi.parchi[parco.id] = { ...r, calcolato: oggi, versione: VERSIONE_FAUNA };
     parchiFauna++;
   } catch (e) {
     console.warn(`  fauna del parco ${parco.id}: ${e.message}`);
