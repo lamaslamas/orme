@@ -5,7 +5,7 @@ import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
 import { bollinoBici, bollinoDifficolta } from './lista.js';
 import { misureSentiero, quoteDellaTraccia } from '../lib/riassunto.js';
-import { baseAndata, misureAR, misureScelte, eAnelloPezzi, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
+import { baseAndata, misureAR, misureScelte, statoAnello, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
 import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
 import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
@@ -325,7 +325,8 @@ export async function vistaScheda(app, id) {
   // dislivello e tempi: le quote della traccia, poi quelle del robot (TINITALY, 10 m), poi quelle scaricate
   const pezziTraccia = delleQuote && !(delleQuote.fonte !== 'traccia' && delRobot) ? delleQuote.pezzi : pezziGrezzi;
   const base = baseAndata(pezziTraccia, quoteDellaTraccia(s, traccia));
-  const ar = base ? misureAR(base, { anello: eAnelloPezzi(pezziTraccia, { roundtrip: Boolean(traccia?.dettagli?.roundtrip) }) }) : null;
+  const statoGiro = statoAnello(pezziTraccia, { roundtrip: Boolean(traccia?.dettagli?.roundtrip) });
+  const ar = base ? { ...misureAR(base, { anello: statoGiro.anello }), roundtripAperto: statoGiro.roundtripAperto } : null;
   const numeriScelti = (modo) => {
     if (!ar) return numeriGrandi(misureSentiero(s, traccia));
     const m = misureScelte(ar, modo);

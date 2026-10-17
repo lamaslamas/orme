@@ -44,6 +44,7 @@ export function htmlAndataRitorno(ar, modo = modoScelto()) {
   const conAR = !ar.anello && ar.totale;
   return `<section class="riquadro andata-ritorno" aria-label="Andata e ritorno">
     <h2>${ar.anello ? 'Il giro' : 'Andata e ritorno'}</h2>
+    ${ar.roundtripAperto ? '<p class="tenue piccolo">OSM lo indica come anello, ma la traccia non si chiude.</p>' : ''}
     ${
       conAR
         ? `<div class="segmenti due scelta-ar" role="radiogroup" aria-label="Andata e ritorno">${Object.entries(MODI)

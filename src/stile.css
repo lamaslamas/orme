@@ -2018,3 +2018,7 @@ body.disegno .pannello-heatmap { display: none; }
 .importa-nome { width: 100%; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--sfondo); color: inherit; font: inherit; padding: 0 8px; box-sizing: border-box; }
 .importa-errori ul { margin: 4px 0 0; padding-left: 18px; font-size: 0.85rem; }
 .foglio-importa .azioni-salva { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 6px; }
+
+.importa-riga.duplicato { opacity: 0.7; }
+.importa-doppio { display: block; margin-top: 2px; font-size: 0.8rem; font-weight: 700; color: #9a6408; }
+:root[data-scuro] .importa-doppio { color: #fac775; }

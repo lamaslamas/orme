@@ -40,7 +40,7 @@ describe('andata e ritorno', () => {
     expect(eAnelloPezzi(aperto(0.02))).toBe(true);
     expect(eAnelloPezzi(aperto(0.2))).toBe(false);
     expect(eAnelloPezzi([[[13.0, 41.0], [13.1, 41.0], [13.2, 41.0]]])).toBe(false); // lineare
-    expect(eAnelloPezzi([[[13.0, 41.0], [13.1, 41.0], [13.2, 41.0]]], { roundtrip: true })).toBe(true);
+    expect(eAnelloPezzi([[[13.0, 41.0], [13.1, 41.0], [13.2, 41.0]]], { roundtrip: true })).toBe(false); // roundtrip=yes ma la traccia non si chiude
     // U corta: estremi a 800 m ma il percorso è di 2 km: non è un anello (mai più di un quarto)
     expect(eAnelloPezzi([[[13.0, 41.0], [13.0, 41.008], [13.011, 41.008], [13.011, 41.0]]])).toBe(false);
   });
@@ -106,5 +106,19 @@ describe('traccia diversa dal percorso descritto', () => {
     expect(tracciaDiversa(6, 1.7)).toBe(true);
     expect(tracciaDiversa(5, 6.5)).toBe(false);
     expect(tracciaDiversa(null, 6)).toBe(false);
+  });
+});
+
+import { statoAnello } from '../src/lib/andataRitorno.js';
+describe('roundtrip=yes che non si chiude', () => {
+  const lineare = [[[13.0, 41.0], [13.1, 41.0], [13.2, 41.0]]]; // ~17 km, estremi a ~17 km
+  it('se partenza e arrivo distano più di un quarto della lunghezza è lineare, con la nota', () => {
+    expect(statoAnello(lineare, { roundtrip: true })).toEqual({ anello: false, roundtripAperto: true });
+    expect(statoAnello(lineare)).toEqual({ anello: false, roundtripAperto: false });
+  });
+  it('se si chiude, roundtrip=yes dà l\'anello (anche a più di 1 km e più del 5%)', () => {
+    const giro = [[[13.0, 41.0], [13.0, 41.1], [13.1, 41.1], [13.1, 41.0], [13.0, 41.03]]]; // ~35 km, estremi a ~3,3 km (9%)
+    expect(statoAnello(giro, { roundtrip: true })).toEqual({ anello: true, roundtripAperto: false });
+    expect(statoAnello(giro).anello).toBe(false); // senza il tag, 9% non basta
   });
 });

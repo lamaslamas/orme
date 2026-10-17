@@ -60,3 +60,27 @@ describe('roundtrip=yes della relazione', () => {
     expect(eRoundtrip(null)).toBe(false);
   });
 });
+
+import { unisciImportazione } from '../src/lib/importazione.js';
+describe('roundtrip=yes nell\'archivio', () => {
+  const conTag = (roundtrip) => ({ elements: [{ ...risposta.elements[0], tags: { ...risposta.elements[0].tags, ...(roundtrip ? { roundtrip: 'yes' } : {}) } }, ...risposta.elements.slice(1)] });
+  it('il tag della relazione arriva nei dettagli della traccia (solo se è yes)', () => {
+    expect(itinerarioDallaRisposta(conTag(true), 123, 'pnalm').traccia.dettagli.roundtrip).toBe(true);
+    expect(itinerarioDallaRisposta(conTag(false), 123, 'pnalm').traccia.dettagli.roundtrip).toBeUndefined();
+  });
+  it('l\'importazione notturna lo salva: sui percorsi creati dall\'importazione e, senza toccare la traccia, su quelli scritti a mano', () => {
+    const { sentiero, traccia } = itinerarioDallaRisposta(conTag(false), 123, 'pnalm', '2026-10-13');
+    const nuovo = itinerarioDallaRisposta(conTag(true), 123, 'pnalm', '2026-10-14');
+    const candidato = { fonte: 'osm-sentieri:pnalm', chiave: 'pnalm:123', id: 'osm-sentiero-123', idOsm: 123, tipo: 'sentiero', nome: sentiero.nome, codici: ['F2'], parco: 'pnalm', url: 'https://www.openstreetmap.org/relation/123', animali: [], traccia: nuovo.traccia };
+    // creato dall'importazione: la traccia nuova sostituisce la vecchia, e porta roundtrip
+    const creato = { ...sentiero, traccia, importazione: { fonte: 'osm-sentieri:pnalm', chiave: 'pnalm:123', creato: true }, fonti: [] };
+    const r1 = unisciImportazione({ percorsi: [creato] }, [{ fonte: 'osm-sentieri:pnalm', ok: true, candidati: [candidato] }], '2026-10-14');
+    expect(r1.archivio.percorsi[0].traccia.dettagli.roundtrip).toBe(true);
+    // scritto a mano, con una sua traccia: si aggiunge solo il flag
+    const aMano = { ...sentiero, id: 'f2-mano', traccia: { ...traccia, dettagli: { ...traccia.dettagli, relazioniOsm: [123] } }, importazione: undefined, fonti: [] };
+    const r2 = unisciImportazione({ percorsi: [aMano] }, [{ fonte: 'osm-sentieri:pnalm', ok: true, candidati: [candidato] }], '2026-10-14');
+    const p = r2.archivio.percorsi.find((x) => x.id === 'f2-mano');
+    expect(p.traccia.dettagli.roundtrip).toBe(true);
+    expect(p.traccia.geojson).toEqual(aMano.traccia.geojson);
+  });
+});

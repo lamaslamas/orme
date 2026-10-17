@@ -304,6 +304,8 @@ export function aggiornaRecord(record, c, oggi) {
   // un sentiero scritto a mano senza traccia riceve quella OSM (le tracce dell'utente restano prioritarie sul telefono)
   if (!creato && !record.traccia && c.traccia) r.traccia = c.traccia;
   if (!creato && !record.difficolta && c.difficolta) r.difficolta = c.difficolta;
+  // roundtrip=yes della relazione OSM: si aggiunge alla traccia anche dei sentieri scritti a mano (la traccia non cambia)
+  if (!creato && record.traccia && c.traccia?.dettagli?.roundtrip && !record.traccia.dettagli?.roundtrip) r.traccia = { ...record.traccia, dettagli: { ...record.traccia.dettagli, roundtrip: true } };
   if (creato && primaria) {
     Object.assign(r, { nome: c.nome, descrizione: c.descrizione ?? r.descrizione, tipoPercorso: c.tipo });
     if (c.partenza) r.partenza = { ...r.partenza, descrizione: c.partenza };

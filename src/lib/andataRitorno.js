@@ -23,18 +23,22 @@ export function estremiLiberi(pezzi, tolleranzaM = TOLLERANZA_ESTREMI_M) {
   return estremi.filter((e, k) => !estremi.some((x, j) => j !== k && distanzaKm(e.p, x.p) * 1000 <= tolleranzaM)).map((e) => e.p);
 }
 
-// pezzi [[lon, lat, quota?], …]; roundtrip: la relazione OSM dice roundtrip=yes
-export function eAnelloPezzi(pezzi, { roundtrip = false } = {}) {
-  if (roundtrip) return true;
+// pezzi [[lon, lat, quota?], …]; roundtrip: la relazione OSM dice roundtrip=yes.
+// → { anello, roundtripAperto }: roundtripAperto = OSM lo dà come anello ma la traccia non si chiude (partenza e
+// arrivo a più di un quarto della lunghezza): allora è lineare, con la nota in piccolo nella scheda
+export function statoAnello(pezzi, { roundtrip = false } = {}) {
   const linee = (pezzi ?? []).filter((l) => l?.length);
-  if (!linee.length) return false;
+  if (!linee.length) return { anello: false, roundtripAperto: false };
   const liberi = estremiLiberi(linee);
-  if (!liberi.length) return true; // i tratti si chiudono tra loro: nessun estremo libero
+  if (!liberi.length) return { anello: true, roundtripAperto: false }; // i tratti si chiudono tra loro: nessun estremo libero
   const [a, b] = liberi.length === 2 ? liberi : [linee[0][0], linee.at(-1).at(-1)];
   const lunghezza = lunghezzaKm({ type: 'MultiLineString', coordinates: linee });
   const d = distanzaKm(a, b);
-  return d < ANELLO_M / 1000 || d < lunghezza * ANELLO_QUOTA ? d < lunghezza * ANELLO_QUOTA_MAX : false;
+  const sichiude = d < lunghezza * ANELLO_QUOTA_MAX;
+  if (roundtrip) return { anello: sichiude, roundtripAperto: !sichiude };
+  return { anello: sichiude && (d < ANELLO_M / 1000 || d < lunghezza * ANELLO_QUOTA), roundtripAperto: false };
 }
+export const eAnelloPezzi = (pezzi, opzioni) => statoAnello(pezzi, opzioni).anello;
 
 // misure di un senso: km, salita, discesa e durata CAI (salita e discesa null se non ci sono le quote)
 function senso(km, salita, discesa) {

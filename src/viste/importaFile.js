@@ -2,7 +2,8 @@
 // (si può togliere o rinominare), poi si salvano tra i miei percorsi. Resta tutto sul telefono.
 import { ACCETTA, leggiFiles, riassuntoPercorso, MAX_PERCORSI } from '../lib/importaFile.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
-import { salvaPercorso } from '../db.js';
+import { salvaPercorso, tuttiIPercorsi } from '../db.js';
+import { segnaDuplicati } from '../lib/duplicati.js';
 import { escapeHtml } from '../lib/formato.js';
 import { finestraTrascinabile } from './tendina.js';
 
@@ -32,7 +33,11 @@ async function mostraDialogo(scelti) {
   dialogo.showModal();
   const files = await Promise.all(scelti.map(async (f) => ({ nome: f.name, dati: new Uint8Array(await f.arrayBuffer()) })));
   const r = await leggiFiles(files);
-  const righe = r.percorsi.map((p) => ({ p, ...riassuntoPercorso(p) }));
+  // le tracce già importate (o ripetute nei file scelti) si segnalano e non si salvano due volte
+  const esistenti = await tuttiIPercorsi().catch(() => []);
+  const righe = segnaDuplicati(r.percorsi, esistenti).map((p) => ({ p, duplicato: p.duplicatoDi, ...riassuntoPercorso(p) }));
+  const nuoveRighe = righe.filter((x) => !x.duplicato).length;
+  const doppie = righe.length - nuoveRighe;
   const errori = r.errori.length
     ? `<details class="importa-errori" ${righe.length ? '' : 'open'}><summary>${r.errori.length === 1 ? '1 file non importato' : `${r.errori.length} file non importati`}</summary><ul>${r.errori
         .map((e) => `<li><b>${escapeHtml(e.file)}</b>: ${escapeHtml(e.motivo)}</li>`)
@@ -43,26 +48,27 @@ async function mostraDialogo(scelti) {
     <h2 class="foglio-titolo">Importa percorsi</h2>
     ${
       righe.length
-        ? `<p class="tenue">${righe.length === 1 ? 'Ho trovato 1 percorso' : `Ho trovato ${righe.length} percorsi`}${r.troppi ? ` (i primi ${MAX_PERCORSI}: gli altri restano fuori)` : ''}. Togli quelli che non vuoi o cambia il nome.</p>
+        ? `<p class="tenue">${righe.length === 1 ? 'Ho trovato 1 percorso' : `Ho trovato ${righe.length} percorsi`}${doppie ? ` (${doppie === 1 ? '1 è già stato importato' : `${doppie} sono già stati importati`})` : ''}${r.troppi ? `; i primi ${MAX_PERCORSI}, gli altri restano fuori` : ''}. ${nuoveRighe ? 'Togli quelli che non vuoi o cambia il nome.' : 'Non c\'è niente di nuovo da importare.'}</p>
     <ul class="importa-elenco">${righe
       .map(
-        (x, i) => `<li class="importa-riga"><input type="checkbox" checked data-scelto="${i}" aria-label="Importa ${escapeHtml(x.p.nome)}" />
-          <div><input type="text" class="importa-nome" data-nome="${i}" value="${escapeHtml(x.p.nome)}" aria-label="Nome del percorso" />
-          <span class="tenue piccolo">${km(x.km)} km${x.salita != null ? ` · +${x.salita} m` : ''} · ${FORMATO[x.p.origine]} · ${escapeHtml(x.p.file.split(' › ').at(-1))}</span></div></li>`,
+        (x, i) => `<li class="importa-riga${x.duplicato ? ' duplicato' : ''}"><input type="checkbox" ${x.duplicato ? 'disabled' : 'checked'} data-scelto="${i}" aria-label="Importa ${escapeHtml(x.p.nome)}" />
+          <div><input type="text" class="importa-nome" data-nome="${i}" value="${escapeHtml(x.p.nome)}" aria-label="Nome del percorso" ${x.duplicato ? 'disabled' : ''} />
+          <span class="tenue piccolo">${km(x.km)} km${x.salita != null ? ` · +${x.salita} m` : ''} · ${FORMATO[x.p.origine]} · ${escapeHtml(x.p.file.split(' › ').at(-1))}</span>
+          ${x.duplicato ? `<span class="importa-doppio">${x.duplicato.dellImport ? 'Uguale a' : 'Già importato:'} «${escapeHtml(x.duplicato.nome)}»${x.duplicato.dellImport ? ' (in questa importazione)' : ''}: non lo salvo due volte</span>` : ''}</div></li>`,
       )
       .join('')}</ul>`
         : '<p class="vuoto">Non ho trovato nessun percorso.</p>'
     }
     ${errori}
     <div class="azioni-salva">
-      <button type="button" class="bottone" data-azione="annulla">${righe.length ? 'Annulla' : 'Chiudi'}</button>
-      ${righe.length ? `<button type="button" class="bottone primario" data-azione="importa">Importa ${righe.length}</button>` : ''}
+      <button type="button" class="bottone" data-azione="annulla">${nuoveRighe ? 'Annulla' : 'Chiudi'}</button>
+      ${nuoveRighe ? `<button type="button" class="bottone primario" data-azione="importa">Importa ${nuoveRighe}</button>` : ''}
     </div>
     <p class="tenue piccolo importa-esito" aria-live="polite"></p>
     <p class="tenue piccolo">I file restano sul tuo telefono: non vengono caricati da nessuna parte.</p>`;
 
   const bottone = dialogo.querySelector('[data-azione="importa"]');
-  const scelti2 = () => [...dialogo.querySelectorAll('[data-scelto]')].filter((c) => c.checked);
+  const scelti2 = () => [...dialogo.querySelectorAll('[data-scelto]')].filter((c) => c.checked && !c.disabled);
   dialogo.addEventListener('change', () => {
     if (!bottone) return;
     const n = scelti2().length;
