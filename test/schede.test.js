@@ -6,9 +6,32 @@ const p = (n, q) => (q == null ? [13.8, 41.7 + n * 0.001] : [13.8, 41.7 + n * 0.
 const traccia = { geojson: { type: 'MultiLineString', coordinates: [[p(0, 1000), p(9, 1300)]] } };
 
 describe('numeri chiave del sentiero', () => {
-  it('preferisce i valori inseriti a mano', () => {
-    const m = misureSentiero({ lunghezzaKm: 8, dislivelloM: 200, durataMin: 150 }, traccia);
+  it('senza traccia valgono i valori della fonte', () => {
+    const m = misureSentiero({ lunghezzaKm: 8, dislivelloM: 200, durataMin: 150 }, null);
     expect(m).toMatchObject({ km: 8, salita: 200, durataMin: 150, durataStimata: false, kmCalcolati: false });
+  });
+
+  it('con la traccia continua i numeri vengono dalla traccia; la fonte resta a parte', () => {
+    const m = misureSentiero({ lunghezzaKm: 8, dislivelloM: 200, durataMin: 150 }, traccia);
+    expect(m.km).toBeCloseTo(1.0, 1);
+    expect(m.salita).toBe(300);
+    expect(m.durataStimata).toBe(true);
+    expect(m.fonte).toEqual({ km: 8, salita: 200, durataMin: 150 });
+    expect(m.incompleta).toBeNull();
+  });
+
+  it('traccia con un salto oltre 500 m: incompleta, valgono i numeri della fonte', () => {
+    const buco = { origine: 'osm', geojson: { type: 'MultiLineString', coordinates: [[p(0, 1000), p(9, 1100)], [p(100, 1200), p(109, 1300)]] } };
+    const m = misureSentiero({ lunghezzaKm: 8, dislivelloM: 200, durataMin: 150 }, buco);
+    expect(m).toMatchObject({ km: 8, salita: 200, durataMin: 150, kmCalcolati: false });
+    expect(m.incompleta.mancanoKm).toBeGreaterThan(0.9);
+    // senza dati della fonte non si inventa nulla
+    expect(misureSentiero({}, buco)).toMatchObject({ km: null, salita: null, durataMin: null });
+  });
+
+  it('un GPX mio non è mai incompleto', () => {
+    const mio = { origine: 'gpx', geojson: { type: 'MultiLineString', coordinates: [[p(0, 1000), p(9, 1100)], [p(100, 1200), p(109, 1300)]] } };
+    expect(misureSentiero({}, mio).incompleta).toBeNull();
   });
 
   it('se mancano li calcola dalla traccia e stima la durata', () => {

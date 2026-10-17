@@ -8,7 +8,7 @@ import { misureSentiero, quoteDellaTraccia } from '../lib/riassunto.js';
 import { baseAndata, misureAR, misureScelte, statoAnello, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
 import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
 import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
-import { percorsoSentiero, statoTraccia, sceltaAutomatica } from '../lib/tracce.js';
+import { percorsoSentiero, statoTraccia, sceltaAutomatica, tracciaDaNonUsare } from '../lib/tracce.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
@@ -317,7 +317,8 @@ export async function vistaScheda(app, id) {
   const haEscursione = e.associazione || e.nomeUscita || e.periodo || e.fonte;
   // Andata e ritorno: dalla traccia con le quote (della traccia o TINITALY) e il metodo CAI. I numeri
   // in alto usano lo stesso calcolo e seguono la scelta; il dato della fonte, se diverso, in piccolo
-  const pezziGrezzi = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' ? percorsoSentiero(traccia.geojson).pezzi : [];
+  const incompleta = tracciaDaNonUsare(s, traccia);
+  const pezziGrezzi = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' && !incompleta.incompleta ? percorsoSentiero(traccia.geojson).pezzi : [];
   // quote punto per punto: quelle della traccia o, se non ce l'ha, quelle scaricate da TINITALY e salvate accanto
   const impronta = traccia?.geojson ? improntaTraccia(traccia.geojson).split('-')[1] : null;
   const delleQuote = quoteDellaScheda(pezziGrezzi, traccia?.dettagli?.quoteScaricate, impronta);
@@ -328,7 +329,13 @@ export async function vistaScheda(app, id) {
   const statoGiro = statoAnello(pezziTraccia, { roundtrip: Boolean(traccia?.dettagli?.roundtrip) });
   const ar = base ? { ...misureAR(base, { anello: statoGiro.anello }), roundtripAperto: statoGiro.roundtripAperto } : null;
   const numeriScelti = (modo) => {
-    if (!ar) return numeriGrandi(misureSentiero(s, traccia));
+    if (!ar) {
+      const avvisoIncompleta = incompleta.incompleta
+        ? `<p class="avviso-via">${ICONE.avviso}<span>Traccia incompleta: mancano circa ${incompleta.mancanoKm.toFixed(1).replace('.', ',')} km. È disegnata com'è sulla mappa, ma non serve per km, tempi, andata e ritorno e «Su più giorni»: i numeri sono quelli della fonte.</span></p>`
+        : '';
+      const n = misureSentiero(s, traccia);
+      return `${numeriGrandi(n)}${incompleta.incompleta ? '<p class="tenue piccolo nota-numeri">Dalla fonte</p>' : ''}${avvisoIncompleta}`;
+    }
     const m = misureScelte(ar, modo);
     const nota = notaFonte({ km: s.lunghezzaKm, salita: s.dislivelloM, durataMin: s.durataMin }, ar.andata);
     const didascalia = ar.anello ? 'Giro ad anello' : modo === 'ar' ? 'Andata e ritorno' : 'Solo andata';

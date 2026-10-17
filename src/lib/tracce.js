@@ -78,6 +78,22 @@ export function percorsoSentiero(geojson) {
   return ordinaPezzi(concatenaLinee(geojson?.coordinates ?? []));
 }
 
+// Una traccia con un salto oltre i 500 m tra un pezzo e il successivo è "incompleta": sulla mappa si
+// vede com'è, ma km, dislivello, tempi, andata/ritorno e "Su più giorni" non devono usarla (un buco di
+// 6 km darebbe numeri sbagliati). mancanoKm = somma dei salti. Le tracce mie (GPX, disegnate) e le reti
+// di sentieri non sono mai "incomplete" per l'app.
+export const SOGLIA_INCOMPLETA_M = 500;
+export function tracciaIncompleta(geojson, soglia = SOGLIA_INCOMPLETA_M) {
+  const { salti } = percorsoSentiero(geojson);
+  const grandi = salti.filter((d) => d > soglia);
+  return { incompleta: grandi.length > 0, salti: grandi.length, mancanoKm: Math.round(grandi.reduce((a, d) => a + d, 0) / 100) / 10, maxKm: Math.round(Math.max(0, ...grandi) / 100) / 10 };
+}
+export function tracciaDaNonUsare(sentiero, traccia) {
+  if (!traccia?.geojson || sentiero?.tipoPercorso === 'rete_sentieri') return { incompleta: false };
+  if (traccia.origine && traccia.origine !== 'osm') return { incompleta: false };
+  return tracciaIncompleta(traccia.geojson);
+}
+
 export function invertiPercorso({ pezzi, salti }) {
   return { pezzi: pezzi.map(inverti).reverse(), salti: [...salti].reverse() };
 }

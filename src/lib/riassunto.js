@@ -1,9 +1,10 @@
 // Numeri chiave di un sentiero (km, dislivello, durata) per schede e pagine.
-// Si usano i valori inseriti a mano; se mancano, si calcolano dalla traccia.
+// Dove la traccia è continua i numeri vengono dalla traccia; senza traccia, o con una traccia incompleta
+// (salti oltre 500 m), si usano i valori della fonte.
 import { lunghezzaKm } from './geo.js';
 import { dislivello } from './quote.js';
 import { stimaDurataMin } from './durata.js';
-import { percorsoSentiero } from './tracce.js';
+import { percorsoSentiero, tracciaDaNonUsare } from './tracce.js';
 import { improntaTraccia } from './panorama.js';
 
 // Profilo delle quote calcolato dal robot, se è di questa traccia (un GPX mio lo rende superato)
@@ -18,18 +19,22 @@ export function misureSentiero(s, traccia) {
     const km = Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : traccia?.geojson ? lunghezzaKm(traccia.geojson) : null;
     return { km, kmCalcolati: false, salita: null, discesa: null, durataMin: null, durataStimata: false };
   }
-  const percorso = traccia?.geojson ? percorsoSentiero(traccia.geojson) : null;
+  // traccia incompleta (salti oltre 500 m): non si usa per i numeri, valgono quelli della fonte
+  const incompleta = tracciaDaNonUsare(s, traccia);
+  const percorso = traccia?.geojson && !incompleta.incompleta ? percorsoSentiero(traccia.geojson) : null;
   const daTraccia = percorso?.pezzi.length
     ? { km: lunghezzaKm({ coordinates: percorso.pezzi }), disl: dislivello(percorso.pezzi) }
     : null;
 
-  const km = Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : daTraccia?.km ?? null;
+  // dove la traccia è continua i numeri vengono da lì; il valore della fonte resta solo in `fonte`
+  const km = daTraccia?.km ?? (Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : null);
   // quote: della traccia (GPX con quote) oppure dal profilo calcolato con il modello del terreno
-  const profilo = quoteDellaTraccia(s, traccia);
+  const profilo = incompleta.incompleta ? null : quoteDellaTraccia(s, traccia);
   const dislTraccia = daTraccia?.disl ?? (profilo ? { salita: profilo.salita, discesa: profilo.discesa } : null);
-  const salita = Number.isFinite(s.dislivelloM) ? s.dislivelloM : dislTraccia?.salita ?? null;
+  const salita = dislTraccia?.salita ?? (Number.isFinite(s.dislivelloM) ? s.dislivelloM : null);
   const disl = dislTraccia ?? (salita != null ? { salita, discesa: 0 } : null);
-  let durataMin = Number.isFinite(s.durataMin) ? s.durataMin : null;
+  // durata: dalla traccia si stima; senza traccia valgono la durata della fonte o la stima sui km
+  let durataMin = daTraccia ? null : Number.isFinite(s.durataMin) ? s.durataMin : null;
   let durataStimata = false;
   if (durataMin == null && km != null) {
     durataMin = stimaDurataMin(km, disl);
@@ -37,10 +42,12 @@ export function misureSentiero(s, traccia) {
   }
   return {
     km,
-    kmCalcolati: !Number.isFinite(s.lunghezzaKm) && km != null,
+    kmCalcolati: Boolean(daTraccia),
     salita,
     discesa: dislTraccia?.discesa ?? null,
     durataMin,
     durataStimata,
+    incompleta: incompleta.incompleta ? incompleta : null,
+    fonte: { km: s.lunghezzaKm ?? null, salita: s.dislivelloM ?? null, durataMin: s.durataMin ?? null },
   };
 }

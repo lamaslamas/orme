@@ -8,7 +8,7 @@ import { stato } from '../stato.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { eUscita, FILTRI_VUOTI } from '../lib/filtri.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
-import { percorsoSentiero } from '../lib/tracce.js';
+import { percorsoSentiero, tracciaDaNonUsare } from '../lib/tracce.js';
 import { possibilitaFauna } from '../lib/faunaPercorso.js';
 import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
@@ -198,13 +198,16 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     // compatibili con l'attività scelta (a piedi niente itinerari MTB), come negli altri elenchi
     return filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI }, stato.leggi().attivita)
       .filter((p) => p.traccia?.geojson && !['uscita_guidata', 'rete_sentieri'].includes(p.sentiero.tipoPercorso))
+      // traccia incompleta (salti oltre 500 m): si propone solo se la fonte dà i km, e con quelli
+      .filter((p) => !tracciaDaNonUsare(p.sentiero, p.traccia).incompleta || p.misure.km != null)
       .filter((p) => scelte.distanza !== 'parco' || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
       .map((p) => {
         const s = p.sentiero;
         const pezzi = percorsoSentiero(p.traccia.geojson).pezzi;
         const quote = quoteDellaTraccia(s, p.traccia);
-        const anello = eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });
-        const base = baseAndata(pezzi, quote);
+        const incompleta = tracciaDaNonUsare(s, p.traccia).incompleta;
+        const anello = !incompleta && eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });
+        const base = incompleta ? null : baseAndata(pezzi, quote);
         // le misure della scelta (Solo andata / A/R), come nella scheda
         const misure = base
           ? misureScelte(misureAR(base, { anello }), modo)
