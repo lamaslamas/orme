@@ -12,7 +12,7 @@ const senzaDoppioni = (punti) => [...new Map(punti.map((p) => [p.id, p])).values
 const ZOOM_ROBOT = 11;
 import { escapeHtml } from '../lib/formato.js';
 import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta, inCentroAbitato } from '../lib/puntiUtili.js';
-import { TIPI_PUNTO, noteDelPunto, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
+import { TIPI_PUNTO, noteDelPunto, righeRifugio, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 import { cronometra } from '../lib/misura.js';
 import { partiDaSvg } from '../lib/tracciati.js';
@@ -101,6 +101,7 @@ function popup(p) {
     <span class="tipo-punto ${t.gruppo}">${htmlIconaPunto(p.tipo)} ${t.nome}</span>
     ${p.nome ? `<b>${escapeHtml(p.nome)}</b>` : ''}
     ${note.length ? `<p>${escapeHtml(note.join(' · '))}</p>` : ''}
+    ${righeRifugio(p).length ? `<dl class="dati-rifugio">${righeRifugio(p).map(([e, v, l]) => `<dt>${e}</dt><dd>${l ? `<a href="${escapeHtml(l)}" ${l.startsWith('http') ? 'target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(v)}</a>` : escapeHtml(v)}</dd>`).join('')}</dl>` : ''}
     <p class="tenue piccolo">Dati OpenStreetMap: possono non essere aggiornati, verifica sul posto${t.gruppo === 'acqua' ? ' (una sorgente può essere secca)' : ''}.</p>
     <a href="${url}" target="_blank" rel="noopener">Vedi su OpenStreetMap ↗</a>
   </div>`;

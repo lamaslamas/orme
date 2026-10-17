@@ -1,5 +1,6 @@
 // Punti utili da OpenStreetMap: rifugi, bivacchi e ricoveri; sorgenti e fontanelle.
-// Si salvano solo dati pubblici sui luoghi (niente telefoni o email dei gestori).
+// Si salvano solo dati pubblici sui luoghi. Per i rifugi anche gestore, posti, prenotazione, telefono, sito e
+// orari del luogo come li scrive OSM (mai email, mai nomi di persone).
 import { puntoNelPoligono } from './confini.js';
 import { distanzaDallaTracciaM } from './geo.js';
 import { dentroIlParco } from './overpass.js';
@@ -60,7 +61,47 @@ export function puntoDaElemento(el) {
   if (no(t.access) || t.access === 'private') p.privato = true;
   if (/closed|chius/i.test(`${t.note ?? ''} ${t.description ?? ''}`) || t['disused:tourism'] || si(t.disused)) p.chiuso = true;
   if (si(t.fireplace)) p.camino = true;
+  if (TIPI_PUNTO[tipo].gruppo === 'rifugi') Object.assign(p, datiRifugio(t));
   return p;
+}
+
+const PRENOTAZIONE = {
+  required: 'prenotazione obbligatoria', recommended: 'prenotazione consigliata', yes: 'si prenota', no: 'non serve prenotare', members_only: 'solo soci',
+};
+const CUSTODIA = { yes: 'custodito', no: 'non custodito', seasonal: 'custodito in stagione' };
+const pulito = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+// Gestione, posti, prenotazione, telefono, sito e orari di un rifugio, solo se OSM li scrive (niente di inventato)
+export function datiRifugio(t = {}) {
+  const d = {};
+  const gestore = pulito(t.operator, 80);
+  if (gestore) d.gestore = gestore;
+  const posti = Number.parseInt(t.capacity, 10);
+  if (Number.isFinite(posti) && posti > 0 && posti < 1000) d.posti = posti;
+  const custodia = CUSTODIA[pulito(t.staffed ?? t.supervised, 12).toLowerCase()];
+  if (custodia) d.custodia = custodia;
+  const pren = PRENOTAZIONE[pulito(t.reservation, 20).toLowerCase()];
+  if (pren) d.prenotazione = pren;
+  const tel = pulito(t.phone ?? t['contact:phone'], 60).split(';')[0].trim();
+  if (/^[+\d][\d\s().\/-]{5,}$/.test(tel)) d.telefono = tel;
+  const sito = pulito(t.website ?? t['contact:website'], 200).split(';')[0].trim();
+  if (/^https?:\/\/[^\s"'<>]+$/i.test(sito)) d.sito = sito;
+  const orari = pulito(t.opening_hours, 120);
+  if (orari) d.orari = orari;
+  return d;
+}
+
+// Le righe da mostrare nella scheda di un rifugio: [etichetta, testo, link o null], solo quelle presenti
+export function righeRifugio(p) {
+  const righe = [];
+  if (p.gestore) righe.push(['Gestione', p.gestore, null]);
+  if (p.custodia) righe.push(['Custodia', p.custodia, null]);
+  if (p.posti) righe.push(['Posti', String(p.posti), null]);
+  if (p.prenotazione) righe.push(['Prenotazione', p.prenotazione, null]);
+  if (p.telefono) righe.push(['Telefono', p.telefono, `tel:${p.telefono.replace(/[^+\d]/g, '')}`]);
+  if (p.sito) righe.push(['Sito', p.sito.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, ''), p.sito]);
+  if (p.orari) righe.push(['Orari', p.orari, null]);
+  return righe;
 }
 
 // Elementi della risposta → punti; con il confine si scartano quelli fuori dal parco

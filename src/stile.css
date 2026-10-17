@@ -2062,3 +2062,6 @@ body.percorso-mappa main { padding: 0; }
   .mappa-barra .indietro { display: block; margin: -14px -10px; }
   .link-parco { margin-bottom: -8px; }
 }
+.dati-rifugio { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; font-size: 0.85rem; }
+.dati-rifugio dt { color: var(--testo-tenue); }
+.dati-rifugio dd { margin: 0; overflow-wrap: anywhere; }

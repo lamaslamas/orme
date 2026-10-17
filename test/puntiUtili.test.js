@@ -108,3 +108,27 @@ describe('punti fuori dai parchi: celle', () => {
     expect(cellaScaduta({ scaricato: '2026-08-01' }, new Date('2026-10-13'))).toBe(true);
   });
 });
+
+describe('dati dei rifugi da OSM', () => {
+  it('legge gestore, posti, prenotazione, telefono, sito e orari solo se ci sono', async () => {
+    const { puntoDaElemento, righeRifugio } = await import('../src/lib/puntiUtili.js');
+    const p = puntoDaElemento({
+      type: 'node', id: 5, lat: 41.8, lon: 13.9,
+      tags: { tourism: 'alpine_hut', name: 'Rifugio Prova', operator: 'CAI Sulmona', capacity: '24', reservation: 'required', phone: '+39 0864 123456; +39 333', 'contact:website': 'https://www.esempio.it/rifugio/', opening_hours: 'Jun-Sep', email: 'a@b.it' },
+    });
+    expect(p).toMatchObject({ gestore: 'CAI Sulmona', posti: 24, prenotazione: 'prenotazione obbligatoria', telefono: '+39 0864 123456', sito: 'https://www.esempio.it/rifugio/', orari: 'Jun-Sep' });
+    expect(JSON.stringify(p)).not.toContain('a@b.it');
+    expect(righeRifugio(p).map((r) => r[0])).toEqual(['Gestione', 'Posti', 'Prenotazione', 'Telefono', 'Sito', 'Orari']);
+  });
+  it('niente di inventato: senza tag nessun campo; sito non http e telefono strano scartati; acqua senza dati', async () => {
+    const { puntoDaElemento, righeRifugio } = await import('../src/lib/puntiUtili.js');
+    const nudo = puntoDaElemento({ type: 'node', id: 6, lat: 41, lon: 13, tags: { tourism: 'wilderness_hut' } });
+    expect(righeRifugio(nudo)).toEqual([]);
+    const strano = puntoDaElemento({ type: 'node', id: 7, lat: 41, lon: 13, tags: { tourism: 'alpine_hut', website: 'javascript:alert(1)', phone: 'chiedere al bar' } });
+    expect(strano.sito).toBeUndefined();
+    expect(strano.telefono).toBeUndefined();
+    const fonte = puntoDaElemento({ type: 'node', id: 8, lat: 41, lon: 13, tags: { natural: 'spring', operator: 'Comune', phone: '+39 0864 111111' } });
+    expect(fonte.gestore).toBeUndefined();
+    expect(fonte.telefono).toBeUndefined();
+  });
+});
