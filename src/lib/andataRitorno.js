@@ -6,16 +6,34 @@ import { distanzaKm, lunghezzaKm } from './geo.js';
 import { dislivello } from './quote.js';
 import { durata as testoDurata } from './formato.js';
 
-export const ANELLO_M = 300; // partenza e arrivo più vicini di così: è un anello
+// Un anello: la relazione OSM dice roundtrip=yes, oppure partenza e arrivo distano meno di 1 km o meno del 5%
+// della lunghezza (ma mai più di un quarto: un percorso corto a U non è un anello)
+export const ANELLO_M = 1000;
+export const ANELLO_QUOTA = 0.05;
+export const ANELLO_QUOTA_MAX = 0.25;
+const TOLLERANZA_ESTREMI_M = 30; // due estremi di tratti più vicini di così sono lo stesso punto
 export const MARGINE_LUCE_MIN = 30; // si rientra almeno mezz'ora prima del tramonto
 export const MODI = { andata: 'Solo andata', ar: 'Andata e ritorno' };
 
-// pezzi [[lon, lat, quota?], …]: partenza e arrivo vicini?
-export function eAnelloPezzi(pezzi) {
-  const primo = pezzi?.[0]?.[0];
-  const ultimo = pezzi?.at(-1)?.at(-1);
-  if (!primo || !ultimo) return false;
-  return distanzaKm(primo, ultimo) * 1000 <= ANELLO_M;
+// Gli estremi di un percorso fatto di più tratti (le relazioni OSM hanno i tratti in ordine e verso a caso):
+// quelli che non coincidono con l'estremo di un altro tratto. Zero = si chiude da solo; due = partenza e
+// arrivo; altrimenti (tratti staccati) il primo e l'ultimo punto.
+export function estremiLiberi(pezzi, tolleranzaM = TOLLERANZA_ESTREMI_M) {
+  const estremi = pezzi.flatMap((l, i) => (l.length ? [{ i, p: l[0] }, { i, p: l.at(-1) }] : []));
+  return estremi.filter((e, k) => !estremi.some((x, j) => j !== k && distanzaKm(e.p, x.p) * 1000 <= tolleranzaM)).map((e) => e.p);
+}
+
+// pezzi [[lon, lat, quota?], …]; roundtrip: la relazione OSM dice roundtrip=yes
+export function eAnelloPezzi(pezzi, { roundtrip = false } = {}) {
+  if (roundtrip) return true;
+  const linee = (pezzi ?? []).filter((l) => l?.length);
+  if (!linee.length) return false;
+  const liberi = estremiLiberi(linee);
+  if (!liberi.length) return true; // i tratti si chiudono tra loro: nessun estremo libero
+  const [a, b] = liberi.length === 2 ? liberi : [linee[0][0], linee.at(-1).at(-1)];
+  const lunghezza = lunghezzaKm({ type: 'MultiLineString', coordinates: linee });
+  const d = distanzaKm(a, b);
+  return d < ANELLO_M / 1000 || d < lunghezza * ANELLO_QUOTA ? d < lunghezza * ANELLO_QUOTA_MAX : false;
 }
 
 // misure di un senso: km, salita, discesa e durata CAI (salita e discesa null se non ci sono le quote)

@@ -53,7 +53,8 @@ export function candidatiSentieri(json, idParco, parco = parcoDa(idParco)) {
     const ref = (t.ref ?? '').trim();
     // "SI" da solo indica il Sentiero Italia, non un numero di sentiero
     const codici = ref && ref.toUpperCase() !== 'SI' ? [ref] : [];
-    traccia.dettagli = { ...traccia.dettagli, codici, fonte: url, ...(ritagliata ? { ritagliata: true } : {}) };
+    // roundtrip=yes: la relazione stessa dice che è un anello (niente andata e ritorno)
+    traccia.dettagli = { ...traccia.dettagli, codici, fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
     const zona = [t.from, t.to].filter(Boolean).join(' – ');
     const nome = t.name || (ref.toUpperCase().startsWith('SI') ? `Sentiero Italia CAI${zona ? `: ${zona}` : ''}` : `Sentiero ${ref || c.idOsm}${zona ? `: ${zona}` : ''}`);
     const ferrata = eViaFerrata(t, tagTratti.get(c.idOsm) ?? []);

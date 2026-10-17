@@ -11,6 +11,10 @@ out geom;
 way(r);
 out tags;`;
 
+// solo i tag della relazione (pochi byte): per sapere se OpenStreetMap la dà come anello (roundtrip=yes)
+export const queryTagRelazione = (idRelazione) => `[out:json][timeout:25];\nrel(${Number(idRelazione)});\nout tags;`;
+export const eRoundtrip = (json) => (json?.elements ?? []).some((e) => e.type === 'relation' && e.tags?.roundtrip === 'yes');
+
 const TUTTO = [-90, -180, 90, 180];
 
 // Risposta → { sentiero, traccia } (o null se la relazione non c'è o è troppo corta).

@@ -199,7 +199,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         const s = p.sentiero;
         const pezzi = percorsoSentiero(p.traccia.geojson).pezzi;
         const quote = quoteDellaTraccia(s, p.traccia);
-        const anello = eAnelloPezzi(pezzi);
+        const anello = eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });
         const base = baseAndata(pezzi, quote);
         // le misure della scelta (Solo andata / A/R), come nella scheda
         const misure = base

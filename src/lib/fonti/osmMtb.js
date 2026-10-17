@@ -66,7 +66,7 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { ciclotur
     if (geometrieViste.has(impronta)) continue;
     geometrieViste.add(impronta);
     const url = `https://www.openstreetmap.org/relation/${c.idOsm}`;
-    traccia.dettagli = { ...traccia.dettagli, codici: [], fonte: url, ...(ritagliata ? { ritagliata: true } : {}) };
+    traccia.dettagli = { ...traccia.dettagli, codici: [], fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
     const mtb = !cicloturistici || t.route === 'mtb' || /mtb/i.test(t.network ?? '') || t.mtb === 'yes';
     const rif = t.ref ? `${mtb ? 'MTB ' : ''}${t.ref}` : mtb ? 'MTB' : '';
     const zona = [t.from, t.to].filter(Boolean).join(' – ');

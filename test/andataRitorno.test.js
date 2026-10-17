@@ -30,6 +30,31 @@ describe('andata e ritorno', () => {
     expect(eAnelloPezzi([[[13.8, 41.8], [13.81, 41.81], [13.8001, 41.8001]]])).toBe(true);
     expect(eAnelloPezzi([[[13.8, 41.8], [13.85, 41.85]]])).toBe(false);
   });
+  it('nuova regola: roundtrip=yes, oppure estremi a meno di 1 km o del 5% della lunghezza', () => {
+    // un anello di ~30 km aperto di 600 m: prima (300 m) lineare, ora anello
+    const R = 0.22; // gradi: ~24 km di giro
+    const giro = Array.from({ length: 73 }, (_, k) => [13.8 + R * Math.cos((k / 72) * 2 * Math.PI * 0.99), 41.8 + R * Math.sin((k / 72) * 2 * Math.PI * 0.99)]);
+    expect(eAnelloPezzi([giro])).toBe(true);
+    // giro lungo ~170 km: il 5% sono ~8 km; aperto di 1,7 km è un anello, di 15 km no
+    const aperto = (gradi) => [[[13.0, 41.0], [13.0, 41.4], [13.5, 41.4], [13.5, 41.0], [13.0 + gradi, 41.0]]];
+    expect(eAnelloPezzi(aperto(0.02))).toBe(true);
+    expect(eAnelloPezzi(aperto(0.2))).toBe(false);
+    expect(eAnelloPezzi([[[13.0, 41.0], [13.1, 41.0], [13.2, 41.0]]])).toBe(false); // lineare
+    expect(eAnelloPezzi([[[13.0, 41.0], [13.1, 41.0], [13.2, 41.0]]], { roundtrip: true })).toBe(true);
+    // U corta: estremi a 800 m ma il percorso è di 2 km: non è un anello (mai più di un quarto)
+    expect(eAnelloPezzi([[[13.0, 41.0], [13.0, 41.008], [13.011, 41.008], [13.011, 41.0]]])).toBe(false);
+  });
+  it('tratti sparsi e rovesciati (relazioni OSM): si guardano gli estremi liberi, non primo e ultimo punto', () => {
+    // un quadrato di ~4 km fatto di 4 tratti, il primo percorso al contrario: da primo/ultimo punto sembrerebbe lineare
+    const A = [13.0, 41.0];
+    const B = [13.05, 41.0];
+    const C = [13.05, 41.04];
+    const D = [13.0, 41.04];
+    const tratti = [[B, A], [B, C], [C, D], [D, A]];
+    expect(eAnelloPezzi(tratti)).toBe(true);
+    // lineare in tre tratti con un verso rovesciato: due estremi lontani
+    expect(eAnelloPezzi([[[13.0, 41.0], [13.05, 41.0]], [[13.1, 41.0], [13.05, 41.0]], [[13.1, 41.0], [13.15, 41.0]]])).toBe(false);
+  });
   it('pezzi per "Su più giorni": con A/R la traccia anche al contrario', () => {
     const pezzi = [[[0, 0, 100], [1, 0, 200]], [[1, 0, 200], [2, 0, 300]]];
     expect(pezziScelti(pezzi, 'andata')).toBe(pezzi);

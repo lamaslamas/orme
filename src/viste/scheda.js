@@ -23,6 +23,8 @@ import { profiloPezzi } from '../lib/disegno.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { creaPuntoProfilo } from './puntoProfilo.js';
+import { queryTagRelazione, eRoundtrip } from '../lib/itinerario.js';
+import { interrogaOverpass } from '../lib/overpass.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { htmlProbabili, collegaProbabili, serveProbabili, testoConferma } from './sentieriProbabili.js';
 
@@ -297,6 +299,7 @@ export function linkSicuro(url) {
 }
 
 const quoteTentate = new Set(); // sentieri per cui si è già provato a scaricare le quote in questa visita
+const roundtripTentati = new Set(); // idem per il controllo di roundtrip=yes
 export async function vistaScheda(app, id) {
   const [s, traccia, giri] = await Promise.all([leggiSentiero(id), leggiTraccia(id), tuttiIGiri()]);
   if (!s) {
@@ -322,7 +325,7 @@ export async function vistaScheda(app, id) {
   // dislivello e tempi: le quote della traccia, poi quelle del robot (TINITALY, 10 m), poi quelle scaricate
   const pezziTraccia = delleQuote && !(delleQuote.fonte !== 'traccia' && delRobot) ? delleQuote.pezzi : pezziGrezzi;
   const base = baseAndata(pezziTraccia, quoteDellaTraccia(s, traccia));
-  const ar = base ? misureAR(base, { anello: eAnelloPezzi(pezziTraccia) }) : null;
+  const ar = base ? misureAR(base, { anello: eAnelloPezzi(pezziTraccia, { roundtrip: Boolean(traccia?.dettagli?.roundtrip) }) }) : null;
   const numeriScelti = (modo) => {
     if (!ar) return numeriGrandi(misureSentiero(s, traccia));
     const m = misureScelte(ar, modo);
@@ -534,6 +537,19 @@ export async function vistaScheda(app, id) {
   const testoTraccia = app.querySelector('#testoTraccia');
   collegaPanorama(app);
   if (traccia) collegaTerreno(app, s, traccia);
+  // percorsi OSM scaricati prima che si leggesse roundtrip=yes (es. Sentiero 709 Gallipoli Cognato): un controllo
+  // leggero della relazione, una volta, e se è un anello la pagina si ridisegna senza andata e ritorno
+  const relazioni = traccia?.dettagli?.relazioniOsm ?? [];
+  if (traccia?.origine === 'osm' && relazioni.length === 1 && !traccia.dettagli.roundtrip && !traccia.dettagli.roundtripControllato && !ar?.anello && navigator.onLine && !roundtripTentati.has(s.id)) {
+    roundtripTentati.add(s.id);
+    interrogaOverpass(queryTagRelazione(relazioni[0]), { timeoutMs: 30_000 })
+      .then(async (json) => {
+        const si = eRoundtrip(json);
+        await salvaTraccia({ ...traccia, dettagli: { ...traccia.dettagli, ...(si ? { roundtrip: true } : {}), roundtripControllato: true } });
+        if (si && location.hash === `#/sentiero/${idUrl}`) vistaScheda(app, id);
+      })
+      .catch(() => {});
+  }
   // il profilo sotto i numeri: sempre visibile; senza quote si scaricano da sole da TINITALY (una volta)
   const punto = creaPuntoProfilo();
   const boxProfilo = app.querySelector('#profiloScheda');

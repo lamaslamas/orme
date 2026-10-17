@@ -48,3 +48,15 @@ describe('scarica questo itinerario', () => {
     expect(z.km).toBe(3);
   });
 });
+
+import { queryTagRelazione, eRoundtrip } from '../src/lib/itinerario.js';
+describe('roundtrip=yes della relazione', () => {
+  it('query leggera e riconoscimento', () => {
+    expect(queryTagRelazione(13431887)).toContain('rel(13431887)');
+    expect(queryTagRelazione(13431887)).toContain('out tags');
+    expect(eRoundtrip({ elements: [{ type: 'relation', id: 1, tags: { roundtrip: 'yes' } }] })).toBe(true);
+    expect(eRoundtrip({ elements: [{ type: 'relation', id: 1, tags: { roundtrip: 'no' } }] })).toBe(false);
+    expect(eRoundtrip({ elements: [{ type: 'relation', id: 1, tags: {} }] })).toBe(false);
+    expect(eRoundtrip(null)).toBe(false);
+  });
+});
