@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Orme · Proposta fase 2</title>
+<style>
+:root{--bg:#f6f4ee;--c:#fff;--t:#1c2a27;--m:#5d6b67;--a:#1f7a6b;--w:#a2441f;--b:#dcd8cb}
+@media(prefers-color-scheme:dark){:root{--bg:#10171a;--c:#182126;--t:#e6ece9;--m:#93a39e;--a:#46c2ab;--w:#e8946a;--b:#2b3a40}}
+body{margin:0;background:var(--bg);color:var(--t);font:16px/1.5 system-ui,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.2rem;margin:0 0 6px}
+.sez{background:var(--c);border:1px solid var(--b);border-radius:14px;padding:16px;margin:16px 0}
+.n{display:inline-block;background:var(--a);color:#fff;border-radius:8px;padding:0 8px;margin-right:6px;font-weight:700}
+.stima{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.stima span{border:1px solid var(--b);border-radius:20px;padding:2px 10px;font-size:.85rem;color:var(--m)}
+.stima b{color:var(--t)}
+.griglia{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:640px){.griglia{grid-template-columns:1fr}}
+.tel{border:2px solid var(--b);border-radius:18px;padding:10px;background:var(--bg);font-size:.85rem}
+.pill{display:inline-block;border:1px solid var(--b);border-radius:14px;padding:1px 9px;margin:2px 2px 2px 0;font-size:.8rem}
+.on{background:var(--a);color:#fff;border-color:var(--a)}
+.av{color:var(--w);font-size:.85rem}
+.barra{height:40px;display:flex;align-items:flex-end;gap:1px;margin:6px 0}.barra i{flex:1;background:var(--a);opacity:.35;border-radius:2px 2px 0 0}.barra i.h{opacity:1}
+.rosso{background:#1a0000;color:#ff5a4a;border-radius:10px;padding:8px}
+small,.m{color:var(--m)}ul{margin:6px 0 6px 20px;padding:0}table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid var(--b);padding:5px 6px;text-align:left}
+</style></head><body><main>
+<h1>Fase 2 · proposta (nessun codice scritto)</h1>
+<p class="m">Sei punti, nell'ordine che consiglio. Le stime sono in «sessioni di lavoro» (una sessione = un giro completo: codice, test, controllo visivo, deploy). Ogni punto mantiene i vincoli del progetto: dati personali solo sul telefono, niente servizi con chiavi, niente probabilità inventate.</p>
+
+<table><tr><th>#</th><th>Punto</th><th>Stima</th><th>Dipende da</th></tr>
+<tr><td>1°</td><td>11 · Specie in «Cosa cerchi»</td><td>1</td><td>dati già presenti</td></tr>
+<tr><td>2°</td><td>13 · Affidabilità della fauna</td><td>1</td><td>robot: anno dell'ultima osservazione</td></tr>
+<tr><td>3°</td><td>12 · Tratto più ricco di fauna</td><td>1,5</td><td>robot: osservazioni per tratto di 1 km</td></tr>
+<tr><td>4°</td><td>14 · Orari per la fotografia</td><td>1</td><td>calcolo sole già presente</td></tr>
+<tr><td>5°</td><td>15 · Notte sì / no</td><td>2</td><td>12, 14 e rifugi/acqua già presenti</td></tr>
+<tr><td>6°</td><td>16 · Modo notturno rosso e Codice di comportamento</td><td>1</td><td>nessuna</td></tr>
+<tr><td></td><td><b>Totale</b></td><td><b>7,5</b></td><td></td></tr></table>
+
+<section class="sez"><h2><span class="n">11</span>Specie in «Cosa cerchi»</h2>
+<p>In Suggerisci, oltre ai gruppi, si sceglie una specie (cervo, camoscio, lupo, gufo reale…) o un gruppo. I percorsi si ordinano per quella specie nel mese scelto.</p>
+<div class="griglia"><div class="tel"><b>Cosa cerchi</b><br><span class="pill on">Cervo</span><span class="pill">Camoscio</span><span class="pill">Lupo</span><span class="pill">Gufo reale</span><span class="pill">+ gruppi</span><br><small>Mese: <b>Settembre</b></small><hr><b>1 · Val Fondillo</b> — 4 persone, ultima nel 2025<br><b>2 · Camosciara</b> — 3 persone, ultima nel 2024</div>
+<div><b>Come funziona</b><ul><li>Si usa il dato iNaturalist già salvato per ogni percorso (osservazioni, persone, mesi).</li><li>Punteggio = osservatori diversi nel mese scelto (e nei mesi vicini, con peso minore), non il numero grezzo di osservazioni.</li><li>Senza dati sufficienti il percorso non sparisce: scende in fondo con «dati scarsi».</li></ul><b>Nota</b><p class="av">Per orso e lupo si mostra solo la zona (parco), mai il percorso esatto.</p></div></div>
+<div class="stima"><span>Stima <b>1 sessione</b></span><span>Rischio <b>basso</b></span></div></section>
+
+<section class="sez"><h2><span class="n">13</span>Affidabilità della fauna</h2>
+<p>Accanto a ogni specie: quanti osservatori diversi, l'anno dell'ultima osservazione, i mesi migliori. Mai una percentuale o «probabilità».</p>
+<div class="griglia"><div class="tel"><b>Cervo</b> · <small>molto segnalato</small><br>146 osservatori · ultima 2025<br>Mesi migliori: <b>mag, ago–set</b><div class="barra"><i style="height:10%"></i><i style="height:10%"></i><i style="height:15%"></i><i style="height:30%"></i><i class="h" style="height:80%"></i><i style="height:35%"></i><i style="height:40%"></i><i class="h" style="height:90%"></i><i class="h" style="height:100%"></i><i style="height:40%"></i><i style="height:15%"></i><i style="height:5%"></i></div><small>G F M A M G L A S O N D</small></div>
+<div><b>Come funziona</b><ul><li>Tre livelli a parole: <i>molto segnalato</i> (≥ 20 osservatori), <i>segnalato</i> (5–19), <i>poche segnalazioni</i> (&lt; 5).</li><li>Il robot aggiunge l'anno dell'ultima osservazione (oggi non lo salva).</li><li>Nota fissa: «sono osservazioni di volontari, non una garanzia di incontro».</li></ul></div></div>
+<div class="stima"><span>Stima <b>1 sessione</b></span><span>Rischio <b>basso</b></span></div></section>
+
+<section class="sez"><h2><span class="n">12</span>Tratto più ricco di fauna</h2>
+<p>Sul profilo e sulla mappa il tratto di 1–2 km con più osservatori («km 6–8») è evidenziato.</p>
+<div class="griglia"><div class="tel"><b>Profilo</b><div class="barra" style="height:50px"><i style="height:30%"></i><i style="height:35%"></i><i style="height:45%"></i><i style="height:55%"></i><i style="height:60%"></i><i class="h" style="height:80%"></i><i class="h" style="height:85%"></i><i style="height:70%"></i><i style="height:50%"></i></div><small>km 0 ······ <b>km 6–8 fauna</b> ······ 10</small><br>Cervo, camoscio · 9 osservatori in quel tratto</div>
+<div><b>Come funziona</b><ul><li>Il robot divide la traccia in tratti di 1 km e conta gli osservatori diversi vicini (entro 150 m).</li><li><b>Specie sensibili</b> (orso, lupo, gatto selvatico, rapaci nidificanti…): mai a livello di tratto; il tratto si calcola senza di esse e per loro resta l'indicazione di zona.</li><li>Se in nessun tratto ci sono almeno 3 osservatori, non si evidenzia nulla.</li></ul></div></div>
+<div class="stima"><span>Stima <b>1,5 sessioni</b></span><span>Rischio <b>medio</b> (peso dei file del robot)</span></div></section>
+
+<section class="sez"><h2><span class="n">14</span>Orari per la fotografia</h2>
+<p>Nella scheda: alba, tramonto, ora d'oro. E «Voglio essere al km X (o nel tratto più ricco) all'alba / al tramonto»: l'app calcola l'ora di partenza, anche al buio.</p>
+<div class="griglia"><div class="tel"><b>Fotografia</b><br>Alba 06:41 · ora d'oro 06:41–07:25<br>Tramonto 18:03 · ora d'oro 17:20–18:03<br><span class="pill on">Al km 6 all'alba</span><span class="pill">Al tramonto</span><br><b>Parti alle 04:48</b> (cammino 1 h 53 min)<br><span class="av">⚠ Parti e cammini per ~1 h 50 min al buio: frontale, sentiero conosciuto, avvisa qualcuno. Nei parchi chiedi le regole (di notte spesso l'accesso fuori sentiero è vietato).</span></div>
+<div><b>Come funziona</b><ul><li>Calcolo sole già presente (src/lib/sole.js); si aggiungono ora d'oro e crepuscoli.</li><li>Ora di partenza = alba (o tramonto) − tempo per arrivare al km scelto (metodo CAI, già usato).</li><li>Avvisi chiari se il cammino cade nel buio, e rimando alle regole del parco.</li></ul></div></div>
+<div class="stima"><span>Stima <b>1 sessione</b></span><span>Rischio <b>basso</b></span></div></section>
+
+<section class="sez"><h2><span class="n">15</span>Notte sì o no</h2>
+<p>Con il tempo disponibile (es. sabato 14:00 → domenica 18:00) l'app confronta due piani e lascia scegliere a te.</p>
+<div class="griglia"><div class="tel"><table><tr><th></th><th>Stesso giorno</th><th>Notte al rifugio</th></tr><tr><td>Km</td><td>15 + rientro</td><td>8 + 8</td></tr><tr><td>Fauna</td><td>tratto fuori orario</td><td>km 6–8 all'alba</td></tr><tr><td>Acqua</td><td>1 sorgente</td><td>rifugio</td></tr><tr><td>Orari</td><td>rientro 21:10 ⚠</td><td>partenza 05:30</td></tr></table><span class="av">⚠ Il pernottamento in bivacco/tenda dipende dalle regole del parco: l'app lo ricorda, non lo decide.</span></div>
+<div><b>Come funziona</b><ul><li>Riusa «Su più giorni» (rifugi e acqua vicino alla traccia, regole dei parchi) e il tratto del punto 12.</li><li>Confronta km al giorno, ore di buio, acqua e regole. Nessun punteggio: due colonne con i fatti.</li><li>Dipende da 12 e 14, quindi va dopo.</li></ul></div></div>
+<div class="stima"><span>Stima <b>2 sessioni</b></span><span>Rischio <b>medio</b> (molte combinazioni di orari)</span></div></section>
+
+<section class="sez"><h2><span class="n">16</span>Modo notturno rosso e Codice di comportamento</h2>
+<div class="griglia"><div class="tel rosso"><b>Modo notturno</b><br>Schermo rosso scuro, niente bianco, luminosità minima: non ti rovina la vista al buio. Si attiva dal menu e si ricorda.</div>
+<div class="tel"><b>Codice di comportamento</b><ul><li>Distanze minime dagli animali</li><li>Niente richiami né esche</li><li>Flash di notte: no</li><li>Nidi: mai disturbare</li><li>Appostamenti nei parchi solo con autorizzazione</li></ul><small>Pagina in «Altro», richiamata anche dai punti 11–15.</small></div></div>
+<div class="stima"><span>Stima <b>1 sessione</b></span><span>Rischio <b>basso</b></span></div>
+<p class="m">Le distanze e le regole dei parchi sono testi da verificare con te prima di pubblicarli.</p></section>
+
+<p class="m">Se approvi, parto da 11 e 13 nello stesso giro (stesso dato, stesso schermo).</p>
+</main></body></html>
