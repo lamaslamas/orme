@@ -587,6 +587,8 @@ export async function vistaScheda(app, id) {
   }
   // meteo dei prossimi giorni con la durata scelta (Solo andata / A/R)
   const aggiornaMeteo = collegaQuandoAndare(app.querySelector('.quando-andare'), { sentiero: s, traccia, quote: quoteDellaTraccia(s, traccia), misure: ar ? misureScelte(ar, modoScelto()) : misure });
+  // cambiando la partenza scelta, anche «Quando andare» si rifà con quell'orario
+  app.querySelector('.andata-ritorno')?.addEventListener('input', (e) => e.target.matches('[data-ora]') && aggiornaMeteo(ar ? misureScelte(ar, modoScelto()) : misure));
   if (ar) {
     const inizio = pezziTraccia[0]?.[0];
     collegaAndataRitorno(app.querySelector('.andata-ritorno'), {

@@ -4,6 +4,10 @@
 import { giudicaGiornata, giornoAllaQuota, SOGLIE_PREDEFINITE } from './condizioni.js';
 
 export const GIORNI_STRISCIA = 7;
+export const TESTO_TARDI = 'Per oggi è tardi: scegli un altro giorno o orario';
+// La partenza scelta (minuti dalla mezzanotte) è già passata? Vale solo per oggi: allora il giudizio sulla
+// luce non ha senso e si dice che è tardi (invece di «troppo lungo per le ore di luce» calcolato da adesso)
+export const partenzaPassata = (partenzaMin, adessoMin) => Number.isFinite(partenzaMin) && Number.isFinite(adessoMin) && partenzaMin < adessoMin;
 const NOMI = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
 
 // le date "aaaa-mm-gg" da oggi
@@ -63,11 +67,13 @@ export function giornoDellaStriscia({ basso, alto = null }, m, { attivita = 'tre
 // La riga sotto la striscia per il giorno scelto
 export function testoDelGiorno(g, nome) {
   if (!g) return `${nome}: previsione non disponibile`;
+  if (g.tardi) return TESTO_TARDI;
   const parti = [];
   if (g.motivo) parti.push(g.motivo);
   else if (g.giudizio === 'ok') parti.push('meteo favorevole');
   if (g.partenza?.entro) parti.push(`parti entro le ${g.partenza.entro}`);
-  if (g.tramonto) parti.push(`tramonto ${g.tramonto}`);
+  // il tramonto una volta sola: se il motivo (es. «troppo lungo per le ore di luce») lo dice già, non si ripete
+  if (g.tramonto && !String(g.motivo ?? '').includes('tramonto')) parti.push(`tramonto ${g.tramonto}`);
   if (g.inCima) parti.push(`in cima ${g.inCima.min}–${g.inCima.max}°`);
   return `${nome}: ${parti.join(' · ')}`;
 }

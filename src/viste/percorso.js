@@ -56,7 +56,7 @@ export async function vistaPercorso(app, id) {
   app.innerHTML = `
     <a class="indietro" href="#/pianifica">‹ Pianifica</a>
     <article class="scheda">
-      <a class="anteprima-mappa" href="#/percorso/${idUrl}/disegna" aria-label="Apri la mappa del percorso"><div id="miniMappa"></div></a>
+      <a class="anteprima-mappa" href="#/percorso/${idUrl}/mappa" aria-label="Apri la mappa grande del percorso"><div id="miniMappa"></div></a>
       <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
       <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
       <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar)}</div>
@@ -78,7 +78,7 @@ export async function vistaPercorso(app, id) {
       </section>
       <div class="barra-azioni">
         <button type="button" class="bottone primario" id="esporta">Esporta GPX</button>
-        ${p.origine === 'disegnato' ? `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica</a>` : ''}
+        <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
       </div>
       <button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>
     </article>
@@ -154,6 +154,7 @@ export async function vistaPercorso(app, id) {
     quote: quoteMeteoDaiPezzi(quote?.pezzi ?? pezzi),
     misure: misureMeteo(),
   });
+  app.querySelector('.andata-ritorno')?.addEventListener('input', (e) => e.target.matches('[data-ora]') && aggiornaMeteo(misureMeteo()));
   // andata e ritorno: la scelta cambia i numeri in alto, "Su più giorni" e il meteo
   const collegaAR = () => collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
     ar,

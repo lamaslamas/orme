@@ -3,7 +3,8 @@
 // fino a che ora partire, il tramonto e la temperatura in cima. I calcoli in src/lib/quandoAndare.js.
 import { stato } from '../stato.js';
 import { datiPerMeteo, GIUDIZI } from '../lib/condizioni.js';
-import { GIORNI_STRISCIA, TEMPI_METEO, dateDaOggi, nomeGiorno, giornoDellaStriscia, testoDelGiorno } from '../lib/quandoAndare.js';
+import { GIORNI_STRISCIA, TEMPI_METEO, dateDaOggi, nomeGiorno, giornoDellaStriscia, testoDelGiorno, partenzaPassata } from '../lib/quandoAndare.js';
+import { oraPartenzaScelta } from './andataRitorno.js';
 import { escapeHtml } from '../lib/formato.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
 import { ICONE } from './icone.js';
@@ -39,11 +40,14 @@ export function collegaQuandoAndare(sezione, { sentiero, traccia, quote: quoteIn
   }
 
   function calcola() {
+    // si giudica con la partenza scelta (quella del blocco Andata e ritorno); per oggi, se è già passata, è tardi
+    const partenza = oraPartenzaScelta();
     const ora = new Date();
-    const dopoMin = ora.getHours() * 60 + ora.getMinutes() + 30;
-    giorni = date.map((d) =>
-      giornoDellaStriscia({ basso: previsioneDi(m.basso.chiave, d), alto: m.alto ? previsioneDi(m.alto.chiave, d) : null }, m, { attivita, dopoMin: d === oggi ? dopoMin : 0 }),
-    );
+    const tardi = partenzaPassata(partenza, ora.getHours() * 60 + ora.getMinutes());
+    giorni = date.map((d) => {
+      const g = giornoDellaStriscia({ basso: previsioneDi(m.basso.chiave, d), alto: m.alto ? previsioneDi(m.alto.chiave, d) : null }, m, { attivita, dopoMin: partenza ?? 0 });
+      return d === oggi && tardi && g ? { ...g, giudizio: null, motivo: null, partenza: null, tardi: true } : g;
+    });
   }
   function disegna() {
     striscia.innerHTML = date

@@ -18,6 +18,7 @@ import { vistaUscitaAMano } from './viste/uscitaAMano.js';
 import { vistaDoveVado } from './viste/doveVado.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna } from './viste/disegna.js';
+import { vistaMappaPercorso } from './viste/mappaPercorso.js';
 import { vistaParco } from './viste/parco.js';
 import { vistaImporta } from './viste/importa.js';
 import { vistaElencoAvvistamenti, vistaModificaAvvistamento } from './viste/avvistamenti.js';
@@ -69,6 +70,7 @@ const percorsi = [
   [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
   [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],
+  [/^\/percorso\/([^/]+)\/mappa\/?$/, vistaMappaPercorso],
   [/^\/avvistamenti\/?$/, vistaElencoAvvistamenti],
   [/^\/avvistamento\/([^/]+)\/?$/, vistaModificaAvvistamento],
   [/^\/giro-nuovo\/?$/, (app) => vistaModificaGiro(app, null)],
@@ -123,6 +125,8 @@ async function mostra() {
   if (percorsoMostrato != null && !stessa) posizioni.set(percorsoMostrato, yAttuale);
   percorsoMostrato = percorso;
   aggiornaBarraSchede(percorso);
+  // cambiando pagina le finestre aperte (Importa percorsi, Salva, foto…) si chiudono
+  if (!stessa) for (const d of document.querySelectorAll('dialog[open]')) d.close();
   // ogni schermata legata a un parco imposta poi le sue regole
   impostaBanner(null);
   if (typeof pulisciVistaPrecedente === 'function') pulisciVistaPrecedente();

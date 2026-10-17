@@ -2,6 +2,7 @@
 // Andata e ritorno (ricordato sul telefono), righe Andata, Ritorno e Totale, e gli orari del giorno
 // scelto con il tramonto calcolato nel punto di partenza. Gli anelli hanno solo il giro e gli orari.
 import { MODI, orariGiornata, oraDaMinuti, minutiDaOra, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
+import { TESTO_TARDI, partenzaPassata } from '../lib/quandoAndare.js';
 import { albaTramonto, oraItaliana, minutiItaliani } from '../lib/sole.js';
 import { durata, escapeHtml } from '../lib/formato.js';
 import { ICONE } from './icone.js';
@@ -23,6 +24,9 @@ function ricorda(chiave, valore) {
     // senza memoria del browser vale solo per questa pagina
   }
 }
+export const oraPartenzaScelta = () => minutiDaOra(oraRicordata());
+export const oraPartenzaTesto = () => oraRicordata();
+export const ricordaOraPartenza = (valore) => ricorda(CHIAVE_ORA, valore);
 function oraRicordata() {
   try {
     return localStorage.getItem(CHIAVE_ORA) || '09:00';
@@ -82,7 +86,12 @@ export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () 
     const conRitorno = modo === 'ar' && ar.ritorno && !ar.anello;
     const o = orariGiornata({ partenzaMin, andataMin: ar.andata.durataMin, ritornoMin: conRitorno ? ar.ritorno.durataMin : null, tramontoMin: minutiItaliani(tramonto) });
     const fine = ar.anello ? `rientro <b>${oraDaMinuti(o.fineMin)}</b>` : conRitorno ? `arrivo <b>${oraDaMinuti(o.arrivoMin)}</b> · rientro <b>${oraDaMinuti(o.rientroMin)}</b>` : `arrivo <b>${oraDaMinuti(o.arrivoMin)}</b>`;
-    const luce = tramonto
+    // oggi con la partenza già passata: «è tardi», non un giudizio sulla luce
+    const adesso = new Date();
+    const passata = giorno === oggi() && partenzaPassata(partenzaMin, adesso.getHours() * 60 + adesso.getMinutes());
+    const luce = passata
+      ? `<p class="avviso-luce">${ICONE.avviso}<span>${TESTO_TARDI}</span></p>`
+      : tramonto
       ? o.tardi
         ? `<p class="avviso-luce">${ICONE.avviso}<span>${conRitorno || ar.anello ? 'Rientri' : 'Arrivi'} dopo l'ultima luce utile (tramonto ${oraItaliana(tramonto)}, margine ${MARGINE_LUCE_MIN} min): parti entro le ${oraDaMinuti(o.ultimaPartenzaMin)}. Nei boschi e nelle valli il buio arriva prima.</span></p>`
         : `<p class="tenue">Tramonto ${oraItaliana(tramonto)} alla partenza · parti entro le <b>${oraDaMinuti(o.ultimaPartenzaMin)}</b> per ${conRitorno || ar.anello ? 'rientrare' : 'arrivare'} con la luce</p>`

@@ -249,3 +249,24 @@ export function senzaPunte(linea, tappe, { passoM = 25, vicinoM = 35, cimaM = 30
   });
   return cambiate ? nuove : null;
 }
+
+// Classifica degli anelli nei parchi a pagine di n: si va avanti dalla posizione data; accetta(v, pagina) decide
+// se una voce entra (può essere asincrona: le quote si calcolano solo per le voci guardate). Arrivati in fondo
+// senza trovarne nessuna si ricomincia dall'inizio, una volta sola.
+// → { pagina, posizione, ricominciato, scartate }
+export async function prossimiAnelli(lista, posizione, n, accetta) {
+  const percorri = async (da) => {
+    const pagina = [];
+    let scartate = 0;
+    let i = da;
+    while (pagina.length < n && i < lista.length) {
+      const v = lista[i++];
+      if (await accetta(v, pagina)) pagina.push(v);
+      else scartate++;
+    }
+    return { pagina, posizione: i, scartate };
+  };
+  const prima = await percorri(posizione);
+  if (prima.pagina.length || posizione === 0 || !lista.length) return { ...prima, ricominciato: false };
+  return { ...(await percorri(0)), ricominciato: true };
+}

@@ -61,3 +61,34 @@ describe('quoteMeteoDaiPezzi', () => {
     expect(quoteMeteoDaiPezzi([[[13.7, 41.8], [13.71, 41.81]]])).toBeNull();
   });
 });
+
+import { TESTO_TARDI, partenzaPassata } from '../src/lib/quandoAndare.js';
+describe('oggi: partenza già passata e tramonto una volta sola', () => {
+  it('è tardi solo se la partenza scelta è prima dell\'ora attuale', () => {
+    expect(partenzaPassata(8 * 60, 9 * 60)).toBe(true);
+    expect(partenzaPassata(9 * 60, 9 * 60)).toBe(false);
+    expect(partenzaPassata(14 * 60, 9 * 60)).toBe(false);
+    expect(partenzaPassata(null, 9 * 60)).toBe(false);
+    expect(TESTO_TARDI).toBe('Per oggi è tardi: scegli un altro giorno o orario');
+  });
+  it('la riga del giorno: «tardi» al posto del giudizio; il tramonto non si ripete', () => {
+    expect(testoDelGiorno({ tardi: true, giudizio: null, tramonto: '18:03' }, 'Oggi')).toBe(TESTO_TARDI);
+    const g = { giudizio: 'sconsigliato', motivo: 'troppo lungo per le ore di luce (6 h, tramonto alle 18:12)', tramonto: '18:12', inCima: { min: 5, max: 13 } };
+    const t = testoDelGiorno(g, 'Oggi');
+    expect(t.match(/18:12/g)).toHaveLength(1);
+    expect(t).toContain('in cima 5–13°');
+    expect(testoDelGiorno({ giudizio: 'ok', tramonto: '18:03' }, 'Sab 17')).toContain('tramonto 18:03');
+  });
+  it('con partenza alle 8:00 un percorso di 3 h 46 non è «troppo lungo per le ore di luce» (tramonto 18:03)', () => {
+    const ore = Array.from({ length: 24 }, (_, ora) => ({ ora, t: 12, tp: 12, pp: 0, mm: 0, codice: 0, raffiche: 10, neve: 0, neveSuolo: 0, zero: 3000, nuvole: 10 }));
+    const giorno = { quota: 1200, ore, alba: 6 * 60 + 50, tramonto: 18 * 60 + 3, pioggiaPrima: 0 };
+    const m = { basso: { quota: 1200 }, alto: null, durataMin: 226, percorso: {} };
+    // il vecchio calcolo partiva dall'ora attuale (qui le 17:30): niente tempo per finire
+    const dalle1730 = giornoDellaStriscia({ basso: giorno }, m, { dopoMin: 17 * 60 + 30 });
+    expect(dalle1730.giudizio).toBe('sconsigliato');
+    // con la partenza scelta alle 8:00 va bene
+    const dalle8 = giornoDellaStriscia({ basso: giorno }, m, { dopoMin: 8 * 60 });
+    expect(dalle8.giudizio).toBe('ok');
+    expect(dalle8.partenza.entro >= '08:00').toBe(true);
+  });
+});

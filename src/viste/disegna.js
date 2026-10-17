@@ -14,6 +14,8 @@ import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from
 import { avviaImportazione } from './importaFile.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { distanzaKm } from '../lib/geo.js';
+import { percorsoSentiero } from '../lib/tracce.js';
+import { puntiLungo } from '../lib/reteSentieri.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
@@ -34,7 +36,11 @@ const TRATTO_MAX_KM = 50; // oltre, il server dei sentieri (BRouter) non è adat
 export async function vistaDisegna(app, id = null) {
   const esistente = id ? await leggiPercorso(id) : null;
   // un percorso nuovo riparte dalla bozza (punti messi con "Inizia percorso da qui" / "Aggiungi")
-  let punti = normalizzaPunti(esistente?.puntiControllo ?? (esistente ? null : leggiBozza()?.punti));
+  // un percorso da file (GPX, KML): la traccia si apre con punti di controllo ogni ~1,2 km, il percorso segue i
+  // sentieri; il file originale resta com'è (si salva un percorso nuovo) e si vede in grigio sotto
+  const daFile = Boolean(esistente && esistente.origine !== 'disegnato');
+  const lineaFile = daFile ? percorsoSentiero(esistente.geojson).pezzi.flat() : [];
+  let punti = normalizzaPunti((esistente?.puntiControllo?.length ? esistente.puntiControllo : null) ?? (daFile ? (lineaFile.length > 1 ? puntiLungo(lineaFile, 1.2) : []) : esistente ? null : leggiBozza()?.punti));
   let manoLibera = false;
   const tratti = new Map(); // chiave → tratto calcolato (si ricalcola solo quello che cambia)
   let risultato = null; // { linea, terreno, tratti, pezziQuote, fonte, misure }
@@ -73,7 +79,7 @@ export async function vistaDisegna(app, id = null) {
     <dialog class="foglio foglio-salva">
       <div class="foglio-maniglia" aria-hidden="true"></div>
       <h2 class="foglio-titolo">Salva il percorso</h2>
-      <label class="campo"><span>Nome</span><input id="nomePercorso" value="${escapeHtml(esistente?.nome ?? '')}" placeholder="es. Anello di Val Fondillo" /></label>
+      <label class="campo"><span>Nome</span><input id="nomePercorso" value="${escapeHtml(daFile ? `${esistente.nome || 'Percorso'} (modificato)` : esistente?.nome ?? '')}" placeholder="es. Anello di Val Fondillo" /></label>
       <p class="tenue piccolo" id="riepilogoSalva"></p>
       <div class="azioni-salva"><button type="button" class="bottone" data-azione="continua">Continua</button><button type="button" class="bottone primario" data-azione="conferma">Salva</button></div>
       <p class="tenue piccolo">Lo ritrovi in I miei percorsi · Disegnati.</p>
@@ -84,6 +90,8 @@ export async function vistaDisegna(app, id = null) {
   const fermaGps = aggiungiGps(mappa, () => null);
   // la fauna si guarda soltanto: i tocchi sulla mappa sono del disegno
   const heat = aggiungiHeatmap(mappa, { occupata: () => true });
+  // la traccia del file, in grigio, per confrontare con quella che si disegna
+  if (daFile && lineaFile.length > 1) L.polyline(lineaFile.map(([lon, lat]) => [lat, lon]), { color: '#6b7280', weight: 4, opacity: 0.8, dashArray: '2 8', interactive: false }).addTo(mappa);
   const livelloLinea = L.layerGroup().addTo(mappa);
   const livelloAvvisi = L.layerGroup().addTo(mappa);
   const livelloPunti = L.layerGroup().addTo(mappa);
@@ -218,7 +226,7 @@ export async function vistaDisegna(app, id = null) {
   }
 
   async function aggiorna() {
-    if (!esistente) salvaBozza(punti.map((x) => x.p));
+    if (!esistente) salvaBozza(punti.map((x) => x.p)); // (un percorso da file non tocca la bozza)
     disegnaPunti();
     suggerimentoBase();
     const mia = ++richiesta;
@@ -383,7 +391,7 @@ export async function vistaDisegna(app, id = null) {
     if (e.target === finestraSalva || azione === 'continua') return finestraSalva.close();
     if (azione !== 'conferma' || !risultato) return;
     const nuovo = {
-      ...(esistente ?? { id: nuovoIdPercorso(), note: '' }),
+      ...(esistente && !daFile ? esistente : { id: nuovoIdPercorso(), note: '' }),
       nome: app.querySelector('#nomePercorso').value.trim() || 'Percorso senza nome',
       origine: 'disegnato',
       puntiControllo: punti,

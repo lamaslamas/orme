@@ -2022,3 +2022,25 @@ body.disegno .pannello-heatmap { display: none; }
 .importa-riga.duplicato { opacity: 0.7; }
 .importa-doppio { display: block; margin-top: 2px; font-size: 0.8rem; font-weight: 700; color: #9a6408; }
 :root[data-scuro] .importa-doppio { color: #fac775; }
+
+/* il fumetto «Tocca la mappa…» del disegno non intercetta i tocchi e si nasconde con il menu ⋯ aperto */
+.disegno-suggerimento { pointer-events: none; }
+.disegno-sopra:has(.disegno-menu:not([hidden])) ~ .disegno-suggerimento { display: none; }
+
+/* mappa grande di un mio percorso */
+body.percorso-mappa .cima { display: none; }
+body.percorso-mappa main { padding: 0; }
+.mappa-percorso { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); height: auto; min-height: 0; z-index: 1; }
+.mappa-percorso .leaflet-top { top: calc(env(safe-area-inset-top) + 60px); }
+.percorso-mappa-sopra { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 64px; }
+.percorso-mappa-sopra .pill-mappa { max-width: 100%; }
+.percorso-mappa-sopra .pill-mappa span { overflow: hidden; text-overflow: ellipsis; }
+.percorso-mappa-sotto { position: fixed; z-index: 1001; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 12px); display: flex; justify-content: center; pointer-events: none; }
+.percorso-mappa-sotto > * { pointer-events: auto; }
+@media (min-width: 1024px) {
+  .mappa-percorso { left: var(--larghezza-nav); bottom: 0; }
+  .percorso-mappa-sopra { left: calc(var(--larghezza-nav) + 16px); right: auto; }
+  .percorso-mappa-sotto { left: var(--larghezza-nav); bottom: 20px; }
+}
+.scelta-ora { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-weight: 700; font-size: 0.9rem; }
+.scelta-ora input { min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; font: inherit; padding: 0 8px; }

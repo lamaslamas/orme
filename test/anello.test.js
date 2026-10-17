@@ -13,6 +13,7 @@ import {
   senzaPunte,
   gambo,
   direzioniDelGiro,
+  prossimiAnelli,
   valutaAnello,
   scegliAnelli,
   correzioneLunghezza,
@@ -228,5 +229,36 @@ describe('direzioniDelGiro', () => {
     expect(direzioniDelGiro(1)).toEqual([45, 135, 225, 315]);
     expect(direzioniDelGiro(2)).toEqual([22.5, 112.5, 202.5, 292.5]);
     expect(new Set([0, 1, 2, 3].flatMap(direzioniDelGiro)).size).toBe(16);
+  });
+});
+
+describe('classifica degli anelli nei parchi: pagine e ricomincia', () => {
+  const lista = Array.from({ length: 7 }, (_, i) => ({ id: i, buono: i !== 2 && i !== 5 }));
+  const accetta = async (v) => v.buono;
+  it('pagine di 3 che saltano gli scartati', async () => {
+    const a = await prossimiAnelli(lista, 0, 3, accetta);
+    expect(a.pagina.map((v) => v.id)).toEqual([0, 1, 3]);
+    expect(a.posizione).toBe(4);
+    expect(a.scartate).toBe(1);
+    const b = await prossimiAnelli(lista, a.posizione, 3, accetta);
+    expect(b.pagina.map((v) => v.id)).toEqual([4, 6]); // fino in fondo: 5 scartato, ne restano 2
+    expect(b.posizione).toBe(7);
+    expect(b.ricominciato).toBe(false);
+  });
+  it('arrivati in fondo senza niente di nuovo si ricomincia dall\'inizio, una volta sola', async () => {
+    const c = await prossimiAnelli(lista, 7, 3, accetta);
+    expect(c.ricominciato).toBe(true);
+    expect(c.pagina.map((v) => v.id)).toEqual([0, 1, 3]);
+    expect(c.posizione).toBe(4);
+    // nessuna voce accettabile: non gira all'infinito
+    const nulla = await prossimiAnelli(lista, 3, 3, async () => false);
+    expect(nulla.pagina).toEqual([]);
+    expect(nulla.ricominciato).toBe(true);
+    expect(await prossimiAnelli([], 0, 3, accetta)).toMatchObject({ pagina: [], ricominciato: false });
+  });
+  it('accetta riceve la pagina in corso (per scartare i giri troppo simili)', async () => {
+    const viste = [];
+    await prossimiAnelli(lista, 0, 2, async (v, pagina) => (viste.push(pagina.length), v.buono));
+    expect(viste).toEqual([0, 1]);
   });
 });

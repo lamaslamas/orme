@@ -36,8 +36,10 @@ import { PARCHI, parcoDa } from '../datiParchi.js';
 import { caricaPunti } from './puntiUtili.js';
 import { zoneCoperte } from './copertura.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
-import { modoScelto } from './andataRitorno.js';
+import { modoScelto, oraPartenzaScelta, oraPartenzaTesto, ricordaOraPartenza } from './andataRitorno.js';
+import { TESTO_TARDI, partenzaPassata } from '../lib/quandoAndare.js';
 import { tendinaTrascinabile } from './tendina.js';
+import { ICONE } from './icone.js';
 import { calcolaPercorso, PREFERENZA_SEGNATI } from '../lib/brouter.js';
 import { trattiARischio, ACCESSI_REGOLATI } from '../lib/avvisiParco.js';
 import { distanzaKm } from '../lib/geo.js';
@@ -60,6 +62,7 @@ import {
   valutaAnello,
   scegliAnelli,
   correzioneLunghezza,
+  prossimiAnelli,
   quotaComune,
   MAX_SCARTO_LUNGHEZZA,
   MAX_GAMBO,
@@ -136,6 +139,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
     return `${modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
+      <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
       <h3>Quanto tempo</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
@@ -257,15 +261,18 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       return; // senza meteo le proposte restano nell'ordine delle scelte
     }
     if (mia !== richiesta) return;
+    // si giudica con la partenza scelta (la stessa della scheda); per oggi, se è già passata, è tardi
+    const partenza = oraPartenzaScelta();
     const ora = new Date();
-    const dopoMin = data === oggiItalia() ? ora.getHours() * 60 + ora.getMinutes() + 60 : 0;
+    tardiOggi = data === oggiItalia() && partenzaPassata(partenza, ora.getHours() * 60 + ora.getMinutes());
+    const dopoMin = partenza ?? 0;
     for (const { v, m } of dati) {
       if (!m) continue;
       const basso = giornoAllaQuota(previsioneDi(m.basso.chiave, data), m.basso.quota);
       const alto = m.alto ? giornoAllaQuota(previsioneDi(m.alto.chiave, data), m.alto.quota) : null;
       // su due giorni si giudica la prima giornata (metà del cammino)
       const durataMin = (v.misure.durataMin ?? m.durataMin) / (scelte.tempo === 'due' ? 2 : 1);
-      v.giudizio = basso ? giudicaGiornata({ basso, alto, durataMin, percorso: m.percorso, soglie: SOGLIE_PREDEFINITE, attivita, dopoMin }) : null;
+      v.giudizio = basso && !tardiOggi ? giudicaGiornata({ basso, alto, durataMin, percorso: m.percorso, soglie: SOGLIE_PREDEFINITE, attivita, dopoMin }) : null;
     }
   }
 
@@ -276,6 +283,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     puntiUtili ??= await caricaPunti();
     if (mia !== richiesta) return;
     const data = dataDelQuando(scelte.quando, oggiItalia());
+    const adessoSuggerisci = new Date();
+    tardiOggi = data === oggiItalia() && partenzaPassata(oraPartenzaScelta(), adessoSuggerisci.getHours() * 60 + adessoSuggerisci.getMinutes());
     const lista = [];
     for (const c of candidati(data)) {
       if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c);
@@ -353,6 +362,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     });
     const fine = mostrate + pagina.length;
     risultati.innerHTML = `
+      ${tardiOggi ? `<p class="avviso-luce">${ICONE.avviso}<span>${TESTO_TARDI}</span></p>` : ''}
       <ol class="proposte">${pagina.map((v, i) => htmlProposta(v, i, data)).join('')}</ol>
       <div class="azioni-proposte">
         ${classifica.length > PER_VOLTA ? `<button type="button" class="bottone" data-azione="altre">Altre 3</button>` : ''}
@@ -376,6 +386,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // --- Crea un anello ---
   let anelliOra = [];
+  let tardiOggi = false; // oggi con la partenza scelta già passata: niente giudizio sul meteo, si dice che è tardi
   let partenzaManuale = null; // "Crea un anello da qui": il punto scelto sulla mappa (vale finché la tendina resta aperta)
   const centroMappa = () => {
     const c = mappa.getCenter();
@@ -491,27 +502,22 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       });
       nelParco = { chiave, lista: prima.filter((v) => v.provvisorio != null).sort((a, b) => b.provvisorio - a.provvisorio), partenza: nodo.p, distanzaM: nodo.distanzaM, mostrati: 0 };
     }
-    const pagina = [];
-    let scartate = 0;
-    // dal punto dove si era arrivati: quote e punteggio vero, finché ce ne sono 3 (o finisce la lista)
-    while (pagina.length < PER_VOLTA && nelParco.mostrati < nelParco.lista.length) {
-      const v = nelParco.lista[nelParco.mostrati++];
+    // dal punto dove si era arrivati: quote e punteggio vero, finché ce ne sono 3; in fondo si ricomincia
+    const r = await prossimiAnelli(nelParco.lista, nelParco.mostrati, PER_VOLTA, async (v, pagina) => {
       if (!v.misure) {
         risultati().innerHTML = '<p class="tenue">Calcolo le quote degli anelli…</p>';
         const { pezzi } = await quoteDeiPezzi([v.linea]).catch(() => ({ pezzi: [v.linea] }));
-        if (mia !== richiesta) return;
+        if (mia !== richiesta) return false;
         v.misure = misureDeiPezzi(pezzi);
         v.geojson = { type: 'MultiLineString', coordinates: [v.linea] };
         v.acqua = acquaDi(v.linea, v.geojson);
         v.punteggio = valutaAnello({ ...v.misure, ...v }, { volutaKm, fatica: scelte.fatica });
       }
-      if (v.punteggio == null || pagina.some((x) => quotaComune(x.linea, v.linea) > 0.6)) scartate++;
-      else pagina.push(v);
-    }
-    if (!pagina.length && nelParco.mostrati >= nelParco.lista.length && nelParco.lista.length && giro) {
-      nelParco.mostrati = 0; // finita la classifica: si ricomincia
-      return anelliNelParco({ mia, giro, voluta, volutaKm, punti });
-    }
+      return v.punteggio != null && !pagina.some((x) => quotaComune(x.linea, v.linea) > 0.6);
+    });
+    if (mia !== richiesta) return;
+    const { pagina, scartate } = r;
+    nelParco.mostrati = r.posizione;
     anelliOra = pagina;
     const restano = nelParco.lista.length - nelParco.mostrati;
     mostraAnelli({
@@ -656,6 +662,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (a != null && anelliOra[a]) inquadra(L.geoJSON(anelliOra[a].geojson).getBounds(), 16);
   });
   foglio.addEventListener('change', (e) => {
+    if (e.target.matches('[data-ora-partenza]')) return e.target.value && ricordaOraPartenza(e.target.value);
     if (!e.target.matches('.scelta-parco')) return;
     scelte.parco = e.target.value;
     ricorda(scelte);
