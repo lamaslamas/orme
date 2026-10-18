@@ -149,8 +149,10 @@ export const MINIMO_RICCO = 8; // osservazioni in tutto lungo il percorso
 export const MINIMO_RICCO_SENZA_KM = 15; // se la lunghezza non si conosce
 
 // Il mese e quelli accanto (dicembre e febbraio per gennaio)
-export function mesiVicini(mese) {
-  return new Set([((mese + 10) % 12) + 1, mese, (mese % 12) + 1]);
+export function mesiVicini(mese, raggio = 1) {
+  const mesi = new Set();
+  for (let d = -raggio; d <= raggio; d++) mesi.add((((mese - 1 + d) % 12) + 12) % 12 + 1);
+  return mesi;
 }
 
 // Osservazioni di una specie nei mesi scelti: dai conteggi mensili; se mancano (dati calcolati
@@ -223,10 +225,10 @@ export const animaliDellaScelta = (valore) => (GRUPPI_SPECIE[valore] ? GRUPPI_SP
 // Quanto un percorso è adatto a una specie (o gruppo) nel mese scelto e in quelli accanto.
 // punti = osservazioni del periodo × quanti osservatori diversi (al massimo 10 contano), doppio se lungo il
 // percorso. null se non c'è nessuna segnalazione nel periodo.
-export function puntiSpecie(s, valore, mese) {
+export function puntiSpecie(s, valore, mese, raggioMesi = 1) {
   const animali = animaliDellaScelta(valore);
   if (!animali.length) return null;
-  const mesi = mese ? mesiVicini(mese) : null;
+  const mesi = mese ? mesiVicini(mese, raggioMesi) : null;
   let punti = 0;
   let migliore = null;
   for (const x of s?.faunaInat?.specie ?? []) {

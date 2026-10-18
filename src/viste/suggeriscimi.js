@@ -11,6 +11,9 @@ import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare } from '../lib/tracce.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI, SPECIE_SENSIBILI } from '../lib/faunaPercorso.js';
 import { ANIMALI } from '../lib/costanti.js';
+import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
+import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
+import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
 import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
@@ -95,6 +98,22 @@ function ricorda(scelte) {
 }
 // le scelte di "Quale animale": qualsiasi, i gruppi, poi le singole specie
 const VOCI_SPECIE = { '': 'Qualsiasi', ...Object.fromEntries(Object.entries(GRUPPI_SPECIE).map(([k, g]) => [k, g.nome])), ...Object.fromEntries(SPECIE_SCEGLIBILI.map((a) => [a, ANIMALI[a] ?? a])) };
+// nomi italiani delle specie della zona, ricordati sul telefono (una ricerca per specie, una volta sola)
+const CHIAVE_NOMI = 'orme.nomiSpecie';
+function leggiNomiSpecie() {
+  try {
+    return JSON.parse(localStorage.getItem(CHIAVE_NOMI) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function salvaNomiSpecie(nomi) {
+  try {
+    localStorage.setItem(CHIAVE_NOMI, JSON.stringify(nomi));
+  } catch {
+    // senza memoria si richiedono alla prossima visita
+  }
+}
 const oggiItalia = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' });
 
 // gruppo di scelte a pillole: una sola (radio) o più (cerco)
@@ -129,6 +148,88 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   let classifica = [];
   let mostrate = 0;
   let richiesta = 0;
+  // allargamenti chiesti quando non resta nessun percorso (tornano normali a ogni nuova scelta)
+  let raggioMesi = 1;
+  let scalaArea = 1;
+  // le specie più segnalate nella zona inquadrata (GBIF) per "Quale animale"
+  let zonaSpecie = { chiave: null, stato: '', osservazioni: [] };
+  const nomiIt = leggiNomiSpecie();
+  const nomeSpecieZona = (x) => (x.animale ? ANIMALI[x.animale] : nomiIt[x.chiave] || x.nome);
+  const meseDelQuando = () => Number(dataDelQuando(scelte.quando, oggiItalia()).slice(5, 7));
+  const nomeMese = () => new Date(`${dataDelQuando(scelte.quando, oggiItalia())}T12:00:00`).toLocaleDateString('it-IT', { month: 'long' });
+  const specieDinamica = () => scelte.cerco.includes('fauna') && String(scelte.specie ?? '').startsWith(PREFISSO_ZONA);
+  const etichettaSpecie = () => scelte.specieNome || VOCI_SPECIE[scelte.specie] || scelte.specie;
+  function aggiornaScelte() {
+    const box = foglio.querySelector('.suggerisci-scelte');
+    if (box) box.innerHTML = htmlScelte();
+  }
+  async function caricaZona({ forza = false } = {}) {
+    const b = mappa.getBounds();
+    if (mappa.getZoom() < 9) {
+      zonaSpecie = { chiave: null, stato: 'lontano', osservazioni: [] };
+      return aggiornaScelte();
+    }
+    const { centro, km } = zonaInquadrata([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]);
+    const raggio = Math.min(50, km * scalaArea);
+    const chiave = `${centro.map((x) => x.toFixed(2))}|${raggio}`;
+    if (!forza && zonaSpecie.chiave === chiave && zonaSpecie.stato === 'ok') return;
+    zonaSpecie = { chiave, stato: 'carico', osservazioni: [] };
+    aggiornaScelte();
+    try {
+      const osservazioni = [];
+      for (let pagina = 0; pagina < (scalaArea > 1 ? 8 : 5); pagina++) {
+        const r = await fetch(urlOsservazioniGbif(riquadroIntorno(centro, raggio), { specie: 'notevoli', gruppi: ['rapaci', 'acqua', 'mammiferi'] }, { limite: 300, scarto: pagina * 300 }));
+        if (!r.ok) throw new Error(`GBIF ${r.status}`);
+        const json = await r.json();
+        // solo i campi che servono ai conti: l'osservatore è un codice anonimo
+        for (const x of interpretaGbif(json)) osservazioni.push({ nomeScientifico: x.nomeScientifico, specie: x.specie, animale: x.animale, data: x.data, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore });
+        if (json.endOfRecords || !json.results?.length) break;
+      }
+      if (zonaSpecie.chiave !== chiave) return;
+      zonaSpecie = { chiave, stato: 'ok', osservazioni };
+      aggiornaScelte();
+      // i nomi italiani delle prime (iNaturalist), poi si ridisegna
+      const prime = specieDellaZonaPerOsservatori(osservazioni, meseDelQuando(), { raggioMesi }).filter((x) => !x.animale && nomiIt[x.chiave] === undefined);
+      if (prime.length) {
+        await Promise.all(
+          prime.map(async (x) => {
+            try {
+              const r = await fetch(urlNomeItaliano(x.chiave));
+              nomiIt[x.chiave] = nomeItalianoDaRisposta(await r.json(), x.chiave) ?? '';
+            } catch {
+              // senza nome italiano resta quello di GBIF
+            }
+          }),
+        );
+        salvaNomiSpecie(nomiIt);
+        if (zonaSpecie.chiave === chiave) aggiornaScelte();
+      }
+    } catch {
+      if (zonaSpecie.chiave === chiave) {
+        zonaSpecie = { chiave, stato: 'errore', osservazioni: [] };
+        aggiornaScelte();
+      }
+    }
+  }
+  // "Più segnalate nella zona inquadrata": pillole oltre all'elenco fisso
+  function htmlSpecieZona() {
+    const { stato } = zonaSpecie;
+    if (stato === 'lontano') return '<p class="tenue piccolo">Avvicina la mappa (zoom 9 o più) per vedere le specie più segnalate nella zona.</p>';
+    if (stato === 'carico') return '<p class="tenue piccolo">Cerco le specie più segnalate nella zona inquadrata…</p>';
+    if (stato === 'errore') return '<p class="tenue piccolo">Non riesco a leggere le specie della zona (sei offline?). <button type="button" class="bottone testo" data-azione="zona-riprova">Riprova</button></p>';
+    if (stato !== 'ok') return '';
+    const lista = specieDellaZonaPerOsservatori(zonaSpecie.osservazioni, meseDelQuando(), { raggioMesi });
+    if (!lista.length) return `<h3>Più segnalate qui</h3><p class="tenue piccolo">Poche segnalazioni nella zona inquadrata in ${nomeMese()}. <button type="button" class="bottone testo" data-azione="zona-riprova">Aggiorna</button></p>`;
+    return `<h3>Più segnalate qui <span class="tenue piccolo">· ${nomeMese()}, per persone diverse</span></h3>
+      <div class="gruppo-scelte" role="radiogroup" aria-label="Specie più segnalate nella zona">${lista
+        .map((x) => {
+          const valore = x.animale ?? `${PREFISSO_ZONA}${x.chiave}`;
+          const nome = nomeSpecieZona(x);
+          return `<button type="button" class="chip-scorciatoia ${scelte.specie === valore ? 'attiva' : ''}" role="radio" aria-checked="${scelte.specie === valore}" data-scelta="specie" data-valore="${escapeHtml(valore)}" data-nome="${escapeHtml(nome)}">${escapeHtml(nome)} · ${x.persone}</button>`;
+        })
+        .join('')}</div>
+      <p class="tenue piccolo">Il numero sono le persone diverse che l'hanno segnalato. <button type="button" class="bottone testo" data-azione="zona-riprova">Aggiorna per la zona inquadrata</button></p>`;
+  }
 
   function htmlScelte() {
     const modo = `<div class="segmenti due scelta-modo" role="radiogroup" aria-label="Cosa suggerire">${Object.entries(MODI_SUGGERISCI)
@@ -152,7 +253,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         SPECIE_SENSIBILI.includes(scelte.specie)
           ? 'Per orso e lupo i dati sono di zona, non del percorso: la posizione esatta non è pubblica.'
           : 'In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo.'
-      }</p>`
+      }</p>${htmlSpecieZona()}`
           : ''
       }
       <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
@@ -168,7 +269,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
     if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], FATICHE[scelte.fatica].toLowerCase(), partenzaManuale ? 'dal punto scelto' : posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
-    const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? VOCI_SPECIE[scelte.specie] ?? COSE[c] : COSE[c]).toLowerCase());
+    const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? etichettaSpecie() || COSE[c] : COSE[c]).toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : `entro ${DISTANZE[scelte.distanza]}`;
     return [QUANDO[scelte.quando], TEMPI[scelte.tempo].toLowerCase(), FATICHE[scelte.fatica].toLowerCase(), lontano, ...cerco].join(' · ');
   }
@@ -238,7 +339,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           anello,
           difficolta: s.difficolta,
           fauna: possibilitaFauna(s, mese, { stagione: true }),
-          specie: scelte.cerco.includes('fauna') && scelte.specie ? puntiSpecie(s, scelte.specie, mese) : null,
+          specie: !scelte.cerco.includes('fauna') || !scelte.specie
+            ? null
+            : specieDinamica()
+              ? puntiSpecieZona(zonaSpecie.osservazioni, p.traccia.geojson, scelte.specie.slice(PREFISSO_ZONA.length), mese, { raggioMesi, nome: scelte.specieNome })
+              : puntiSpecie(s, scelte.specie, mese, raggioMesi),
           panorama: s.panorama?.punteggio ?? null,
           bosco: s.panorama?.boscoPercento ?? null,
           apertura: s.panorama?.criteri?.apertura ?? null,
@@ -302,16 +407,33 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const data = dataDelQuando(scelte.quando, oggiItalia());
     const adessoSuggerisci = new Date();
     tardiOggi = data === oggiItalia() && partenzaPassata(oraPartenzaScelta(), adessoSuggerisci.getHours() * 60 + adessoSuggerisci.getMinutes());
+    if (specieDinamica()) {
+      await caricaZona();
+      if (mia !== richiesta) return;
+      if (zonaSpecie.stato !== 'ok') {
+        risultati.innerHTML = '<p class="vuoto">Non riesco a leggere le segnalazioni della zona (sei offline?). Riprova tra poco.</p>';
+        return;
+      }
+    }
     const lista = [];
+    let senzaSpecie = 0; // quanti percorsi andrebbero bene se non si guardasse la specie
     for (const c of candidati(data)) {
       if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c);
       const valutazione = valuta(c, scelte);
       if (valutazione) lista.push({ ...c, valutazione });
+      else if (scelte.specie && scelte.cerco.includes('fauna') && valuta(c, { ...scelte, specie: '' })) senzaSpecie++;
     }
     lista.sort((a, b) => b.valutazione.punteggio - a.valutazione.punteggio);
     if (!lista.length) {
       classifica = [];
       disegnate.clearLayers();
+      if (senzaSpecie > 0) {
+        // la specie scelta è il motivo: si propone di allargare mesi o area
+        const areaMassima = scelte.distanza === '120' && (scalaArea === 2 || !specieDinamica());
+        risultati.innerHTML = `<p class="vuoto">Nessun percorso con segnalazioni di ${escapeHtml(etichettaSpecie().toLowerCase())} in ${escapeHtml(nomeMese())}${raggioMesi > 1 ? ' e nei mesi vicini' : ''} in questa zona.</p>
+          <div class="azioni-vuoto">${raggioMesi < 3 ? '<button type="button" class="bottone" data-azione="allarga-mesi">Allarga ai mesi vicini</button>' : ''}${areaMassima ? '' : '<button type="button" class="bottone" data-azione="area-grande">Cerca in un\'area più grande</button>'}</div>`;
+        return;
+      }
       risultati.innerHTML = '<p class="vuoto">Nessun percorso per queste scelte: prova a cambiare tempo, fatica o distanza.</p>';
       return;
     }
@@ -659,14 +781,31 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       const { scelta, valore } = b.dataset;
       if (scelta === 'cerco') scelte.cerco = scelte.cerco.includes(valore) ? scelte.cerco.filter((x) => x !== valore) : [...scelte.cerco, valore];
       else scelte[scelta] = valore;
+      if (scelta === 'specie') scelte.specieNome = b.dataset.nome ?? '';
+      raggioMesi = 1;
+      scalaArea = 1;
       ricorda(scelte);
       foglio.querySelector('.suggerisci-scelte').innerHTML = htmlScelte();
       foglio.querySelector('[data-azione="suggerisci"]').textContent = testoBottone();
+      // "Fauna" appena scelta: le specie della zona inquadrata
+      if (scelta === 'cerco' && scelte.cerco.includes('fauna') && zonaSpecie.stato === '') caricaZona();
       return;
     }
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'suggerisci') scelte.modo === 'anello' ? creaAnelli(0) : suggerisci();
-    else if (azione === 'rigenera') creaAnelli(giroAnello + 1);
+    else if (azione === 'zona-riprova') caricaZona({ forza: true });
+    else if (azione === 'allarga-mesi') {
+      raggioMesi = 3;
+      suggerisci();
+    } else if (azione === 'area-grande') {
+      const ordine = ['30', '60', '120'];
+      const i = ordine.indexOf(scelte.distanza);
+      scelte.distanza = i >= 0 && i < 2 ? ordine[i + 1] : '120';
+      scalaArea = 2;
+      ricorda(scelte);
+      aggiornaScelte();
+      (specieDinamica() ? caricaZona({ forza: true }) : Promise.resolve()).then(suggerisci);
+    } else if (azione === 'rigenera') creaAnelli(giroAnello + 1);
     else if (azione === 'modifica') return modificaNelDisegno(anelliOra[e.target.closest('[data-anello]').dataset.anello]);
     else if (azione === 'altre') mostraAltre();
     else if (azione === 'cambia') {
@@ -688,6 +827,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   function apri() {
     allApertura();
     disegnaForm();
+    if (scelte.modo === 'percorsi' && scelte.cerco.includes('fauna')) caricaZona();
     foglio.hidden = false;
     document.body.classList.add('suggerisci-aperto');
     tendina.apri('aperta');

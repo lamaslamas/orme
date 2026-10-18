@@ -5,7 +5,7 @@ import { distanzaKm } from './geo.js';
 import { ANIMALI } from './costanti.js';
 import { durata } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', fatica: 'media', distanza: '60', parco: '', lunghezza: '12' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'media', distanza: '60', parco: '', lunghezza: '12' };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };
@@ -100,7 +100,7 @@ export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   if ((c.bosco ?? 0) >= 50) parti[0] += ' nel bosco';
   if (c.specie) {
     const z = c.specie.dove === 'percorso' && !c.specie.sensibile ? '' : ', dato di zona';
-    parti.push(`${(ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}`);
+    parti.push(`${(c.specie.nomeSpecie ?? ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}`);
   } else if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
   else if (c.fauna?.livello === 'possibili' && trovati.includes('fauna')) parti.push(`fauna possibile${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
   if ((c.panorama ?? 0) >= 60) parti.push(`panoramico (${c.panorama}/100)`);

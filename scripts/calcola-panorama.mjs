@@ -10,7 +10,8 @@ import { PNG } from 'pngjs';
 import { calcolaPanorama, improntaTraccia } from '../src/lib/panorama.js';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { parcoDa } from '../src/datiParchi.js';
-import { percorsoSentiero } from '../src/lib/tracce.js';
+import { percorsoSentiero, tracciaDaNonUsare } from '../src/lib/tracce.js';
+import { trattiFauna } from '../src/lib/trattoFauna.js';
 import { puntiOgni, abbinaTerreno, vieDaRisposta, queryVieVicine, queryTrattiRelazioni } from '../src/lib/terreno.js';
 import { faunaDalleOsservazioni, faunaDelParco } from '../src/lib/faunaPercorso.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../src/lib/gbif.js';
@@ -273,7 +274,7 @@ async function osservazioniDelParco(idParco) {
 }
 
 // versione 2: le specie hanno anche l'anno dell'ultima osservazione
-const VERSIONE_FAUNA = 2;
+const VERSIONE_FAUNA = 3; // 3: anche il tratto più ricco (faunaInat.tratti)
 let faune = 0;
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
@@ -288,6 +289,8 @@ for (const p of archivio.percorsi) {
     const tutteLeOss = (await Promise.all((p.parchi ?? [p.parco]).map(osservazioniDelParco))).flat();
     // con i km della traccia: il livello "Ricco di fauna" pesa le osservazioni sulla lunghezza
     p.faunaInat = { specie: faunaDalleOsservazioni(tutteLeOss, g), calcolato: oggi, versione: VERSIONE_FAUNA, impronta: geometria, km: Math.round(lunghezzaKm(g) * 10) / 10 };
+    // tratto più ricco: solo per tracce continue (con salti oltre 500 m i km lungo la traccia non valgono)
+    if (!tracciaDaNonUsare(p, p.traccia).incompleta && p.tipoPercorso !== 'rete_sentieri') p.faunaInat.tratti = trattiFauna(tutteLeOss, percorsoSentiero(g).pezzi);
     faune++;
   } catch (e) {
     console.warn(`  fauna ${p.id}: ${e.message}`);

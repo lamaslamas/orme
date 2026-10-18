@@ -67,7 +67,7 @@ function proiezione([x, y], [ax, ay], [bx, by]) {
 
 // Dove cade un punto lungo la traccia, nell'ordine di percorrenza: km dalla partenza del punto
 // della traccia più vicino (i pezzi si sommano uno dopo l'altro)
-export function kmLungoLaTraccia(punto, pezzi) {
+export function posizioneSullaTraccia(punto, pezzi) {
   let migliore = { distanzaM: Infinity, km: null };
   let fatti = 0;
   for (const linea of pezzi ?? []) {
@@ -78,7 +78,29 @@ export function kmLungoLaTraccia(punto, pezzi) {
       fatti += tratto;
     }
   }
-  return migliore.km;
+  return migliore;
+}
+export const kmLungoLaTraccia = (punto, pezzi) => posizioneSullaTraccia(punto, pezzi).km;
+
+// I punti della traccia tra due km (con i punti interpolati agli estremi), per segnare un tratto sulla mappa
+export function lineaTraKm(pezzi, daKm, aKm) {
+  const linea = [];
+  let fatti = 0;
+  for (const pezzo of pezzi ?? []) {
+    for (let i = 1; i < pezzo.length; i++) {
+      const tratto = distanzaKm(pezzo[i - 1], pezzo[i]);
+      const [inizio, fine] = [fatti, fatti + tratto];
+      fatti = fine;
+      if (fine < daKm || inizio > aKm || !tratto) continue;
+      const punto = (km) => {
+        const f = Math.max(0, Math.min(1, (km - inizio) / tratto));
+        return [pezzo[i - 1][0] + (pezzo[i][0] - pezzo[i - 1][0]) * f, pezzo[i - 1][1] + (pezzo[i][1] - pezzo[i - 1][1]) * f];
+      };
+      if (!linea.length) linea.push(punto(daKm));
+      linea.push(inizio >= daKm && fine <= aKm ? [pezzo[i][0], pezzo[i][1]] : punto(Math.min(fine, aKm)));
+    }
+  }
+  return linea;
 }
 
 export function lunghezzaDeiPezzi(pezzi) {

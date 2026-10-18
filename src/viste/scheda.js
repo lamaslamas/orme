@@ -18,6 +18,8 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { quoteDellaScheda, quotePerSalvare } from '../lib/quoteSalvate.js';
+import L from 'leaflet';
+import { lineaTraKm } from '../lib/lungoIlPercorso.js';
 import { serieDaProfilo } from '../lib/profiloCampionato.js';
 import { profiloPezzi } from '../lib/disegno.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
@@ -562,6 +564,8 @@ export async function vistaScheda(app, id) {
   }
   // il profilo sotto i numeri: sempre visibile; senza quote si scaricano da sole da TINITALY (una volta)
   const punto = creaPuntoProfilo();
+  // il tratto con più fauna (solo se la traccia è continua e il robot l'ha calcolato)
+  const trattoFauna = pezziGrezzi.length ? s.faunaInat?.tratti?.migliore ?? null : null;
   const boxProfilo = app.querySelector('#profiloScheda');
   // 1. le quote della traccia (GPX con quote) o quelle scaricate e salvate; 2. il profilo a 100 punti che
   // il robot ha calcolato con TINITALY per le tracce dell'archivio (subito, senza chiamare niente)
@@ -577,7 +581,7 @@ export async function vistaScheda(app, id) {
           ? testoFonteQuote(traccia.dettagli.quote)
           : 'Quote della traccia (GPS)'
         : testoFonteQuote(delleQuote.fonte);
-    boxProfilo.innerHTML = htmlProfiloMini(serie, fonte);
+    boxProfilo.innerHTML = htmlProfiloMini(serie, fonte, trattoFauna);
     collegaProfiloMini(boxProfilo, () => serie, (x) => punto.mostra(x.p));
   } else if (pezziGrezzi.length && !quoteTentate.has(s.id)) {
     quoteTentate.add(s.id);
@@ -688,6 +692,10 @@ export async function vistaScheda(app, id) {
   punto.collega(mini);
   const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false, estremi: !traccia.dettagli?.rete }).addTo(mini);
   mini.attenuaSentieri(true);
+  if (trattoFauna) {
+    const linea = lineaTraKm(pezziGrezzi, trattoFauna.daKm, trattoFauna.aKm).map(([lon, lat]) => [lat, lon]);
+    if (linea.length > 1) L.polyline(linea, { color: '#f08c00', weight: 8, opacity: 0.85, interactive: false, lineCap: 'round' }).addTo(mini);
+  }
   requestAnimationFrame(() => {
     mini.invalidateSize();
     mini.fitBounds(gruppo.getBounds(), { padding: [28, 28] });

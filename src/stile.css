@@ -2070,3 +2070,9 @@ body.percorso-mappa main { padding: 0; }
 .fauna-nome { flex-wrap: wrap; }
 .fauna-nome .affidabilita { flex-basis: 100%; font-size: 0.7rem; font-weight: 400; color: var(--testo-tenue); }
 .animale-fauna .affidabilita { display: block; }
+
+/* tratto con più fauna: banda sul profilo e riga di spiegazione */
+.profilo-scheda .profilo-fauna { fill: #f08c00; opacity: 0.28; }
+.profilo-tratto { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 0; font-size: 0.8rem; line-height: 1.35; }
+.segno-fauna { flex: none; width: 14px; height: 8px; margin-top: 5px; border-radius: 2px; background: #f08c00; }
+.azioni-vuoto { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }

@@ -3,12 +3,15 @@
 import { puntoAlKm } from '../lib/disegno.js';
 import { km1 } from '../lib/lungoIlPercorso.js';
 import { escapeHtml } from '../lib/formato.js';
+import { ANIMALI } from '../lib/costanti.js';
+import { testoTratto } from '../lib/trattoFauna.js';
 
 const L = 300;
 const A = 60;
 
 // serie: [{ km, z, p }] (profiloPezzi); fonte: testo della fonte delle quote
-export function htmlProfiloMini(serie, fonte = '') {
+// tratto: { daKm, aKm, persone, specie } = il tratto con più fauna (src/lib/trattoFauna.js), segnato sul profilo
+export function htmlProfiloMini(serie, fonte = '', tratto = null) {
   if (!serie || serie.length < 2) return '';
   const zs = serie.map((x) => x.z);
   const [min, max] = [Math.min(...zs), Math.max(...zs)];
@@ -17,9 +20,12 @@ export function htmlProfiloMini(serie, fonte = '') {
   const Y = (z) => A - 4 - ((z - min) / (max - min || 1)) * (A - 10);
   const d = serie.map((x, i) => `${i ? 'L' : 'M'}${X(x.km).toFixed(1)} ${Y(x.z).toFixed(1)}`).join(' ');
   return `<svg viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Profilo altimetrico: da ${Math.round(min)} a ${Math.round(max)} m">
-      <path d="${d} L${L} ${A} L0 ${A} Z" class="profilo-area"/><path d="${d}" class="profilo-linea" fill="none" vector-effect="non-scaling-stroke"/>
+      <path d="${d} L${L} ${A} L0 ${A} Z" class="profilo-area"/>${
+        tratto ? `<rect class="profilo-fauna" x="${X(tratto.daKm).toFixed(1)}" y="0" width="${Math.max(2, X(Math.min(tratto.aKm, tot)) - X(tratto.daKm)).toFixed(1)}" height="${A}"/>` : ''
+      }<path d="${d}" class="profilo-linea" fill="none" vector-effect="non-scaling-stroke"/>
       <line class="profilo-cursore" x1="-10" x2="-10" y1="0" y2="${A}" vector-effect="non-scaling-stroke"/></svg>
     <p class="profilo-dati"><span>min ${Math.round(min)} m · max ${Math.round(max)} m</span><span class="dato-profilo"></span></p>
+    ${tratto ? `<p class="profilo-tratto"><span class="segno-fauna"></span><b>Più fauna: ${testoTratto(tratto)}</b> · ${escapeHtml(tratto.specie.map((a) => (ANIMALI[a] ?? a).toLowerCase()).join(', '))} · ${tratto.persone} osservatori diversi (volontari, non una garanzia)</p>` : ''}
     ${fonte ? `<p class="profilo-fonte tenue">${escapeHtml(fonte)}</p>` : ''}`;
 }
 
