@@ -3,7 +3,7 @@
 // "Apri la scheda". Sotto ogni traccia c'è una linea invisibile larga, facile da prendere col dito.
 import L from 'leaflet';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
-import { misureSentiero } from '../lib/riassunto.js';
+import { misureSentiero, testoIncompleta } from '../lib/riassunto.js';
 import { disegnaTraccia } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
@@ -24,6 +24,7 @@ export function riquadroSentiero(s, traccia) {
     <div class="popup-sentiero">
       <div class="popup-sentiero-nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}<b>${escapeHtml(s.nome)}</b></div>
       ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
+      ${testoIncompleta(m) ? `<p class="avviso-incompleta">${ICONE.avviso}<span>${testoIncompleta(m)}: i numeri sono quelli della fonte.</span></p>` : ''}
       ${htmlFaunaBreve(s, { compatta: true })}
       <a class="bottone primario popup-apri" href="#/sentiero/${id}">Apri la scheda ›</a>
     </div>`;

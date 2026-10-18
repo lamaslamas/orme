@@ -2,7 +2,7 @@
 // Le coordinate sono [lon, lat] oppure [lon, lat, quota].
 import { distanzaKm, direzioneGradi } from './geo.js';
 
-export const TOLLERANZA_UNIONE_M = 30;
+export const TOLLERANZA_UNIONE_M = 50;
 export const SOGLIA_SALTO_M = 200;
 
 const distanzaM = (a, b) => distanzaKm(a, b) * 1000;
@@ -71,6 +71,19 @@ export function ordinaPezzi(catene) {
     salti.push(migliore.d);
   }
   return { pezzi, salti };
+}
+
+// La traccia con i pezzi che distano meno di 50 m uniti in linee continue (per disegnarla: i tratti OSM sono
+// spesso decine di spezzoni e sulla mappa sembrano staccati). Calcolata una volta per ogni traccia.
+const unite = new WeakMap();
+export function geojsonUnito(geojson) {
+  if (!geojson?.coordinates?.length) return geojson;
+  let u = unite.get(geojson);
+  if (!u) {
+    u = { ...geojson, type: 'MultiLineString', coordinates: concatenaLinee(geojson.coordinates) };
+    unite.set(geojson, u);
+  }
+  return u;
 }
 
 // Percorso di un sentiero: pezzi continui in ordine, dall'inizio alla fine

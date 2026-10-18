@@ -13,6 +13,9 @@ export function quoteDellaTraccia(s, traccia) {
   return improntaTraccia(traccia.geojson).split('-')[1] === s.quote.impronta ? s.quote : null;
 }
 
+// "Traccia incompleta: mancano circa 7,9 km" (null se la traccia è continua)
+export const testoIncompleta = (m) => (m?.incompleta ? `Traccia incompleta: mancano circa ${m.incompleta.mancanoKm.toFixed(1).replace('.', ',')} km` : null);
+
 export function misureSentiero(s, traccia) {
   // una rete di sentieri (aree protette): solo i km di sentieri, niente durata né dislivello di un giro
   if (s.tipoPercorso === 'rete_sentieri') {

@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { geojsonUnito } from '../lib/tracce.js';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
 import { tendinaTrascinabile } from './tendina.js';
@@ -473,7 +474,9 @@ export async function vistaMappaGenerale(app, idParco = null) {
     const ricerca = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
     mappa.attenuaSentieri(ricerca && conTraccia.length > 0);
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
-    for (const { sentiero, traccia } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
+    for (const { sentiero, traccia: grezza } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
+      // i pezzi a meno di 50 m si disegnano uniti
+      const traccia = grezza.geojson ? { ...grezza, geojson: geojsonUnito(grezza.geojson) } : grezza;
       const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
       // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
       const stile = ricerca ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;

@@ -2,7 +2,7 @@ import { ACCESSI, BICI_CONSENTITA } from '../lib/costanti.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { STATI_COMPATIBILITA, ATTIVITA } from '../lib/compatibilita.js';
 import { stato } from '../stato.js';
-import { misureSentiero } from '../lib/riassunto.js';
+import { misureSentiero, testoIncompleta } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { testoUscita } from '../lib/filtri.js';
@@ -63,6 +63,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
   ].join('');
   // al massimo due etichette: le più utili per decidere
   const etichette = [
+    m.incompleta ? `<span class="chip chip-verifica" title="${escapeHtml(testoIncompleta(m))}">Traccia incompleta</span>` : '',
     s.stato === 'fatto' ? '<span class="chip chip-fatto">✓ Fatto</span>' : '',
     bollinoCompatibilita(compat, stato.leggi().attivita),
     tipo !== 'nessuno' && tipo !== 'libero' ? `<span class="chip chip-accesso">${ACCESSI[tipo]}</span>` : '',

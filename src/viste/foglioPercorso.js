@@ -4,7 +4,7 @@
 import L from 'leaflet';
 import { tendinaTrascinabile } from './tendina.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
-import { misureSentiero } from '../lib/riassunto.js';
+import { misureSentiero, testoIncompleta } from '../lib/riassunto.js';
 import { ACCESSI } from '../lib/costanti.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
 import { puntiLungoIlPercorso, riassuntoPunti } from '../lib/puntiUtili.js';
@@ -90,6 +90,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
       <div class="foglio-corpo">
         <p class="foglio-nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}<b>${escapeHtml(s.nome)}</b></p>
         ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
+        ${testoIncompleta(m) ? `<p class="avviso-incompleta">${ICONE.avviso}<span>${testoIncompleta(m)}: i numeri sono quelli della fonte.</span></p>` : ''}
         ${htmlFaunaBreve(s, { compatta: true })}
         ${htmlAccesso(s)}
         ${extra(s)}
