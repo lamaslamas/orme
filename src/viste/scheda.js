@@ -211,6 +211,7 @@ import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
+import { htmlFotografia, collegaFotografia, riassuntoLuce } from './fotografia.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
 import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
@@ -349,6 +350,11 @@ export async function vistaScheda(app, id) {
       : '';
     return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · metodo CAI${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
   };
+  // il punto per l'alba e il tramonto: la partenza della traccia o del sentiero, altrimenti il centro del parco
+  const trattoFauna0 = pezziTraccia.length ? s.faunaInat?.tratti?.migliore ?? null : null;
+  const inizioPezzi = pezziTraccia[0]?.[0];
+  const centroParco = parco?.centro;
+  const puntoLuce = inizioPezzi ? [inizioPezzi[0], inizioPezzi[1]] : Number.isFinite(p.lon) && Number.isFinite(p.lat) ? [p.lon, p.lat] : centroParco ? [centroParco[1], centroParco[0]] : null;
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
@@ -418,6 +424,7 @@ export async function vistaScheda(app, id) {
       </section>
 
       ${htmlSezione('fauna', { icona: 'zampa', titolo: 'Fauna', riassunto: riassuntoFauna(s, traccia) }, htmlFauna(s, traccia))}
+      ${puntoLuce ? htmlSezione('foto', { icona: 'foto', titolo: 'Luce e fotografia', riassunto: riassuntoLuce(puntoLuce) }, htmlFotografia({ conPercorso: pezziTraccia.length > 0, tratto: trattoFauna0 })) : ''}
 
       ${traccia ? htmlSezione('davedere', { icona: 'binocolo', titolo: 'Da vedere', riassunto: 'Cerco foto e luoghi…' }, '<div id="daVedere"></div>') : ''}
 
@@ -618,6 +625,7 @@ export async function vistaScheda(app, id) {
       impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : `Nessuno entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m`),
     );
   collegaSezioni(app);
+  collegaFotografia(app.querySelector('[data-sezione="foto"]'), { punto: puntoLuce, pezzi: pezziTraccia, tratto: trattoFauna0, linkParco });
   // foto e luoghi lungo il percorso: dal file a parte; se non c'è niente la sezione sparisce
   if (traccia)
     daVedereDellaTraccia(s, traccia).then((d) => {

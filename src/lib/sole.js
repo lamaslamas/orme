@@ -11,7 +11,7 @@ function giornoGiuliano(data) {
 }
 
 // minuti UTC dalla mezzanotte dell'alba (alba = true) o del tramonto, oppure null (sole sempre su o giù)
-function evento(data, lat, lon, alba) {
+function evento(data, lat, lon, alba, zenit = ZENIT) {
   // si itera una volta: il secondo calcolo usa l'ora trovata dal primo
   let minuti = 720 - 4 * lon;
   for (let i = 0; i < 2; i++) {
@@ -29,7 +29,7 @@ function evento(data, lat, lon, alba) {
     const eqTempo =
       4 / RAD *
       (y * Math.sin(2 * l0 * RAD) - 2 * e * Math.sin(m * RAD) + 4 * e * y * Math.sin(m * RAD) * Math.cos(2 * l0 * RAD) - 0.5 * y * y * Math.sin(4 * l0 * RAD) - 1.25 * e * e * Math.sin(2 * m * RAD));
-    const cosH = Math.cos(ZENIT * RAD) / (Math.cos(lat * RAD) * Math.cos(decl)) - Math.tan(lat * RAD) * Math.tan(decl);
+    const cosH = Math.cos(zenit * RAD) / (Math.cos(lat * RAD) * Math.cos(decl)) - Math.tan(lat * RAD) * Math.tan(decl);
     if (cosH > 1 || cosH < -1) return null;
     const h = Math.acos(cosH) / RAD;
     minuti = 720 - 4 * (lon + (alba ? h : -h)) - eqTempo;
@@ -52,4 +52,21 @@ export function minutiItaliani(d) {
   if (!d) return null;
   const [h, m] = oraItaliana(d).split(':').map(Number);
   return h * 60 + m;
+}
+
+// Le luci del giorno per la fotografia, come Date (o null): crepuscolo civile (sole a −6°), alba e tramonto,
+// ora d'oro (il sole sotto i 6° sull'orizzonte: luce bassa e calda, da alba a +6° e da +6° a tramonto)
+export const ZENIT_ORO = 84;
+export const ZENIT_CIVILE = 96;
+export function luciDelGiorno(data, [lon, lat]) {
+  const base = Date.UTC(...data.split('-').map((x, i) => Number(x) - (i === 1 ? 1 : 0)));
+  const ora = (min) => (min == null ? null : new Date(base + Math.round(min * 60_000)));
+  return {
+    albaCivile: ora(evento(data, lat, lon, true, ZENIT_CIVILE)),
+    alba: ora(evento(data, lat, lon, true)),
+    oroMattinaFine: ora(evento(data, lat, lon, true, ZENIT_ORO)),
+    oroSeraInizio: ora(evento(data, lat, lon, false, ZENIT_ORO)),
+    tramonto: ora(evento(data, lat, lon, false)),
+    tramontoCivile: ora(evento(data, lat, lon, false, ZENIT_CIVILE)),
+  };
 }

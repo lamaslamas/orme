@@ -2076,3 +2076,12 @@ body.percorso-mappa main { padding: 0; }
 .profilo-tratto { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 0; font-size: 0.8rem; line-height: 1.35; }
 .segno-fauna { flex: none; width: 14px; height: 8px; margin-top: 5px; border-radius: 2px; background: #f08c00; }
 .azioni-vuoto { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+/* luce e fotografia */
+.foto-luce h3 { margin: 12px 0 6px; font-size: 0.95rem; }
+.luci-giorno { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; margin: 8px 0; font-size: 0.9rem; }
+.luci-giorno dt { color: var(--testo-tenue); }
+.luci-giorno dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+.campo-km { width: 4.2em; margin-left: 4px; padding: 0 4px; border: 1px solid var(--bordo); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.foto-risposta { margin: 10px 0 6px; line-height: 1.45; }
+.profilo-tratto b { white-space: nowrap; }
