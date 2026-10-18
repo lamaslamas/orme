@@ -152,7 +152,7 @@ describe('specie cercata in un mese', () => {
     const s = { faunaInat: { specie: [sp('cervo', 'percorso', 10, 8, mesi(9, 10), 2024), sp('lupo', 'zona', 4, 3, mesi(9, 4), 2023)] } };
     expect(puntiSpecie(s, 'cervo', 2)).toBeNull();
     expect(puntiSpecie(s, 'mammiferi', 9)).toMatchObject({ animale: 'cervo', ultimoAnno: 2024 });
-    expect(puntiSpecie(s, 'lupo', 9)).toMatchObject({ sensibile: true });
+    expect(puntiSpecie(s, 'lupo', 9)).toMatchObject({ animale: 'lupo' });
   });
   it('le uscite delle associazioni valgono come segnalazione', async () => {
     const { puntiSpecie } = await import('../src/lib/faunaPercorso.js');

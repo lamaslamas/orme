@@ -9,7 +9,7 @@ import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { eUscita, FILTRI_VUOTI } from '../lib/filtri.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare } from '../lib/tracce.js';
-import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI, SPECIE_SENSIBILI } from '../lib/faunaPercorso.js';
+import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
@@ -250,11 +250,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       ${
         scelte.cerco.includes('fauna')
           ? `<h3>Quale animale</h3>${htmlGruppo('specie', VOCI_SPECIE, scelte.specie ?? '')}
-      <p class="tenue piccolo">${
-        SPECIE_SENSIBILI.includes(scelte.specie)
-          ? 'Per orso e lupo i dati sono di zona, non del percorso: la posizione esatta non è pubblica.'
-          : 'In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo.'
-      } ${linkCodice}</p>${htmlSpecieZona()}`
+      <p class="tenue piccolo">In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo. ${linkCodice}</p>${htmlSpecieZona()}`
           : ''
       }
       <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}

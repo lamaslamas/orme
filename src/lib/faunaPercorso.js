@@ -218,8 +218,6 @@ export const GRUPPI_SPECIE = {
   rapaci: { nome: 'Rapaci', specie: ['aquila_reale', 'nibbio_reale', 'gufo_reale', 'falco_grillaio'] },
 };
 export const SPECIE_SCEGLIBILI = ['cervo', 'camoscio', 'lupo', 'orso', 'capriolo', 'cinghiale', 'volpe', 'daino', 'aquila_reale', 'nibbio_reale', 'cicogna_nera'];
-// Orso e lupo: i dati sono di zona (posizioni sfumate), mai del singolo percorso
-export const SPECIE_SENSIBILI = ['orso', 'lupo', 'gatto_selvatico'];
 export const animaliDellaScelta = (valore) => (GRUPPI_SPECIE[valore] ? GRUPPI_SPECIE[valore].specie : valore ? [valore] : []);
 
 // Quanto un percorso è adatto a una specie (o gruppo) nel mese scelto e in quelli accanto.
@@ -235,7 +233,7 @@ export function puntiSpecie(s, valore, mese, raggioMesi = 1) {
     if (!animali.includes(x.animale)) continue;
     const n = mesi ? nelPeriodo(x, mesi) : x.osservazioni;
     if (!n) continue;
-    const p = n * Math.min(1, (x.persone ?? 0) / 10) * (x.livello === 'percorso' && !SPECIE_SENSIBILI.includes(x.animale) ? 2 : 1);
+    const p = n * Math.min(1, (x.persone ?? 0) / 10) * (x.livello === 'percorso' ? 2 : 1);
     punti += p;
     if (!migliore || p > migliore.p) migliore = { p, x, n };
   }
@@ -247,5 +245,5 @@ export function puntiSpecie(s, valore, mese, raggioMesi = 1) {
   }
   if (!migliore) return null;
   const { x } = migliore;
-  return { punti: Math.round(punti * 10) / 10, animale: x.animale, dove: x.livello ?? 'uscite', sensibile: SPECIE_SENSIBILI.includes(x.animale), nelPeriodo: migliore.n, ...affidabilita(x) };
+  return { punti: Math.round(punti * 10) / 10, animale: x.animale, dove: x.livello ?? 'uscite', nelPeriodo: migliore.n, ...affidabilita(x) };
 }

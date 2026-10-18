@@ -72,7 +72,7 @@ describe('Suggeriscimi: regole', () => {
 describe('specie scelta in "Cosa cerchi"', () => {
   const base = { misure: { km: 8, salita: 300, durataMin: 200 }, anello: false, difficolta: 'E', auto: null };
   const scelte = { ...SCELTE_PREDEFINITE, tempo: 'mezza', cerco: ['fauna'], specie: 'cervo' };
-  const specie = (punti) => ({ punti, animale: 'cervo', dove: 'zona', sensibile: false, nelPeriodo: 10, nome: 'molto segnalato', persone: 146, ultimoAnno: 2025, testo: '146 osservatori, ultima osservazione nel 2025' });
+  const specie = (punti) => ({ punti, animale: 'cervo', dove: 'zona', nelPeriodo: 10, nome: 'molto segnalato', persone: 146, ultimoAnno: 2025, testo: '146 osservatori, ultima osservazione nel 2025' });
   it('senza segnalazioni nel periodo il percorso non si propone; più punti salgono in classifica', () => {
     expect(valuta({ ...base, specie: null }, scelte)).toBeNull();
     expect(valuta({ ...base, specie: specie(0) }, scelte)).toBeNull();

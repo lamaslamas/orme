@@ -8,7 +8,6 @@ export const REGOLE = [
   ['Di notte', 'niente flash né luci puntate sugli animali; usa la frontale solo per camminare.'],
   ['Silenzio e gruppi piccoli', 'parla a bassa voce, niente musica, niente droni nelle aree protette senza autorizzazione.'],
   ['Capanni e appostamenti', "nei parchi solo con l'autorizzazione dell'ente gestore."],
-  ['Non diffondere la posizione esatta', 'di specie sensibili (orso, lupo, nidi di rapaci), neanche nei metadati delle foto.'],
 ];
 export const NOTA_REGOLE = "Le regole del parco hanno sempre la precedenza su questa pagina: verificale sul sito dell'ente prima di partire.";
 export const NOTA_FINALE = 'Testo di buone pratiche, non un regolamento.';

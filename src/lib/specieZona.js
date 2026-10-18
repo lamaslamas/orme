@@ -69,7 +69,6 @@ export function puntiSpecieZona(osservazioni, geojson, chiave, meseScelto, { rag
     animale: chiave,
     nomeSpecie: nome ?? chiave,
     dove,
-    sensibile: false,
     nelPeriodo,
     ...affidabilita({ persone: x.persone.size, ultimoAnno: x.ultimo || null, mesi: mesiMigliori(x.mesi) }),
   };

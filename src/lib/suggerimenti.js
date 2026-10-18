@@ -99,7 +99,7 @@ export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   const parti = [c.anello ? 'Anello' : modo === 'ar' ? 'Andata e ritorno' : 'Solo andata'];
   if ((c.bosco ?? 0) >= 50) parti[0] += ' nel bosco';
   if (c.specie) {
-    const z = c.specie.dove === 'percorso' && !c.specie.sensibile ? '' : ', dato di zona';
+    const z = c.specie.dove === 'percorso' ? '' : ', dato di zona';
     parti.push(`${(c.specie.nomeSpecie ?? ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}`);
   } else if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
   else if (c.fauna?.livello === 'possibili' && trovati.includes('fauna')) parti.push(`fauna possibile${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);

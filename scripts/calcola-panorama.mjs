@@ -284,7 +284,7 @@ async function osservazioniDelParco(idParco) {
 }
 
 // versione 2: le specie hanno anche l'anno dell'ultima osservazione
-const VERSIONE_FAUNA = 4; // 3: anche il tratto più ricco (faunaInat.tratti); 4: rapaci non sensibili contano fuori dalla nidificazione
+const VERSIONE_FAUNA = 5; // 3: anche il tratto più ricco (faunaInat.tratti); 5: nessuna esclusione di specie (restano fuori solo le posizioni sfumate)
 let faune = 0;
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;
