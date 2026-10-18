@@ -1,5 +1,5 @@
 // iNaturalist lungo percorsi e sentieri (ricerca solo a richiesta: serve la rete)
-import { GRUPPI, STAGIONI, urlOsservazioni, interpretaOsservazioni } from '../lib/inaturalist.js';
+import { STAGIONI, urlOsservazioni, interpretaOsservazioni } from '../lib/inaturalist.js';
 import {
   riquadroTraccia,
   osservazioniNellaFascia,
@@ -11,47 +11,51 @@ import {
   MASSIMO_PAGINE,
 } from '../lib/inaturalistTraccia.js';
 import { escapeHtml } from '../lib/formato.js';
+import { leggiGruppiSalvati, testoGruppi } from '../lib/gruppiFauna.js';
+import { GRUPPI_FAUNA } from '../lib/costanti.js';
+import { raggruppaPerSpecie, dataBreve } from '../lib/osservazioniPerSpecie.js';
+import { htmlVoceOsservazione } from './vociOsservazioni.js';
+import { iconaAnimale } from './icone.js';
+import { iconaPerOsservazione } from '../lib/gbif.js';
 
-const MOSTRATE = 40;
+const SPECIE_VISIBILI = 5;
 
 async function scarica(pezzi, filtri, raggioM) {
   const riquadro = riquadroTraccia(pezzi, raggioM);
+  // più ricerche se serve (i gruppi scelti e, a parte, le specie rare), senza doppioni
+  const ricerche = Array.isArray(filtri) ? filtri : [filtri];
+  const viste = new Set();
   let tutte = [];
   let totale = 0;
-  for (let pagina = 1; pagina <= MASSIMO_PAGINE; pagina++) {
-    const risposta = await fetch(urlOsservazioni(riquadro, filtri, { perPagina: 200, pagina }));
-    if (!risposta.ok) throw new Error(`iNaturalist ha risposto ${risposta.status}`);
-    const json = await risposta.json();
-    totale = json.total_results ?? 0;
-    tutte = tutte.concat(interpretaOsservazioni(json));
-    if (tutte.length >= totale || !json.results?.length) break;
+  for (const f of ricerche) {
+    let fatte = 0;
+    let tot = 0;
+    for (let pagina = 1; pagina <= MASSIMO_PAGINE; pagina++) {
+      const risposta = await fetch(urlOsservazioni(riquadro, f, { perPagina: 200, pagina }));
+      if (!risposta.ok) throw new Error(`iNaturalist ha risposto ${risposta.status}`);
+      const json = await risposta.json();
+      tot = json.total_results ?? 0;
+      const nuove = interpretaOsservazioni(json).filter((o) => !viste.has(o.id) && viste.add(o.id));
+      tutte = tutte.concat(nuove);
+      fatte += json.results?.length ?? 0;
+      if (fatte >= tot || !json.results?.length) break;
+    }
+    totale += tot;
   }
   return { ...osservazioniNellaFascia(tutte, pezzi, raggioM), totale, scaricate: tutte.length };
 }
 
-function voceOsservazione(o) {
-  return `<li>
-    ${o.foto ? `<button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: o.foto.url, autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: o.specie }))}"><img src="${escapeHtml(o.foto.url)}" alt="" width="64" height="64" loading="lazy" /></button>` : '<div class="senza-foto"></div>'}
-    <div>
-      <b>${escapeHtml(o.specie)}</b> <span class="tenue">${escapeHtml(o.nomeScientifico)}</span><br />
-      ${o.data ? escapeHtml(new Date(o.data).toLocaleDateString('it-IT')) : 'data non indicata'} · a ${Math.round(o.distanzaM)} m dalla traccia
-      ${o.verificata ? '' : '<span class="chip">da confermare</span>'}<br />
-      <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Apri su iNaturalist ↗</a>
-    </div>
-  </li>`;
-}
-
 const notaSfumate = (n) =>
-  n ? `<p class="tenue piccolo">${n} osservazioni nella zona hanno la posizione sfumata (specie protette): non sono confrontabili con il percorso e non sono mostrate.</p>` : '';
+  n ? `<p class="tenue piccolo">${n} osservazioni nella zona hanno la posizione approssimata dalla fonte: non si sa dove sono rispetto al percorso, quindi non sono mostrate.</p>` : '';
 
 // --- Percorsi (Pianifica) ---
 
 export function htmlNaturaPercorso() {
   return `<section class="riquadro" id="natura">
     <h2>Natura lungo il percorso</h2>
-    <p class="tenue">Osservazioni di iNaturalist in una fascia attorno alla traccia.</p>
+    <p class="tenue">Osservazioni di iNaturalist in una fascia attorno alla traccia, per i gruppi scelti nel pannello Fauna della mappa.</p>
+    <p class="gruppi-attivi">Gruppi attivi: <b id="gruppiAttivi">${escapeHtml(testoGruppi(leggiGruppiSalvati()))}</b></p>
     <form class="modulo heat-filtri" id="filtriNatura">
-      <select name="gruppo" aria-label="Gruppo">${Object.entries(GRUPPI).map(([k, g]) => `<option value="${k}">${g.nome}</option>`).join('')}</select>
       <select name="raggio" aria-label="Fascia">${FASCE_M.map((m) => `<option value="${m}" ${m === 250 ? 'selected' : ''}>Fascia di ${m} m</option>`).join('')}</select>
       <select name="stagione" aria-label="Periodo">${Object.entries(STAGIONI).map(([k, s]) => `<option value="${k}">${s.nome}</option>`).join('')}</select>
       <select name="anni" aria-label="Anni"><option value="0">Tutti gli anni</option><option value="3">Ultimi 3 anni</option><option value="5">Ultimi 5 anni</option><option value="10">Ultimi 10 anni</option></select>
@@ -68,25 +72,43 @@ export function collegaNaturaPercorso(contenitore, pezzi, mostraPunti = () => {}
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = form.elements;
-    const filtri = { gruppo: f.gruppo.value, stagione: f.stagione.value, anni: Number(f.anni.value), soloVerificate: f.soloVerificate.checked };
+    // i gruppi sono quelli scelti nel pannello Fauna (nessun gruppo nuovo qui)
+    const gruppi = leggiGruppiSalvati();
+    contenitore.querySelector('#gruppiAttivi').textContent = testoGruppi(gruppi);
+    if (!gruppi.length) {
+      esito.innerHTML = '<p class="tenue">Nessun gruppo attivo: scegli i gruppi nel pannello Fauna della mappa.</p>';
+      return;
+    }
+    const comuni = { stagione: f.stagione.value, anni: Number(f.anni.value), soloVerificate: f.soloVerificate.checked };
+    const normali = gruppi.filter((g) => GRUPPI_FAUNA[g]?.inat);
+    const ricerche = [...(normali.length ? [{ specie: 'notevoli', gruppi: normali, ...comuni }] : []), ...(gruppi.includes('rare') ? [{ specie: 'notevoli', gruppi: ['rare'], ...comuni }] : [])];
     const raggio = Number(f.raggio.value);
     esito.innerHTML = '<p class="messaggio">Cerco su iNaturalist…</p>';
     let r;
     try {
-      r = await scarica(pezzi, filtri, raggio);
+      r = await scarica(pezzi, ricerche, raggio);
     } catch (err) {
       esito.innerHTML = `<p class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}).</p>`;
       return;
     }
     const ordinate = r.dentro.sort((a, b) => String(b.data).localeCompare(String(a.data)));
     mostraPunti(ordinate);
+    const specie = raggruppaPerSpecie(ordinate);
+    const riga = (g) => `<li><details>
+        <summary><span class="sp-icona">${iconaAnimale(g.icona ?? iconaPerOsservazione(g.oss[0]))}</span><b>${escapeHtml(g.nome)}</b> <i class="tenue">${escapeHtml(g.scientifico)}</i> · ${g.n} ${g.n === 1 ? 'osservazione' : 'osservazioni'} · ultima ${escapeHtml(dataBreve(g.ultima))}</summary>
+        <ul class="elenco-oss">${g.oss.map((o) => htmlVoceOsservazione(o, { extra: `a ${Math.round(o.distanzaM)} m dalla traccia`, conNome: false })).join('')}</ul>
+      </details></li>`;
     esito.innerHTML = `
-      <p><b>${ordinate.length}</b> ${ordinate.length === 1 ? 'osservazione' : 'osservazioni'} entro ${raggio} m dalla traccia.</p>
+      <p><b>${ordinate.length}</b> ${ordinate.length === 1 ? 'osservazione' : 'osservazioni'} di <b>${specie.length}</b> ${specie.length === 1 ? 'specie' : 'specie'} entro ${raggio} m dalla traccia.</p>
       ${r.totale > r.scaricate ? `<p class="tenue piccolo">Nella zona ce ne sono ${r.totale}: ho controllato le ${r.scaricate} più recenti.</p>` : ''}
       ${notaSfumate(r.sfumate)}
-      <ul class="elenco-oss">${ordinate.slice(0, MOSTRATE).map(voceOsservazione).join('')}</ul>
-      ${ordinate.length > MOSTRATE ? `<p class="tenue piccolo">Mostrate le ${MOSTRATE} più recenti.</p>` : ''}
+      <ul class="specie-oss">${specie.slice(0, SPECIE_VISIBILI).map(riga).join('')}</ul>
+      ${specie.length > SPECIE_VISIBILI ? `<button type="button" class="bottone testo" data-mostra-tutte>Mostra tutte le ${specie.length} specie</button><ul class="specie-oss specie-altre" hidden>${specie.slice(SPECIE_VISIBILI).map(riga).join('')}</ul>` : ''}
       <p class="tenue piccolo">Dati e foto © degli autori su iNaturalist (licenze Creative Commons).</p>`;
+    esito.querySelector('[data-mostra-tutte]')?.addEventListener('click', (ev) => {
+      esito.querySelector('.specie-altre').hidden = false;
+      ev.currentTarget.remove();
+    });
   });
 }
 
