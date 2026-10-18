@@ -4,7 +4,7 @@ import { parcoDa } from '../datiParchi.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { escapeHtml } from '../lib/formato.js';
 import { collegaInstalla } from './installa.js';
-import { leggiTema, impostaTema } from './tema.js';
+import { leggiTema, impostaTema, leggiNotte, impostaNotte } from './tema.js';
 
 export async function vistaAltro(app) {
   const archivio = await infoArchivio();
@@ -13,6 +13,7 @@ export async function vistaAltro(app) {
     <ul class="menu-altro">
       <li class="voce-installa" hidden><button type="button" class="voce-menu" data-azione="installa"><b>Installa l'app</b><span>Sulla schermata Home, funziona anche offline</span></button></li>
       <li><a href="#/parchi"><b>Parchi</b><span>L'elenco dei parchi, con fauna e sentieri di ognuno</span></a></li>
+      <li><a href="#/codice"><b>Codice di comportamento</b><span>Buone pratiche per la fotografia naturalistica</span></a></li>
       <li><a href="#/domani"><b>Dove vado domani?</b><span>I percorsi migliori secondo il meteo</span></a></li>
       <li><a href="#/avvistamenti"><b>I miei avvistamenti</b><span>Solo su questo telefono</span></a></li>
       <li><a href="#/backup"><b>Backup</b><span>Esporta e importa sentieri, tracce e giri</span></a></li>
@@ -32,6 +33,8 @@ export async function vistaAltro(app) {
           .join('')}
       </div>
       <p class="tenue piccolo">Automatico segue l'impostazione del telefono. Le mappe già aperte cambiano alla prossima apertura.</p>
+      <button type="button" class="bottone interruttore-notte" role="switch" aria-checked="false" data-notte-toggle>Modo notturno rosso</button>
+      <p class="tenue piccolo">Schermo rosso scuro su nero, per non abbagliarti al buio. Resta acceso finché non lo spegni.</p>
     </section>
 
     <section class="riquadro">
@@ -79,6 +82,17 @@ export async function vistaAltro(app) {
     impostaTema(t);
     segna();
   });
+  const segnaNotte = () => {
+    const b = app.querySelector('[data-notte-toggle]');
+    b.setAttribute('aria-checked', String(leggiNotte()));
+    b.classList.toggle('attiva', leggiNotte());
+    b.textContent = leggiNotte() ? 'Modo notturno rosso: acceso' : 'Modo notturno rosso: spento';
+  };
+  app.querySelector('[data-notte-toggle]').addEventListener('click', () => {
+    impostaNotte(!leggiNotte());
+    segnaNotte();
+  });
   segna();
+  segnaNotte();
   return collegaInstalla(app);
 }

@@ -13,11 +13,33 @@ export function leggiTema() {
   }
 }
 
+// Modo notturno rosso: tutto rosso scuro su nero, per non abbagliarsi (e non abbagliare gli animali) al buio.
+// Si accende da Altro > Aspetto e resta su questo dispositivo; porta con sé la modalità scura.
+const CHIAVE_NOTTE = 'orme.notte';
+export function leggiNotte() {
+  try {
+    return localStorage.getItem(CHIAVE_NOTTE) === '1';
+  } catch {
+    return false;
+  }
+}
+export function impostaNotte(si) {
+  try {
+    if (si) localStorage.setItem(CHIAVE_NOTTE, '1');
+    else localStorage.removeItem(CHIAVE_NOTTE);
+  } catch {
+    // memoria non disponibile: vale fino alla chiusura
+  }
+  applica();
+}
+
 function applica() {
   const t = leggiTema();
-  const scuro = t === 'scuro' || (t === 'auto' && Boolean(scuroDelTelefono?.matches));
+  const notte = leggiNotte();
+  const scuro = notte || t === 'scuro' || (t === 'auto' && Boolean(scuroDelTelefono?.matches));
   document.documentElement.toggleAttribute('data-scuro', scuro);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scuro ? '#10171a' : '#0f6e56');
+  document.documentElement.toggleAttribute('data-notte', notte);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', notte ? '#140000' : scuro ? '#10171a' : '#0f6e56');
 }
 
 export function impostaTema(t) {

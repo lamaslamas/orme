@@ -18,8 +18,8 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { quoteDellaScheda, quotePerSalvare } from '../lib/quoteSalvate.js';
-import L from 'leaflet';
-import { lineaTraKm } from '../lib/lungoIlPercorso.js';
+import { trattoDelPercorso } from '../lib/trattoFauna.js';
+import { segnaTrattoFauna } from './trattoMappa.js';
 import { serieDaProfilo } from '../lib/profiloCampionato.js';
 import { profiloPezzi } from '../lib/disegno.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
@@ -98,6 +98,7 @@ function htmlFauna(s, traccia) {
     ${gruppo('Lungo il percorso', altri.filter((x) => x.livello === 'percorso').map((x) => etichetta(x.animale, x)))}
     ${gruppo('Nella zona', altri.filter((x) => x.livello !== 'percorso').map((x) => etichetta(x.animale, x)))}
     <p class="tenue piccolo">Osservazioni verificate (GBIF)${s.faunaInat?.calcolato ? ` · ${escapeHtml(new Date(s.faunaInat.calcolato).toLocaleDateString('it-IT'))}` : ''} · osservazioni di volontari: non garantiscono un incontro e non sono una probabilità</p>
+    <p class="tenue piccolo">Se fotografi: ${linkCodice}</p>
   </section>`;
 }
 
@@ -212,6 +213,8 @@ import { COLORI } from './colori.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
 import { htmlFotografia, collegaFotografia, riassuntoLuce } from './fotografia.js';
+import { htmlGiornoNotte, collegaGiornoNotte } from './giornoNotte.js';
+import { linkCodice } from './codice.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
 import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
@@ -351,7 +354,7 @@ export async function vistaScheda(app, id) {
     return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · metodo CAI${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
   };
   // il punto per l'alba e il tramonto: la partenza della traccia o del sentiero, altrimenti il centro del parco
-  const trattoFauna0 = pezziTraccia.length ? s.faunaInat?.tratti?.migliore ?? null : null;
+  const trattoFauna0 = pezziTraccia.length ? trattoDelPercorso(s, traccia) : null;
   const inizioPezzi = pezziTraccia[0]?.[0];
   const centroParco = parco?.centro;
   const puntoLuce = inizioPezzi ? [inizioPezzi[0], inizioPezzi[1]] : Number.isFinite(p.lon) && Number.isFinite(p.lat) ? [p.lon, p.lat] : centroParco ? [centroParco[1], centroParco[0]] : null;
@@ -425,6 +428,7 @@ export async function vistaScheda(app, id) {
 
       ${htmlSezione('fauna', { icona: 'zampa', titolo: 'Fauna', riassunto: riassuntoFauna(s, traccia) }, htmlFauna(s, traccia))}
       ${puntoLuce ? htmlSezione('foto', { icona: 'foto', titolo: 'Luce e fotografia', riassunto: riassuntoLuce(puntoLuce) }, htmlFotografia({ conPercorso: pezziTraccia.length > 0, tratto: trattoFauna0 })) : ''}
+      ${puntoLuce && pezziTraccia.length ? htmlSezione('giornonotte', { icona: 'calendario', titolo: 'Giorno o notte?', riassunto: 'Un giorno o una notte fuori: i fatti a confronto' }, htmlGiornoNotte({ tratto: trattoFauna0 })) : ''}
 
       ${traccia ? htmlSezione('davedere', { icona: 'binocolo', titolo: 'Da vedere', riassunto: 'Cerco foto e luoghi…' }, '<div id="daVedere"></div>') : ''}
 
@@ -572,7 +576,7 @@ export async function vistaScheda(app, id) {
   // il profilo sotto i numeri: sempre visibile; senza quote si scaricano da sole da TINITALY (una volta)
   const punto = creaPuntoProfilo();
   // il tratto con più fauna (solo se la traccia è continua e il robot l'ha calcolato)
-  const trattoFauna = pezziGrezzi.length ? s.faunaInat?.tratti?.migliore ?? null : null;
+  const trattoFauna = pezziGrezzi.length ? trattoDelPercorso(s, traccia) : null;
   const boxProfilo = app.querySelector('#profiloScheda');
   // 1. le quote della traccia (GPX con quote) o quelle scaricate e salvate; 2. il profilo a 100 punti che
   // il robot ha calcolato con TINITALY per le tracce dell'archivio (subito, senza chiamare niente)
@@ -626,6 +630,7 @@ export async function vistaScheda(app, id) {
     );
   collegaSezioni(app);
   collegaFotografia(app.querySelector('[data-sezione="foto"]'), { punto: puntoLuce, pezzi: pezziTraccia, tratto: trattoFauna0, linkParco });
+  collegaGiornoNotte(app.querySelector('[data-sezione="giornonotte"]'), { id: s.id, pezzi: pezziTraccia, tratto: trattoFauna0, anello: statoGiro.anello, linkParco });
   // foto e luoghi lungo il percorso: dal file a parte; se non c'è niente la sezione sparisce
   if (traccia)
     daVedereDellaTraccia(s, traccia).then((d) => {
@@ -700,10 +705,7 @@ export async function vistaScheda(app, id) {
   punto.collega(mini);
   const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false, estremi: !traccia.dettagli?.rete }).addTo(mini);
   mini.attenuaSentieri(true);
-  if (trattoFauna) {
-    const linea = lineaTraKm(pezziGrezzi, trattoFauna.daKm, trattoFauna.aKm).map(([lon, lat]) => [lat, lon]);
-    if (linea.length > 1) L.polyline(linea, { color: '#f08c00', weight: 8, opacity: 0.85, interactive: false, lineCap: 'round' }).addTo(mini);
-  }
+  segnaTrattoFauna(mini, pezziGrezzi, trattoFauna);
   requestAnimationFrame(() => {
     mini.invalidateSize();
     mini.fitBounds(gruppo.getBounds(), { padding: [28, 28] });

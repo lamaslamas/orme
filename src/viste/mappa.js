@@ -12,6 +12,8 @@ import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
+import { segnaTrattoFauna } from './trattoMappa.js';
+import { trattoDelPercorso } from '../lib/trattoFauna.js';
 import { aggiungiLivelloPanorama } from './panorama.js';
 import { stato } from '../stato.js';
 import { impostaBanner } from './banner.js';
@@ -90,6 +92,8 @@ export async function vistaMappa(app, id) {
     avviso.textContent = 'Questo sentiero non ha ancora una traccia: i sentieri sulla mappa sono tutti quelli della zona.';
     if (!traccia) return;
     const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORE_TRACCIA, ...(traccia.dettagli?.rete ? { frecce: false, estremi: false } : {}) }).addTo(livelloTraccia);
+    // il tratto con più fauna (se il robot l'ha calcolato su questa traccia)
+    if (!traccia.dettagli?.rete) segnaTrattoFauna(livelloTraccia, percorsoSentiero(traccia.geojson).pezzi, trattoDelPercorso(sentiero, traccia));
     if (inquadra) mappa.fitBounds(gruppo.getBounds(), { padding: [36, 36] });
     // il livello panoramicità segue la traccia attuale
     if (stato.leggi().livelli.panoramicita) panorama?.ridisegna();

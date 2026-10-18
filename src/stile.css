@@ -2085,3 +2085,58 @@ body.percorso-mappa main { padding: 0; }
 .campo-km { width: 4.2em; margin-left: 4px; padding: 0 4px; border: 1px solid var(--bordo); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .foto-risposta { margin: 10px 0 6px; line-height: 1.45; }
 .profilo-tratto b { white-space: nowrap; }
+
+/* giorno o notte */
+.giorno-notte .scelta-ora { display: block; margin: 6px 0; }
+.giorno-notte .bottone { margin: 8px 0; }
+.gn-colonne { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.gn-colonne section { min-width: 0; border: 1px solid var(--bordo); border-radius: 12px; padding: 10px; }
+.gn-colonne h4 { margin: 0 0 6px; font-size: 0.95rem; }
+.gn-colonne dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; font-size: 0.82rem; }
+.gn-colonne dt { color: var(--testo-tenue); }
+.gn-colonne dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .gn-colonne { grid-template-columns: 1fr; } }
+
+/* codice di comportamento */
+.codice-regole { margin: 12px 0; padding-left: 20px; display: grid; gap: 10px; line-height: 1.45; }
+.link-codice { font-size: 0.85rem; font-weight: 600; }
+.interruttore-notte { margin-top: 12px; }
+.interruttore-notte.attiva { background: #5a0000; color: #ff6a5a; }
+
+/* --- Modo notturno rosso: rosso scuro su nero, mappe comprese --- */
+:root[data-notte] {
+  color-scheme: dark;
+  --teal: #8f1d12;
+  --verde: #8f1d12;
+  --verde-scuro: #ff8a7a;
+  --accento: #c4382a;
+  --accento-vivo: #ff8a7a;
+  --avorio: #0c0000;
+  --sfondo: #0c0000;
+  --testo: #ff6a5a;
+  --testo-tenue: #b0463b;
+  --scheda: rgba(26, 0, 0, 0.88);
+  --scheda-piena: #1a0000;
+  --chiaro-rgb: 26, 0, 0;
+  --bordo: rgba(255, 90, 74, 0.28);
+  --verde-testo: #ff6a5a;
+  --verde-chiaro: #2a0500;
+  --tonale-testo: #ff8a7a;
+  --tonale: #2a0500;
+  --avviso: #2a0800;
+  --avviso-bordo: #7a2a1a;
+  --vetro: rgba(20, 0, 0, 0.78);
+  --vetro-forte: rgba(20, 0, 0, 0.92);
+  --bordo-vetro: 1px solid rgba(255, 90, 74, 0.2);
+  --ombra: none;
+  --ombra-alta: none;
+}
+/* mappe e foto: in rosso (nessuna luce bianca o blu) */
+:root[data-notte] .leaflet-container { background: #120000; }
+:root[data-notte] .leaflet-map-pane { filter: grayscale(1) brightness(0.62) contrast(1.1); }
+/* il rosso sopra la mappa (anche i comandi): moltiplica il grigio, nessun verde né blu */
+:root[data-notte] .leaflet-container::after { content: ''; position: absolute; inset: 0; z-index: 500; background: #e0200f; mix-blend-mode: multiply; pointer-events: none; }
+:root[data-notte] img, :root[data-notte] .foto-oss, :root[data-notte] .copertina, :root[data-notte] .miniatura { filter: grayscale(1) sepia(1) hue-rotate(-50deg) saturate(3) brightness(0.55); }
+:root[data-notte] .bottone.primario, :root[data-notte] .chip-scorciatoia.attiva, :root[data-notte] .segmento.attivo { background: #7a1a10; color: #ffb0a6; border-color: #a02a1c; }
+:root[data-notte] .logo, :root[data-notte] svg { color: #ff6a5a; }
+:root[data-notte] .leaflet-control-attribution a, :root[data-notte] a { color: #ff8a7a; }

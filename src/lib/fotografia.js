@@ -51,7 +51,8 @@ export function pianoFoto({ evento, km, kmTotale, serieAndata, serieRitorno = nu
   // al tramonto: si resta fino al tramonto e poi si torna (se c'è il ritorno): il rientro dopo il crepuscolo è buio
   let rientro = null;
   if (evento === 'tramonto') {
-    const ritornoMin = serieRitorno ? minutiAlKm(serieRitorno, Math.max(0, kmTotale - km)) : andataMin;
+    // tornando da km a partenza: il ritorno comincia dalla fine della traccia, quindi si toglie il tratto già "fatto"
+    const ritornoMin = serieRitorno ? serieRitorno.min.at(-1) - minutiAlKm(serieRitorno, Math.max(0, kmTotale - km)) : andataMin;
     const fineMin = orari.tramonto + ritornoMin;
     const finoAlBuio = orari.tramontoCivile ?? orari.tramonto;
     rientro = { ritornoMin: Math.round(ritornoMin), fineMin: Math.round(fineMin), buioMin: Math.round(Math.max(0, fineMin - finoAlBuio)) };

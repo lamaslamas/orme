@@ -3,9 +3,11 @@
 import { escapeHtml, durata } from '../lib/formato.js';
 import { km1, profiloTempi } from '../lib/lungoIlPercorso.js';
 import { oraDaMinuti } from '../lib/andataRitorno.js';
-import { orariDelGiorno, pianoFoto } from '../lib/fotografia.js';
+import { orariDelGiorno, pianoFoto, ANTICIPO_ALBA_MIN } from '../lib/fotografia.js';
 import { testoTratto } from '../lib/trattoFauna.js';
 import { ICONE } from './icone.js';
+import { linkCodice } from './codice.js';
+import { leggiNotte, impostaNotte } from './tema.js';
 
 const oggiItalia = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' });
 const ora = (min) => (min == null ? '–' : oraDaMinuti(min));
@@ -35,6 +37,7 @@ export function htmlFotografia({ conPercorso, tratto }) {
     <div class="foto-piano" aria-live="polite"></div>`
         : '<p class="tenue piccolo">Senza una traccia continua non posso dirti a che ora partire: qui trovi solo gli orari della luce.</p>'
     }
+    <p class="tenue piccolo">${linkCodice} · <button type="button" class="bottone testo" data-notte-toggle>Modo notturno rosso</button></p>
     <p class="tenue piccolo">Orari calcolati sul telefono, precisi a un paio di minuti. I tempi di cammino sono una stima (metodo CAI): in pratica aggiungi un margine.</p>
   </div>`;
 }
@@ -66,18 +69,25 @@ export function collegaFotografia(box, { punto, pezzi = [], tratto = null, linkP
     const p = pianoFoto({ evento, km, kmTotale, serieAndata: andata, serieRitorno: ritorno, orari: o });
     if (!p) return void (piano.innerHTML = '');
     if (p.impossibile) return void (piano.innerHTML = `<p class="foto-risposta">${escapeHtml(p.impossibile)}</p>`);
-    const dovE = km < 0.05 ? 'alla partenza' : `al km ${km1(km)}`;
+    const alPunto = km < 0.05;
+    const nelTratto = dove === 'tratto' && Boolean(tratto);
     const dopo = p.partenzaMin < 0 ? ` (${ora(p.partenzaMin)} del giorno prima)` : '';
-    const dettaglio =
-      evento === 'alba'
-        ? `per essere ${dovE} alle ${ora(p.arrivoMin)}, 20 minuti prima dell'alba (${ora(o.alba)}).`
-        : `per essere ${dovE} alle ${ora(p.arrivoMin)}, quando inizia l'ora d'oro; tramonto alle ${ora(o.tramonto)}. Tornando indietro rientri verso le ${ora(p.rientro.fineMin)}.`;
-    piano.innerHTML = `<p class="foto-risposta"><b>Parti alle ${ora(p.partenzaMin)}${dopo}</b> ${dettaglio}${km < 0.05 ? '' : ` Cammino fin lì: ${durata(p.andataMin)}.`}</p>
+    // una sola ora di partenza e una sola di arrivo; se si è già alla partenza c'è solo l'arrivo
+    const luce = evento === 'alba' ? `${ANTICIPO_ALBA_MIN} minuti prima dell'alba (${ora(o.alba)})` : `quando inizia l'ora d'oro (tramonto alle ${ora(o.tramonto)})`;
+    const frase = alPunto
+      ? `${nelTratto ? 'Il tratto con più fauna è subito alla partenza' : 'Sei già alla partenza'}: arriva alle ${ora(p.arrivoMin)}, ${luce}.`
+      : `<b>Parti alle ${ora(p.partenzaMin)}${dopo}</b> e sei ${nelTratto ? `nel tratto con più fauna (km ${km1(km)})` : `al km ${km1(km)}`} alle ${ora(p.arrivoMin)}, ${luce}. Cammino fin lì: ${durata(p.andataMin)}.`;
+    const rientro = evento === 'tramonto' && !alPunto ? ` Tornando indietro rientri verso le ${ora(p.rientro.fineMin)}.` : '';
+    piano.innerHTML = `<p class="foto-risposta">${frase}${rientro}</p>
       ${p.avvisi
         .map((a) => `<p class="avviso-via">${ICONE.avviso}<span>${escapeHtml(a.testo)}${a.tipo === 'regole' && linkParco ? ` <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener noreferrer">Regole e chiusure del Parco ↗</a>` : ''}</span></p>`)
         .join('')}`;
   }
 
+  box.querySelector('[data-notte-toggle]')?.addEventListener('click', (e) => {
+    impostaNotte(!leggiNotte());
+    e.currentTarget.textContent = leggiNotte() ? 'Modo notturno rosso: acceso' : 'Modo notturno rosso: spento';
+  });
   box.addEventListener('input', (e) => e.target.matches('[data-foto-giorno],[data-foto-km]') && disegna());
   box.addEventListener('click', (e) => {
     const b = e.target.closest('[data-foto-evento],[data-foto-dove]');

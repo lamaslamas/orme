@@ -264,7 +264,17 @@ async function osservazioniDelParco(idParco) {
     if (!r.ok) throw new Error(`GBIF: risposta ${r.status}`);
     const json = await r.json();
     // solo i campi necessari: niente nomi degli osservatori (un codice anonimo per contarli)
-    for (const x of interpretaGbif(json)) risultati.push({ animale: x.animale, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore, data: x.data });
+    for (const x of interpretaGbif(json)) risultati.push({ animale: x.animale, nomeScientifico: x.nomeScientifico, ordine: x.ordine, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore, data: x.data });
+    if (json.endOfRecords || !json.results?.length) break;
+    await attendi(400);
+  }
+  // anche gli altri rapaci (poiana, gheppio…): servono solo al tratto con più fauna, non alle liste di specie
+  for (let pagina = 0; pagina < 100; pagina++) {
+    const url = urlOsservazioniGbif([s - m, o - m, n + m, e + m], { specie: 'notevoli', gruppi: ['rapaci'] }, { limite: 300, scarto: pagina * 300 });
+    const r = await fetch(url, { headers: { 'User-Agent': AGENTE }, signal: AbortSignal.timeout(60_000) });
+    if (!r.ok) throw new Error(`GBIF rapaci: risposta ${r.status}`);
+    const json = await r.json();
+    for (const x of interpretaGbif(json)) if (!x.animale) risultati.push({ animale: null, nomeScientifico: x.nomeScientifico, ordine: x.ordine, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore, data: x.data });
     if (json.endOfRecords || !json.results?.length) break;
     await attendi(400);
   }
@@ -274,7 +284,7 @@ async function osservazioniDelParco(idParco) {
 }
 
 // versione 2: le specie hanno anche l'anno dell'ultima osservazione
-const VERSIONE_FAUNA = 3; // 3: anche il tratto più ricco (faunaInat.tratti)
+const VERSIONE_FAUNA = 4; // 3: anche il tratto più ricco (faunaInat.tratti); 4: rapaci non sensibili contano fuori dalla nidificazione
 let faune = 0;
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;

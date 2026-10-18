@@ -24,7 +24,7 @@ export const htmlPiuGiorni = () => `<section class="riquadro piu-giorni">
   </section>`;
 
 // Parco nazionale in cui cade un punto (confine, o riquadro se manca)
-async function parcoNazionaleIn([lon, lat]) {
+export async function parcoNazionaleIn([lon, lat]) {
   const confini = await caricaConfini();
   return PARCHI.find((p) => p.nazionale && (confini[p.id]?.length ? puntoNelPoligono([lon, lat], confini[p.id]) : lat >= p.bbox[0] && lat <= p.bbox[2] && lon >= p.bbox[1] && lon <= p.bbox[3])) ?? null;
 }

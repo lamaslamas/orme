@@ -57,8 +57,8 @@ describe('quando partire', () => {
     const p = pianoFoto({ evento: 'tramonto', km: 6, kmTotale: 10, serieAndata: serie, serieRitorno: serie, orari });
     expect(p.arrivoMin).toBe(17 * 60);
     expect(p.partenzaMin).toBe(15 * 60 + 30);
-    expect(p.rientro.fineMin).toBe(17 * 60 + 50 + 60); // 4 km di ritorno = 60 minuti dopo il tramonto
-    expect(p.rientro.buioMin).toBe(17 * 60 + 50 + 60 - (18 * 60 + 20)); // 30 minuti dopo il crepuscolo civile
+    expect(p.rientro.fineMin).toBe(17 * 60 + 50 + 90); // 6 km di ritorno = 90 minuti dopo il tramonto
+    expect(p.rientro.buioMin).toBe(17 * 60 + 50 + 90 - (18 * 60 + 20)); // 60 minuti dopo il crepuscolo civile
     expect(p.avvisi.map((a) => a.tipo)).toEqual(['buio', 'regole']);
   });
   it('partenza prima di mezzanotte: lo dice e propone la notte fuori', () => {

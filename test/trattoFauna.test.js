@@ -25,6 +25,15 @@ describe('tratto con più fauna', () => {
     const o = [oss(4.1, 'a', 'orso'), oss(4.2, 'b', 'lupo'), oss(4.3, 'c', 'aquila_reale'), oss(4.4, 'd', 'cervo', { sfumata: true }), oss(4.5, 'e', 'cervo')];
     expect(trattiFauna(o, pezzi).migliore).toBeNull(); // resta un solo osservatore ammesso
   });
+  it('poiana e gheppio contano fuori dalla nidificazione; i rapaci sensibili mai; nidificazione febbraio–luglio no', () => {
+    const rap = (km, p, sci, data, extra = {}) => ({ animale: null, nomeScientifico: sci, ordine: 'Accipitriformes', data, lat: LAT + 0.0005, lon: lonAl(km), sfumata: false, osservatore: p, ...extra });
+    const ott = (sci, p) => rap(4.1, p, sci, '2025-10-05');
+    expect(trattiFauna([ott('Buteo buteo', 'a'), ott('Falco tinnunculus', 'b'), ott('Buteo buteo', 'c')], pezzi).migliore).toMatchObject({ persone: 3, specie: ['poiana', 'gheppio'] });
+    expect(trattiFauna([rap(4.2, 'a', 'Buteo buteo', '2025-06-05'), rap(4.2, 'b', 'Buteo buteo', '2025-06-06'), rap(4.2, 'c', 'Buteo buteo', '2025-06-07')], pezzi).migliore).toBeNull();
+    expect(trattiFauna([ott('Aquila chrysaetos', 'a'), ott('Bubo bubo', 'b'), ott('Gyps fulvus', 'c'), ott('Falco peregrinus', 'd'), ott('Neophron percnopterus', 'e'), ott('Falco biarmicus', 'f')], pezzi).migliore).toBeNull();
+    // una specie senza nome noto (né in Orme né tra i rapaci) non entra
+    expect(trattiFauna([ott('Specie sconosciuta', 'a'), ott('Specie sconosciuta', 'b'), ott('Specie sconosciuta', 'c')], pezzi).migliore).toBeNull();
+  });
   it('lontano dalla traccia (oltre 150 m) o senza osservatore: non conta', () => {
     const lontano = { ...oss(3, 'a'), lat: LAT + 0.003 };
     const o = [lontano, oss(3, null), oss(3.2, 'b'), oss(3.3, 'c')];
