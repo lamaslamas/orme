@@ -8,6 +8,8 @@ import { urlOsservazioniGbif, interpretaGbif, iconaPerOsservazione } from '../li
 import { conMinacciate, taxaDeiGruppi, leggiGruppiSalvati, salvaGruppiSalvati, testoGruppi } from '../lib/gruppiFauna.js';
 import { GRUPPI_FAUNA } from '../lib/costanti.js';
 import { stato } from '../stato.js';
+import { urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
+import { htmlVoceOsservazione } from './vociOsservazioni.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
   STAGIONI,
@@ -59,7 +61,22 @@ export function filtriHeatmap(st = stato.leggi()) {
 const CLASSI = new Set(['Mammalia', 'Aves']);
 
 // Nome italiano delle specie fuori dalla lista (da iNaturalist, una volta sola per specie)
-const NOMI_IT = new Map();
+// (la stessa memoria di Suggerisci: orme.nomiSpecie)
+const NOMI_IT = new Map(Object.entries(leggiNomiSalvati()));
+function leggiNomiSalvati() {
+  try {
+    return JSON.parse(localStorage.getItem('orme.nomiSpecie') ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function salvaNomi() {
+  try {
+    localStorage.setItem('orme.nomiSpecie', JSON.stringify(Object.fromEntries(NOMI_IT)));
+  } catch {
+    // senza memoria si richiedono alla prossima visita
+  }
+}
 function nomeGruppo(g) {
   return g.animale ? ANIMALI[g.animale] : NOMI_IT.get(g.scientifico) || (g.nome !== g.scientifico ? g.nome : '') || g.scientifico;
 }
@@ -67,11 +84,12 @@ async function cercaNomeItaliano(scientifico) {
   if (!scientifico || NOMI_IT.has(scientifico)) return NOMI_IT.get(scientifico);
   NOMI_IT.set(scientifico, '');
   try {
-    const r = await fetch(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(scientifico)}&rank=species&locale=it&per_page=1`);
-    const t = (await r.json()).results?.[0];
-    if (t?.name === scientifico && t.preferred_common_name) NOMI_IT.set(scientifico, t.preferred_common_name.replace(/^./, (c) => c.toUpperCase()));
+    const r = await fetch(urlNomeItaliano(scientifico));
+    NOMI_IT.set(scientifico, nomeItalianoDaRisposta(await r.json(), scientifico) ?? '');
+    salvaNomi();
   } catch {
-    // resta il nome scientifico
+    // resta il nome scientifico (si riprova alla prossima visita)
+    NOMI_IT.delete(scientifico);
   }
   return NOMI_IT.get(scientifico);
 }
@@ -215,7 +233,14 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
   let controlloIcone = null;
   let coperto = null; // { limiti, zoom, chiave }
   let iconeInfo = '';
-  let contoIcone = null; // gruppi di icone nella zona inquadrata (null = non ancora cercati)
+  let contoIcone = null; // osservazioni nella zona visibile (null = non ancora cercate); sempre lo stesso criterio, a ogni zoom
+  let contoParziale = false; // arrivate al massimo richiesto: ce ne possono essere di più
+  let ultimeOss = [];
+  // quante osservazioni (non quante icone, che cambiano con lo zoom) stanno nell'area che si vede, a fine movimento
+  const contaVisibili = () => {
+    const v = mappa.getBounds();
+    return ultimeOss.filter((o) => v.contains([o.lat, o.lon])).length;
+  };
   function raggruppa(oss) {
     const gruppi = new Map();
     for (const o of oss) {
@@ -309,8 +334,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
           `<li>${o.foto ? `<button type="button" class="foto-oss" data-foto="${datiFoto(o)}" aria-label="Apri la foto"><img src="${escapeHtml(o.foto.url)}" alt="" width="44" height="44" loading="lazy" /></button>` : ''}<span>${data(o)} · ${escapeHtml(o.fonte)} · ${link(o)}</span></li>`,
       )
       .join('');
-    return `<div class="popup-oss"><b>${escapeHtml(nomeGruppo(g))}</b>${g.animale ? '' : ` <i class="tenue">${escapeHtml(g.scientifico)}</i>`} · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
-      ${g.sfumata ? '<p class="tenue piccolo">Posizione approssimata (fino a ~20 km per le specie protette): qui è solo la zona.</p>' : ''}
+    return `<div class="popup-oss"><b>${escapeHtml(nomeGruppo(g))}</b>${g.animale || nomeGruppo(g) === g.scientifico ? '' : ` <i class="tenue">${escapeHtml(g.scientifico)}</i>`} · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
+      ${g.sfumata ? '<p class="tenue piccolo">Posizione approssimata dalla fonte: qui è solo la zona.</p>' : ''}
       ${evidenza}
       ${righe ? `<ul>${righe}</ul>` : ''}${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
   }
@@ -360,13 +385,18 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       controlloIcone?.abort();
       iconeInfo = attiva && !filtri.correggiSforzo && !senzaGruppi(filtri) ? 'Avvicinati per vedere le icone degli animali.' : '';
       contoIcone = null;
+      ultimeOss = [];
       scriviConto();
       return mappa.aggiornaLegenda?.();
     }
     // spostamento piccolo dentro la zona già caricata (stesso zoom e filtri): le icone ci sono già
     const vista = mappa.getBounds();
     const chiave = JSON.stringify(filtri);
-    if (coperto && coperto.chiave === chiave && coperto.zoom === mappa.getZoom() && coperto.limiti.contains(vista) && mappa.hasLayer(icone)) return;
+    if (coperto && coperto.chiave === chiave && coperto.zoom === mappa.getZoom() && coperto.limiti.contains(vista) && mappa.hasLayer(icone)) {
+      contoIcone = contaVisibili();
+      scriviConto();
+      return;
+    }
     // si chiede un po' più della zona visibile: i piccoli spostamenti restano coperti
     const b = vista.pad(0.25);
     controlloIcone?.abort();
@@ -379,7 +409,10 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       icone.clearLayers();
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
       // le posizioni approssimate (specie protette, atlanti) a parte, sbiadite e tratteggiate
-      for (const g of raggruppa(oss)) {
+      const gruppi = raggruppa(oss);
+      // i nomi italiani delle specie fuori dalla lista (prime 15), così il fumetto li ha già all'apertura
+      for (const sci of [...new Set(gruppi.filter((g) => !g.animale && g.scientifico).map((g) => g.scientifico))].slice(0, 15)) cercaNomeItaliano(sci);
+      for (const g of gruppi) {
         // sulla tela, non come segnaposto HTML: lo spillo sta sopra il punto (lì si tocca)
         new SegnoSuTela([g.lat, g.lon], { renderer: telaSegni(mappa), radius: 15, centro: [0, -22], disegno: disegnoSpillo(g, telaSegni(mappa)), inattivo: occupata })
           .bindPopup(() => popupGruppo(g), { offset: [0, -34] })
@@ -391,7 +424,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       }
       icone.addTo(mappa);
       coperto = { limiti: b, zoom: mappa.getZoom(), chiave };
-      contoIcone = icone.getLayers().length;
+      ultimeOss = oss;
+      contoParziale = osservazioni.length >= 300;
+      contoIcone = contaVisibili();
       const sfumate = oss.filter((o) => o.sfumata).length;
       iconeInfo = `${oss.length} osservazioni qui${sfumate ? `, di cui ${sfumate} con posizione approssimata (icone tratteggiate)` : ''}.`;
     } catch (e) {
@@ -417,7 +452,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
         : contoIcone == null
           ? ''
           : contoIcone
-            ? `${contoIcone} ${contoIcone === 1 ? 'animale' : 'animali'} qui`
+            ? `${contoIcone}${contoParziale ? '+' : ''} ${contoIcone === 1 ? 'animale' : 'animali'} qui`
             : 'nessun animale qui';
   }
   mappa.dopoIlMovimento('fauna: icone', () => aggiornaIcone(), { priorita: 3 });
@@ -589,22 +624,11 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       <h2 class="foglio-titolo">Osservazioni in questa zona</h2>
       <p class="tenue">${elenco.totale} ${elenco.totale === 1 ? 'osservazione' : 'osservazioni'}${
         elenco.totale > elenco.osservazioni.length ? (elenco.osservazioni.length === 1 ? ', la più recente' : `, le ${elenco.osservazioni.length} più recenti`) : ''
-      }. Le posizioni approssimate (specie protette, atlanti) possono essere lontane fino a ~10 km dal punto mostrato.</p>
+      }. Le posizioni approssimate dalla fonte possono essere lontane fino a ~10 km dal punto mostrato.</p>
       <ul class="elenco-oss">
         ${
           elenco.osservazioni
-            .map(
-              (o) => `<li>
-            ${o.foto ? `<button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: o.foto.url, autore: o.foto.attribuzione, licenza: o.foto.licenza ?? '', pagina: o.url, titolo: o.specie }))}"><img src="${escapeHtml(o.foto.url)}" alt="" width="64" height="64" loading="lazy" /></button>` : '<div class="senza-foto"></div>'}
-            <div>
-              <b>${escapeHtml(o.specie)}</b> <span class="tenue">${escapeHtml(o.nomeScientifico)}</span><br />
-              ${o.data ? escapeHtml(new Date(o.data).toLocaleDateString('it-IT')) : 'data non indicata'}
-              ${o.sfumata ? '<span class="chip chip-verifica">posizione approssimata</span>' : ''}<br />
-              <span class="tenue">Fonte: ${escapeHtml(o.fonte)}${o.licenza ? ` · ${escapeHtml(o.licenza)}` : ''}</span> ·
-              <a href="${escapeHtml(o.url)}" target="_blank" rel="noopener">Apri ↗</a>
-            </div>
-          </li>`,
-            )
+            .map((o) => htmlVoceOsservazione(o))
             .join('') || '<li class="vuoto">Nessuna osservazione con questi filtri in questo punto.</li>'
         }
       </ul>

@@ -104,6 +104,10 @@ function salvaVista(chiave, mappa) {
 // ricorda: chiave per ritrovare la vista (es. "mappa", "parco:pnalm"). Se c'è una vista salvata, le
 // inquadrature automatiche dell'apertura (fitBounds sul parco, sulla zona…) non la spostano:
 // si riattivano alla prima mossa di chi usa la mappa, o dopo qualche secondo.
+// I fumetti si aprono dentro l'area libera della mappa: lontano dalla ricerca e dai pulsanti in alto, dai comandi a
+// sinistra e dai pulsanti in basso (se serve la mappa si sposta da sola)
+L.Popup.mergeOptions({ autoPanPaddingTopLeft: [66, 150], autoPanPaddingBottomRight: [12, 110] });
+
 export function creaMappa(contenitore, { anteprima = false, livelli = [], ricorda = null } = {}) {
   const basi = Object.fromEntries(Object.entries(BASI).filter(([, b]) => b.crea).map(([k, b]) => [k, b.crea()]));
   // sentieri di Waymarked: tenui e solo da vicino (a scala regionale o nazionale fanno solo confusione)
@@ -121,7 +125,16 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     : { zoomControl: true };
   // canvas: molto più veloce con centinaia di tracce (i tocchi sulle linee funzionano lo stesso)
   // minZoom esplicito: senza, Leaflet prende quello dei livelli (Waymarked parte da 11) e impedisce di allontanarsi
-  const mappa = L.map(contenitore, { ...ferma, preferCanvas: true, minZoom: 5, maxZoom: 19 }).setView(CENTRO_PREDEFINITO, 11);
+  // zoomAnimation spenta: la mappa di base (MapLibre) e Leaflet non restano sincronizzati durante l'animazione dello
+  // zoom (pezzi bianchi, bordi neri, la mappa ridotta a un rettangolo); con il pizzico il disegno segue il dito
+  // lo stesso. Segnaposto e heatmap restano sempre alla loro dimensione.
+  const mappa = L.map(contenitore, { ...ferma, preferCanvas: true, minZoom: 5, maxZoom: 19, zoomAnimation: false, markerZoomAnimation: false }).setView(CENTRO_PREDEFINITO, 11);
+  // durante lo zoom (anche con due dita) i segni sulla tela e la heatmap si nascondono: Leaflet li stirerebbe
+  // (segnaposto giganti o minuscoli, macchie enormi) finché non si ridisegnano a zoom finito
+  mappa.on('zoomstart', () => contenitore.classList.add('mappa-in-zoom'));
+  mappa.on('zoomend', () => contenitore.classList.remove('mappa-in-zoom'));
+  // i fumetti si chiudono quando si sposta o si ingrandisce la mappa
+  mappa.on('dragstart zoomstart', () => mappa.closePopup());
   // sentieri: tutti (vettoriali, non segnati compresi) e sopra quelli segnati (Waymarked); entrambi
   // sopra la heatmap (350) e sotto le tracce (400), senza intercettare i tocchi
   for (const [nome, z] of [['sentieriVettoriali', 360], ['sentieriSegnati', 365]]) {

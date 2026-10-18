@@ -607,8 +607,20 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 .heat-legenda { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.75rem; color: var(--testo-tenue); }
 .heat-legenda i { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, #f5d0f5, #8b6cf0, #3c9a2a, #b5d600, #f2e600); }
 .elenco-oss { list-style: none; margin: 0 0 12px; padding: 0; }
-.elenco-oss li { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--bordo); font-size: 0.9rem; line-height: 1.45; }
-.elenco-oss img, .senza-foto { flex: none; width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--verde-chiaro); }
+.elenco-oss li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--bordo); font-size: 0.9rem; line-height: 1.45; }
+.elenco-oss img, .senza-foto { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--verde-chiaro); }
+.elenco-oss .foto-apri { width: 64px; height: 64px; }
+/* senza foto: l'icona del gruppo, non un riquadro vuoto */
+.senza-foto { display: grid; place-items: center; }
+.senza-foto svg, .senza-foto img { width: 40px; height: 40px; border-radius: 0; background: none; }
+.voce-oss-testo { min-width: 0; overflow-wrap: anywhere; }
+.voce-oss-testo a { white-space: nowrap; }
+.gruppi-attivi { margin: 0 0 8px; font-size: 0.9rem; }
+.specie-oss { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.specie-oss details { border: 1px solid var(--bordo); border-radius: 12px; padding: 8px 10px; }
+.specie-oss summary { cursor: pointer; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.specie-oss .sp-icona svg, .specie-oss .sp-icona img { width: 22px; height: 22px; vertical-align: middle; }
+.specie-oss .elenco-oss { margin: 8px 0 0; }
 .crediti { font-size: 0.7rem; color: var(--testo-tenue); margin-top: 2px; }
 .foglio p { line-height: 1.45; }
 .con-heatmap .legenda { display: none; }
@@ -1685,11 +1697,12 @@ body.home-mappa main { padding: 0; }
 }
 .fauna-azioni { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .fauna-azioni .chip-scorciatoia { flex: 0 0 auto; }
-/* "Cerca percorsi qui": in alto al centro, sotto la ricerca (fuori dai parchi) */
-.cerca-zona { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 64px); left: 50%; transform: translateX(-50%); min-height: 40px; font-size: 0.92rem; }
+/* "Cerca percorsi qui": in basso al centro, sopra "Suggerisci" e "Percorsi qui" (a 16 px), lontano dai pulsanti in alto */
+.cerca-zona { position: fixed; z-index: 1001; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + var(--altezza-pills) + 16px); left: 50%; transform: translateX(-50%); min-height: 44px; font-size: 0.92rem; }
 .cerca-zona[hidden] { display: none; }
 .cerca-zona:disabled { opacity: 1; font-weight: 600; }
-@media (min-width: 1024px) { .cerca-zona { left: calc(var(--larghezza-nav) + 50% - var(--larghezza-nav) / 2); } }
+body.pannello-aperto .cerca-zona { display: none; }
+@media (min-width: 1024px) { .cerca-zona { left: calc(var(--larghezza-nav) + 50% - var(--larghezza-nav) / 2); bottom: calc(var(--altezza-pills) + 22px); } }
 .cerca-zona { max-width: calc(100vw - 24px); }
 .cerca-zona span { overflow: hidden; text-overflow: ellipsis; }
 /* ricerca: etichetta Parco / Luogo a destra di ogni risultato */
@@ -2140,3 +2153,11 @@ body.percorso-mappa main { padding: 0; }
 :root[data-notte] .bottone.primario, :root[data-notte] .chip-scorciatoia.attiva, :root[data-notte] .segmento.attivo { background: #7a1a10; color: #ffb0a6; border-color: #a02a1c; }
 :root[data-notte] .logo, :root[data-notte] svg { color: #ff6a5a; }
 :root[data-notte] .leaflet-control-attribution a, :root[data-notte] a { color: #ff8a7a; }
+
+/* zoom in corso: i segni sulla tela e la heatmap non si stirano */
+.mappa-in-zoom .leaflet-segni-pane, .mappa-in-zoom .leaflet-heatmap-pane { opacity: 0; }
+.specie-zona.in-caricamento { opacity: 0.55; transition: opacity 0.15s; }
+.tratto-fauna-pill { background: #f08c00; color: #1d1400; font-weight: 700; }
+.percorso-mappa-sotto { gap: 8px; flex-wrap: wrap; }
+/* con la barra della Fauna in basso (mappa del percorso) i pulsanti sopra salgono */
+body:has(.pannello-heatmap:not([hidden])) .percorso-mappa-sotto { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 72px); }

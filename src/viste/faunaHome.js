@@ -48,7 +48,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   contenitore.appendChild(foglio);
   // la stessa tendina di "Percorsi qui": chiuderla (X, Esc, trascinandola in giù, o aprendone un'altra) nasconde
   // il pannello ma la Fauna resta accesa; un tocco su "Fauna" lo riapre. Si spegne dall'interruttore nel pannello
-  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', naturale: true, allaChiusura: () => mostra(false) });
+  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', allaChiusura: () => mostra(false) });
   const elenco = foglio.querySelector('.specie-zona');
 
   function disegnaScelte() {
@@ -80,16 +80,22 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       return;
     }
     const mia = ++richiesta;
-    elenco.innerHTML = '<li class="tenue">Cerco gli animali della zona…</li>';
+    // la lista di prima resta (un po' sbiadita) finché non arriva la nuova: l'altezza non cambia e la tendina non si muove
+    if (elenco.children.length) elenco.classList.add('in-caricamento');
+    else elenco.innerHTML = '<li class="tenue">Cerco gli animali della zona…</li>';
     let specie;
     try {
       const risposte = await Promise.all(ricerche.map(async (u) => (await fetch(u)).json()));
       specie = specieDellaZona(risposte, undefined, { rare: gruppi.includes('rare') ? [risposte.length - 1] : [] });
     } catch {
-      if (mia === richiesta) elenco.innerHTML = '<li class="tenue">Animali non disponibili ora (sei offline?).</li>';
+      if (mia === richiesta) {
+        elenco.classList.remove('in-caricamento');
+        if (!elenco.querySelector('[data-taxon]')) elenco.innerHTML = '<li class="tenue">Animali non disponibili ora (sei offline?).</li>';
+      }
       return;
     }
     if (mia !== richiesta || !foglio.isConnected) return;
+    elenco.classList.remove('in-caricamento');
     elenco.innerHTML = specie.length
       ? specie
           .map(
