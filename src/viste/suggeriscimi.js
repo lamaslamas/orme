@@ -49,7 +49,7 @@ import { calcolaPercorso, PREFERENZA_SEGNATI } from '../lib/brouter.js';
 import { trattiARischio, ACCESSI_REGOLATI } from '../lib/avvisiParco.js';
 import { distanzaKm } from '../lib/geo.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
-import { leggiBozza, salvaBozza } from '../lib/bozza.js';
+import { leggiBozza, salvaBozza, impostaAperturaDisegno } from '../lib/bozza.js';
 import {
   LUNGHEZZE,
   DIREZIONI,
@@ -781,6 +781,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const punti = puntiLungo(v.linea, 1.2);
     if ((leggiBozza()?.punti?.length ?? 0) > 1 && !confirm('Sostituire il percorso che stai disegnando con questo anello?')) return;
     salvaBozza(punti);
+    impostaAperturaDisegno('bozza'); // si apre sull'anello, non sulla vista della mappa
     location.hash = '#/percorso-nuovo';
   }
 

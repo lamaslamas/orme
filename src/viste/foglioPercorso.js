@@ -9,7 +9,7 @@ import { ACCESSI } from '../lib/costanti.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
 import { puntiLungoIlPercorso, riassuntoPunti } from '../lib/puntiUtili.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
-import { iniziaBozza, aggiungiABozza } from '../lib/bozza.js';
+import { iniziaBozza, aggiungiABozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { copertina } from './daVedere.js';
 import { caricaPunti } from './puntiUtili.js';
@@ -132,6 +132,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
       const punto = Array.isArray(p) ? p : [p.lon, p.lat];
       if (b.dataset.azione === 'inizia') iniziaBozza(punto);
       else aggiungiABozza(punto);
+      impostaAperturaDisegno(aperturaDaMappa(mappa, punto)); // la vista della mappa, centrata su quel punto
       location.hash = '#/percorso-nuovo';
     } else if (b.dataset.azione === 'itinerari' && attuale?.tocco) {
       const [lng, lat] = attuale.tocco;

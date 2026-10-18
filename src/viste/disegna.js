@@ -7,7 +7,7 @@ import { tendinaTrascinabile, finestraTrascinabile } from './tendina.js';
 import { leggiPercorso, salvaPercorso } from '../db.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
-import { leggiBozza, salvaBozza, cancellaBozza } from '../lib/bozza.js';
+import { leggiBozza, salvaBozza, cancellaBozza, consumaAperturaDisegno } from '../lib/bozza.js';
 import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi } from '../lib/disegno.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
 import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
@@ -405,8 +405,13 @@ export async function vistaDisegna(app, id = null) {
     location.hash = `#/percorso/${encodeURIComponent(nuovo.id)}`;
   });
 
-  // all'apertura: la mappa sul percorso (o sulla bozza)
-  if (punti.length) {
+  // all'apertura: la stessa vista della mappa da cui si è aperto il disegno (centro e zoom); solo "Riprendi" una
+  // bozza (o la modifica di un percorso) apre sulla bozza o sul percorso
+  const apertura = esistente ? null : consumaAperturaDisegno();
+  if (apertura) {
+    mappa.sbloccaInquadrature?.();
+    mappa.setView(apertura.centro, apertura.zoom, { animate: false });
+  } else if (punti.length) {
     mappa.sbloccaInquadrature?.();
     if (punti.length === 1) mappa.setView([punti[0].p[1], punti[0].p[0]], 15);
     else mappa.fitBounds(punti.map(({ p }) => [p[1], p[0]]), { paddingTopLeft: [30, 80], paddingBottomRight: [30, 220], maxZoom: 15 });

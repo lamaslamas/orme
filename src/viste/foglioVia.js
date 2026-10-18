@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { queryViaVicina, viaDallaRisposta, viaVietata } from '../lib/viaOsm.js';
 import { puntoNelPoligono } from '../lib/confini.js';
-import { iniziaBozza, aggiungiABozza, leggiBozza } from '../lib/bozza.js';
+import { iniziaBozza, aggiungiABozza, leggiBozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { escapeHtml } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
 import { caricaConfini } from './copertura.js';
@@ -157,9 +157,11 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
     if (azione === 'chiudi') chiudi();
     else if (azione === 'inizia' && punto) {
       iniziaBozza(punto);
+      impostaAperturaDisegno(aperturaDaMappa(mappa, punto));
       location.hash = '#/percorso-nuovo';
     } else if (azione === 'aggiungi' && punto) {
       aggiungiABozza(punto);
+      impostaAperturaDisegno(aperturaDaMappa(mappa, punto));
       location.hash = '#/percorso-nuovo';
     }
   });

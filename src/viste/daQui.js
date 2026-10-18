@@ -7,7 +7,7 @@ import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { percorsiDaQui, RAGGI_DA_QUI, RAGGIO_DA_QUI } from '../lib/daQui.js';
 import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
-import { iniziaBozza } from '../lib/bozza.js';
+import { iniziaBozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { registraPannello, annunciaPannello, aggiornaClasse, collegaEsc } from './pannelli.js';
 
 const MOSTRATI = 10;
@@ -161,6 +161,7 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false, creaAnell
       if (azione === 'chiudi') chiudi();
       if (azione === 'disegna' && punto) {
         iniziaBozza(punto);
+        impostaAperturaDisegno(aperturaDaMappa(mappa, punto)); // centrato sul punto scelto
         location.hash = '#/percorso-nuovo';
       }
       if (azione === 'anello' && punto) {

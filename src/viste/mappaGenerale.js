@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import { geojsonUnito } from '../lib/tracce.js';
-import { leggiBozza, cancellaBozza } from '../lib/bozza.js';
+import { leggiBozza, cancellaBozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
 import { tendinaTrascinabile } from './tendina.js';
@@ -642,13 +642,21 @@ export async function vistaMappaGenerale(app, idParco = null) {
   };
   mappa.dopoIlMovimento('pulsante «Cerca percorsi qui»', aggiornaBottoneZona, { priorita: 2 });
 
+  // la matita e «Disegna un percorso»: il disegno si apre con la vista di questa mappa
+  app.addEventListener('click', (e) => {
+    if (e.target.closest('a[href="#/percorso-nuovo"]')) impostaAperturaDisegno(aperturaDaMappa(mappa));
+  });
+
   // una bozza del disegno rimasta salvata: avviso con "Riprendi" ed "Elimina"
   const avvisoBozza = app.querySelector('#avvisoBozza');
   const aggiornaBozza = () => (avvisoBozza.hidden = (leggiBozza()?.punti?.length ?? 0) === 0);
   aggiornaBozza();
   avvisoBozza.addEventListener('click', (e) => {
     const azione = e.target.closest('[data-bozza]')?.dataset.bozza;
-    if (azione === 'riprendi') location.hash = '#/percorso-nuovo';
+    if (azione === 'riprendi') {
+      impostaAperturaDisegno('bozza');
+      location.hash = '#/percorso-nuovo';
+    }
     else if (azione === 'elimina' && confirm('Eliminare la bozza del percorso che stavi disegnando?')) {
       cancellaBozza();
       aggiornaBozza();
