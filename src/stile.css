@@ -2174,3 +2174,9 @@ body:has(.pannello-heatmap:not([hidden])) .percorso-mappa-sotto { bottom: calc(v
 body.pannello-aperto .avviso-bozza { display: none; }
 /* con il pannello dei livelli aperto, avviso della bozza e «Cerca percorsi qui» non lo coprono */
 body:has(.pannello-livelli:not([hidden])) .cerca-zona, body:has(.pannello-livelli:not([hidden])) .avviso-bozza { display: none; }
+
+/* proposte di Suggerisci rimaste sulla mappa a foglio chiuso */
+.avviso-proposte { position: fixed; z-index: 1000; top: calc(env(safe-area-inset-top) + 66px); left: 64px; padding: 6px 12px; border-radius: 16px; background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra); font-size: 0.82rem; }
+.avviso-proposte[hidden] { display: none; }
+body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
+@media (min-width: 1024px) { .avviso-proposte { left: calc(var(--larghezza-nav) + 64px); } }

@@ -857,6 +857,32 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     disegnate.clearLayers();
     document.body.classList.remove('suggerisci-aperto');
   }
-  mappa.on('unload', () => foglio.parentElement?.remove());
+  // le proposte stanno sulla mappa solo con Suggerisci aperto: appena si nasconde (X, Esc, un altro pannello, trascinandolo
+  // in giù) spariscono. Se per qualunque motivo restano, un avviso «Proposte di Suggerisci · Nascondi» le toglie.
+  const avvisoProposte = document.createElement('div');
+  avvisoProposte.className = 'avviso-proposte';
+  avvisoProposte.hidden = true;
+  avvisoProposte.innerHTML = '<span>Proposte di Suggerisci</span> · <button type="button" class="link">Nascondi</button>';
+  contenitore.appendChild(avvisoProposte);
+  avvisoProposte.querySelector('button').addEventListener('click', () => disegnate.clearLayers());
+  const aggiornaAvvisoProposte = () => {
+    const restano = disegnate.getLayers().length > 0 && foglio.hidden;
+    avvisoProposte.hidden = !restano;
+    document.body.classList.toggle('con-proposte', restano);
+  };
+  disegnate.on('layeradd layerremove', aggiornaAvvisoProposte);
+  new MutationObserver(() => {
+    if (foglio.hidden) disegnate.clearLayers();
+    aggiornaAvvisoProposte();
+  }).observe(foglio, { attributes: true, attributeFilter: ['hidden'] });
+  // un altro pannello o strumento si apre: Suggerisci, se non è quello aperto, non lascia proposte
+  const allAltroPannello = () => foglio.hidden && disegnate.clearLayers();
+  window.addEventListener('orme:pannello', allAltroPannello);
+  mappa.on('unload', () => {
+    window.removeEventListener('orme:pannello', allAltroPannello);
+    avvisoProposte.remove();
+    document.body.classList.remove('con-proposte');
+    foglio.parentElement?.remove();
+  });
   return { apri, apriAnelloDa, chiudi, aperto: () => !foglio.hidden };
 }
