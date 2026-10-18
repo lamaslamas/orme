@@ -453,7 +453,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
           ? ''
           : contoIcone
             ? `${contoIcone}${contoParziale ? '+' : ''} ${contoIcone === 1 ? 'animale' : 'animali'} qui`
-            : 'nessun animale qui';
+            : "Nessuna osservazione in quest'area";
   }
   mappa.dopoIlMovimento('fauna: icone', () => aggiornaIcone(), { priorita: 3 });
   mappa.vociLegenda?.push(() => (stato.leggi().livelli.heatmap && iconeInfo ? `<p class="voce-legenda tenue piccolo">Icone: ${escapeHtml(iconeInfo)}</p>` : ''));
@@ -479,7 +479,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       tileSize: 512,
       zoomOffset: -1,
       minNativeZoom: 1,
-      maxNativeZoom: 17,
+      // le tessere di iNaturalist esistono fino all'indirizzo di zoom 15 (zoom della mappa 16, con tessere da 512 px): oltre
+      // si ingrandisce l'ultima disponibile invece di non mostrare niente
+      maxNativeZoom: 16,
       maxZoom: 19,
       attribution: 'Heatmap © <a href="https://www.inaturalist.org" target="_blank" rel="noopener">iNaturalist</a>, osservazioni <a href="https://www.gbif.org" target="_blank" rel="noopener">GBIF</a> (CC)',
     }).addTo(mappa);

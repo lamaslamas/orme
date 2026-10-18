@@ -2163,3 +2163,4 @@ body.percorso-mappa main { padding: 0; }
 body:has(.pannello-heatmap:not([hidden])) .percorso-mappa-sotto { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 72px); }
 .avviso-incompleta { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; font-size: 0.82rem; color: var(--testo); }
 .avviso-incompleta svg { flex: none; width: 16px; height: 16px; }
+.heat-conto { white-space: normal; max-width: 9.5rem; line-height: 1.2; }

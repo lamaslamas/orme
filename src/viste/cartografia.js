@@ -132,7 +132,8 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
   // durante lo zoom (anche con due dita) i segni sulla tela e la heatmap si nascondono: Leaflet li stirerebbe
   // (segnaposto giganti o minuscoli, macchie enormi) finché non si ridisegnano a zoom finito
   mappa.on('zoomstart', () => contenitore.classList.add('mappa-in-zoom'));
-  mappa.on('zoomend', () => contenitore.classList.remove('mappa-in-zoom'));
+  // (anche a fine movimento: se uno zoom viene interrotto i segni non restano nascosti)
+  mappa.on('zoomend moveend', () => contenitore.classList.remove('mappa-in-zoom'));
   // i fumetti si chiudono quando si sposta o si ingrandisce la mappa
   mappa.on('dragstart zoomstart', () => mappa.closePopup());
   // sentieri: tutti (vettoriali, non segnati compresi) e sopra quelli segnati (Waymarked); entrambi
