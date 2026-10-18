@@ -145,6 +145,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   const tela = L.canvas({ pane: 'proposte' });
   const disegnate = L.layerGroup().addTo(mappa);
+  // le proposte sulla mappa hanno una voce nella legenda del pulsante dei livelli
+  mappa.vociLegenda?.push(() =>
+    disegnate.getLayers().length
+      ? `<div class="voce-legenda"><b>Proposte di Suggerisci</b><ul class="legenda-sentieri">${COLORI_PROPOSTE.map((c, i) => `<li><svg viewBox="0 0 34 10" width="34" height="10" aria-hidden="true"><path d="M2 5H32" stroke="#fff" stroke-width="8" stroke-linecap="round"/><path d="M2 5H32" stroke="${c}" stroke-width="5" stroke-linecap="round"/></svg>Proposta ${i + 1} (quadrato col numero: la partenza)</li>`).join('')}</ul><p class="tenue piccolo">Toccando il quadrato si apre il riquadro; \"P\" è la partenza degli anelli.</p></div>`
+      : '',
+  );
 
   let classifica = [];
   let mostrate = 0;
@@ -491,8 +497,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         L.marker([p.lat, p.lon], {
           icon: L.divIcon({ className: 'segno-proposta', html: `<span style="background:${COLORI_PROPOSTE[i]}">${i + 1}</span>`, iconSize: [26, 26] }),
           keyboard: false,
-          interactive: false,
-        }).addTo(disegnate);
+          title: `Proposta ${i + 1}`,
+        })
+          .bindPopup(`<div class="popup-sentiero"><b>Proposta ${i + 1} di Suggerisci</b><br>${escapeHtml(v.sentiero.nome)}<br><span class="tenue piccolo">Partenza del percorso.</span><br><a class="bottone primario popup-apri" href="#/sentiero/${encodeURIComponent(v.sentiero.id)}">Apri la scheda ›</a></div>`)
+          .addTo(disegnate);
       }
       limiti.extend(linea.getBounds());
     });
@@ -719,15 +727,19 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       L.marker([meta[1], meta[0]], {
         icon: L.divIcon({ className: 'segno-proposta', html: `<span style="background:${COLORI_PROPOSTE[i]}">${i + 1}</span>`, iconSize: [26, 26] }),
         keyboard: false,
-        interactive: false,
-      }).addTo(disegnate);
+        title: `Anello ${i + 1}`,
+      })
+        .bindPopup(`<div class="popup-sentiero"><b>Anello ${i + 1} di Suggerisci</b><br><span class="tenue piccolo">Giro creato dall'app sui sentieri della zona (non è un percorso salvato): aprilo nell'elenco per modificarlo o salvarlo.</span></div>`)
+        .addTo(disegnate);
       limiti.extend(linea.getBounds());
     });
     L.marker([partenza[1], partenza[0]], {
       icon: L.divIcon({ className: 'segno-proposta', html: '<span style="background:#222">P</span>', iconSize: [26, 26] }),
       keyboard: false,
-      interactive: false,
-    }).addTo(disegnate);
+      title: 'Partenza degli anelli',
+    })
+      .bindPopup('<div class="popup-sentiero"><b>Partenza degli anelli</b><br><span class="tenue piccolo">Da qui partono gli anelli proposti da Suggerisci.</span></div>')
+      .addTo(disegnate);
     risultati.innerHTML = `
       <ol class="proposte">${anelliOra.map(htmlAnello).join('')}</ol>
       <div class="azioni-proposte">${!suiSegnati || restano > 0 || anelliOra.length === PER_VOLTA ? '<button type="button" class="bottone" data-azione="rigenera">Rigenera</button>' : ''}</div>

@@ -2164,3 +2164,13 @@ body:has(.pannello-heatmap:not([hidden])) .percorso-mappa-sotto { bottom: calc(v
 .avviso-incompleta { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0; font-size: 0.82rem; color: var(--testo); }
 .avviso-incompleta svg { flex: none; width: 16px; height: 16px; }
 .heat-conto { white-space: normal; max-width: 9.5rem; line-height: 1.2; }
+
+/* bozza del disegno rimasta salvata (mappa principale) */
+.avviso-bozza { position: fixed; z-index: 1000; top: calc(env(safe-area-inset-top) + 66px); left: 64px; right: 112px; display: grid; gap: 4px; padding: 8px 10px; border-radius: 14px; background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra); font-size: 0.82rem; }
+.avviso-bozza[hidden] { display: none; }
+.avviso-bozza .azioni-bozza { display: flex; gap: 6px; }
+.avviso-bozza .bottone { min-height: 34px; padding: 4px 10px; font-size: 0.8rem; }
+@media (min-width: 1024px) { .avviso-bozza { left: calc(var(--larghezza-nav) + 64px); right: auto; width: 240px; } }
+body.pannello-aperto .avviso-bozza { display: none; }
+/* con il pannello dei livelli aperto, avviso della bozza e «Cerca percorsi qui» non lo coprono */
+body:has(.pannello-livelli:not([hidden])) .cerca-zona, body:has(.pannello-livelli:not([hidden])) .avviso-bozza { display: none; }

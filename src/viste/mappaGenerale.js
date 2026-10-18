@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import { geojsonUnito } from '../lib/tracce.js';
+import { leggiBozza, cancellaBozza } from '../lib/bozza.js';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { creaLivelloUscite, htmlUsciteDelSentiero } from './livelloUscite.js';
 import { tendinaTrascinabile } from './tendina.js';
@@ -226,6 +227,11 @@ export async function vistaMappaGenerale(app, idParco = null) {
       <label class="ricerca">${ICONE.cerca ?? ''}<input type="search" name="luogo" placeholder="Luogo o parco" aria-label="Cerca un luogo o un parco" autocomplete="off" enterkeyhint="search" /></label>
       <ul class="risultati-luogo" hidden></ul>
     </form>
+    <div class="avviso-bozza" id="avvisoBozza" role="status" hidden>
+      <b>Bozza in sospeso</b>
+      <span class="tenue piccolo">Un percorso che stavi disegnando</span>
+      <span class="azioni-bozza"><button type="button" class="bottone primario" data-bozza="riprendi">Riprendi</button><button type="button" class="bottone" data-bozza="elimina">Elimina</button></span>
+    </div>
     <button type="button" class="pill-mappa cerca-zona" id="cercaZona" hidden>${ICONE.cerca}<span>Cerca percorsi qui</span></button>
     <div class="home-sotto">
       <button type="button" class="pill-mappa" id="apriSuggerisci">${ICONE.bussola}<span>Suggerisci</span></button>
@@ -635,6 +641,19 @@ export async function vistaMappaGenerale(app, idParco = null) {
     if (bottoneZona.isConnected) aggiornaBottoneZona();
   };
   mappa.dopoIlMovimento('pulsante «Cerca percorsi qui»', aggiornaBottoneZona, { priorita: 2 });
+
+  // una bozza del disegno rimasta salvata: avviso con "Riprendi" ed "Elimina"
+  const avvisoBozza = app.querySelector('#avvisoBozza');
+  const aggiornaBozza = () => (avvisoBozza.hidden = (leggiBozza()?.punti?.length ?? 0) === 0);
+  aggiornaBozza();
+  avvisoBozza.addEventListener('click', (e) => {
+    const azione = e.target.closest('[data-bozza]')?.dataset.bozza;
+    if (azione === 'riprendi') location.hash = '#/percorso-nuovo';
+    else if (azione === 'elimina' && confirm('Eliminare la bozza del percorso che stavi disegnando?')) {
+      cancellaBozza();
+      aggiornaBozza();
+    }
+  });
   aggiornaBottoneZona();
   bottoneZona.addEventListener('click', () => {
     const c = mappa.getCenter();

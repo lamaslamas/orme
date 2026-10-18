@@ -30,6 +30,12 @@ export function creaLivelloUscite(mappa, { coloreBordo }) {
   mappa.getPane('uscite').style.pointerEvents = 'none';
   const gruppo = L.layerGroup();
   let voci = [];
+  // nella legenda del pulsante dei livelli: tratteggio terracotta
+  mappa.vociLegenda?.push(() =>
+    mappa.hasLayer(gruppo) && gruppo.getLayers().length
+      ? `<div class="voce-legenda"><b>Uscite delle associazioni</b><ul class="legenda-sentieri"><li><svg viewBox="0 0 34 10" width="34" height="10" aria-hidden="true"><path d="M2 5H32" stroke="${COLORI.uscita}" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 5"/></svg>Sentieri usati dalle uscite (toccali per la scheda)</li></ul></div>`
+      : '',
+  );
   function disegna() {
     gruppo.clearLayers();
     for (const v of voci) {

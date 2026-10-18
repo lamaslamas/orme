@@ -25,6 +25,12 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false, creaAnell
     mappa.getPane('evidenza').style.zIndex = 445; // sopra le tracce, sotto i nomi dei luoghi
   }
   const livello = L.layerGroup().addTo(mappa);
+  // nella legenda del pulsante dei livelli: i percorsi che passano dal punto scelto
+  mappa.vociLegenda?.push(() =>
+    livello.getLayers().length
+      ? `<div class="voce-legenda"><b>Percorsi da qui</b><ul class="legenda-sentieri"><li><svg viewBox="0 0 34 10" width="34" height="10" aria-hidden="true"><path d="M2 5H32" stroke="#fff" stroke-width="8" stroke-linecap="round"/><path d="M2 5H32" stroke="${EVIDENZA}" stroke-width="5" stroke-linecap="round"/></svg>Percorsi che passano dal punto scelto (il cerchio arancione è il raggio)</li></ul></div>`
+      : '',
+  );
   let scegliendo = false;
   let punto = null;
   let raggio = RAGGIO_DA_QUI;
