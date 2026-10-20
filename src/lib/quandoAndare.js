@@ -92,3 +92,34 @@ export function quoteMeteoDaiPezzi(pezzi) {
     min: Math.round(Math.min(...punti.map((p) => p[2]))),
   };
 }
+
+// Avvisi sugli orari, ciascuno per il suo motivo (nessuno se non c'è un problema vero):
+// - partenza già passata (oggi): "Le 12:00 di oggi sono già passate"
+// - arrivo o rientro oltre l'ultima luce utile (mezz'ora prima del tramonto, come in Suggerisci):
+//   "Rientro alle 20:47, dopo il tramonto (18:12)"
+const hhmm = (min) => {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+export const MARGINE_TRAMONTO_MIN = 30;
+export function avvisiOrari({ oggi = false, partenzaMin, adessoMin = null, fineMin, tramontoMin = null, conRientro = false }) {
+  const avvisi = [];
+  if (oggi && partenzaPassata(partenzaMin, adessoMin)) avvisi.push(`Le ${hhmm(partenzaMin)} di oggi sono già passate`);
+  if (Number.isFinite(tramontoMin) && Number.isFinite(fineMin) && fineMin > tramontoMin - MARGINE_TRAMONTO_MIN) {
+    const quando = fineMin > tramontoMin ? 'dopo il tramonto' : "a meno di mezz'ora dal tramonto";
+    avvisi.push(`${conRientro ? 'Rientro' : 'Arrivo'} alle ${hhmm(fineMin)}, ${quando} (${hhmm(tramontoMin)})`);
+  }
+  return avvisi;
+}
+
+// Giorno e ora con cui si apre la pagina di un sentiero: quelli di Suggerisci, se si arriva da lì; altrimenti oggi
+// all'ora solita, ma se è già passata o non lascia luce per finire il percorso, domani alle 8:00
+export function giornoOraIniziali({ oggi, domani, adessoMin, oraSolita, durataMin, tramontoOggiMin = null, daSuggerisci = null }) {
+  if (daSuggerisci?.giorno && daSuggerisci?.ora) return { giorno: daSuggerisci.giorno, ora: daSuggerisci.ora, motivo: 'suggerisci' };
+  const [h, m] = String(oraSolita ?? '09:00').split(':').map(Number);
+  const partenza = h * 60 + m;
+  const passata = partenzaPassata(partenza, adessoMin);
+  const senzaLuce = Number.isFinite(tramontoOggiMin) && Number.isFinite(durataMin) && partenza + durataMin > tramontoOggiMin - MARGINE_TRAMONTO_MIN;
+  if (passata || senzaLuce) return { giorno: domani, ora: '08:00', motivo: passata ? 'passata' : 'luce' };
+  return { giorno: oggi, ora: oraSolita, motivo: null };
+}

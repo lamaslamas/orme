@@ -38,7 +38,11 @@ export function htmlPanorama(s, traccia, idUrl) {
     </div>
     ${htmlFotoBelvedere(p.belvedere)}
     ${p.migliore ? `<p class="piccolo">Tratto più panoramico: <b>km ${km(p.migliore.daKm)}–${km(p.migliore.aKm)}</b>${stessaTraccia ? ` · <a href="#/sentiero/${idUrl}/mappa" data-azione="mostra-panorama">vedi sulla mappa</a>` : ''}</p>` : ''}
-    ${!stessaTraccia && traccia ? '<p class="tenue piccolo">Calcolato sulla traccia dell\'archivio: la tua traccia è diversa.</p>' : ''}
+    ${
+      !stessaTraccia && traccia && traccia.origine && traccia.origine !== 'osm'
+        ? '<p class="tenue piccolo">Hai caricato una traccia tua: indice, belvedere e tratto più panoramico sono calcolati sulla traccia dell\'archivio, quindi possono non corrispondere alla tua (ad esempio i km del tratto più panoramico).</p>'
+        : ''
+    }
     <details class="spiegazione">
       <summary>Come si calcola</summary>
       <ul class="panorama-criteri">${Object.entries(PESI)

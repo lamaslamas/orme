@@ -2,7 +2,7 @@
 // Andata e ritorno (ricordato sul telefono), righe Andata, Ritorno e Totale, e gli orari del giorno
 // scelto con il tramonto calcolato nel punto di partenza. Gli anelli hanno solo il giro e gli orari.
 import { MODI, orariGiornata, oraDaMinuti, minutiDaOra, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
-import { TESTO_TARDI, partenzaPassata } from '../lib/quandoAndare.js';
+import { avvisiOrari } from '../lib/quandoAndare.js';
 import { albaTramonto, oraItaliana, minutiItaliani } from '../lib/sole.js';
 import { durata, escapeHtml } from '../lib/formato.js';
 import { ICONE } from './icone.js';
@@ -44,10 +44,13 @@ function riga(nome, m, classe = '') {
 }
 
 // ar: misureAR(...); partenza: [lon, lat]; nomeArrivo: per "arrivo a …" (facoltativo)
-export function htmlAndataRitorno(ar, modo = modoScelto()) {
+// iniziali: { giorno, ora } con cui si apre (di base oggi e l'ora solita)
+export function htmlAndataRitorno(ar, modo = modoScelto(), iniziali = null) {
   const conAR = !ar.anello && ar.totale;
-  return `<section class="riquadro andata-ritorno" aria-label="Andata e ritorno">
-    <h2>${ar.anello ? 'Il giro' : 'Andata e ritorno'}</h2>
+  const giorno = iniziali?.giorno ?? oggi();
+  const ora = iniziali?.ora ?? oraRicordata();
+  return `<section class="riquadro andata-ritorno" aria-label="Percorrenza">
+    <h2>${ar.anello ? 'Il giro' : 'Percorrenza'}</h2>
     ${ar.roundtripAperto ? '<p class="tenue piccolo">OSM lo indica come anello, ma la traccia non si chiude.</p>' : ''}
     ${
       conAR
@@ -61,11 +64,11 @@ export function htmlAndataRitorno(ar, modo = modoScelto()) {
     <table class="tabella-ar">
       ${ar.anello ? riga('Giro', ar.andata, 'totale') : conAR && modo === 'ar' ? riga('Andata', ar.andata) + riga('Ritorno', ar.ritorno) + riga('Totale', ar.totale, 'totale') : riga('Andata', ar.andata, 'totale')}
     </table>
-    <p class="tenue piccolo">Tempi CAI senza soste${conAR ? ', calcolati nei due sensi' : ''}${ar.andata.salita == null ? ' (senza le quote: solo dai km)' : ''}.</p>
+    <p class="tenue piccolo">Tempi CAI senza soste${conAR && modo === 'ar' ? ', calcolati nei due sensi' : ''}${ar.andata.salita == null ? ' (senza le quote: solo dai km)' : ''}.</p>
     <div class="orari-ar">
       <div class="orari-scelte">
-        <label>Giorno <input type="date" data-giorno value="${oggi()}" /></label>
-        <label>Partenza <input type="time" data-ora value="${escapeHtml(oraRicordata())}" step="300" /></label>
+        <label>Giorno <input type="date" data-giorno value="${escapeHtml(giorno)}" /></label>
+        <label>Partenza <input type="time" data-ora value="${escapeHtml(ora)}" step="300" /></label>
       </div>
       <div class="orari-risultato" aria-live="polite"></div>
     </div>
@@ -86,16 +89,21 @@ export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () 
     const conRitorno = modo === 'ar' && ar.ritorno && !ar.anello;
     const o = orariGiornata({ partenzaMin, andataMin: ar.andata.durataMin, ritornoMin: conRitorno ? ar.ritorno.durataMin : null, tramontoMin: minutiItaliani(tramonto) });
     const fine = ar.anello ? `rientro <b>${oraDaMinuti(o.fineMin)}</b>` : conRitorno ? `arrivo <b>${oraDaMinuti(o.arrivoMin)}</b> · rientro <b>${oraDaMinuti(o.rientroMin)}</b>` : `arrivo <b>${oraDaMinuti(o.arrivoMin)}</b>`;
-    // oggi con la partenza già passata: «è tardi», non un giudizio sulla luce
+    // un avviso per ogni problema vero (partenza passata, fine oltre l'ultima luce utile), altrimenti l'ora utile
     const adesso = new Date();
-    const passata = giorno === oggi() && partenzaPassata(partenzaMin, adesso.getHours() * 60 + adesso.getMinutes());
-    const luce = passata
-      ? `<p class="avviso-luce">${ICONE.avviso}<span>${TESTO_TARDI}</span></p>`
+    const avvisi = avvisiOrari({
+      oggi: giorno === oggi(),
+      partenzaMin,
+      adessoMin: adesso.getHours() * 60 + adesso.getMinutes(),
+      fineMin: o.fineMin,
+      tramontoMin: tramonto ? minutiItaliani(tramonto) : null,
+      conRientro: Boolean(conRitorno || ar.anello),
+    });
+    const luce = avvisi.length
+      ? avvisi.map((t) => `<p class="avviso-luce">${ICONE.avviso}<span>${escapeHtml(t)}</span></p>`).join('')
       : tramonto
-      ? o.tardi
-        ? `<p class="avviso-luce">${ICONE.avviso}<span>${conRitorno || ar.anello ? 'Rientri' : 'Arrivi'} dopo l'ultima luce utile (tramonto ${oraItaliana(tramonto)}, margine ${MARGINE_LUCE_MIN} min): parti entro le ${oraDaMinuti(o.ultimaPartenzaMin)}. Nei boschi e nelle valli il buio arriva prima.</span></p>`
-        : `<p class="tenue">Tramonto ${oraItaliana(tramonto)} alla partenza · parti entro le <b>${oraDaMinuti(o.ultimaPartenzaMin)}</b> per ${conRitorno || ar.anello ? 'rientrare' : 'arrivare'} con la luce</p>`
-      : '';
+        ? `<p class="tenue">Tramonto ${oraItaliana(tramonto)} alla partenza · parti entro le <b>${oraDaMinuti(o.ultimaPartenzaMin)}</b> per ${conRitorno || ar.anello ? 'rientrare' : 'arrivare'} con la luce</p>`
+        : '';
     risultato.innerHTML = `<p>${fine}</p>${luce}`;
   }
   sezione.addEventListener('input', (e) => {

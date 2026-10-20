@@ -8,7 +8,8 @@ import { stato } from '../stato.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { eUscita, FILTRI_VUOTI } from '../lib/filtri.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
-import { percorsoSentiero, tracciaDaNonUsare } from '../lib/tracce.js';
+import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tracce.js';
+import { versoInvertito } from '../lib/verso.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { linkCodice } from './codice.js';
@@ -336,7 +337,9 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       .filter((p) => scelte.distanza !== 'parco' || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
       .map((p) => {
         const s = p.sentiero;
-        const pezzi = percorsoSentiero(p.traccia.geojson).pezzi;
+        // nel verso scelto con "Inverti senso": per due giorni il rifugio è a fine primo giorno in quel verso
+        const grezzi = percorsoSentiero(p.traccia.geojson);
+        const pezzi = (versoInvertito(s.id) ? invertiPercorso(grezzi) : grezzi).pezzi;
         const quote = quoteDellaTraccia(s, p.traccia);
         const incompleta = tracciaDaNonUsare(s, p.traccia).incompleta;
         const anello = !incompleta && eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });
@@ -1083,6 +1086,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       // si apre la pagina del sentiero (il link fa il resto, con la cronologia): la lista si ritrova tornando indietro
       const ris = foglio.querySelector('.suggerisci-risultati');
       idEvidenziato = aperto.dataset.apriSentiero;
+      // la pagina del sentiero si apre con il giorno e l'ora scelti qui
+      try {
+        sessionStorage.setItem('orme.orarioScheda', JSON.stringify({ id: idEvidenziato, giorno: dataDelQuando(scelte.quando, oggiItalia()), ora: oraPartenzaTesto() }));
+      } catch {
+        // senza memoria la pagina usa i suoi valori
+      }
       salvaRisultati({
         chiave: chiaveScelte(),
         classifica,

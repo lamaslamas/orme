@@ -1,14 +1,36 @@
 import { leggiSentiero, salvaSentiero, leggiTraccia, salvaTraccia, tuttiIGiri } from '../db.js';
 import { giriConSentiero } from '../lib/giro.js';
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA } from '../lib/costanti.js';
-import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
+import { giornoOraIniziali } from '../lib/quandoAndare.js';
+import { albaTramonto, minutiItaliani } from '../lib/sole.js';
+import { oraPartenzaTesto } from './andataRitorno.js';
+
+// Il sottotitolo che ripete il titolo (la parte dopo i due punti) non si mostra
+const normale = (t) => String(t ?? '').toLowerCase().replace(/[–—-]/g, '-').replace(/\s+/g, ' ').trim();
+function ripeteIlTitolo(zona, nome) {
+  const dopo = String(nome ?? '').includes(':') ? String(nome).split(':').slice(1).join(':') : nome;
+  return normale(zona) === normale(dopo) || normale(zona) === normale(nome);
+}
+// giorno e ora scelti in Suggerisci per il sentiero aperto da lì (una volta sola)
+function consumaOrarioDaSuggerisci(id) {
+  try {
+    const v = JSON.parse(sessionStorage.getItem('orme.orarioScheda') ?? 'null');
+    sessionStorage.removeItem('orme.orarioScheda');
+    return v?.id === id ? v : null;
+  } catch {
+    return null;
+  }
+}
 import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../lib/bici.js';
 import { bollinoBici, bollinoDifficolta } from './lista.js';
 import { misureSentiero, quoteDellaTraccia } from '../lib/riassunto.js';
 import { baseAndata, misureAR, misureScelte, statoAnello, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
 import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
 import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
-import { percorsoSentiero, statoTraccia, sceltaAutomatica, tracciaDaNonUsare } from '../lib/tracce.js';
+import { percorsoSentiero, statoTraccia, sceltaAutomatica, tracciaDaNonUsare, invertiPercorso, invertiGeojson } from '../lib/tracce.js';
+import { versoInvertito, impostaVerso, specchiaTratto, probabilmenteInvertito } from '../lib/verso.js';
+import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
@@ -243,7 +265,7 @@ export function numeriGrandi(m) {
     `<div class="numero"><b>${valore ?? '–'}</b><span>${etichetta}${nota}</span></div>`;
   return `<div class="numeri-grandi">
     ${casella(m.km != null ? `${m.km.toFixed(1).replace('.', ',')} km` : null, 'Lunghezza', m.kmCalcolati ? ' (traccia)' : '')}
-    ${casella(m.salita != null ? `+${m.salita} m` : null, 'Dislivello')}
+    ${casella(m.salita != null ? (m.discesa != null ? `+${m.salita}\u00a0/ −${m.discesa}\u00a0m` : `+${m.salita}\u00a0m`) : null, 'Dislivello')}
     ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.durataStimata ? ' (stima)' : '')}
   </div>`;
 }
@@ -326,10 +348,15 @@ export async function vistaScheda(app, id) {
   // Andata e ritorno: dalla traccia con le quote (della traccia o TINITALY) e il metodo CAI. I numeri
   // in alto usano lo stesso calcolo e seguono la scelta; il dato della fonte, se diverso, in piccolo
   const incompleta = tracciaDaNonUsare(s, traccia);
-  const pezziGrezzi = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' && !incompleta.incompleta ? percorsoSentiero(traccia.geojson).pezzi : [];
+  // verso: "Inverti senso" capovolge solo quello che dipende dal verso (la traccia salvata resta com'è)
+  const invertito = versoInvertito(s.id);
+  const capovolgi = (pezzi) => (invertito ? invertiPercorso({ pezzi, salti: [] }).pezzi : pezzi);
+  const pezziOriginali = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' && !incompleta.incompleta ? percorsoSentiero(traccia.geojson).pezzi : [];
+  const pezziGrezzi = capovolgi(pezziOriginali);
   // quote punto per punto: quelle della traccia o, se non ce l'ha, quelle scaricate da TINITALY e salvate accanto
   const impronta = traccia?.geojson ? improntaTraccia(traccia.geojson).split('-')[1] : null;
-  const delleQuote = quoteDellaScheda(pezziGrezzi, traccia?.dettagli?.quoteScaricate, impronta);
+  const delleQuoteOriginali = quoteDellaScheda(pezziOriginali, traccia?.dettagli?.quoteScaricate, impronta);
+  const delleQuote = delleQuoteOriginali ? { ...delleQuoteOriginali, pezzi: capovolgi(delleQuoteOriginali.pezzi) } : null;
   const delRobot = quoteDellaTraccia(s, traccia); // profilo TINITALY del robot (archivio), se la traccia è la stessa
   // dislivello e tempi: le quote della traccia, poi quelle del robot (TINITALY, 10 m), poi quelle scaricate
   const pezziTraccia = delleQuote && !(delleQuote.fonte !== 'traccia' && delRobot) ? delleQuote.pezzi : pezziGrezzi;
@@ -354,10 +381,28 @@ export async function vistaScheda(app, id) {
     return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · metodo CAI${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
   };
   // il punto per l'alba e il tramonto: la partenza della traccia o del sentiero, altrimenti il centro del parco
-  const trattoFauna0 = pezziTraccia.length ? trattoDelPercorso(s, traccia) : null;
+  const kmTraccia = lunghezzaDeiPezzi(pezziGrezzi);
+  const conVerso = (t) => (t && invertito ? specchiaTratto(t, kmTraccia) : t);
+  const trattoFauna0 = pezziTraccia.length ? conVerso(trattoDelPercorso(s, traccia)) : null;
   const inizioPezzi = pezziTraccia[0]?.[0];
   const centroParco = parco?.centro;
   const puntoLuce = inizioPezzi ? [inizioPezzi[0], inizioPezzi[1]] : Number.isFinite(p.lon) && Number.isFinite(p.lat) ? [p.lon, p.lat] : centroParco ? [centroParco[1], centroParco[0]] : null;
+  // "Inverti senso" e, se il nome va in cima ma la traccia scende dalla cima, l'avviso
+  const sospetto = invertito ? null : probabilmenteInvertito(s.nome, s.quote && traccia?.geojson && improntaTraccia(traccia.geojson).split('-')[1] === s.quote.impronta ? s.quote : null);
+  const htmlVerso = () => `<div class="verso-traccia">
+      ${sospetto ? `<p class="avviso-via">${ICONE.avviso}<span>Probabilmente invertito: il nome arriva a ${escapeHtml(sospetto.cima)}, ma la traccia parte dal punto più alto (${migliaia(sospetto.partenzaQuota)} m) e scende a ${migliaia(sospetto.arrivoQuota)} m.</span></p>` : ''}
+      <button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? 'Senso invertito · torna al verso della traccia' : 'Inverti senso'}</span></button>
+    </div>`;
+  // giorno e ora con cui si apre "Percorrenza": quelli di Suggerisci, oppure domani alle 8 se oggi è tardi o manca la luce
+  const inizialiOrari = (() => {
+    const oggiIt = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' });
+    const domani = new Date(new Date(`${oggiIt}T12:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10);
+    const adesso = new Date();
+    const inizio = pezziTraccia[0]?.[0];
+    const tramonto = inizio ? minutiItaliani(albaTramonto(oggiIt, [inizio[0], inizio[1]]).tramonto) : null;
+    const m0 = ar ? misureScelte(ar, modoScelto()) : null;
+    return giornoOraIniziali({ oggi: oggiIt, domani, adessoMin: adesso.getHours() * 60 + adesso.getMinutes(), oraSolita: oraPartenzaTesto(), durataMin: m0?.durataMin ?? null, tramontoOggiMin: tramonto, daSuggerisci: consumaOrarioDaSuggerisci(s.id) });
+  })();
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
@@ -372,7 +417,7 @@ export async function vistaScheda(app, id) {
           ? `<a class="anteprima-mappa" href="#/sentiero/${idUrl}/mappa" aria-label="Apri la mappa del sentiero"><div id="miniMappa"></div></a>`
           : `<a class="anteprima-mappa vuota" href="#/sentiero/${idUrl}/mappa"><span>Nessuna traccia salvata</span><b>Recupera la traccia ›</b></a>`
       }
-      ${htmlSezione('panorama', { icona: 'sole', titolo: 'Panorama', riassunto: s.panorama ? `Indice ${s.panorama.punteggio}/100${s.panorama.belvedere?.length ? ` · ${s.panorama.belvedere.length} belvedere` : ''}` : 'Non calcolabile senza traccia' }, htmlPanorama(s, traccia, idUrl))}
+      ${htmlSezione('panorama', { icona: 'sole', titolo: 'Panorama', riassunto: s.panorama ? `Indice ${s.panorama.punteggio}/100${s.panorama.belvedere?.length ? ` · ${s.panorama.belvedere.length} belvedere` : ''}` : 'Non calcolabile senza traccia' }, htmlPanorama(invertito && s.panorama?.migliore ? { ...s, panorama: { ...s.panorama, migliore: specchiaTratto(s.panorama.migliore, kmTraccia) } } : s, traccia, idUrl))}
       </aside>
       <div class="scheda-testa">
       <div class="carta-titolo intestazione">
@@ -384,7 +429,7 @@ export async function vistaScheda(app, id) {
         ${parco ? `<a class="link-parco" href="${parco.zona ? '#/' : `#/parco/${encodeURIComponent(parco.id)}`}">${escapeHtml(parco.nomeBreve)} ›</a>` : ''}
         <a class="link-modifica" href="#/sentiero/${idUrl}/modifica">Modifica</a>
       </div>
-      ${s.zona ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
+      ${s.zona && !ripeteIlTitolo(s.zona, s.nome) ? `<p class="zona">${escapeHtml(s.zona)}</p>` : ''}
       <p class="nota-regole">${ICONE.avviso}<span>${
         parco?.zona
           ? `Resta sul tracciato: spesso attraversa proprietà private · <a href="${escapeHtml(linkParco)}" target="_blank" rel="noopener">fonte ↗</a>`
@@ -396,8 +441,9 @@ export async function vistaScheda(app, id) {
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
       <div id="numeriScheda">${numeriScelti(modoScelto())}</div>
+      ${pezziOriginali.length && !statoGiro.anello ? htmlVerso() : ''}
       <div id="profiloScheda" class="profilo-scheda" aria-live="polite"></div>
-      ${ar ? htmlAndataRitorno(ar) : ''}
+      ${ar ? htmlAndataRitorno(ar, modoScelto(), inizialiOrari) : ''}
       ${htmlQuandoAndare()}
 
       <section class="riquadro traccia-stato traccia-${statoT.tipo}">
@@ -576,7 +622,7 @@ export async function vistaScheda(app, id) {
   // il profilo sotto i numeri: sempre visibile; senza quote si scaricano da sole da TINITALY (una volta)
   const punto = creaPuntoProfilo();
   // il tratto con più fauna (solo se la traccia è continua e il robot l'ha calcolato)
-  const trattoFauna = pezziGrezzi.length ? trattoDelPercorso(s, traccia) : null;
+  const trattoFauna = pezziGrezzi.length ? conVerso(trattoDelPercorso(s, traccia)) : null;
   const boxProfilo = app.querySelector('#profiloScheda');
   // 1. le quote della traccia (GPX con quote) o quelle scaricate e salvate; 2. il profilo a 100 punti che
   // il robot ha calcolato con TINITALY per le tracce dell'archivio (subito, senza chiamare niente)
@@ -594,10 +640,10 @@ export async function vistaScheda(app, id) {
         : testoFonteQuote(delleQuote.fonte);
     boxProfilo.innerHTML = htmlProfiloMini(serie, fonte, trattoFauna);
     collegaProfiloMini(boxProfilo, () => serie, (x) => punto.mostra(x.p));
-  } else if (pezziGrezzi.length && !quoteTentate.has(s.id)) {
+  } else if (pezziOriginali.length && !quoteTentate.has(s.id)) {
     quoteTentate.add(s.id);
     boxProfilo.innerHTML = '<p class="tenue piccolo">Scarico le quote (Terrain Tiles)…</p>';
-    quoteDeiPezzi(pezziGrezzi, { fitti: false })
+    quoteDeiPezzi(pezziOriginali, { fitti: false })
       .then(async ({ pezzi, fonte }) => {
         const z = quotePerSalvare(pezzi);
         if (!z) throw new Error('quote incomplete');
@@ -629,6 +675,10 @@ export async function vistaScheda(app, id) {
       impostaRiassunto(app, 'rifugi', vicini == null ? 'Dati non raggiungibili' : vicini.length ? escapeHtml(riassuntoPunti(vicini)) : `Nessuno entro ${RAGGIO_LUNGO_IL_PERCORSO_M} m`),
     );
   collegaSezioni(app);
+  app.querySelector('[data-inverti-verso]')?.addEventListener('click', () => {
+    impostaVerso(s.id, !invertito);
+    vistaScheda(app, id);
+  });
   collegaFotografia(app.querySelector('[data-sezione="foto"]'), { punto: puntoLuce, pezzi: pezziTraccia, tratto: trattoFauna0, linkParco });
   collegaGiornoNotte(app.querySelector('[data-sezione="giornonotte"]'), { id: s.id, pezzi: pezziTraccia, tratto: trattoFauna0, anello: statoGiro.anello, linkParco });
   // foto e luoghi lungo il percorso: dal file a parte; se non c'è niente la sezione sparisce
@@ -703,7 +753,7 @@ export async function vistaScheda(app, id) {
   if (!contenitoreMini) return liberaFoto;
   const mini = creaMappa(contenitoreMini, { anteprima: true });
   punto.collega(mini);
-  const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORI.traccia, frecce: false, estremi: !traccia.dettagli?.rete }).addTo(mini);
+  const gruppo = disegnaPercorso(invertito ? invertiGeojson(traccia.geojson) : traccia.geojson, { colore: COLORI.traccia, frecce: false, estremi: !traccia.dettagli?.rete }).addTo(mini);
   mini.attenuaSentieri(true);
   segnaTrattoFauna(mini, pezziGrezzi, trattoFauna);
   requestAnimationFrame(() => {

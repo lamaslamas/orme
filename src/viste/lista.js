@@ -15,7 +15,7 @@ import { ICONE } from './icone.js';
 import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
 
-const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici ?' };
+const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici: da verificare' };
 
 export function bollinoBici(s) {
   const c = s.bici?.consentita || 'da_verificare';

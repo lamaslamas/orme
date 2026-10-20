@@ -5,7 +5,9 @@ import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello } from '../lib/quote.js';
-import { percorsoSentiero, invertiGeojson } from '../lib/tracce.js';
+import { percorsoSentiero, invertiGeojson, invertiPercorso } from '../lib/tracce.js';
+import { versoInvertito, specchiaTratto } from '../lib/verso.js';
+import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
@@ -91,9 +93,16 @@ export async function vistaMappa(app, id) {
     avviso.hidden = Boolean(traccia);
     avviso.textContent = 'Questo sentiero non ha ancora una traccia: i sentieri sulla mappa sono tutti quelli della zona.';
     if (!traccia) return;
-    const gruppo = disegnaPercorso(traccia.geojson, { colore: COLORE_TRACCIA, ...(traccia.dettagli?.rete ? { frecce: false, estremi: false } : {}) }).addTo(livelloTraccia);
+    // nel verso scelto con "Inverti senso" (partenza e arrivo, frecce)
+    const gruppo = disegnaPercorso(versoInvertito(sentiero.id) ? invertiGeojson(traccia.geojson) : traccia.geojson, { colore: COLORE_TRACCIA, ...(traccia.dettagli?.rete ? { frecce: false, estremi: false } : {}) }).addTo(livelloTraccia);
     // il tratto con più fauna (se il robot l'ha calcolato su questa traccia)
-    if (!traccia.dettagli?.rete) segnaTrattoFauna(livelloTraccia, percorsoSentiero(traccia.geojson).pezzi, trattoDelPercorso(sentiero, traccia));
+    if (!traccia.dettagli?.rete) {
+      const inv = versoInvertito(sentiero.id);
+      const pz = percorsoSentiero(traccia.geojson);
+      const pezziVerso = inv ? invertiPercorso(pz).pezzi : pz.pezzi;
+      const t = trattoDelPercorso(sentiero, traccia);
+      segnaTrattoFauna(livelloTraccia, pezziVerso, t && inv ? specchiaTratto(t, lunghezzaDeiPezzi(pezziVerso)) : t);
+    }
     if (inquadra) mappa.fitBounds(gruppo.getBounds(), { padding: [36, 36] });
     // il livello panoramicità segue la traccia attuale
     if (stato.leggi().livelli.panoramicita) panorama?.ridisegna();
