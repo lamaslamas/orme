@@ -5,12 +5,14 @@ import { distanzaKm } from './geo.js';
 import { ANIMALI } from './costanti.js';
 import { durata } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'media', distanza: '60', parco: '', lunghezza: '12' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12' };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };
 export const COSE = { fauna: 'Fauna', panorama: 'Panorama', bosco: 'Bosco', cresta: 'Cresta', acqua: 'Acqua', associazioni: 'Uscite delle associazioni' };
-export const FATICHE = { facile: 'Facile', media: 'Media', impegnativa: 'Impegnativa' };
+export const FATICHE = { qualsiasi: 'Qualsiasi', facile: 'Facile', media: 'Media', impegnativa: 'Impegnativa' };
+// scelte che si possono togliere (toccando di nuovo la voce attiva): senza scelta il criterio non filtra
+export const SCELTE_FACOLTATIVE = { tempo: '', distanza: '', fatica: 'qualsiasi' };
 export const DISTANZE = { 30: '30 min', 60: '1 h', 120: '2 h', parco: 'Un parco' };
 
 // la data "aaaa-mm-gg" della scelta, a partire da oggi (sabato e domenica: i prossimi, oggi compreso)
@@ -36,6 +38,7 @@ export const testoAuto = (s) => (s ? `circa ${durata(s.minuti)} in auto (${s.lin
 
 // tempo di cammino (minuti, senza soste) adatto alla scelta
 export function adattoAlTempo(minuti, tempo) {
+  if (!tempo) return true; // nessuna scelta: qualsiasi durata
   if (!Number.isFinite(minuti)) return false;
   if (tempo === 'mezza') return minuti <= 270;
   if (tempo === 'giornata') return minuti >= 180 && minuti <= 540;
@@ -44,22 +47,23 @@ export function adattoAlTempo(minuti, tempo) {
 
 // fatica: dislivello e difficoltà CAI
 export function adattoAllaFatica({ salita, durataMin }, difficolta, fatica) {
+  if (!fatica || fatica === 'qualsiasi') return true;
   const s = Number.isFinite(salita) ? salita : 0;
   if (fatica === 'facile') return s <= 500 && (!difficolta || ['T', 'E'].includes(difficolta)) && (durataMin ?? 0) <= 330;
   if (fatica === 'media') return s <= 1100 && difficolta !== 'EEA';
   return s >= 700 || ['EE', 'EEA'].includes(difficolta);
 }
 
-export const entroDistanza = (auto, distanza) => distanza === 'parco' || !auto || auto.minuti <= Number(distanza);
+export const entroDistanza = (auto, distanza) => !distanza || distanza === 'parco' || !auto || auto.minuti <= Number(distanza);
 
 // c: { misure: { km, salita, durataMin }, anello, difficolta, fauna, panorama, bosco, apertura,
 //      quotaMax, acqua: n, rifugioNotte: nome|null, uscite: [nome], auto }
 // → null se non va bene per le scelte, altrimenti { punteggio, trovati: [cose cercate trovate] }
 export function valuta(c, scelte) {
-  const tempo = scelte.tempo ?? 'mezza';
+  const tempo = scelte.tempo ?? '';
   if (!adattoAlTempo(c.misure.durataMin, tempo)) return null;
   if (tempo === 'due' && !c.rifugioNotte) return null;
-  if (!adattoAllaFatica(c.misure, c.difficolta, scelte.fatica ?? 'media')) return null;
+  if (!adattoAllaFatica(c.misure, c.difficolta, scelte.fatica ?? 'qualsiasi')) return null;
   if (!entroDistanza(c.auto, scelte.distanza)) return null;
   // una specie scelta (con "Fauna" tra le cose cercate): solo i percorsi con segnalazioni nel periodo
   const specie = (scelte.cerco ?? []).includes('fauna') && scelte.specie ? c.specie ?? null : undefined;
@@ -111,4 +115,17 @@ export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   const m = c.misure;
   const numeri = [m.salita != null ? `+${m.salita} m` : '', m.durataMin != null ? durata(m.durataMin) : ''].filter(Boolean).join(' · ');
   return `${parti.join(', ')}${numeri ? `, ${numeri}` : ''}`;
+}
+
+// Nessun risultato: quale scelta esclude più percorsi. prove: [{ chiave, etichetta, n, motivo? }] = quanti percorsi
+// si trovano cambiando una scelta alla volta. → { testo, alternative } (alternative: quelle con almeno un percorso,
+// dalla più utile)
+export function spiegaNessunRisultato(riassunto, prove) {
+  const utili = prove.filter((p) => p.n > 0).sort((a, b) => b.n - a.n);
+  const peggiore = utili[0];
+  const motivo = peggiore?.motivo ? `: ${peggiore.motivo}` : '';
+  const testo = peggiore
+    ? `Nessun percorso con ${riassunto}${motivo}.`
+    : `Nessun percorso con ${riassunto}, nemmeno togliendo una scelta alla volta: prova a cambiare zona o giorno.`;
+  return { testo, alternative: utili.map((p) => ({ ...p, testo: `${p.etichetta} ne trovo ${p.n}` })) };
 }

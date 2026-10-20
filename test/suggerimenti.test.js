@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { dataDelQuando, stimaAuto, testoAuto, adattoAlTempo, adattoAllaFatica, valuta, ordinaProposte, testoPerche, SCELTE_PREDEFINITE } from '../src/lib/suggerimenti.js';
+import { spiegaNessunRisultato, entroDistanza, dataDelQuando, stimaAuto, testoAuto, adattoAlTempo, adattoAllaFatica, valuta, ordinaProposte, testoPerche, SCELTE_PREDEFINITE } from '../src/lib/suggerimenti.js';
 
 const base = (extra = {}) => ({
   misure: { km: 8, salita: 450, durataMin: 200 },
@@ -19,7 +19,7 @@ const base = (extra = {}) => ({
 
 describe('Suggeriscimi: regole', () => {
   it('scelte predefinite: oggi, mezza giornata, media, entro 1 h', () => {
-    expect(SCELTE_PREDEFINITE).toMatchObject({ quando: 'oggi', tempo: 'mezza', fatica: 'media', distanza: '60' });
+    expect(SCELTE_PREDEFINITE).toMatchObject({ quando: 'oggi', tempo: 'mezza', fatica: 'qualsiasi', distanza: '60' });
   });
   it('il giorno di "quando" (martedì 13 ottobre 2026)', () => {
     expect(dataDelQuando('oggi', '2026-10-13')).toBe('2026-10-13');
@@ -85,5 +85,30 @@ describe('specie scelta in "Cosa cerchi"', () => {
     const t = testoPerche({ ...base, specie: specie(30) }, { trovati: ['fauna'] });
     expect(t).toContain('cervo molto segnalato');
     expect(t).toContain('146 osservatori, ultima osservazione nel 2025, dato di zona');
+  });
+});
+
+describe('scelte facoltative', () => {
+  it('senza scelta il criterio non filtra', () => {
+    expect(adattoAlTempo(2000, '')).toBe(true);
+    expect(adattoAllaFatica({ salita: 2500, durataMin: 900 }, 'EEA', 'qualsiasi')).toBe(true);
+    expect(entroDistanza({ minuti: 500 }, '')).toBe(true);
+    const c = { misure: { km: 30, salita: 2000, durataMin: 800 }, anello: false, difficolta: 'EE', auto: { minuti: 300 } };
+    expect(valuta(c, { cerco: [], tempo: '', fatica: 'qualsiasi', distanza: '' })).not.toBeNull();
+  });
+});
+
+describe('nessun risultato: quale scelta blocca', () => {
+  it('la prova con più percorsi è il motivo, le altre sono alternative in ordine', () => {
+    const r = spiegaNessunRisultato('2 giorni con notte', [
+      { chiave: 'partenza', etichetta: 'Con partenza alle 8:00', n: 3 },
+      { chiave: 'tempo', etichetta: 'Senza la notte', n: 12, motivo: "c'è troppo poca luce per arrivare a un rifugio" },
+      { chiave: 'fatica', etichetta: 'Con qualsiasi fatica', n: 0 },
+    ]);
+    expect(r.testo).toBe("Nessun percorso con 2 giorni con notte: c'è troppo poca luce per arrivare a un rifugio.");
+    expect(r.alternative.map((a) => a.testo)).toEqual(['Senza la notte ne trovo 12', 'Con partenza alle 8:00 ne trovo 3']);
+  });
+  it('se nessuna prova aiuta lo dice', () => {
+    expect(spiegaNessunRisultato('x', [{ chiave: 'a', etichetta: 'A', n: 0 }]).alternative).toEqual([]);
   });
 });

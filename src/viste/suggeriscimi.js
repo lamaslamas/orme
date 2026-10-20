@@ -17,7 +17,8 @@ import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
 import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
 import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
-import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
+import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
+import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
 import { puntoDiPartenza } from '../lib/navigazione.js';
@@ -35,6 +36,8 @@ import {
   valuta,
   ordinaProposte,
   testoPerche,
+  SCELTE_FACOLTATIVE,
+  spiegaNessunRisultato,
 } from '../lib/suggerimenti.js';
 import { escapeHtml, codici, durata } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
@@ -251,6 +254,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     return `${modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
+      <p class="tenue piccolo">Tocca di nuovo una scelta attiva per toglierla: quel criterio non filtra più.</p>
       <h3>Quanto tempo</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       ${
@@ -271,10 +275,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
-    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], FATICHE[scelte.fatica].toLowerCase(), partenzaManuale ? 'dal punto scelto' : posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
+    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], (FATICHE[scelte.fatica] ?? 'Qualsiasi').toLowerCase(), partenzaManuale ? 'dal punto scelto' : posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
     const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? etichettaSpecie() || COSE[c] : COSE[c]).toLowerCase());
-    const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : `entro ${DISTANZE[scelte.distanza]}`;
-    return [QUANDO[scelte.quando], TEMPI[scelte.tempo].toLowerCase(), FATICHE[scelte.fatica].toLowerCase(), lontano, ...cerco].join(' · ');
+    const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : 'qualsiasi distanza';
+    const fatica = !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase();
+    return [QUANDO[scelte.quando], scelte.tempo ? TEMPI[scelte.tempo].toLowerCase() : 'qualsiasi durata', fatica, lontano, ...cerco].join(' · ');
   }
   function disegnaForm() {
     foglio.innerHTML = `
@@ -362,7 +367,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // "2 giorni con notte": come "Su più giorni", la prima giornata finisce a metà del cammino e lì
   // (entro 1 km dalla traccia) ci deve essere un rifugio o un bivacco
-  function rifugioPerLaNotte(c) {
+  // partenza da provare al posto di quella scelta (per contare i percorsi con un'altra ora), in minuti
+  let partenzaForzata = null;
+  function rifugioPerLaNotte(c, data) {
+    c.notteSenzaLuce = false;
     if (!puntiUtili) return null;
     const serie = profiloTempi(pezziScelti(c.pezzi, modoScelto(), c.anello));
     const totale = serie.min.at(-1) ?? 0;
@@ -370,7 +378,16 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (!fine) return null;
     // con A/R la giornata può finire sul ritorno: si cerca nel punto equivalente dell'andata
     const [r] = rifugiPerLaNotte(puntiUtili, c.pezzi, fineSullAndata(fine, lunghezzaDeiPezzi(c.pezzi)), { perLaNotte });
-    return r ? r.nome || 'un rifugio' : null;
+    if (!r) return null;
+    // al rifugio si arriva con la luce: partenza + cammino del primo giorno entro mezz'ora prima del tramonto
+    const inizio = c.pezzi[0]?.[0];
+    const tramonto = data && inizio ? minutiItaliani(albaTramonto(data, [inizio[0], inizio[1]]).tramonto) : null;
+    const partenza = partenzaForzata ?? oraPartenzaScelta() ?? 540;
+    if (tramonto != null && partenza + fine.minuti > tramonto - MARGINE_LUCE_MIN) {
+      c.notteSenzaLuce = true;
+      return null;
+    }
+    return r.nome || 'un rifugio';
   }
 
   // meteo del giorno scelto per un gruppo di proposte (giudizio come in "Dove vado domani")
@@ -401,6 +418,78 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
   }
 
+  // Quanti percorsi si trovano con una scelta cambiata (variante) e/o un'altra partenza; senzaLuce: quanti vanno
+  // bene in tutto tranne che per la luce (al rifugio si arriverebbe dopo il tramonto)
+  function contaCon(data, variante = {}, partenza = null) {
+    const prima = scelte;
+    const primaPartenza = partenzaForzata;
+    scelte = { ...scelte, ...variante };
+    partenzaForzata = partenza;
+    let n = 0;
+    let senzaLuce = 0;
+    try {
+      for (const c of candidati(data)) {
+        if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c, data);
+        if (valuta(c, scelte)) n++;
+        else if (c.notteSenzaLuce && valuta({ ...c, rifugioNotte: 'rifugio' }, scelte)) senzaLuce++;
+      }
+    } finally {
+      scelte = prima;
+      partenzaForzata = primaPartenza;
+    }
+    return { n, senzaLuce };
+  }
+  // Nessun risultato: si toglie (o si cambia) una scelta alla volta e si dice quale blocca di più
+  let alternativeOra = [];
+  function mostraNessunRisultato(risultati, data) {
+    const ora = oraPartenzaTesto();
+    const base = contaCon(data);
+    const prove = [];
+    const daIn = (s) => s.toLowerCase();
+    if (scelte.tempo === 'due' && (oraPartenzaScelta() ?? 540) > 480) {
+      prove.push({ chiave: 'partenza', etichetta: 'Con partenza alle 8:00', ...contaCon(data, {}, 480), motivo: "c'è troppo poca luce per arrivare a un rifugio", applica: () => ricordaOraPartenza('08:00') });
+    }
+    if (scelte.tempo) {
+      const motivo =
+        scelte.tempo === 'due'
+          ? base.senzaLuce > 0
+            ? "c'è troppo poca luce per arrivare a un rifugio"
+            : 'nessuno ha un rifugio o un bivacco a fine primo giorno'
+          : `nessuno dura ${daIn(TEMPI[scelte.tempo])}`;
+      prove.push({ chiave: 'tempo', etichetta: scelte.tempo === 'due' ? 'Senza la notte' : 'Con qualsiasi durata', ...contaCon(data, { tempo: '' }), motivo, variante: { tempo: '' } });
+    }
+    if (scelte.fatica && scelte.fatica !== 'qualsiasi') {
+      prove.push({ chiave: 'fatica', etichetta: 'Con qualsiasi fatica', ...contaCon(data, { fatica: 'qualsiasi' }), motivo: `sono tutti fuori dalla fatica «${daIn(FATICHE[scelte.fatica])}»`, variante: { fatica: 'qualsiasi' } });
+    }
+    if (scelte.distanza) {
+      const parco = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve : null;
+      prove.push({
+        chiave: 'distanza',
+        etichetta: parco ? 'Anche fuori dal parco' : 'A qualsiasi distanza',
+        ...contaCon(data, { distanza: '' }),
+        motivo: parco ? `nel parco ${parco} non ce ne sono adatti` : `sono tutti oltre ${DISTANZE[scelte.distanza]} di auto`,
+        variante: { distanza: '' },
+      });
+    }
+    for (const c of scelte.cerco) {
+      const variante = { cerco: scelte.cerco.filter((x) => x !== c) };
+      prove.push({ chiave: `cerco-${c}`, etichetta: `Senza «${COSE[c]}»`, ...contaCon(data, variante), motivo: `nessuno ha «${daIn(COSE[c])}»`, variante });
+    }
+    const riassunto = [
+      scelte.tempo ? daIn(TEMPI[scelte.tempo]) : '',
+      `partendo ${daIn(QUANDO[scelte.quando])} alle ${ora}`,
+      scelte.fatica && scelte.fatica !== 'qualsiasi' ? `fatica ${daIn(FATICHE[scelte.fatica])}` : '',
+      scelte.distanza === 'parco' ? `nel parco ${parcoDa(scelte.parco)?.nomeBreve ?? ''}`.trim() : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
+    const { testo, alternative } = spiegaNessunRisultato(riassunto, prove);
+    alternativeOra = alternative;
+    risultati.innerHTML = `<p class="vuoto">${escapeHtml(testo)}</p>${
+      alternative.length ? `<div class="azioni-vuoto">${alternative.map((a, i) => `<button type="button" class="bottone" data-alternativa="${i}">${escapeHtml(a.testo)}</button>`).join('')}</div>` : ''
+    }`;
+  }
+
   async function suggerisci() {
     const mia = ++richiesta;
     const risultati = foglio.querySelector('.suggerisci-risultati');
@@ -421,7 +510,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const lista = [];
     let senzaSpecie = 0; // quanti percorsi andrebbero bene se non si guardasse la specie
     for (const c of candidati(data)) {
-      if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c);
+      if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c, data);
       const valutazione = valuta(c, scelte);
       if (valutazione) lista.push({ ...c, valutazione });
       else if (scelte.specie && scelte.cerco.includes('fauna') && valuta(c, { ...scelte, specie: '' })) senzaSpecie++;
@@ -437,7 +526,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           <div class="azioni-vuoto">${raggioMesi < 3 ? '<button type="button" class="bottone" data-azione="allarga-mesi">Allarga ai mesi vicini</button>' : ''}${areaMassima ? '' : '<button type="button" class="bottone" data-azione="area-grande">Cerca in un\'area più grande</button>'}</div>`;
         return;
       }
-      risultati.innerHTML = '<p class="vuoto">Nessun percorso per queste scelte: prova a cambiare tempo, fatica o distanza.</p>';
+      mostraNessunRisultato(risultati, data);
       return;
     }
     risultati.innerHTML = '<p class="tenue">Guardo il meteo…</p>';
@@ -790,6 +879,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (b) {
       const { scelta, valore } = b.dataset;
       if (scelta === 'cerco') scelte.cerco = scelte.cerco.includes(valore) ? scelte.cerco.filter((x) => x !== valore) : [...scelte.cerco, valore];
+      // tempo, distanza e fatica: toccando di nuovo la voce attiva si toglie la scelta (il criterio non filtra più)
+      else if (scelta in SCELTE_FACOLTATIVE && scelte[scelta] === valore) scelte[scelta] = SCELTE_FACOLTATIVE[scelta];
       else scelte[scelta] = valore;
       if (scelta === 'specie') scelte.specieNome = b.dataset.nome ?? '';
       raggioMesi = 1;
@@ -800,6 +891,19 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       // "Fauna" appena scelta: le specie della zona inquadrata
       if (scelta === 'cerco' && scelte.cerco.includes('fauna') && zonaSpecie.stato === '') caricaZona();
       return;
+    }
+    const alt = e.target.closest('[data-alternativa]');
+    if (alt) {
+      const a = alternativeOra[Number(alt.dataset.alternativa)];
+      if (!a) return;
+      a.applica?.();
+      if (a.variante) scelte = { ...scelte, ...a.variante };
+      ricorda(scelte);
+      aggiornaScelte();
+      const campoOra = foglio.querySelector('[data-ora-partenza]');
+      if (campoOra) campoOra.value = oraPartenzaTesto();
+      soloRisultati(true);
+      return suggerisci();
     }
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'suggerisci') scelte.modo === 'anello' ? creaAnelli(0) : suggerisci();
