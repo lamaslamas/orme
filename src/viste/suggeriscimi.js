@@ -19,6 +19,7 @@ import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
+import { agganciaPartenza, testoAggancio, sceltaIniziale, partenzaValida, daDoveParte, cambiaPartenza } from '../lib/partenzaAnello.js';
 import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
 import { puntoDiPartenza } from '../lib/navigazione.js';
@@ -172,6 +173,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   function aggiornaScelte() {
     const box = foglio.querySelector('.suggerisci-scelte');
     if (box) box.innerHTML = htmlScelte();
+    aggiornaBottone();
   }
   async function caricaZona({ forza = false } = {}) {
     const b = mappa.getBounds();
@@ -247,9 +249,17 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       .join('')}</div>`;
     if (scelte.modo === 'anello') {
       return `${modo}
+        <h3>Partenza</h3>
+        <div class="segmenti due scelta-partenza" role="radiogroup" aria-label="Punto di partenza">${[
+          ['gps', 'La mia posizione'],
+          ['mappa', 'Scegli sulla mappa'],
+        ]
+          .map(([k, t]) => `<button type="button" role="radio" class="segmento ${modoPartenza === k ? 'attivo' : ''}" aria-checked="${modoPartenza === k}" data-partenza="${k}">${t}</button>`)
+          .join('')}</div>
         <h3>Lunghezza</h3>${htmlGruppo('lunghezza', LUNGHEZZE, scelte.lunghezza)}
         <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
-        <p class="tenue piccolo partenza-anello">Partenza: ${partenzaManuale ? 'il punto scelto sulla mappa' : posizione() ? 'la tua posizione' : 'il centro della mappa (sposta la mappa per cambiarla)'}. Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
+        ${htmlPartenza()}
+        <p class="tenue piccolo">Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
     }
     return `${modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
@@ -275,7 +285,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
-    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], (FATICHE[scelte.fatica] ?? 'Qualsiasi').toLowerCase(), partenzaManuale ? 'dal punto scelto' : posizione() ? 'dalla tua posizione' : 'dal centro della mappa'].join(' · ');
+    if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase(), daDoveParte({ modo: modoPartenza, scelta: sceltaPartenza })].join(' · ');
     const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? etichettaSpecie() || COSE[c] : COSE[c]).toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : 'qualsiasi distanza';
     const fatica = !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase();
@@ -620,7 +630,140 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // --- Crea un anello ---
   let anelliOra = [];
   let tardiOggi = false; // oggi con la partenza scelta già passata: niente giudizio sul meteo, si dice che è tardi
-  let partenzaManuale = null; // "Crea un anello da qui": il punto scelto sulla mappa (vale finché la tendina resta aperta)
+  // --- partenza dell'anello: la mia posizione o un punto scelto sulla mappa, agganciato al sentiero più vicino ---
+  let modoPartenza = null; // 'gps' | 'mappa' (null: si decide all'apertura)
+  let motivoPartenza = null; // perché si sceglie sulla mappa (GPS non disponibile)
+  let sceltaPartenza = null; // risultato di agganciaPartenza
+  let gpsAnello = null; // [lon, lat] cercato apposta, se la mappa non aveva la posizione
+  let gpsInCorso = false;
+  const gpsOra = () => posizione() ?? gpsAnello;
+  const livelloPartenza = L.layerGroup();
+  const partenzaOk = () => partenzaValida({ modo: modoPartenza, gps: gpsOra(), scelta: sceltaPartenza });
+  function htmlPartenza() {
+    let testo;
+    if (modoPartenza === 'gps') testo = gpsInCorso ? 'Cerco la tua posizione…' : gpsOra() ? "L'anello parte dalla tua posizione." : motivoPartenza ?? 'Posizione non trovata.';
+    else if (modoPartenza === 'mappa') {
+      const aggancio = testoAggancio(sceltaPartenza);
+      testo = [
+        motivoPartenza,
+        sceltaPartenza
+          ? aggancio ?? `Partenza ${daDoveParte({ modo: 'mappa', scelta: sceltaPartenza })}: tocca un altro punto o trascina il segnaposto per spostarla.`
+          : 'Tocca la mappa per mettere la partenza; poi puoi toccare un altro punto o trascinare il segnaposto.',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    } else testo = 'Scegli da dove parte l\'anello.';
+    const avviso = modoPartenza === 'mappa' && sceltaPartenza && sceltaPartenza.stato !== 'ok';
+    return `<p class="info-partenza ${avviso ? 'avviso' : 'tenue'} piccolo" aria-live="polite">${escapeHtml(testo)}</p>`;
+  }
+  // il pulsante si attiva solo con una partenza valida
+  function aggiornaBottone() {
+    const b = foglio.querySelector('[data-azione="suggerisci"]');
+    if (!b) return;
+    b.textContent = testoBottone();
+    b.disabled = scelte.modo === 'anello' && !partenzaOk();
+  }
+  // con "Scegli sulla mappa" i tocchi sulla mappa sono della partenza (non aprono percorsi o fauna)
+  function aggiornaStrumento() {
+    const scegli = !foglio.hidden && scelte.modo === 'anello' && modoPartenza === 'mappa';
+    if (scegli && !mappa.strumento) mappa.strumento = 'partenza-anello';
+    else if (!scegli && mappa.strumento === 'partenza-anello') mappa.strumento = null;
+    mappa.getContainer().classList.toggle('scegli-partenza', scegli);
+  }
+  function richiediGps() {
+    if (gpsOra() || gpsInCorso) return;
+    if (!navigator.geolocation) {
+      ({ modo: modoPartenza, motivo: motivoPartenza } = sceltaIniziale({ disponibile: false, errore: 'non-supportato' }));
+      return aggiornaPartenza();
+    }
+    gpsInCorso = true;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        gpsInCorso = false;
+        gpsAnello = [coords.longitude, coords.latitude];
+        if (modoPartenza === 'gps') motivoPartenza = null;
+        aggiornaPartenza();
+      },
+      (err) => {
+        gpsInCorso = false;
+        // GPS non disponibile: si passa a "Scegli sulla mappa" con il motivo
+        ({ modo: modoPartenza, motivo: motivoPartenza } = sceltaIniziale({ disponibile: false, errore: err?.code === 1 ? 'negato' : 'non-trovata' }));
+        if (!foglio.hidden && scelte.modo === 'anello') tendina.vai('meta');
+        aggiornaPartenza();
+      },
+      { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
+    );
+    aggiornaPartenza();
+  }
+  // all'apertura di "Crea un anello": la mia posizione se c'è (o si cerca), altrimenti sulla mappa
+  function decidiPartenza() {
+    if (!modoPartenza) modoPartenza = 'gps';
+    if (modoPartenza === 'gps' && !gpsOra()) richiediGps();
+    aggiornaPartenza();
+  }
+  function aggiornaPartenza() {
+    if (scelte.modo === 'anello') {
+      const box = foglio.querySelector('.suggerisci-scelte');
+      if (box && !foglio.querySelector('.suggerisci-form')?.hidden) box.innerHTML = htmlScelte();
+    }
+    aggiornaBottone();
+    aggiornaStrumento();
+    disegnaPartenza();
+    const r = foglio.querySelector('.suggerisci-riepilogo span');
+    if (r && scelte.modo === 'anello') r.textContent = testoScelte();
+  }
+  // i sentieri vicini: quelli del nostro archivio (con il nome) e quelli disegnati sulla mappa
+  function lineeVicine(punto, raggioKm = 2.5) {
+    const linee = [];
+    const adatti = sentieriAdatti();
+    for (const s of sentieri) {
+      if (!adatti.has(s.id) || ACCESSI_REGOLATI[s.accesso?.tipo] || ['uscita_guidata', 'rete_sentieri'].includes(s.tipoPercorso)) continue;
+      const g = tracce.get(s.id)?.geojson;
+      if (!g) continue;
+      for (const l of g.type === 'LineString' ? [g.coordinates] : g.coordinates) if (l.some((p) => distanzaKm(punto, p) <= raggioKm)) linee.push({ linea: l, nome: s.nome || codici(s) });
+    }
+    return [...linee, ...(mappa.lineeSentieriVicine?.(punto, raggioKm * 1000) ?? [])];
+  }
+  // un punto toccato (o il segnaposto trascinato): si aggancia al sentiero più vicino
+  function mettiPartenza(punto) {
+    const vicine = lineeVicine(punto);
+    const r = agganciaPartenza(punto, vicine);
+    // agganciato a un sentiero disegnato senza nome: il nome del nostro sentiero che passa lì, se c'è
+    if (r.stato !== 'lontano' && !r.nome) r.nome = vicine.find((l) => l.nome && agganciaPartenza(r.punto, [l], { maxM: 40 }).stato === 'ok')?.nome ?? null;
+    const st = cambiaPartenza({ anelli: anelliOra, giro: giroAnello }, r);
+    sceltaPartenza = st.scelta;
+    if (st.daRigenerare) {
+      // anelli già trovati: restano sulla mappa finché non si rigenera da qui
+      const ris = foglio.querySelector('.suggerisci-risultati');
+      ris?.querySelector('.partenza-cambiata')?.remove();
+      ris?.insertAdjacentHTML('afterbegin', `<div class="partenza-cambiata"><span>${escapeHtml(testoAggancio(r) ?? `Nuova partenza ${daDoveParte({ modo: 'mappa', scelta: r })}.`)}</span>${partenzaOk() ? '<button type="button" class="bottone primario" data-azione="rigenera-da-qui">Rigenera da qui</button>' : ''}</div>`);
+    }
+    aggiornaPartenza();
+    // la partenza (spostata sul sentiero) resta sempre in vista
+    const ll = L.latLng(r.punto[1], r.punto[0]);
+    if (!mappa.getBounds().pad(-0.1).contains(ll)) mappa.panTo(ll);
+  }
+  function disegnaPartenza() {
+    livelloPartenza.clearLayers();
+    if (modoPartenza !== 'mappa' || !sceltaPartenza || foglio.hidden) return;
+    const [lon, lat] = sceltaPartenza.punto;
+    const valida = sceltaPartenza.stato !== 'lontano';
+    const segno = L.marker([lat, lon], {
+      draggable: true,
+      keyboard: false,
+      zIndexOffset: 3000,
+      title: 'Partenza dell\'anello',
+      icon: L.divIcon({ className: `spillo-partenza ${valida ? '' : 'non-valida'}`, html: '<span><b>P</b></span>', iconSize: [40, 50], iconAnchor: [20, 48] }),
+    }).addTo(livelloPartenza);
+    segno.on('dragend', () => {
+      const p = segno.getLatLng();
+      mettiPartenza([p.lng, p.lat]);
+    });
+  }
+  mappa.on('click', (e) => {
+    if (foglio.hidden || scelte.modo !== 'anello' || modoPartenza !== 'mappa') return;
+    mettiPartenza([e.latlng.lng, e.latlng.lat]);
+  });
   const centroMappa = () => {
     const c = mappa.getCenter();
     return [c.lng, c.lat];
@@ -634,7 +777,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const avanzamento = (n) => (risultati.innerHTML = `<p class="tenue">Calcolo gli anelli sui sentieri… ${n} di ${DIREZIONI}</p>`);
     avanzamento(0);
     const volutaKm = Number(scelte.lunghezza);
-    const voluta = partenzaManuale ?? posizione() ?? centroMappa();
+    const voluta = modoPartenza === 'mappa' ? sceltaPartenza?.punto : gpsOra();
+    if (!voluta || !partenzaOk()) {
+      risultati.innerHTML = '<p class="vuoto">Scegli prima un punto di partenza valido.</p>';
+      return;
+    }
     // acqua: i punti dei parchi più i quadrati del robot della zona (file già pronti, niente Overpass)
     const raggio = volutaKm / 2 + 1;
     const [avvisi, parchi, robot] = await Promise.all([preparaAvvisi(), caricaPunti(), puntiDelRobot(riquadroDeiPezzi([[puntoA(voluta, raggio * 1.42, 225), puntoA(voluta, raggio * 1.42, 45)]], 0), { max: 9 })]);
@@ -875,6 +1022,14 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
 
   foglio.addEventListener('click', (e) => {
+    const bp = e.target.closest('[data-partenza]');
+    if (bp) {
+      modoPartenza = bp.dataset.partenza;
+      if (modoPartenza === 'gps') richiediGps();
+      else tendina.vai('meta'); // la mappa si vede: si tocca lì
+      aggiornaPartenza();
+      return;
+    }
     const b = e.target.closest('[data-scelta]');
     if (b) {
       const { scelta, valore } = b.dataset;
@@ -886,8 +1041,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       raggioMesi = 1;
       scalaArea = 1;
       ricorda(scelte);
+      if (scelta === 'modo' && valore === 'anello') decidiPartenza();
       foglio.querySelector('.suggerisci-scelte').innerHTML = htmlScelte();
-      foglio.querySelector('[data-azione="suggerisci"]').textContent = testoBottone();
+      aggiornaBottone();
+      aggiornaStrumento();
+      disegnaPartenza();
       // "Fauna" appena scelta: le specie della zona inquadrata
       if (scelta === 'cerco' && scelte.cerco.includes('fauna') && zonaSpecie.stato === '') caricaZona();
       return;
@@ -920,6 +1078,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       aggiornaScelte();
       (specieDinamica() ? caricaZona({ forza: true }) : Promise.resolve()).then(suggerisci);
     } else if (azione === 'rigenera') creaAnelli(giroAnello + 1);
+    else if (azione === 'rigenera-da-qui') creaAnelli(0);
     else if (azione === 'modifica') return modificaNelDisegno(anelliOra[e.target.closest('[data-anello]').dataset.anello]);
     else if (azione === 'altre') mostraAltre();
     else if (azione === 'cambia') {
@@ -945,22 +1104,31 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     foglio.hidden = false;
     document.body.classList.add('suggerisci-aperto');
     tendina.apri('aperta');
+    livelloPartenza.addTo(mappa);
+    if (scelte.modo === 'anello') decidiPartenza();
+    else aggiornaBottone();
   }
   // "Crea un anello da qui" (da «Nessun percorso passa da qui»): la tendina si apre sugli anelli, con quel punto
   function apriAnelloDa(punto) {
-    partenzaManuale = punto;
     scelte.modo = 'anello';
     ricorda(scelte);
+    modoPartenza = 'mappa';
+    motivoPartenza = null;
     apri();
+    mettiPartenza(punto);
   }
   function chiudi() {
-    partenzaManuale = null;
-    if (foglio.hidden) return;
+    livelloPartenza.remove();
+    if (foglio.hidden) {
+      aggiornaStrumento();
+      return;
+    }
     foglio.hidden = true;
     tendina.chiudi();
     richiesta++;
     disegnate.clearLayers();
     document.body.classList.remove('suggerisci-aperto');
+    aggiornaStrumento();
   }
   // le proposte stanno sulla mappa solo con Suggerisci aperto: appena si nasconde (X, Esc, un altro pannello, trascinandolo
   // in giù) spariscono. Se per qualunque motivo restano, un avviso «Proposte di Suggerisci · Nascondi» le toglie.

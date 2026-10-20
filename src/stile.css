@@ -2180,3 +2180,15 @@ body:has(.pannello-livelli:not([hidden])) .cerca-zona, body:has(.pannello-livell
 .avviso-proposte[hidden] { display: none; }
 body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 @media (min-width: 1024px) { .avviso-proposte { left: calc(var(--larghezza-nav) + 64px); } }
+
+/* partenza dell'anello scelta sulla mappa: segnaposto grande, ben visibile, trascinabile */
+.spillo-partenza span { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #111827; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); color: #fff; font-weight: 800; font-size: 1rem; }
+.spillo-partenza span::first-line { line-height: 1; }
+.spillo-partenza.non-valida span { background: #9ca3af; }
+.spillo-partenza { cursor: grab; }
+.leaflet-container.scegli-partenza { cursor: crosshair; }
+.info-partenza { margin: 6px 0 0; }
+.info-partenza.avviso { color: var(--testo); background: var(--avviso); border: 1px solid var(--avviso-bordo); border-radius: 10px; padding: 6px 8px; }
+.partenza-cambiata { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: var(--avviso); border: 1px solid var(--avviso-bordo); font-size: 0.85rem; }
+[data-azione="suggerisci"]:disabled { opacity: 0.5; }
+.spillo-partenza span b { transform: rotate(45deg); }

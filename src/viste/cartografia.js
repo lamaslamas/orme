@@ -271,6 +271,20 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     const nome = gl.queryRenderedFeatures(box, { layers: ['orme-nomi'] }).map((f) => f.properties['name:it'] ?? f.properties.name).find(Boolean) ?? null;
     return { classe: linee[0].properties.class, sottoclasse: linee[0].properties.subclass ?? null, nome };
   };
+  // Le linee dei sentieri disegnati (anche non segnati) entro raggioM da [lon, lat]: [{ linea, nome }]. Solo quello che la
+  // mappa ha già disegnato (nessuna richiesta); vuoto se i sentieri non sono visibili a questo zoom
+  mappa.lineeSentieriVicine = ([lon, lat], raggioM = 2000) => {
+    const gl = conSentieriDentro() ? (tuttiAccesi ? glBase[baseAttuale] : null) : tuttiMostrati ? glPronti[tuttiMostrati] : null;
+    if (!gl?.isStyleLoaded?.()) return [];
+    const c = gl.project([lon, lat]);
+    const r = Math.abs(gl.project([lon + raggioM / (111_320 * Math.cos((lat * Math.PI) / 180)), lat]).x - c.x);
+    const box = [[c.x - r, c.y - r], [c.x + r, c.y + r]];
+    return gl.queryRenderedFeatures(box, { layers: ['orme-sentieri', 'orme-carrarecce'] }).flatMap((f) => {
+      const g = f.geometry;
+      const linee = g?.type === 'LineString' ? [g.coordinates] : g?.type === 'MultiLineString' ? g.coordinates : [];
+      return linee.map((linea) => ({ linea, nome: f.properties?.['name:it'] ?? f.properties?.name ?? null }));
+    });
+  };
   function applicaSentieri(visibili) {
     if (visibili) sentieri.addTo(mappa);
     else sentieri.remove();
