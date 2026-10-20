@@ -2,7 +2,7 @@
 // quote; toccando o scorrendo il dito si vede il punto (km e quota) e la mappa lo mostra.
 import { puntoAlKm } from '../lib/disegno.js';
 import { km1 } from '../lib/lungoIlPercorso.js';
-import { escapeHtml } from '../lib/formato.js';
+import { escapeHtml, migliaia } from '../lib/formato.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { testoTratto } from '../lib/trattoFauna.js';
 
@@ -24,7 +24,7 @@ export function htmlProfiloMini(serie, fonte = '', tratto = null) {
         tratto ? `<rect class="profilo-fauna" x="${X(tratto.daKm).toFixed(1)}" y="0" width="${Math.max(2, X(Math.min(tratto.aKm, tot)) - X(tratto.daKm)).toFixed(1)}" height="${A}"/>` : ''
       }<path d="${d}" class="profilo-linea" fill="none" vector-effect="non-scaling-stroke"/>
       <line class="profilo-cursore" x1="-10" x2="-10" y1="0" y2="${A}" vector-effect="non-scaling-stroke"/></svg>
-    <p class="profilo-dati"><span>min ${Math.round(min)} m · max ${Math.round(max)} m</span><span class="dato-profilo"></span></p>
+    <p class="profilo-dati"><span>min ${migliaia(min)} m · max ${migliaia(max)} m</span><span class="dato-profilo"></span></p>
     ${tratto ? `<p class="profilo-tratto"><span class="segno-fauna"></span><b>Più fauna: ${testoTratto(tratto)}</b> · ${escapeHtml(tratto.specie.map((a) => (ANIMALI[a] ?? a).toLowerCase()).join(', '))} · ${tratto.persone} osservatori diversi (volontari, non una garanzia)</p>` : ''}
     ${fonte ? `<p class="profilo-fonte tenue">${escapeHtml(fonte)}</p>` : ''}`;
 }

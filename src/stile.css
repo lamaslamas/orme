@@ -2192,3 +2192,5 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .partenza-cambiata { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; padding: 8px 10px; border-radius: 12px; background: var(--avviso); border: 1px solid var(--avviso-bordo); font-size: 0.85rem; }
 [data-azione="suggerisci"]:disabled { opacity: 0.5; }
 .spillo-partenza span b { transform: rotate(45deg); }
+/* il sentiero aperto dalla lista di Suggerisci, ritrovato tornando indietro */
+.proposta.aperta-prima { outline: 2px solid var(--verde-testo); outline-offset: 2px; border-radius: 14px; }

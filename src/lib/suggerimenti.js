@@ -3,7 +3,7 @@
 // perché. Il meteo del giorno scelto riordina le proposte (giudicaGiornata, in condizioni.js).
 import { distanzaKm } from './geo.js';
 import { ANIMALI } from './costanti.js';
-import { durata } from './formato.js';
+import { durata, migliaia, suUnaRiga } from './formato.js';
 
 export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12' };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
@@ -113,7 +113,11 @@ export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   if (c.rifugioNotte) parti.push(`${c.rifugioNotte} a fine primo giorno`);
   if (c.uscite?.length) parti.push(`lo usa ${c.uscite.length === 1 ? `l'uscita «${c.uscite[0]}»` : `${c.uscite.length} uscite delle associazioni`}`);
   const m = c.misure;
-  const numeri = [m.salita != null ? `+${m.salita} m` : '', m.durataMin != null ? durata(m.durataMin) : ''].filter(Boolean).join(' · ');
+  // salita, altitudine massima (solo se c'è) e durata; ogni dato resta su una riga
+  const numeri = [m.salita != null ? `+${m.salita} m` : '', Number.isFinite(c.quotaMax) ? `max ${migliaia(c.quotaMax)} m` : '', m.durataMin != null ? durata(m.durataMin) : '']
+    .filter(Boolean)
+    .map(suUnaRiga)
+    .join(' · ');
   return `${parti.join(', ')}${numeri ? `, ${numeri}` : ''}`;
 }
 

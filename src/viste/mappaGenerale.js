@@ -592,6 +592,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
     allApertura: () => mostraFoglio(false),
   });
   app.querySelector('#apriSuggerisci').addEventListener('click', () => (suggerisci.aperto() ? suggerisci.chiudi() : suggerisci.apri()));
+  // tornando indietro dalla pagina di un sentiero aperto da Suggerisci: la lista com'era
+  requestAnimationFrame(() => suggerisci.riprendi());
   mostraFoglio = (si) => {
     if (si) suggerisci?.chiudi();
     const cambia = foglio.hidden === si;

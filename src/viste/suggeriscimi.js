@@ -40,7 +40,8 @@ import {
   SCELTE_FACOLTATIVE,
   spiegaNessunRisultato,
 } from '../lib/suggerimenti.js';
-import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { escapeHtml, codici, durata, titoloConBadge } from '../lib/formato.js';
+import { salvaRisultati, riprendiRisultati } from '../lib/memoriaRisultati.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { caricaPunti } from './puntiUtili.js';
 import { zoneCoperte } from './copertura.js';
@@ -557,10 +558,13 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const meteo = g
       ? `<span class="meteo-proposta meteo-${g.giudizio}">${escapeHtml(`${giorno}: ${g.fattori?.[0]?.testo ?? NOMI_GIORNO[g.giudizio].toLowerCase()}`)}${g.partenza?.entro ? escapeHtml(` · parti entro le ${g.partenza.entro}`) : ''}</span>`
       : '';
-    return `<li class="proposta">
+    return `<li class="proposta ${s.id === idEvidenziato ? 'aperta-prima' : ''}">
       <button type="button" class="proposta-mappa" data-proposta="${i}" aria-label="Mostra sulla mappa"><span class="numero-proposta" style="background:${COLORI_PROPOSTE[i % 3]}">${i + 1}</span></button>
       <div class="proposta-corpo">
-        <a class="nome" href="#/sentiero/${encodeURIComponent(s.id)}">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</a>
+        <a class="nome" href="#/sentiero/${encodeURIComponent(s.id)}" data-apri-sentiero="${escapeHtml(s.id)}">${(() => {
+          const t = titoloConBadge(s);
+          return `${t.badge ? `<span class="codice">${escapeHtml(t.badge)}</span> ` : ''}${escapeHtml(t.titolo)}`;
+        })()}</a>
         <span class="perche">${escapeHtml(testoPerche(v, { trovati: v.valutazione.trovati, modo: modoScelto() }))}</span>
         ${meteo}
         <span class="tenue piccolo">${escapeHtml([parcoDa(s.parco)?.nomeBreve, testoAuto(v.auto)].filter(Boolean).join(' · '))}${posizione() ? '' : ' dal centro della mappa'}</span>
@@ -568,7 +572,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     </li>`;
   }
 
-  async function mostraAltre(data = dataDelQuando(scelte.quando, oggiItalia())) {
+  // la chiave delle scelte: se cambiano, i risultati salvati non valgono più
+  const chiaveScelte = () => JSON.stringify([scelte, oraPartenzaTesto(), modoScelto()]);
+  let idEvidenziato = null; // il sentiero aperto dalla lista (tornando indietro resta evidenziato)
+  async function mostraAltre(data = dataDelQuando(scelte.quando, oggiItalia()), { inquadraMappa = true } = {}) {
     const risultati = foglio.querySelector('.suggerisci-risultati');
     let pagina = classifica.slice(mostrate, mostrate + PER_VOLTA);
     // oltre i primi: meteo anche per questi (con calma, solo quando servono)
@@ -617,7 +624,28 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     // dopo i risultati la tendina scende a metà: si vedono mappa e proposte
     tendina.vai('meta');
     foglio.querySelector('.suggerisci-corpo').scrollTop = 0;
-    if (limiti.isValid()) inquadra(limiti, 14);
+    if (inquadraMappa && limiti.isValid()) inquadra(limiti, 14);
+  }
+  // Tornando dalla pagina di un sentiero aperto dalla lista: la lista com'era (stessa pagina, scorrimento,
+  // vista della mappa), senza ricalcolare. true se c'era qualcosa da riprendere
+  function riprendi() {
+    const m = riprendiRisultati(chiaveScelte());
+    if (!m || scelte.modo !== 'percorsi') return false;
+    apri();
+    classifica = m.classifica;
+    tardiOggi = m.tardiOggi;
+    mostrate = m.da;
+    idEvidenziato = m.idAperto;
+    // la vista della mappa è quella di prima (la ricorda la mappa): non si reinquadra
+    mostraAltre(m.data, { inquadraMappa: false }).then(() => {
+      tendina.vai(m.posizioneTendina === 'aperta' ? 'aperta' : 'meta');
+      requestAnimationFrame(() => {
+        const corpo = foglio.querySelector('.suggerisci-corpo');
+        if (corpo) corpo.scrollTop = m.scroll;
+        foglio.querySelector('.proposta.aperta-prima')?.scrollIntoView({ block: 'nearest' });
+      });
+    });
+    return true;
   }
   // inquadra sopra la parte visibile della tendina
   function inquadra(limiti, maxZoom) {
@@ -1050,6 +1078,23 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       if (scelta === 'cerco' && scelte.cerco.includes('fauna') && zonaSpecie.stato === '') caricaZona();
       return;
     }
+    const aperto = e.target.closest('[data-apri-sentiero]');
+    if (aperto) {
+      // si apre la pagina del sentiero (il link fa il resto, con la cronologia): la lista si ritrova tornando indietro
+      const ris = foglio.querySelector('.suggerisci-risultati');
+      idEvidenziato = aperto.dataset.apriSentiero;
+      salvaRisultati({
+        chiave: chiaveScelte(),
+        classifica,
+        da: Number(ris?.dataset.pagina ?? 0),
+        scroll: foglio.querySelector('.suggerisci-corpo')?.scrollTop ?? 0,
+        idAperto: idEvidenziato,
+        posizioneTendina: tendina.posizione(),
+        data: dataDelQuando(scelte.quando, oggiItalia()),
+        tardiOggi,
+      });
+      return;
+    }
     const alt = e.target.closest('[data-alternativa]');
     if (alt) {
       const a = alternativeOra[Number(alt.dataset.alternativa)];
@@ -1157,5 +1202,5 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     document.body.classList.remove('con-proposte');
     foglio.parentElement?.remove();
   });
-  return { apri, apriAnelloDa, chiudi, aperto: () => !foglio.hidden };
+  return { apri, apriAnelloDa, chiudi, riprendi, aperto: () => !foglio.hidden };
 }

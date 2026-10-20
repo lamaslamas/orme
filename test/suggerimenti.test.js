@@ -64,8 +64,14 @@ describe('Suggeriscimi: regole', () => {
   });
   it('la riga del perché', () => {
     const c = base({ anello: true, bosco: 70, fauna: { livello: 'frequenti', specie: ['cervo', 'camoscio'] }, acqua: 2, misure: { km: 9, salita: 580, durataMin: 250 } });
-    expect(testoPerche(c)).toBe('Anello nel bosco, ricco di fauna (cervo, camoscio), 2 punti acqua, +580 m · 4 h 10');
-    expect(testoPerche(base({ rifugioNotte: 'Rifugio Acquanera' }), { modo: 'ar' })).toBe('Andata e ritorno, Rifugio Acquanera a fine primo giorno, +450 m · 3 h 20');
+    // le durate restano su una riga (spazi non separabili)
+    expect(testoPerche(c)).toBe('Anello nel bosco, ricco di fauna (cervo, camoscio), 2 punti acqua, +580\u00a0m · max\u00a01.300\u00a0m · 4\u00a0h\u00a010');
+    expect(testoPerche(base({ rifugioNotte: 'Rifugio Acquanera' }), { modo: 'ar' })).toBe('Andata e ritorno, Rifugio Acquanera a fine primo giorno, +450\u00a0m · max\u00a01.300\u00a0m · 3\u00a0h\u00a020');
+  });
+  it('altitudine massima: con il punto per le migliaia se c\'è, niente se manca', () => {
+    const c = base({ anello: true, bosco: 70, acqua: 3, quotaMax: 1240, misure: { km: 4, salita: 127, durataMin: 62 } });
+    expect(testoPerche(c).replace(/\u00a0/g, ' ')).toBe('Anello nel bosco, 3 punti acqua, +127 m · max 1.240 m · 1 h 02');
+    expect(testoPerche({ ...c, quotaMax: null })).not.toMatch(/max|n\.d\.|–/);
   });
 });
 
