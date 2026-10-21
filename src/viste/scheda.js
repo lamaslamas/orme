@@ -29,7 +29,7 @@ import { baseAndata, misureAR, misureScelte, statoAnello, notaFonte, tracciaDive
 import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
 import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica, tracciaDaNonUsare, invertiPercorso, invertiGeojson } from '../lib/tracce.js';
-import { versoInvertito, impostaVerso, specchiaTratto, probabilmenteInvertito } from '../lib/verso.js';
+import { versoDi, versoDallArchivio, impostaVerso, specchiaTratto, probabilmenteInvertito } from '../lib/verso.js';
 import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
@@ -349,7 +349,7 @@ export async function vistaScheda(app, id) {
   // in alto usano lo stesso calcolo e seguono la scelta; il dato della fonte, se diverso, in piccolo
   const incompleta = tracciaDaNonUsare(s, traccia);
   // verso: "Inverti senso" capovolge solo quello che dipende dal verso (la traccia salvata resta com'è)
-  const invertito = versoInvertito(s.id);
+  const invertito = versoDi(s);
   const capovolgi = (pezzi) => (invertito ? invertiPercorso({ pezzi, salti: [] }).pezzi : pezzi);
   const pezziOriginali = traccia?.geojson && s.tipoPercorso !== 'rete_sentieri' && !incompleta.incompleta ? percorsoSentiero(traccia.geojson).pezzi : [];
   const pezziGrezzi = capovolgi(pezziOriginali);
@@ -391,7 +391,7 @@ export async function vistaScheda(app, id) {
   const sospetto = invertito ? null : probabilmenteInvertito(s.nome, s.quote && traccia?.geojson && improntaTraccia(traccia.geojson).split('-')[1] === s.quote.impronta ? s.quote : null);
   const htmlVerso = () => `<div class="verso-traccia">
       ${sospetto ? `<p class="avviso-via">${ICONE.avviso}<span>Probabilmente invertito: il nome arriva a ${escapeHtml(sospetto.cima)}, ma la traccia parte dal punto più alto (${migliaia(sospetto.partenzaQuota)} m) e scende a ${migliaia(sospetto.arrivoQuota)} m.</span></p>` : ''}
-      <button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? 'Senso invertito · torna al verso della traccia' : 'Inverti senso'}</span></button>
+      <button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (versoDallArchivio(s) ? 'Verso corretto dall\'archivio · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : 'Inverti senso'}</span></button>
     </div>`;
   // giorno e ora con cui si apre "Percorrenza": quelli di Suggerisci, oppure domani alle 8 se oggi è tardi o manca la luce
   const inizialiOrari = (() => {
@@ -676,7 +676,7 @@ export async function vistaScheda(app, id) {
     );
   collegaSezioni(app);
   app.querySelector('[data-inverti-verso]')?.addEventListener('click', () => {
-    impostaVerso(s.id, !invertito);
+    impostaVerso(s.id, !invertito, versoDallArchivio(s));
     vistaScheda(app, id);
   });
   collegaFotografia(app.querySelector('[data-sezione="foto"]'), { punto: puntoLuce, pezzi: pezziTraccia, tratto: trattoFauna0, linkParco });

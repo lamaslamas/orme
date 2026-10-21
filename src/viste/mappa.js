@@ -6,7 +6,7 @@ import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello } from '../lib/quote.js';
 import { percorsoSentiero, invertiGeojson, invertiPercorso } from '../lib/tracce.js';
-import { versoInvertito, specchiaTratto } from '../lib/verso.js';
+import { versoDi, specchiaTratto } from '../lib/verso.js';
 import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { aggiungiGps } from './gps.js';
@@ -94,10 +94,10 @@ export async function vistaMappa(app, id) {
     avviso.textContent = 'Questo sentiero non ha ancora una traccia: i sentieri sulla mappa sono tutti quelli della zona.';
     if (!traccia) return;
     // nel verso scelto con "Inverti senso" (partenza e arrivo, frecce)
-    const gruppo = disegnaPercorso(versoInvertito(sentiero.id) ? invertiGeojson(traccia.geojson) : traccia.geojson, { colore: COLORE_TRACCIA, ...(traccia.dettagli?.rete ? { frecce: false, estremi: false } : {}) }).addTo(livelloTraccia);
+    const gruppo = disegnaPercorso(versoDi(sentiero) ? invertiGeojson(traccia.geojson) : traccia.geojson, { colore: COLORE_TRACCIA, ...(traccia.dettagli?.rete ? { frecce: false, estremi: false } : {}) }).addTo(livelloTraccia);
     // il tratto con più fauna (se il robot l'ha calcolato su questa traccia)
     if (!traccia.dettagli?.rete) {
-      const inv = versoInvertito(sentiero.id);
+      const inv = versoDi(sentiero);
       const pz = percorsoSentiero(traccia.geojson);
       const pezziVerso = inv ? invertiPercorso(pz).pezzi : pz.pezzi;
       const t = trattoDelPercorso(sentiero, traccia);

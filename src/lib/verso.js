@@ -18,11 +18,20 @@ function leggi() {
     return {};
   }
 }
-export const versoInvertito = (id) => Boolean(id && leggi()[id]);
-export function impostaVerso(id, invertito) {
+// Il verso di un sentiero: la scelta personale su questo telefono, se c'è; altrimenti quello dell'archivio
+// ("verso": "invertito", deciso per i sentieri registrati al contrario e conservato dal robot)
+export const versoDallArchivio = (s) => s?.verso === 'invertito';
+export function versoDi(s) {
+  const mia = s?.id ? leggi()[s.id] : undefined;
+  return typeof mia === 'boolean' ? mia : versoDallArchivio(s);
+}
+// solo la scelta personale (senza sapere dell'archivio): per le prove e i vecchi richiami
+export const versoInvertito = (id) => leggi()[id] === true;
+// predefinito: il verso dell'archivio; se la scelta coincide, si torna a quello (niente scelta salvata)
+export function impostaVerso(id, invertito, predefinito = false) {
   const v = leggi();
-  if (invertito) v[id] = true;
-  else delete v[id];
+  if (invertito === predefinito) delete v[id];
+  else v[id] = invertito;
   try {
     memoria()?.setItem(CHIAVE, JSON.stringify(v));
   } catch {

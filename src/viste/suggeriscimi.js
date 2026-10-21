@@ -9,7 +9,7 @@ import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { eUscita, FILTRI_VUOTI } from '../lib/filtri.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tracce.js';
-import { versoInvertito } from '../lib/verso.js';
+import { versoDi } from '../lib/verso.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { linkCodice } from './codice.js';
@@ -339,7 +339,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         const s = p.sentiero;
         // nel verso scelto con "Inverti senso": per due giorni il rifugio è a fine primo giorno in quel verso
         const grezzi = percorsoSentiero(p.traccia.geojson);
-        const pezzi = (versoInvertito(s.id) ? invertiPercorso(grezzi) : grezzi).pezzi;
+        const pezzi = (versoDi(s) ? invertiPercorso(grezzi) : grezzi).pezzi;
         const quote = quoteDellaTraccia(s, p.traccia);
         const incompleta = tracciaDaNonUsare(s, p.traccia).incompleta;
         const anello = !incompleta && eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });

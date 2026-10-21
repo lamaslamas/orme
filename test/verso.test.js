@@ -52,3 +52,22 @@ describe('probabilmente invertito', () => {
     expect(probabilmenteInvertito('Sorgente – Monte Volturino', null)).toBeNull();
   });
 });
+
+describe('verso dall\'archivio', () => {
+  it('il campo «verso: invertito» vale come predefinito; la scelta personale ha la precedenza', async () => {
+    const { versoDi, impostaVerso, versoDallArchivio } = await import('../src/lib/verso.js');
+    const s = { id: 'osm-sentiero-20594387', verso: 'invertito' };
+    expect(versoDi(s)).toBe(true);
+    impostaVerso(s.id, false, versoDallArchivio(s)); // torno al verso della traccia
+    expect(versoDi(s)).toBe(false);
+    impostaVerso(s.id, true, versoDallArchivio(s)); // di nuovo come l'archivio: niente scelta salvata
+    expect(versoDi(s)).toBe(true);
+    expect(JSON.parse(localStorage.getItem('orme.versoInvertito'))).toEqual({});
+    expect(versoDi({ id: 'x' })).toBe(false);
+  });
+  it('il robot conserva il campo a ogni importazione', async () => {
+    const { aggiornaRecord } = await import('../src/lib/importazione.js');
+    const r = aggiornaRecord({ id: 'a', nome: 'Sentiero 502', verso: 'invertito', importazione: { fonte: 'osm-sentieri:appennino-lucano', creato: true }, fonti: [] }, { fonte: 'osm-sentieri:appennino-lucano', chiave: 'k', nome: 'Sentiero 502', animali: [] }, '2026-10-21');
+    expect(r.verso).toBe('invertito');
+  });
+});

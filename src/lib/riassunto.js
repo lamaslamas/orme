@@ -5,7 +5,7 @@ import { lunghezzaKm } from './geo.js';
 import { dislivello } from './quote.js';
 import { stimaDurataMin } from './durata.js';
 import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from './tracce.js';
-import { versoInvertito, invertiQuote } from './verso.js';
+import { versoDi, invertiQuote } from './verso.js';
 import { improntaTraccia } from './panorama.js';
 
 // Profilo delle quote calcolato dal robot, se è di questa traccia (un GPX mio lo rende superato)
@@ -13,7 +13,7 @@ import { improntaTraccia } from './panorama.js';
 export function quoteDellaTraccia(s, traccia) {
   if (!s?.quote || !traccia?.geojson) return null;
   if (improntaTraccia(traccia.geojson).split('-')[1] !== s.quote.impronta) return null;
-  return versoInvertito(s.id) ? invertiQuote(s.quote) : s.quote;
+  return versoDi(s) ? invertiQuote(s.quote) : s.quote;
 }
 
 // "Traccia incompleta: mancano circa 7,9 km" (null se la traccia è continua)
@@ -28,7 +28,7 @@ export function misureSentiero(s, traccia) {
   // traccia incompleta (salti oltre 500 m): non si usa per i numeri, valgono quelli della fonte
   const incompleta = tracciaDaNonUsare(s, traccia);
   const grezzo = traccia?.geojson && !incompleta.incompleta ? percorsoSentiero(traccia.geojson) : null;
-  const percorso = grezzo && versoInvertito(s.id) ? invertiPercorso(grezzo) : grezzo;
+  const percorso = grezzo && versoDi(s) ? invertiPercorso(grezzo) : grezzo;
   const daTraccia = percorso?.pezzi.length
     ? { km: lunghezzaKm({ coordinates: percorso.pezzi }), disl: dislivello(percorso.pezzi) }
     : null;
