@@ -17,6 +17,9 @@ import { ICONE } from './icone.js';
 
 export const ORE_AL_GIORNO = [4, 6, 8];
 
+// L'avviso per chi dorme in un rifugio o bivacco dentro un parco nazionale (lo stesso in «Su più giorni» e in Suggerisci)
+export const testoAvvisoPernotto = (parco) => `${parco.nomeBreve}: nei parchi nazionali campeggio e bivacco liberi sono in genere vietati. Verifica il regolamento del parco.`;
+
 export const htmlPiuGiorni = () => `<section class="riquadro piu-giorni">
     <h2>Su più giorni</h2>
     <p class="tenue piccolo">Ore di cammino al giorno, soste escluse:</p>
@@ -137,7 +140,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
           (g) => `<li>
           <b>Fine giorno ${g.giorno}</b> · km ${km1(g.km)} <span class="tenue">(dopo ${escapeHtml(durata(Math.round(g.minuti)))})</span>
           ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? `Nessun posto per dormire (${doveDormire() === 'qualsiasi' ? 'rifugio, bivacco o struttura' : doveDormire() === 'rifugi' ? 'rifugio o bivacco' : 'struttura'}) vicino alla traccia qui: 1 km per i rifugi, 2 km per le strutture.` : 'Dati su rifugi non disponibili.'}</p>`}
-          ${g.parco ? `<p class="avviso-pernotto">${ICONE.avviso}<span>${escapeHtml(g.parco.nomeBreve)}: nei parchi nazionali campeggio e bivacco liberi sono in genere vietati. Verifica il regolamento del parco.</span></p>` : ''}
+          ${g.parco ? `<p class="avviso-pernotto">${ICONE.avviso}<span>${escapeHtml(testoAvvisoPernotto(g.parco))}</span></p>` : ''}
         </li>`,
         )
         .join('')}

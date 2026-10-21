@@ -24,6 +24,7 @@ import { htmlRitmo } from './ritmo.js';
 import { impostaRitmo as impostaRitmoLib } from '../lib/ritmo.js';
 import { pianoDueGiorni, confrontaNotte } from '../lib/dueGiorni.js';
 import { quoteDeiPunti } from './quote.js';
+import { parcoNazionaleIn, testoAvvisoPernotto } from './piuGiorni.js';
 import { specchiaTratto } from '../lib/verso.js';
 import { trattoDelPercorso } from '../lib/trattoFauna.js';
 import { agganciaPartenza, testoAggancio, sceltaIniziale, partenzaValida, daDoveParte, cambiaPartenza } from '../lib/partenzaAnello.js';
@@ -708,7 +709,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     risultati.dataset.pagina = String(mostrate);
     mostrate = fine >= classifica.length ? 0 : fine;
     paginaOra = pagina;
-    if (scelte.tempo === 'due') affinaDeviazioni(pagina, data);
+    if (scelte.tempo === 'due') {
+      affinaDeviazioni(pagina, data);
+      avvisiParco(pagina);
+    }
     // dopo i risultati la tendina scende a metà: si vedono mappa e proposte
     tendina.vai('meta');
     foglio.querySelector('.suggerisci-corpo').scrollTop = 0;
@@ -734,6 +738,18 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       });
     });
     return true;
+  }
+  // Rifugio o bivacco dentro un parco nazionale: lo stesso avviso di «Su più giorni» (campeggi e strutture no)
+  async function avvisiParco(pagina) {
+    const mia = richiesta;
+    for (const v of pagina) {
+      const p = v.notte?.posto;
+      if (!p || TIPI_PUNTO[p.tipo]?.gruppo !== 'rifugi') continue;
+      const parco = await parcoNazionaleIn([p.lon, p.lat]);
+      if (mia !== richiesta || !parco) continue;
+      const li = foglio.querySelector(`.proposta[data-id="${CSS.escape(v.sentiero.id)}"] .proposta-corpo`);
+      if (li && !li.querySelector('.avviso-pernotto')) li.insertAdjacentHTML('beforeend', `<p class="avviso-pernotto">${ICONE.avviso}<span>${escapeHtml(testoAvvisoPernotto(parco))}</span></p>`);
+    }
   }
   // Per i risultati con la notte: il dislivello dalla traccia al posto per dormire (Terrain Tiles, se disponibile) affina i
   // tempi di deviazione; le righe già mostrate si aggiornano
