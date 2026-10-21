@@ -9,6 +9,7 @@ import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { iniziaBozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { registraPannello, annunciaPannello, aggiornaClasse, collegaEsc } from './pannelli.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 const MOSTRATI = 10;
 // segnaposto con un percorso che ci passa (diverso dal mirino del GPS)
@@ -141,7 +142,7 @@ export function aggiungiDaQui(mappa, leggiPercorsi, { attenua = false, creaAnell
           return `<li><a href="#/sentiero/${encodeURIComponent(s.id)}">
             <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>
             <span class="dati tenue">${misure?.durataMin ? `${ICONE.orologio}${durata(misure.durataMin)}` : ''}${estremo ? `<span class="chip chip-daqui">${estremo === 'inizio' ? 'parte da qui' : 'arriva qui'}</span>` : ''}</span>
-            ${htmlFaunaBreve(s)}</a></li>`;
+            ${htmlFaunaBreve(s)}</a>${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}</li>`;
         })
         .join('')}${trovati.length > MOSTRATI ? `<li class="tenue piccolo">e altri ${trovati.length - MOSTRATI}: riduci la distanza o avvicinati</li>` : ''}</ul>`;
     barra.hidden = false;

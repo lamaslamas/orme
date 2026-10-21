@@ -9,6 +9,7 @@ import { htmlQuotaDislivello, collegaQuotaDislivello } from './quotaDislivello.j
 import { percorsoSentiero } from '../lib/tracce.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, migliaia } from '../lib/formato.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 export function numeriPercorso(p) {
   const pezzi = percorsoSentiero(p.geojson).pezzi;
@@ -37,7 +38,7 @@ export async function vistaPianifica(app) {
                     <div class="carta-dati">${p.origine === 'disegnato' ? 'Disegnato sulla mappa' : p.origine === 'esteso' ? 'Esteso da sentieri' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</div>
                     <div class="numeri"><b>${km.toFixed(1).replace('.', ',')}</b> km${disl ? `<span class="sep">·</span><b>+${disl.salita}</b> m` : ''}${quotaMax != null ? `<span class="sep">·</span><span class="quota-max">max ${migliaia(quotaMax)} m</span>` : ''}</div>
                   </div>
-                </a></li>`;
+                </a>${linkModificaTraccia('percorso', p.id, { stile: 'icona' })}</li>`;
       })
       .join('');
   };

@@ -25,6 +25,7 @@ import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { aggiungiDaQui } from './daQui.js';
 import { ICONE } from './icone.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 import { miniatura } from './lista.js';
 import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
@@ -413,7 +414,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
             m.quotaMax != null ? `<span class="quota-max">max ${migliaia(m.quotaMax)} m</span>` : '',
             m.durataMin != null ? `<span>${ICONE.orologio}${durata(m.durataMin)}</span>` : '',
           ].join('');
-          return `<li><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">
+          return `<li class="voce-risultato"><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">
             <span class="ris-foto">${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}</span>
             <span class="ris-corpo">
               <span class="nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</span>
@@ -421,7 +422,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
               ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
               ${htmlFaunaBreve(s, { compatta: true })}
             </span>
-          </button></li>`;
+          </button>${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}</li>`;
         })
         .join('') +
       (qui.length > 60 ? `<li class="tenue piccolo">e altri ${qui.length - 60}: avvicinati sulla mappa o usa i filtri</li>` : '') +

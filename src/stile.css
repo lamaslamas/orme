@@ -2253,3 +2253,13 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 }
 .menu-taglio { display: grid; gap: 4px; }
 .disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 10px; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+/* «Modifica traccia» a icona, nelle card e nelle liste */
+.lista > li, .voce-risultato, .voce-meteo, .daqui-elenco > li { position: relative; }
+a.modifica-carta {
+  position: absolute; right: 10px; top: 52px; z-index: 2; width: 34px; height: 34px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(var(--chiaro-rgb), 0.92); color: var(--teal); box-shadow: 0 1px 4px rgba(37, 50, 56, 0.2);
+}
+.voce-risultato > a.modifica-carta, .voce-meteo > a.modifica-carta, .daqui-elenco > li > a.modifica-carta, .lista > li > a.modifica-carta:not(.voce-percorso a) { top: 8px; right: 8px; }
+.voce-percorso > a.modifica-carta { top: 52px; right: 10px; }
+.lista > li:not(.voce-percorso) > a.modifica-carta { top: 8px; right: 8px; }
+.modifica-traccia-via { margin-top: 8px; }

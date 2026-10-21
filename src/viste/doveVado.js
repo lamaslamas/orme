@@ -27,6 +27,7 @@ import { ICONE } from './icone.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
 import { puntiLungoIlPercorso, perLaNotte, conAcqua, riassuntoPunti, TIPI_PUNTO, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 // giudizio: cerchio pieno colorato con il segno dentro
 const giudizio = (colore, d) => `<svg class="icona-giudizio" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="${colore}"/><path d="${d}" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -297,6 +298,7 @@ export async function vistaDoveVado(app, zona = null) {
           ${htmlFaunaBreve(s, { mese: v.mese, riga: true })}
         </span>
       </a>
+      ${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}
     </li>`;
   }
 

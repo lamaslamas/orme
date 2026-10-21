@@ -14,6 +14,7 @@ import { htmlFaunaBreve } from './faunaBreve.js';
 import { copertina, caricaCopertine } from './daVedere.js';
 import { caricaPunti } from './puntiUtili.js';
 import { ICONE } from './icone.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 export const suTelefono = () => Boolean(globalThis.matchMedia?.('(max-width: 1023.98px)').matches);
 
@@ -104,6 +105,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
           ${punto ? `<button type="button" class="bottone" data-azione="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
           <a class="bottone primario" href="#/sentiero/${id}">Apri la scheda</a>
         </div>
+        ${linkModificaTraccia('sentiero', s.id, { classe: 'pieno-largo' })}
         ${altriItinerari && tocco ? '<button type="button" class="bottone testo piccolo" data-azione="itinerari">Altri itinerari segnati su questo tratto</button>' : ''}
         ${
           punto

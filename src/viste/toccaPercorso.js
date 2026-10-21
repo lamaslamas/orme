@@ -8,6 +8,7 @@ import { disegnaTraccia } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 import { creaFoglioPercorso, suTelefono } from './foglioPercorso.js';
 
 const TOLLERANZA_PX = 24;
@@ -27,6 +28,7 @@ export function riquadroSentiero(s, traccia) {
       ${testoIncompleta(m) ? `<p class="avviso-incompleta">${ICONE.avviso}<span>${testoIncompleta(m)}: i numeri sono quelli della fonte.</span></p>` : ''}
       ${htmlFaunaBreve(s, { compatta: true })}
       <a class="bottone primario popup-apri" href="#/sentiero/${id}">Apri la scheda ›</a>
+      ${linkModificaTraccia('sentiero', s.id, { classe: 'popup-apri' })}
     </div>`;
 }
 

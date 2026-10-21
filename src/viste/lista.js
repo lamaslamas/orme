@@ -12,6 +12,7 @@ import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
 
@@ -90,6 +91,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
           ${etichette ? `<span class="chips">${etichette}</span>` : ''}
         </span>
       </a>
+      ${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}
       <button type="button" class="salva-carta ${s.salvato ? 'salvato' : ''}" data-salva="${escapeHtml(s.id)}" aria-pressed="${Boolean(s.salvato)}" aria-label="${s.salvato ? 'Togli dai salvati' : 'Salva'}">${ICONE.segnalibro}</button>
     </li>`;
 }

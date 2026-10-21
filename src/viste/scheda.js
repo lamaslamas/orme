@@ -242,6 +242,7 @@ import { linkCodice } from './codice.js';
 import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
 import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 // Righe di riassunto delle sezioni richiudibili
 function riassuntoFauna(s, traccia) {
@@ -332,6 +333,15 @@ export function linkSicuro(url) {
 
 const quoteTentate = new Set(); // sentieri per cui si è già provato a scaricare le quote in questa visita
 const roundtripTentati = new Set(); // idem per il controllo di roundtrip=yes
+// in fondo alla scheda, chiuso: da dove viene la traccia e le relazioni OpenStreetMap
+function htmlInfoTecniche(traccia) {
+  if (!traccia) return '';
+  const rel = traccia.dettagli?.relazioniOsm ?? [];
+  const origine = traccia.origine === 'osm' ? 'Traccia da OpenStreetMap' : traccia.dettagli?.nomeFile ? `Traccia dal file GPX “${escapeHtml(traccia.dettagli.nomeFile)}”` : 'Traccia dal file GPX';
+  const link = rel.map((r) => `<a href="https://www.openstreetmap.org/relation/${r}" target="_blank" rel="noopener">${r}</a>`).join(', ');
+  return `<section class="riquadro info-tecniche"><p>${origine}.</p>${link ? `<p>Relazioni OpenStreetMap: ${link}</p>` : ''}</section>`;
+}
+
 export async function vistaScheda(app, id) {
   const [s, traccia, giri] = await Promise.all([leggiSentiero(id), leggiTraccia(id), tuttiIGiri()]);
   if (!s) {
@@ -463,6 +473,7 @@ export async function vistaScheda(app, id) {
       <div class="barra-azioni">
         <button type="button" class="bottone ${s.salvato ? 'salvato' : ''}" id="salvaSentiero" aria-pressed="${Boolean(s.salvato)}">${ICONE.segnalibro}<span>${s.salvato ? 'Salvato' : 'Salva'}</span></button>
         <a class="bottone" href="#/sentiero/${idUrl}/mappa">${ICONE.mappa}<span>Mappa</span></a>
+        ${traccia?.geojson?.coordinates?.length ? linkModificaTraccia('sentiero', s.id) : ''}
         ${puntoPartenza ? `<button type="button" class="bottone primario" id="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
       </div>
       ${puntoPartenza ? htmlFoglioPortami(puntoPartenza) : ''}
@@ -552,6 +563,7 @@ export async function vistaScheda(app, id) {
         <p class="salvato" id="salvato" hidden>Salvato</p>
         ${s.notePersonali ? `<p class="note">${escapeHtml(s.notePersonali)}</p>` : '<p class="tenue">Nessuna nota personale.</p>'}
       </section>
+      ${htmlSezione('infotecniche', { icona: 'libro', titolo: 'Info tecniche', riassunto: 'Relazioni OpenStreetMap, origine della traccia' }, htmlInfoTecniche(traccia))}
       </div>
     </article>
   `;

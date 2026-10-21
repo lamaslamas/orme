@@ -95,6 +95,7 @@ import { preparaAvvisi } from './avvisiParco.js';
 import { quoteDeiPezzi } from './quote.js';
 import { puntiDelRobot } from './puntiRobot.js';
 import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodiVicini, puntiLungo } from '../lib/reteSentieri.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 const CHIAVE = 'orme.suggerisci';
 const CHIAVE_DISTANZA_VERIFICATA = 'orme.suggerisci.distanzaVerificata';
@@ -763,6 +764,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         ${v.notte ? `<span class="tenue piccolo giornate-notte">${escapeHtml(testoGiornate(v.notte))}</span>` : ''}
         ${meteo}
         <span class="tenue piccolo">${escapeHtml([parcoDa(s.parco)?.nomeBreve, testoAuto(v.auto)].filter(Boolean).join(' · '))}${posizione() ? '' : ' dal centro della mappa'}</span>
+        ${linkModificaTraccia('sentiero', s.id, { classe: 'piccolo' })}
       </div>
     </li>`;
   }
@@ -793,7 +795,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           keyboard: false,
           title: `Proposta ${i + 1}`,
         })
-          .bindPopup(`<div class="popup-sentiero"><b>Proposta ${i + 1} di Suggerisci</b><br>${escapeHtml(v.sentiero.nome)}<br><span class="tenue piccolo">Partenza del percorso.</span><br><a class="bottone primario popup-apri" href="#/sentiero/${encodeURIComponent(v.sentiero.id)}">Apri la scheda ›</a></div>`)
+          .bindPopup(`<div class="popup-sentiero"><b>Proposta ${i + 1} di Suggerisci</b><br>${escapeHtml(v.sentiero.nome)}<br><span class="tenue piccolo">Partenza del percorso.</span><br><a class="bottone primario popup-apri" href="#/sentiero/${encodeURIComponent(v.sentiero.id)}">Apri la scheda ›</a> ${linkModificaTraccia('sentiero', v.sentiero.id, { classe: 'popup-apri' })}</div>`)
           .addTo(disegnate);
       }
       limiti.extend(linea.getBounds());

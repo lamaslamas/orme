@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import { creaMappa } from './cartografia.js';
-import { leggiSentiero, leggiTraccia, salvaTraccia, eliminaTraccia } from '../db.js';
+import { leggiSentiero, leggiTraccia, salvaTraccia } from '../db.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { lunghezzaKm } from '../lib/geo.js';
@@ -23,9 +23,12 @@ import { parcoDa } from '../datiParchi.js';
 import { descriviSuggerimento, haInformazioniBici } from '../lib/bici.js';
 import { escapeHtml, codici, km } from '../lib/formato.js';
 import { COLORI } from './colori.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 const COLORE_TRACCIA = COLORI.traccia;
 const COLORE_ANTEPRIMA = '#2563eb';
+// da dove vengono le quote: automatiche, nessun pulsante
+const TESTO_QUOTE = 'Le quote sono automatiche: dal robot (TINITALY, 10 m), sul telefono dalle Terrain Tiles (circa 30 m) e, come riserva, da Open-Meteo (90 m).';
 
 // la cartografia è unica per tutta l'app (src/viste/cartografia.js)
 export { creaMappa } from './cartografia.js';
@@ -118,13 +121,7 @@ export async function vistaMappa(app, id) {
     const lunghezza =
       km(lunghezzaKm(traccia.geojson).toFixed(1)) +
       (d ? `, dislivello +${d.salita} m / −${d.discesa} m${traccia.dettagli?.quote ? ` (${testoFonteQuote(traccia.dettagli.quote)})` : ''}` : '');
-    if (traccia.origine === 'osm') {
-      const rel = traccia.dettagli?.relazioniOsm ?? [];
-      const link = rel
-        .map((r) => `<a href="https://www.openstreetmap.org/relation/${r}" target="_blank" rel="noopener">${r}</a>`)
-        .join(', ');
-      return `Traccia da OpenStreetMap (${lunghezza}). Relazioni: ${link}`;
-    }
+    if (traccia.origine === 'osm') return `Traccia da OpenStreetMap (${lunghezza}).`;
     const nome = traccia.dettagli?.nomeFile ? ` “${escapeHtml(traccia.dettagli.nomeFile)}”` : '';
     return `Traccia dal file GPX${nome} (${lunghezza}).`;
   }
@@ -145,19 +142,13 @@ export async function vistaMappa(app, id) {
       <div class="azioni-mappa">
         ${
           haCodici
-            ? `<button class="bottone ${traccia ? '' : 'primario'}" data-azione="osm">${traccia ? 'Cerca di nuovo su OSM' : 'Cerca su OpenStreetMap'}</button>`
+            ? (traccia ? '' : '<button class="bottone primario" data-azione="osm">Cerca su OpenStreetMap</button>')
             : ''
         }
+        ${traccia ? linkModificaTraccia('sentiero', id) : ''}
         <button class="bottone ${traccia || haCodici ? '' : 'primario'}" data-azione="gpx">Importa file GPX</button>
-        ${traccia ? '<button class="bottone" data-azione="inverti">Inverti partenza e arrivo</button>' : ''}
-        ${traccia && !dislivelloTraccia() ? '<button class="bottone" data-azione="quote">Aggiungi le quote</button>' : ''}
-        ${traccia ? '<button class="bottone pericolo" data-azione="elimina">Elimina traccia</button>' : ''}
       </div>
-      ${
-        traccia && !dislivelloTraccia()
-          ? '<p class="tenue">La traccia non ha le quote. "Aggiungi le quote" le prende dal modello del terreno TINITALY dell\'INGV (10 m; Open-Meteo, 90 m, se non risponde): si chiedono solo i dati della zona del sentiero.</p>'
-          : ''
-      }
+      ${traccia ? `<p class="tenue piccolo">${TESTO_QUOTE}</p>` : ''}
       ${haCodici ? '' : '<p class="tenue">Senza codice ufficiale non è possibile cercare su OpenStreetMap: importa un GPX.</p>'}
     `;
   }
@@ -254,19 +245,6 @@ export async function vistaMappa(app, id) {
     );
   }
 
-  async function aggiungiQuoteTraccia() {
-    pannello.innerHTML = '<p class="messaggio">Chiedo le quote a TINITALY…</p>';
-    try {
-      // le quote nei punti della traccia, senza aggiungerne (la traccia resta la stessa)
-      const { pezzi, fonte } = await quoteDeiPezzi(traccia.geojson.coordinates, { fitti: false });
-      const geojson = { ...traccia.geojson, coordinates: pezzi };
-      traccia = await salvaTraccia({ ...traccia, geojson, dettagli: { ...traccia.dettagli, quote: fonte } });
-      pannelloBase('Quote aggiunte alla traccia.');
-    } catch (e) {
-      pannelloBase(`<span class="errore">${escapeHtml(e.message)}</span>`);
-    }
-  }
-
   async function importaGpx(file) {
     try {
       const { geojson } = leggiGpx(await file.text());
@@ -292,7 +270,6 @@ export async function vistaMappa(app, id) {
       pannelloBase();
       mostraTracciaSalvata({ inquadra: false });
     }
-    if (azione === 'quote') aggiungiQuoteTraccia();
     if (azione === 'naviga') {
       if (mappa.gps.attivo()) mappa.gps.ferma();
       else {
@@ -301,18 +278,7 @@ export async function vistaMappa(app, id) {
       }
       evento.target.closest('[data-azione]').textContent = mappa.gps.attivo() ? 'Ferma la navigazione' : 'Naviga lungo il sentiero';
     }
-    if (azione === 'inverti') {
-      traccia = await salvaTraccia({ ...traccia, geojson: invertiGeojson(traccia.geojson) });
-      mostraTracciaSalvata({ inquadra: false });
-      pannelloBase('Partenza e arrivo scambiati.');
-    }
     if (azione === 'salva-osm') salvaOsm();
-    if (azione === 'elimina' && confirm('Eliminare la traccia salvata?')) {
-      await eliminaTraccia(id);
-      traccia = undefined;
-      mostraTracciaSalvata();
-      pannelloBase('Traccia eliminata.');
-    }
   });
 
   pannello.addEventListener('change', () => risultati?.anteprima());

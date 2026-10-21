@@ -7,11 +7,12 @@ import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { temaUscita, mesiUscita, testoMesi } from '../lib/stagioni.js';
 import { escapeHtml } from '../lib/formato.js';
 import { COLORI } from './colori.js';
+import { linkModificaTraccia } from './modificaTraccia.js';
 
 const riga = (u) => {
   const chi = u.escursione?.associazione || u.organizzatori?.[0] || '';
   const quando = [temaUscita(u).nome, testoMesi(mesiUscita(u))].filter(Boolean).join(' · ');
-  return `<li><a href="#/sentiero/${encodeURIComponent(u.id)}">${escapeHtml(u.escursione?.nomeUscita || u.nome)}</a><br><span class="tenue piccolo">${escapeHtml([quando, chi].filter(Boolean).join(' · '))}</span></li>`;
+  return `<li><a href="#/sentiero/${encodeURIComponent(u.id)}">${escapeHtml(u.escursione?.nomeUscita || u.nome)}</a> ${linkModificaTraccia('sentiero', u.id, { stile: 'icona' })}<br><span class="tenue piccolo">${escapeHtml([quando, chi].filter(Boolean).join(' · '))}</span></li>`;
 };
 
 // righe per il foglio del sentiero: le uscite che lo usano (vuoto se nessuna)
