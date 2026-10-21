@@ -101,15 +101,20 @@ export function pianoDueGiorni({ serie, posti, lunghezzaKm, conRitorno, partenza
 }
 
 // Ordine dei piani con la notte: prima quelli in cui il secondo giorno passa dal tratto con più fauna all'alba, poi le
-// giornate più equilibrate (durata dei due giorni più simile), poi gli altri
+// giornate più equilibrate (durata dei due giorni simile: a fasce di 30 minuti, così «a parità» ha un senso), e a parità
+// la deviazione per dormire più corta (andata + ritorno); una deviazione oltre 1 ora in tutto va dopo le altre
+export const FASCIA_EQUILIBRIO_MIN = 30;
+export const DEVIAZIONE_LUNGA_MIN = 60;
 export function chiaveOrdineNotte(notte) {
-  if (!notte) return [2, Infinity];
+  if (!notte) return [2, Infinity, 1, Infinity];
   const alba = notte.giorno2?.dallAlba ? 0 : 1;
-  const sbilancio = notte.giorno1 ? Math.abs(notte.giorno1.durataMin - notte.giorno2.durataMin) : Infinity;
-  return [alba, sbilancio];
+  const sbilancio = notte.giorno1 ? Math.floor(Math.abs(notte.giorno1.durataMin - notte.giorno2.durataMin) / FASCIA_EQUILIBRIO_MIN) : Infinity;
+  const deviazione = (notte.giorno1?.deviazioneMin ?? 0) + (notte.giorno2?.deviazioneMin ?? 0);
+  return [alba, sbilancio, deviazione > DEVIAZIONE_LUNGA_MIN ? 1 : 0, deviazione];
 }
 export const confrontaNotte = (a, b) => {
-  const [aa, sa] = chiaveOrdineNotte(a);
-  const [ab, sb] = chiaveOrdineNotte(b);
-  return aa - ab || sa - sb;
+  const x = chiaveOrdineNotte(a);
+  const y = chiaveOrdineNotte(b);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+  return 0;
 };

@@ -92,4 +92,14 @@ describe('notte vicino alla partenza, deviazione per dormire, ordine', () => {
     lista.sort(confrontaNotte);
     expect(lista.map((p) => [p.giorno2.dallAlba, p.giorno1.durataMin])).toEqual([[true, 200], [true, 100], [false, 240], [false, 60]]);
   });
+  it('a parità di alba ed equilibrio: la deviazione più corta prima; oltre 1 ora in tutto, dopo', async () => {
+    const { confrontaNotte } = await import('../src/lib/dueGiorni.js');
+    const piano = (id, dev1, dev2) => ({ id, giorno1: { durataMin: 200, deviazioneMin: dev1 }, giorno2: { durataMin: 210, dallAlba: false, deviazioneMin: dev2 } });
+    const lista = [piano('lunga', 40, 35), piano('media', 20, 20), piano('corta', 5, 5), piano('limite', 30, 30)];
+    lista.sort(confrontaNotte);
+    expect(lista.map((p) => p.id)).toEqual(['corta', 'media', 'limite', 'lunga']);
+    // l'equilibrio resta prima della deviazione
+    const sbilanciato = { id: 'sbilanciato', giorno1: { durataMin: 60, deviazioneMin: 0 }, giorno2: { durataMin: 400, dallAlba: false, deviazioneMin: 0 } };
+    expect([sbilanciato, piano('lunga', 40, 35)].sort(confrontaNotte)[0].id).toBe('lunga');
+  });
 });
