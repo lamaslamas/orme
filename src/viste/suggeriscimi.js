@@ -107,7 +107,12 @@ const COLORI_PROPOSTE = ['#e8590c', '#1971c2', '#2b8a3e'];
 
 function scelteRicordate() {
   try {
-    return { ...SCELTE_PREDEFINITE, ...JSON.parse(localStorage.getItem(CHIAVE) ?? '{}') };
+    const salvate = { ...SCELTE_PREDEFINITE, ...JSON.parse(localStorage.getItem(CHIAVE) ?? '{}') };
+    // un valore salvato in un altro formato (o rovinato) non deve rompere la tendina
+    if (!Array.isArray(salvate.cerco)) salvate.cerco = typeof salvate.cerco === 'string' && salvate.cerco ? salvate.cerco.split(',').filter((c) => c in COSE) : [];
+    salvate.cerco = salvate.cerco.filter((c) => c in COSE);
+    for (const k of ['quota', 'salita', 'senzaQuote', 'specie', 'specieNome', 'parco']) if (typeof salvate[k] !== 'string') salvate[k] = SCELTE_PREDEFINITE[k];
+    return salvate;
   } catch {
     return { ...SCELTE_PREDEFINITE };
   }
