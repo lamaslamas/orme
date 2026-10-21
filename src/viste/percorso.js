@@ -95,9 +95,10 @@ export async function vistaPercorso(app, id) {
         <div class="azioni-testata">
           <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
           <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
+          ${pezzi.length ? `<a class="bottone" href="#/estendi/percorso/${idUrl}">Estendi</a>` : ''}
         </div>
       </div>
-      <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
+      <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
       <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar, modoScelto(), scaricoQuote)}</div>
       <div id="profiloPercorso" class="profilo-scheda"></div>
       ${pezzi.length ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
@@ -120,6 +121,7 @@ export async function vistaPercorso(app, id) {
       <div class="barra-azioni barra-azioni-percorso">
         <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
         <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
+        ${pezzi.length ? `<a class="bottone" href="#/estendi/percorso/${idUrl}">Estendi</a>` : ''}
       </div>
       <button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>
     </article>

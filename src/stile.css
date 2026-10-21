@@ -2237,3 +2237,17 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .qd-riquadro { margin: 10px 0; padding: 8px 12px; border-radius: 12px; background: var(--scheda); }
 .qd-riquadro summary { font-weight: 700; cursor: pointer; }
 .qd-riquadro .sezione-filtro h3 { display: none; }
+
+/* Estendi: sentiero e collegati */
+.estendi-titolo { margin: 0 0 4px; font-size: 1.1rem; }
+.estendi-numeri { margin: 4px 0 0; font-size: 1.05rem; }
+.estendi-parti { margin: 8px 0; padding-left: 20px; display: grid; gap: 4px; font-size: 0.92rem; }
+.estendi-scelte { margin: 10px 0; display: grid; gap: 6px; }
+.estendi-scelte h3 { margin: 0; font-size: 0.95rem; }
+.opzione-estendi { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--bordo); background: var(--scheda-piena); color: inherit; font: inherit; cursor: pointer; }
+.opzione-estendi .segno { flex: none; width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; }
+.estendi-azioni { display: flex; gap: 8px; margin: 8px 0; }
+.estendi-salva { margin-top: 10px; }
+@media (max-width: 1023px) {
+  body.estendi-aperto .mappa { height: 40dvh; min-height: 230px; }
+}
