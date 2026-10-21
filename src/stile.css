@@ -2206,3 +2206,4 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 }
 .verso-traccia { margin: 4px 0 8px; }
 .ritmo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.chip-alba { display: inline-block; align-self: flex-start; padding: 2px 10px; border-radius: 12px; background: #f08c00; color: #1d1400; font-size: 0.78rem; font-weight: 700; }

@@ -100,6 +100,13 @@ export function ordinaProposte(voci) {
   return [...voci].sort((a, b) => totale(b) - totale(a));
 }
 
+// Con la notte l'ordine dei piani viene prima (alba nel tratto con più fauna, poi giornate equilibrate): il meteo e il
+// punteggio decidono solo a parità
+export function ordinaProposteNotte(voci, confronta) {
+  const totale = (v) => v.valutazione.punteggio + (CORREZIONE_METEO[v.giudizio?.giudizio] ?? 0);
+  return [...voci].sort((a, b) => confronta(a.notte, b.notte) || totale(b) - totale(a));
+}
+
 // "Anello nel bosco, ricco di fauna (cervo, camoscio), 2 fontanelle, +580 m · 4 h 10"
 export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   const nomi = (xs) => xs.map((a) => (ANIMALI[a] ?? a).toLowerCase()).join(', ');
@@ -113,7 +120,7 @@ export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
   if ((c.panorama ?? 0) >= 60) parti.push(`panoramico (${c.panorama}/100)`);
   if (trovati.includes('cresta')) parti.push('tratti in cresta');
   if (c.acqua) parti.push(c.acqua === 1 ? '1 punto acqua' : `${c.acqua} punti acqua`);
-  if (c.rifugioNotte) parti.push(`${c.rifugioNotte} a fine primo giorno`);
+  if (c.rifugioNotte) parti.push(c.notte?.tipo === 'notte-vicina' ? `notte vicino alla partenza (${c.rifugioNotte})` : `${c.rifugioNotte} a fine primo giorno`);
   if (c.uscite?.length) parti.push(`lo usa ${c.uscite.length === 1 ? `l'uscita «${c.uscite[0]}»` : `${c.uscite.length} uscite delle associazioni`}`);
   const m = c.misure;
   // salita, altitudine massima (solo se c'è) e durata; ogni dato resta su una riga

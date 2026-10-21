@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pianoDueGiorni, dislivelloTra } from '../src/lib/dueGiorni.js';
+import { pianoDueGiorni, dislivelloTra, tempoDeviazione } from '../src/lib/dueGiorni.js';
 import { adattoAllaFatica } from '../src/lib/suggerimenti.js';
 
 // cammino di 20 km, 15 minuti al km (300 minuti ogni 20 km)... 20 km → 300 min? no: 15 min/km → 20 km = 300 min
@@ -30,7 +30,7 @@ describe('due giorni secondo la luce', () => {
     expect(dalle8.ok).toBe(true);
   });
   it('con un tratto con più fauna il secondo giorno parte all\'alba', () => {
-    const r = pianoDueGiorni({ serie: serie(20, 30), posti: posti(9), lunghezzaKm: 20, conRitorno: false, partenzaMin: 9 * 60, sole1: T1, sole2: T2, trattoFauna: true });
+    const r = pianoDueGiorni({ serie: serie(20, 30), posti: posti(9), lunghezzaKm: 20, conRitorno: false, partenzaMin: 9 * 60, sole1: T1, sole2: T2, tratto: { daKm: 12, aKm: 14 } });
     expect(r.giorno2).toMatchObject({ daMin: T2.alba, dallAlba: true });
   });
   it('troppo lungo per due giornate di luce, troppo corto (basta un giorno), nessun posto', () => {
@@ -58,5 +58,38 @@ describe('due giorni secondo la luce', () => {
   it('dislivelloTra senza quote: niente', () => {
     const s = { km: [0, 1, 2], min: [0, 10, 20], punti: [[1, 1], [1, 2], [1, 3]] };
     expect(dislivelloTra(s, 0, 2)).toEqual({ salita: null, discesa: null });
+  });
+});
+
+describe('notte vicino alla partenza, deviazione per dormire, ordine', () => {
+  it('primo giorno sotto i 30 minuti: «notte vicino alla partenza» e il giorno dopo tutto il percorso', async () => {
+    const r = pianoDueGiorni({ serie: serie(20, 30), posti: [{ km: 0.2, nome: 'Albergo', distanzaM: 0 }], lunghezzaKm: 20, conRitorno: false, partenzaMin: 15 * 60 + 30, sole1: T1, sole2: T2 });
+    // 20 km a 30 min/km = 600 min: troppo per un solo giorno di luce (d1 = 118), ma il giorno dopo ci sta tutto (480 → 18:00 > tramonto−30? 600 > 566): non ci sta
+    expect(r.tipo).not.toBe('notte-vicina');
+    const corto = pianoDueGiorni({ serie: serie(18, 30), posti: [{ km: 0.2, nome: 'Albergo', distanzaM: 0 }], lunghezzaKm: 18, conRitorno: false, partenzaMin: 17 * 60 + 10, sole1: T1, sole2: T2 });
+    // 540 min: d1 = 18 min (>0); il posto al km 0,2 = 6 min → primo giorno sotto i 30; il giorno dopo 540 ≤ 566
+    expect(corto).toMatchObject({ ok: true, tipo: 'notte-vicina', giorno1: null, kmPosto: 0 });
+    expect(corto.giorno2).toMatchObject({ daMin: 480, durataMin: 540, km: 18 });
+  });
+  it('deviazione: +25 minuti per un ostello a 1,7 km, all\'andata e al ritorno, dentro gli orari', async () => {
+    const { tempoDeviazione } = await import('../src/lib/dueGiorni.js');
+    expect(tempoDeviazione(1700)).toEqual({ andataMin: 26, ritornoMin: 26 });
+    expect(tempoDeviazione(10).andataMin).toBe(0);
+    const senza = pianoDueGiorni({ serie: serie(20, 30), posti: [{ km: 9, distanzaM: 0 }], lunghezzaKm: 20, conRitorno: false, partenzaMin: 9 * 60, sole1: T1, sole2: T2 });
+    const con = pianoDueGiorni({ serie: serie(20, 30), posti: [{ km: 9, distanzaM: 1700 }], lunghezzaKm: 20, conRitorno: false, partenzaMin: 9 * 60, sole1: T1, sole2: T2 });
+    expect(con.giorno1.durataMin).toBe(senza.giorno1.durataMin + 26);
+    expect(con.giorno1.aMin).toBe(senza.giorno1.aMin + 26);
+    expect(con.giorno2.durataMin).toBe(senza.giorno2.durataMin + 26);
+    expect(con.giorno2).toMatchObject({ deviazioneMin: 26 });
+    // con il dislivello (il posto è più in alto) l'andata dura di più del ritorno
+    const salita = tempoDeviazione(1700, { salita: 300, discesa: 0 });
+    expect(salita.andataMin).toBeGreaterThan(salita.ritornoMin);
+  });
+  it('ordine: prima il secondo giorno all\'alba nel tratto con più fauna, poi le giornate equilibrate', async () => {
+    const { confrontaNotte } = await import('../src/lib/dueGiorni.js');
+    const piano = (d1, d2, alba) => ({ giorno1: { durataMin: d1 }, giorno2: { durataMin: d2, dallAlba: alba } });
+    const lista = [piano(60, 300, false), piano(240, 250, false), piano(100, 400, true), piano(200, 210, true)];
+    lista.sort(confrontaNotte);
+    expect(lista.map((p) => [p.giorno2.dallAlba, p.giorno1.durataMin])).toEqual([[true, 200], [true, 100], [false, 240], [false, 60]]);
   });
 });
