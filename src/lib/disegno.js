@@ -8,7 +8,7 @@ export const chiaveTratto = (a, b, libero) => `${a.p[0]},${a.p[1]}>${b.p[0]},${b
 // punti salvati (anche nel formato di prima, [[lon, lat]…]) → [{ p, libero }]
 export function normalizzaPunti(punti) {
   return (punti ?? [])
-    .map((x) => (Array.isArray(x) ? { p: [x[0], x[1]], libero: false } : x?.p ? { p: [x.p[0], x.p[1]], libero: Boolean(x.libero) } : null))
+    .map((x) => (Array.isArray(x) ? { p: [x[0], x[1]], libero: false } : x?.p ? { p: [x.p[0], x.p[1]], libero: Boolean(x.libero), ...(Number.isFinite(x.pos) ? { pos: x.pos } : {}) } : null))
     .filter(Boolean)
     .map((x, i) => (i === 0 ? { ...x, libero: false } : x));
 }
@@ -49,7 +49,7 @@ export const chiudiAnello = (punti) => (punti.length < 2 || eAnello(punti) ? pun
 // inverte il verso: ogni punto tiene il modo del tratto che ora arriva a lui
 export function inverti(punti) {
   const r = [...punti].reverse();
-  return r.map((x, j) => ({ p: [...x.p], libero: j === 0 ? false : r[j - 1].libero }));
+  return r.map((x, j) => ({ p: [...x.p], libero: j === 0 ? false : r[j - 1].libero, ...(Number.isFinite(x.pos) ? { pos: x.pos } : {}) }));
 }
 
 // profilo per la barra: [{ km, z }] al massimo `max` punti (pezzi con le quote)

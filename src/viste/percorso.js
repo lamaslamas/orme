@@ -95,7 +95,6 @@ export async function vistaPercorso(app, id) {
         <div class="azioni-testata">
           <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
           <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
-          ${pezzi.length ? `<a class="bottone" href="#/estendi/percorso/${idUrl}">Estendi</a>` : ''}
         </div>
       </div>
       <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
@@ -121,7 +120,6 @@ export async function vistaPercorso(app, id) {
       <div class="barra-azioni barra-azioni-percorso">
         <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
         <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
-        ${pezzi.length ? `<a class="bottone" href="#/estendi/percorso/${idUrl}">Estendi</a>` : ''}
       </div>
       <button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>
     </article>

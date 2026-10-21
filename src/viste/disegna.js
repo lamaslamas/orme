@@ -4,7 +4,7 @@
 // Punti: trascinare = spostare; tocco = menu (Togli / Sposta); pressione lunga = togliere.
 import L from 'leaflet';
 import { tendinaTrascinabile, finestraTrascinabile } from './tendina.js';
-import { leggiPercorso, salvaPercorso } from '../db.js';
+import { leggiPercorso, salvaPercorso, leggiSentiero, leggiTraccia } from '../db.js';
 import { calcolaPercorso } from '../lib/brouter.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
 import { leggiBozza, salvaBozza, cancellaBozza, consumaAperturaDisegno } from '../lib/bozza.js';
@@ -15,9 +15,10 @@ import { avviaImportazione } from './importaFile.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { distanzaKm } from '../lib/geo.js';
 import { percorsoSentiero } from '../lib/tracce.js';
-import { puntiLungo } from '../lib/reteSentieri.js';
+import { creaBase, puntiIniziali, segnapostoVisibile, spostaEstremoBase, vicinoAllaLinea, posSulTratto, tagliaPunti, fetta } from '../lib/modificaTraccia.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
-import { escapeHtml, durata } from '../lib/formato.js';
+import { escapeHtml, durata, codici } from '../lib/formato.js';
+import { pezziNelVerso } from '../lib/estendi.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiHeatmap } from './heatmap.js';
@@ -33,14 +34,19 @@ const ATTESA_PUNTI_MS = 1200; // rifugi e acqua si cercano quando il disegno si 
 const ZOOM_SENTIERI = 12; // sotto questo zoom i tratti non si calcolano sui sentieri: prima ci si avvicina
 const TRATTO_MAX_KM = 50; // oltre, il server dei sentieri (BRouter) non è adatto: mano libera
 
-export async function vistaDisegna(app, id = null) {
+// sorgente: una traccia da modificare che non è un mio percorso (sentiero dell'archivio, carrareccia): al salvataggio
+// si crea sempre una copia in I miei percorsi. { pezzi, nomeProposto, note, indietro, avviso, daSentiero }
+export async function vistaDisegna(app, id = null, sorgente = null) {
   const esistente = id ? await leggiPercorso(id) : null;
-  // un percorso nuovo riparte dalla bozza (punti messi con "Inizia percorso da qui" / "Aggiungi")
-  // un percorso da file (GPX, KML): la traccia si apre con punti di controllo ogni ~1,2 km, il percorso segue i
-  // sentieri; il file originale resta com'è (si salva un percorso nuovo) e si vede in grigio sotto
-  const daFile = Boolean(esistente && esistente.origine !== 'disegnato');
-  const lineaFile = daFile ? percorsoSentiero(esistente.geojson).pezzi.flat() : [];
-  let punti = normalizzaPunti((esistente?.puntiControllo?.length ? esistente.puntiControllo : null) ?? (daFile ? (lineaFile.length > 1 ? puntiLungo(lineaFile, 1.2) : []) : esistente ? null : leggiBozza()?.punti));
+  // la traccia già caricata (mio percorso, sentiero dell'archivio, carrareccia) si apre come «base»: partenza e arrivo
+  // si spostano lungo la traccia, si taglia in un punto, si prolunga agganciando i sentieri (BRouter).
+  // Un percorso nuovo riparte dalla bozza (punti messi con "Inizia percorso da qui" / "Aggiungi")
+  const pezziBase = esistente?.geojson?.coordinates?.length ? percorsoSentiero(esistente.geojson).pezzi : sorgente?.pezzi ?? null;
+  const base = pezziBase?.length ? creaBase(pezziBase) : null;
+  const daBase = Boolean(base && base.linea.length > 1);
+  const puntiDiPartenza = () => puntiIniziali(base);
+  let punti = daBase ? puntiDiPartenza() : normalizzaPunti((esistente?.puntiControllo?.length ? esistente.puntiControllo : null) ?? (esistente ? null : leggiBozza()?.punti));
+  let aggiungiInizio = false; // «Aggiungi all'inizio»: i punti nuovi vanno prima della partenza
   let manoLibera = false;
   const tratti = new Map(); // chiave → tratto calcolato (si ricalcola solo quello che cambia)
   let risultato = null; // { linea, terreno, tratti, pezziQuote, fonte, misure }
@@ -52,12 +58,13 @@ export async function vistaDisegna(app, id = null) {
   app.innerHTML = `
     <div id="mappa" class="mappa mappa-disegno"></div>
     <div class="disegno-sopra">
-      <a class="pill-mappa tondo" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : '#/'}" aria-label="Esci (la bozza resta)">${ICONE.chiudi}</a>
+      <a class="pill-mappa tondo" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : sorgente?.indietro ?? '#/'}" aria-label="Esci (la bozza resta)">${ICONE.chiudi}</a>
       <div class="disegno-strumenti">
         <button type="button" class="pill-mappa tondo" data-azione="annulla" aria-label="Togli l'ultimo punto" title="Togli l'ultimo punto">${ICONE.indietro}</button>
         <button type="button" class="pill-mappa tondo" data-azione="anello" aria-label="Chiudi ad anello" title="Chiudi ad anello">${ICONE.anello}</button>
         <button type="button" class="pill-mappa tondo" data-azione="inverti" aria-label="Inverti il verso" title="Inverti il verso">${ICONE.inverti}</button>
         <button type="button" class="pill-mappa tondo" data-azione="libera" aria-pressed="false" aria-label="Mano libera" title="Mano libera">${ICONE.matita}</button>
+        <button type="button" class="pill-mappa" data-azione="inizio" aria-pressed="false" title="I punti nuovi si aggiungono prima della partenza">+ Inizio</button>
         <button type="button" class="pill-mappa tondo" data-azione="menu" aria-expanded="false" aria-label="Altro" title="Altro">${ICONE.altro}</button>
       </div>
       <div class="disegno-menu" hidden>
@@ -79,7 +86,7 @@ export async function vistaDisegna(app, id = null) {
     <dialog class="foglio foglio-salva">
       <div class="foglio-maniglia" aria-hidden="true"></div>
       <h2 class="foglio-titolo">Salva il percorso</h2>
-      <label class="campo"><span>Nome</span><input id="nomePercorso" value="${escapeHtml(daFile ? `${esistente.nome || 'Percorso'} (modificato)` : esistente?.nome ?? '')}" placeholder="es. Anello di Val Fondillo" /></label>
+      <label class="campo"><span>Nome</span><input id="nomePercorso" value="${escapeHtml(esistente?.nome ?? sorgente?.nomeProposto ?? '')}" placeholder="es. Anello di Val Fondillo" /></label>
       <p class="tenue piccolo" id="riepilogoSalva"></p>
       <div class="azioni-salva"><button type="button" class="bottone" data-azione="continua">Continua</button><button type="button" class="bottone primario" data-azione="conferma">Salva</button></div>
       <p class="tenue piccolo">Lo ritrovi in I miei percorsi · Disegnati.</p>
@@ -90,8 +97,8 @@ export async function vistaDisegna(app, id = null) {
   const fermaGps = aggiungiGps(mappa, () => null);
   // la fauna si guarda soltanto: i tocchi sulla mappa sono del disegno
   const heat = aggiungiHeatmap(mappa, { occupata: () => true });
-  // la traccia del file, in grigio, per confrontare con quella che si disegna
-  if (daFile && lineaFile.length > 1) L.polyline(lineaFile.map(([lon, lat]) => [lat, lon]), { color: '#6b7280', weight: 4, opacity: 0.8, dashArray: '2 8', interactive: false }).addTo(mappa);
+  // la traccia di partenza, in grigio, per confrontare con quella che si modifica
+  if (daBase) L.polyline(base.linea.map(([lon, lat]) => [lat, lon]), { color: '#6b7280', weight: 4, opacity: 0.8, dashArray: '2 8', interactive: false }).addTo(mappa);
   const livelloLinea = L.layerGroup().addTo(mappa);
   const livelloAvvisi = L.layerGroup().addTo(mappa);
   const livelloPunti = L.layerGroup().addTo(mappa);
@@ -110,6 +117,7 @@ export async function vistaDisegna(app, id = null) {
   function suggerimentoBase() {
     if (puntoDaSpostare != null) return scriviSuggerimento('Tocca la mappa dove spostare il punto');
     if (!punti.length) return scriviSuggerimento('Tocca la mappa per la partenza');
+    if (aggiungiInizio) return scriviSuggerimento('Tocca la mappa: i punti nuovi vanno prima della partenza');
     if (!manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return scriviSuggerimento('Avvicinati per disegnare sui sentieri');
     if (punti.length === 1) return scriviSuggerimento(manoLibera ? 'Mano libera: tocca il prossimo punto' : 'Tocca il prossimo punto: il percorso segue i sentieri');
     scriviSuggerimento(manoLibera ? 'Mano libera: linea dritta fino al prossimo punto' : '');
@@ -126,9 +134,24 @@ export async function vistaDisegna(app, id = null) {
     // in un anello l'ultimo punto è il primo: non si disegna due volte
     const quanti = eAnello(punti) ? punti.length - 1 : punti.length;
     for (let i = 0; i < quanti; i++) {
+      // sulla traccia di partenza si vedono solo partenza e arrivo, e si trascinano lungo la traccia
+      if (daBase && !segnapostoVisibile(punti, i)) continue;
       const m = L.marker([punti[i].p[1], punti[i].p[0]], { icon: iconaPunto(i), draggable: true, keyboard: false, autoPan: true, bubblingMouseEvents: false }).addTo(livelloPunti);
+      const suBase = daBase && Number.isFinite(punti[i].pos);
+      if (suBase) {
+        m.on('drag', () => {
+          const ll = m.getLatLng();
+          const r = spostaEstremoBase(punti, i, [ll.lng, ll.lat], base);
+          if (r) m.setLatLng([r.p[1], r.p[0]]);
+        });
+      }
       m.on('dragend', () => {
         const ll = m.getLatLng();
+        const r = suBase ? spostaEstremoBase(punti, i, [ll.lng, ll.lat], base) : null;
+        if (r) {
+          punti[i] = { ...punti[i], p: [Number(r.p[0].toFixed(6)), Number(r.p[1].toFixed(6))], pos: r.pos };
+          return aggiorna();
+        }
         spostaPunto(i, [Number(ll.lng.toFixed(6)), Number(ll.lat.toFixed(6))]);
       });
       // pressione lunga (o tasto destro): si toglie
@@ -145,9 +168,36 @@ export async function vistaDisegna(app, id = null) {
       });
     }
   }
+  // tocco sulla traccia: «Taglia qui», poi quale parte si tiene
+  let tagliaPendente = null; // { k, punto, daInizioM }
+  let popupTaglio = null;
+  const segnoTaglio = L.circleMarker([0, 0], { radius: 8, color: '#fff', weight: 3, fillColor: '#dc2626', fillOpacity: 1, interactive: false });
+  function apriTaglio(v) {
+    tagliaPendente = v;
+    segnoTaglio.setLatLng([v.punto[1], v.punto[0]]).addTo(mappa);
+    popupTaglio = L.popup({ className: 'popup-punto-disegno', offset: [0, -8], closeButton: false })
+      .setLatLng([v.punto[1], v.punto[0]])
+      .setContent('<div class="menu-punto"><button type="button" data-fai="taglia">Taglia qui</button></div>')
+      .openOn(mappa);
+  }
+  mappa.on('popupclose', () => segnoTaglio.remove());
   mappa.getContainer().addEventListener('click', (e) => {
     const b = e.target.closest('[data-fai]');
     if (!b) return;
+    if (b.dataset.fai === 'taglia') {
+      popupTaglio?.setContent('<div class="menu-punto menu-taglio"><button type="button" data-fai="tieni-prima">Tieni la parte prima</button><button type="button" data-fai="tieni-dopo">Tieni la parte dopo</button></div>');
+      return;
+    }
+    if (b.dataset.fai === 'tieni-prima' || b.dataset.fai === 'tieni-dopo') {
+      const v = tagliaPendente;
+      mappa.closePopup();
+      if (!v) return;
+      const pos = posSulTratto(punti[v.k], punti[v.k + 1], v.daInizioM);
+      const c = { p: [Number(v.punto[0].toFixed(6)), Number(v.punto[1].toFixed(6))], ...(pos != null ? { pos } : {}) };
+      punti = tagliaPunti(punti, v.k, c, b.dataset.fai === 'tieni-prima' ? 'prima' : 'dopo');
+      tagliaPendente = null;
+      return aggiorna();
+    }
     const i = Number(b.dataset.punto);
     mappa.closePopup();
     if (b.dataset.fai === 'togli') togliPunto(i);
@@ -159,7 +209,8 @@ export async function vistaDisegna(app, id = null) {
 
   function spostaPunto(i, nuovo) {
     const anello = eAnello(punti);
-    punti[i] = { ...punti[i], p: nuovo };
+    const { pos, ...senzaPos } = punti[i]; // spostato a mano: non è più un punto della traccia di partenza
+    punti[i] = { ...senzaPos, p: nuovo };
     // spostando la partenza di un anello si sposta anche l'arrivo
     if (anello && i === 0) punti[punti.length - 1] = { ...punti.at(-1), p: [...nuovo] };
     aggiorna();
@@ -181,11 +232,21 @@ export async function vistaDisegna(app, id = null) {
       puntoDaSpostare = null;
       return spostaPunto(i, p);
     }
+    // un tocco sulla traccia (vicino alla linea) apre «Taglia qui»; per aggiungere punti si tocca la mappa più in là
+    if (risultato?.tratti?.length && !aggiungiInizio) {
+      const metriPerPixel = (40_075_016.686 * Math.cos((latlng.lat * Math.PI) / 180)) / (256 * 2 ** mappa.getZoom());
+      const v = vicinoAllaLinea(risultato.tratti, p, 16 * metriPerPixel);
+      if (v) return apriTaglio(v);
+    }
     // da lontano i tratti non seguono i sentieri: la partenza si mette sempre, il resto dopo essersi avvicinati
     if (punti.length > 0 && !manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return suggerimentoBase();
     // un anello chiuso si riapre togliendo l'arrivo, poi si allunga
     if (eAnello(punti)) punti.pop();
-    punti.push({ p, libero: punti.length > 0 && manoLibera });
+    if (aggiungiInizio && punti.length) {
+      // prima della partenza: il nuovo punto diventa la partenza, e arriva alla vecchia per sentieri (o a mano libera)
+      punti[0] = { ...punti[0], libero: manoLibera };
+      punti.unshift({ p, libero: false });
+    } else punti.push({ p, libero: punti.length > 0 && manoLibera });
     aggiorna();
   }
   let ultimoClick = 0;
@@ -212,6 +273,8 @@ export async function vistaDisegna(app, id = null) {
 
   // --- calcolo ---
   function tratto(a, b) {
+    // due punti della traccia di partenza: il pezzo della traccia originale, senza ricalcolare niente
+    if (daBase && Number.isFinite(a.pos) && Number.isFinite(b.pos)) return Promise.resolve({ coordinate: fetta(base, a.pos, b.pos), terreno: [], libero: false, daBase: true });
     const k = chiaveTratto(a, b, b.libero);
     if (!tratti.has(k)) {
       const calcolo = b.libero
@@ -226,7 +289,7 @@ export async function vistaDisegna(app, id = null) {
   }
 
   async function aggiorna() {
-    if (!esistente) salvaBozza(punti.map((x) => x.p)); // (un percorso da file non tocca la bozza)
+    if (!esistente && !sorgente) salvaBozza(punti.map((x) => x.p)); // (modificare una traccia già caricata non tocca la bozza)
     disegnaPunti();
     suggerimentoBase();
     const mia = ++richiesta;
@@ -308,7 +371,7 @@ export async function vistaDisegna(app, id = null) {
     const tratti = trattiARischio({ linea: risultato.linea, terreno: risultato.terreno, liberi: intervalliLiberi(risultato.tratti) }, { parcoDi, regolati });
     livelloAvvisi.clearLayers();
     for (const t of tratti) L.polyline(t.linea.map(([lon, lat]) => [lat, lon]), { color: '#ef9f27', weight: 9, opacity: 0.6, interactive: false }).addTo(livelloAvvisi);
-    box.innerHTML = testiAvvisi(tratti)
+    box.innerHTML = [...(sorgente?.avviso ? [sorgente.avviso] : []), ...testiAvvisi(tratti)]
       .map((t) => `<p class="avviso-via">${ICONE.avviso}<span>${escapeHtml(t)}</span></p>`)
       .join('');
   }
@@ -336,7 +399,10 @@ export async function vistaDisegna(app, id = null) {
     if (!azione) return;
     if (azione !== 'menu') menu.hidden = true;
     if (azione === 'annulla' && punti.length) {
-      punti.pop();
+      if (aggiungiInizio) {
+        punti.shift();
+        if (punti[0]) punti[0] = { ...punti[0], libero: false };
+      } else punti.pop();
       aggiorna();
     } else if (azione === 'anello' && punti.length >= 2) {
       punti = chiudiAnello(punti);
@@ -344,6 +410,11 @@ export async function vistaDisegna(app, id = null) {
     } else if (azione === 'inverti' && punti.length >= 2) {
       punti = inverti(punti);
       aggiorna();
+    } else if (azione === 'inizio') {
+      aggiungiInizio = !aggiungiInizio;
+      b.setAttribute('aria-pressed', String(aggiungiInizio));
+      b.classList.toggle('attiva', aggiungiInizio);
+      suggerimentoBase();
     } else if (azione === 'libera') {
       manoLibera = !manoLibera;
       b.setAttribute('aria-pressed', String(manoLibera));
@@ -354,7 +425,10 @@ export async function vistaDisegna(app, id = null) {
       b.setAttribute('aria-expanded', String(!menu.hidden));
     } else if (azione === 'importa') avviaImportazione();
     else if (azione === 'esporta' && risultato) esporta();
-    else if (azione === 'ricomincia' && (punti.length < 3 || confirm('Cancellare tutti i punti?'))) {
+    else if (azione === 'ricomincia' && daBase && confirm('Tornare alla traccia com\'era all\'inizio?')) {
+      punti = puntiDiPartenza();
+      aggiorna();
+    } else if (azione === 'ricomincia' && !daBase && (punti.length < 3 || confirm('Cancellare tutti i punti?'))) {
       punti = [];
       aggiorna();
     }
@@ -390,25 +464,31 @@ export async function vistaDisegna(app, id = null) {
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (e.target === finestraSalva || azione === 'continua') return finestraSalva.close();
     if (azione !== 'conferma' || !risultato) return;
+    // dove c'è un pezzo della traccia di partenza il terreno non è noto: si legge da OpenStreetMap dalla scheda
+    const conBase = risultato.tratti.some((t) => t.daBase);
+    // un mio percorso si modifica direttamente; un sentiero dell'archivio o una carrareccia diventa sempre una copia
     const nuovo = {
-      ...(esistente && !daFile ? esistente : { id: nuovoIdPercorso(), note: '' }),
+      ...(esistente ?? { id: nuovoIdPercorso(), note: sorgente?.note ?? '', ...(sorgente?.daSentiero ? { daSentiero: sorgente.daSentiero } : {}) }),
       nome: app.querySelector('#nomePercorso').value.trim() || 'Percorso senza nome',
       origine: 'disegnato',
       puntiControllo: punti,
       geojson: { type: 'MultiLineString', coordinates: [risultato.linea] },
-      terreno: risultato.terreno,
-      fonteTerreno: 'brouter',
-      aggiornatoTerreno: new Date().toISOString(),
+      terreno: conBase ? [] : risultato.terreno,
+      fonteTerreno: conBase ? null : 'brouter',
+      aggiornatoTerreno: conBase ? null : new Date().toISOString(),
     };
     await salvaPercorso(nuovo);
-    if (!esistente) cancellaBozza();
+    if (!esistente && !sorgente) cancellaBozza();
     location.hash = `#/percorso/${encodeURIComponent(nuovo.id)}`;
   });
 
   // all'apertura: la stessa vista della mappa da cui si è aperto il disegno (centro e zoom); solo "Riprendi" una
   // bozza (o la modifica di un percorso) apre sulla bozza o sul percorso
-  const apertura = esistente ? null : consumaAperturaDisegno();
-  if (apertura) {
+  const apertura = esistente || sorgente ? (consumaAperturaDisegno(), null) : consumaAperturaDisegno();
+  if (daBase) {
+    mappa.sbloccaInquadrature?.();
+    mappa.fitBounds(base.linea.map(([lon, lat]) => [lat, lon]), { paddingTopLeft: [30, 80], paddingBottomRight: [30, 220], maxZoom: 16 });
+  } else if (apertura) {
     mappa.sbloccaInquadrature?.();
     mappa.setView(apertura.centro, apertura.zoom, { animate: false });
   } else if (punti.length) {
@@ -428,4 +508,21 @@ export async function vistaDisegna(app, id = null) {
     finestraSalva.remove();
     document.body.classList.remove('con-mappa', 'disegno');
   };
+}
+
+// «Modifica traccia» da un sentiero dell'archivio: la traccia si apre nel disegno e si salva sempre una copia
+export async function vistaDisegnaSentiero(app, idCodificato) {
+  const id = decodeURIComponent(idCodificato);
+  const [sentiero, traccia] = await Promise.all([leggiSentiero(id), leggiTraccia(id)]);
+  if (!sentiero || !traccia?.geojson?.coordinates?.length) {
+    app.innerHTML = `<p class="vuoto">Per modificare la traccia serve una traccia. <a href="#/sentiero/${encodeURIComponent(id)}">Torna al sentiero</a></p>`;
+    return;
+  }
+  return vistaDisegna(app, null, {
+    pezzi: pezziNelVerso(traccia.geojson, id, sentiero),
+    nomeProposto: `${sentiero.codici?.length ? codici(sentiero) : sentiero.nome} (modificato)`,
+    note: `Modificato da ${[sentiero.codici?.length ? codici(sentiero) : '', sentiero.nome].filter(Boolean).join(' ')}.`,
+    indietro: `#/sentiero/${encodeURIComponent(id)}`,
+    daSentiero: id,
+  });
 }

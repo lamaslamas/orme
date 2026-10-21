@@ -2251,3 +2251,5 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 @media (max-width: 1023px) {
   body.estendi-aperto .mappa { height: 40dvh; min-height: 230px; }
 }
+.menu-taglio { display: grid; gap: 4px; }
+.disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 10px; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }

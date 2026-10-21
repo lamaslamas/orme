@@ -463,7 +463,6 @@ export async function vistaScheda(app, id) {
       <div class="barra-azioni">
         <button type="button" class="bottone ${s.salvato ? 'salvato' : ''}" id="salvaSentiero" aria-pressed="${Boolean(s.salvato)}">${ICONE.segnalibro}<span>${s.salvato ? 'Salvato' : 'Salva'}</span></button>
         <a class="bottone" href="#/sentiero/${idUrl}/mappa">${ICONE.mappa}<span>Mappa</span></a>
-        ${traccia?.geojson?.coordinates?.length && !['rete_sentieri', 'uscita_guidata'].includes(s.tipoPercorso) ? `<a class="bottone" href="#/estendi/sentiero/${idUrl}">${ICONE.percorso ?? ''}<span>Estendi</span></a>` : ''}
         ${puntoPartenza ? `<button type="button" class="bottone primario" id="portami">${ICONE.navigazione}<span>Portami</span></button>` : ''}
       </div>
       ${puntoPartenza ? htmlFoglioPortami(puntoPartenza) : ''}
