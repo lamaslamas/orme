@@ -97,6 +97,10 @@ import { puntiDelRobot } from './puntiRobot.js';
 import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodiVicini, puntiLungo } from '../lib/reteSentieri.js';
 
 const CHIAVE = 'orme.suggerisci';
+const CHIAVE_DISTANZA_VERIFICATA = 'orme.suggerisci.distanzaVerificata';
+// il «?» accanto ai titoli: la nota su come togliere una scelta
+const AIUTO = ' <button type="button" class="aiuto-scelta" data-aiuto aria-label="Come togliere una scelta" aria-expanded="false">?</button>';
+const NOTA_AIUTO = 'Tocca di nuovo una scelta attiva per toglierla: quel criterio non filtra più.';
 const PER_VOLTA = 3;
 const METEO_PER_VOLTA = 12; // previsioni per i primi della classifica (poi per i successivi, se servono)
 const COLORI_PROPOSTE = ['#e8590c', '#1971c2', '#2b8a3e'];
@@ -278,10 +282,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     return `${modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
-      <p class="tenue piccolo">Tocca di nuovo una scelta attiva per toglierla: quel criterio non filtra più.</p>
-      <h3>Quanto tempo</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
-      <h3>Ritmo</h3>${htmlRitmo()}
-      ${scelte.tempo === 'due' ? `<h3>Dove dormire</h3>${htmlGruppo('dormire', DOVE_DORMIRE, scelte.dormire ?? doveDormire())}` : ''}
+      <h3>Quanto tempo${AIUTO}</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       ${
         scelte.cerco.includes('fauna')
@@ -289,17 +290,22 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       <p class="tenue piccolo">In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo. ${linkCodice}</p>${htmlSpecieZona()}`
           : ''
       }
-      <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
+      <h3>Fatica${AIUTO}</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
       ${htmlQuotaDislivello(scelte)}
-      <h3>Quanto lontano</h3>${htmlGruppo('distanza', DISTANZE, scelte.distanza)}
+      <h3>Quanto lontano${AIUTO}</h3>${htmlGruppo('distanza', DISTANZE, scelte.distanza)}
       ${
         scelte.distanza === 'parco'
           ? `<select class="scelta-parco" aria-label="Parco"><option value="">Scegli il parco…</option>${PARCHI.filter((p) => !p.zona)
               .map((p) => `<option value="${p.id}" ${p.id === scelte.parco ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`)
               .join('')}</select>`
           : ''
-      }`;
+      }
+      <details class="altre-scelte" ${altreAperte ? 'open' : ''}><summary>Altre scelte</summary>
+        <h3>Ritmo</h3>${htmlRitmo()}
+        ${scelte.tempo === 'due' ? `<h3>Dove dormire</h3>${htmlGruppo('dormire', DOVE_DORMIRE, scelte.dormire ?? doveDormire())}` : ''}
+      </details>`;
   }
+  let altreAperte = false;
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
     if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase(), daDoveParte({ modo: modoPartenza, scelta: sceltaPartenza })].join(' · ');
@@ -316,15 +322,16 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         <div class="suggerisci-riepilogo" hidden><span>${escapeHtml(testoScelte())}</span><button type="button" class="bottone testo" data-azione="cambia">Cambia</button></div>
         <div class="suggerisci-form">
           <div class="suggerisci-scelte">${htmlScelte()}</div>
-          <button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">${testoBottone()}</button>
         </div>
         <div class="suggerisci-risultati" aria-live="polite"></div>
-      </div>`;
+      </div>
+      <div class="suggerisci-piede"><button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">${testoBottone()}</button></div>`;
   }
   const testoBottone = () => (scelte.modo === 'anello' ? 'Crea l\'anello' : 'Suggerisci');
   // con le proposte: scelte in una riga sopra; "Cambia" le riapre
   function soloRisultati(si) {
     foglio.querySelector('.suggerisci-form').hidden = si;
+    foglio.querySelector('.suggerisci-piede').hidden = si; // il pulsante sta in fondo alle scelte, non ai risultati
     const r = foglio.querySelector('.suggerisci-riepilogo');
     r.hidden = !si;
     r.querySelector('span').textContent = testoScelte();
@@ -503,6 +510,21 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // Il meteo non blocca mai i risultati: la lista si mostra subito senza, poi arriva il meteo (al massimo 10 secondi
   // per richiesta) e riordina i percorsi; se non c'è, resta una nota piccola con «Riprova»
+  let notaDistanza = ''; // «Entro 1 h non ci sono percorsi: ti mostro quelli entro 2 h»
+  const distanzaVerificata = () => {
+    try {
+      return Boolean(localStorage.getItem(CHIAVE_DISTANZA_VERIFICATA));
+    } catch {
+      return true;
+    }
+  };
+  const segnaDistanzaVerificata = () => {
+    try {
+      localStorage.setItem(CHIAVE_DISTANZA_VERIFICATA, '1');
+    } catch {
+      // senza memoria si ripete la verifica
+    }
+  };
   let meteoChiesto = new Set();
   let meteoAssente = false;
   const NOTA_METEO = '<p class="tenue piccolo meteo-assente">Meteo non disponibile ora · <button type="button" class="bottone testo" data-azione="riprova-meteo">Riprova</button></p>';
@@ -615,9 +637,18 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }`;
   }
 
+  // le scelte si chiudono: in cima riepilogo e «Cambia», sotto «Cerco…» e poi i risultati o il messaggio
+  function mostraRisultatiInCima() {
+    soloRisultati(true);
+    tendina.vai('aperta');
+    const corpo = foglio.querySelector('.suggerisci-corpo');
+    if (corpo) corpo.scrollTop = 0;
+  }
   async function suggerisci() {
     const mia = ++richiesta;
     const risultati = foglio.querySelector('.suggerisci-risultati');
+    mostraRisultatiInCima();
+    notaDistanza = '';
     risultati.innerHTML = '<p class="tenue">Cerco tra i percorsi…</p>';
     puntiUtili ??= await caricaPunti();
     if (mia !== richiesta) return;
@@ -630,6 +661,20 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       if (zonaSpecie.stato !== 'ok') {
         risultati.innerHTML = '<p class="vuoto">Non riesco a leggere le segnalazioni della zona (sei offline?). Riprova tra poco.</p>';
         return;
+      }
+    }
+    // la prima volta, se entro 1 h non c'è nessun percorso dalla posizione: la distanza più piccola che ne dà
+    if (scelte.distanza === '60' && !distanzaVerificata()) {
+      segnaDistanzaVerificata();
+      if (contaCon(data).n === 0) {
+        const trovata = ['120', ''].find((d) => contaCon(data, { distanza: d }).n > 0);
+        if (trovata != null) {
+          scelte.distanza = trovata;
+          ricorda(scelte);
+          aggiornaScelte();
+          soloRisultati(true);
+          notaDistanza = `Entro 1 h non ci sono percorsi: ti mostro ${trovata ? `quelli entro ${DISTANZE[trovata]}` : 'quelli a qualsiasi distanza'}.`;
+        }
       }
     }
     const lista = [];
@@ -738,6 +783,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     });
     const fine = mostrate + pagina.length;
     risultati.innerHTML = `
+      ${notaDistanza ? `<p class="avviso-luce">${ICONE.avviso}<span>${escapeHtml(notaDistanza)}</span></p>` : ''}
       ${tardiOggi ? `<p class="avviso-luce">${ICONE.avviso}<span>${TESTO_TARDI}</span></p>` : ''}
       <ol class="proposte">${pagina.map((v, i) => htmlProposta(v, i, data)).join('')}</ol>
       <div class="azioni-proposte">
@@ -967,6 +1013,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const mia = ++richiesta;
     giroAnello = giro;
     const risultati = foglio.querySelector('.suggerisci-risultati');
+    mostraRisultatiInCima();
     const avanzamento = (n) => (risultati.innerHTML = `<p class="tenue">Calcolo gli anelli sui sentieri… ${n} di ${DIREZIONI}</p>`);
     avanzamento(0);
     const volutaKm = Number(scelte.lunghezza);
@@ -1234,6 +1281,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const b = e.target.closest('[data-scelta]');
     if (b) {
       const { scelta, valore } = b.dataset;
+      if (scelta === 'distanza') segnaDistanzaVerificata(); // una scelta fatta a mano non si cambia da sola
       if (scelta === 'cerco') scelte.cerco = scelte.cerco.includes(valore) ? scelte.cerco.filter((x) => x !== valore) : [...scelte.cerco, valore];
       if (scelta === 'dormire') ricordaDoveDormire(valore);
       // tempo, distanza e fatica: toccando di nuovo la voce attiva si toglie la scelta (il criterio non filtra più)
@@ -1323,6 +1371,17 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   });
   // quota e dislivello: la scelta si ricorda (insieme alle altre di Suggerisci, non con gli elenchi)
   collegaQuotaDislivello(foglio, () => scelte, () => ricorda(scelte));
+  // «?» accanto ai titoli: apre o chiude la nota sotto il titolo; «Altre scelte» ricorda se è aperta
+  foglio.addEventListener('click', (e) => {
+    const q = e.target.closest('[data-aiuto]');
+    if (!q) return;
+    const h3 = q.closest('h3');
+    const aperta = h3.nextElementSibling?.classList.contains('nota-aiuto');
+    if (aperta) h3.nextElementSibling.remove();
+    else h3.insertAdjacentHTML('afterend', `<p class="tenue piccolo nota-aiuto">${NOTA_AIUTO}</p>`);
+    q.setAttribute('aria-expanded', String(!aperta));
+  });
+  foglio.addEventListener('toggle', (e) => e.target.matches?.('.altre-scelte') && (altreAperte = e.target.open), true);
   foglio.addEventListener('change', (e) => {
     if (e.target.matches('[data-ora-partenza]')) return e.target.value && ricordaOraPartenza(e.target.value);
     if (!e.target.matches('.scelta-parco')) return;

@@ -1913,7 +1913,15 @@ body.disegno main { padding: 0; }
 .gruppo-scelte { display: flex; flex-wrap: wrap; gap: 6px; }
 .gruppo-scelte .chip-scorciatoia.attiva { background: var(--verde); color: #fff; border-color: var(--verde); }
 .scelta-parco { margin-top: 8px; width: 100%; min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; font: inherit; }
-.suggerisci-corpo [data-azione="suggerisci"] { margin: 14px 0 6px; width: 100%; }
+.suggerisci-piede { flex: none; padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--bordo); background: var(--sfondo, #f4f6f4); }
+.suggerisci-piede[hidden] { display: none; }
+.suggerisci-piede [data-azione="suggerisci"] { width: 100%; }
+.aiuto-scelta { width: 22px; height: 22px; margin-left: 4px; border-radius: 50%; border: 1px solid var(--bordo); background: var(--scheda-piena); color: var(--testo-tenue); font: inherit; font-size: 0.78rem; font-weight: 800; padding: 0; line-height: 1; vertical-align: middle; cursor: pointer; }
+.nota-aiuto { margin: 2px 0 4px; }
+.altre-scelte { margin-top: 10px; }
+.altre-scelte summary { font-weight: 700; cursor: pointer; color: var(--testo-tenue); font-size: 0.85rem; }
+/* con Suggerisci aperto la barra in basso (Suggerisci, Percorsi qui, matita) si nasconde: due «Suggerisci» uno sopra l'altro */
+body.suggerisci-aperto .home-sotto { display: none; }
 .proposte { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 10px; }
 .proposta { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border-radius: 14px; background: var(--scheda-piena); }
 .proposta-mappa { border: none; background: none; padding: 0; cursor: pointer; }
