@@ -106,6 +106,8 @@ export function queryQuadrato([s, o, n, e]) {
 (
 nwr["tourism"~"^(wilderness_hut|alpine_hut)$"]${b};
 nwr["amenity"="shelter"]["shelter_type"~"^(basic_hut|lean_to)$"]${b};
+nwr["tourism"~"^(camp_site|guest_house|hostel|hotel|chalet)$"]${b};
+nwr["agritourism"="yes"]${b};
 node["natural"="spring"]${b};
 nwr["amenity"="drinking_water"]${b};
 );

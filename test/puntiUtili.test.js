@@ -132,3 +132,34 @@ describe('dati dei rifugi da OSM', () => {
     expect(fonte.telefono).toBeUndefined();
   });
 });
+
+describe('dove dormire: strutture oltre ai rifugi', () => {
+  it('campeggi, agriturismi, B&B, ostelli e alberghi solo con i tipi che scrive OSM; niente dedotto', async () => {
+    const { puntoDaElemento, perLaNotteScelta, etichettaPernotto } = await import('../src/lib/puntiUtili.js');
+    const el = (tags, id = 1) => ({ type: 'node', id, lat: 40.3, lon: 15.8, tags });
+    expect(puntoDaElemento(el({ tourism: 'camp_site', name: 'Camping Sirino', phone: '+39 0973 111111', website: 'https://camping.example' }))).toMatchObject({ tipo: 'campeggio', nome: 'Camping Sirino', telefono: '+39 0973 111111', sito: 'https://camping.example' });
+    expect(puntoDaElemento(el({ tourism: 'guest_house', guest_house: 'agritourism' })).tipo).toBe('agriturismo');
+    expect(puntoDaElemento(el({ tourism: 'guest_house', guest_house: 'bed_and_breakfast' })).tipo).toBe('bb');
+    expect(puntoDaElemento(el({ tourism: 'hostel' })).tipo).toBe('ostello');
+    expect(puntoDaElemento(el({ tourism: 'hotel', name: 'Hotel Prova' })).tipo).toBe('albergo');
+    expect(puntoDaElemento(el({ tourism: 'guest_house' })).tipo).toBe('alloggio'); // tipo non indicato: non si inventa
+    const rif = puntoDaElemento(el({ tourism: 'alpine_hut' }));
+    const camp = puntoDaElemento(el({ tourism: 'camp_site' }, 2));
+    expect([rif, camp].filter(perLaNotteScelta('qualsiasi'))).toHaveLength(2);
+    expect([rif, camp].filter(perLaNotteScelta('rifugi'))).toEqual([rif]);
+    expect([rif, camp].filter(perLaNotteScelta('strutture'))).toEqual([camp]);
+    expect(etichettaPernotto({ ...camp, nome: 'Camping Sirino', distanzaM: 800 })).toBe('Camping Sirino (campeggio, a 800 m dalla traccia)');
+    expect(etichettaPernotto({ ...camp, distanzaM: 10 })).toBe('un campeggio (sulla traccia)');
+  });
+  it('le strutture arrivano fino a 2 km dalla traccia, i rifugi fino a 1 km', async () => {
+    const { rifugiPerLaNotte } = await import('../src/lib/lungoIlPercorso.js');
+    const pezzi = [[[15.8, 40.3], [15.84, 40.3]]];
+    const aNord = (m) => 40.3 + m / 111_195;
+    const punti = [
+      { id: 'r', tipo: 'rifugio', lon: 15.82, lat: aNord(1500) },
+      { id: 'c', tipo: 'campeggio', lon: 15.82, lat: aNord(1500) },
+    ];
+    const r = rifugiPerLaNotte(punti, pezzi, { km: 1.7, punto: [15.82, 40.3] });
+    expect(r.map((x) => x.id)).toEqual(['c']);
+  });
+});

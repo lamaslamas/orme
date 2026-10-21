@@ -11,7 +11,17 @@ export const TIPI_PUNTO = {
   ricovero: { gruppo: 'rifugi', nome: 'Ricovero', plurale: 'ricoveri' },
   fonte: { gruppo: 'acqua', nome: 'Sorgente', plurale: 'sorgenti' },
   fontanella: { gruppo: 'acqua', nome: 'Fontanella', plurale: 'fontanelle' },
+  // dove dormire oltre ai rifugi (non si disegnano sulla mappa: servono a "2 giorni con notte" e a "Su più giorni")
+  campeggio: { gruppo: 'strutture', nome: 'Campeggio', plurale: 'campeggi' },
+  agriturismo: { gruppo: 'strutture', nome: 'Agriturismo', plurale: 'agriturismi' },
+  bb: { gruppo: 'strutture', nome: 'B&B', plurale: 'B&B' },
+  ostello: { gruppo: 'strutture', nome: 'Ostello', plurale: 'ostelli' },
+  albergo: { gruppo: 'strutture', nome: 'Albergo', plurale: 'alberghi' },
+  alloggio: { gruppo: 'strutture', nome: 'Alloggio', plurale: 'alloggi' },
 };
+// i gruppi che si vedono sulla mappa e negli elenchi lungo il percorso (le strutture per dormire no)
+export const sulMappa = (p) => TIPI_PUNTO[p?.tipo]?.gruppo !== 'strutture';
+const STRUTTURE = '^(camp_site|guest_house|hostel|hotel|chalet)$';
 // Una sola soglia in tutta l'app (schede, Pianifica, disegno, Su più giorni): rifugi e acqua "lungo
 // il percorso" se entro 300 m dalla traccia. Con 200 m sui percorsi dell'archivio si perdono il 15%
 // delle fonti e dei rifugi (sorgenti un po' sotto il sentiero, posizioni approssimate in OSM);
@@ -24,6 +34,8 @@ export function queryPuntiParco(parco) {
 ${prima}(
 nwr["tourism"~"^(wilderness_hut|alpine_hut)$"]${filtro};
 nwr["amenity"="shelter"]["shelter_type"~"^(basic_hut|lean_to)$"]${filtro};
+nwr["tourism"~"${STRUTTURE}"]${filtro};
+nwr["agritourism"="yes"]${filtro};
 node["natural"="spring"]${filtro};
 nwr["amenity"="drinking_water"]${filtro};
 );
@@ -32,6 +44,13 @@ out center tags;`;
 
 export function tipoDelPunto(t = {}) {
   if (t.tourism === 'alpine_hut') return 'rifugio';
+  // dove dormire: solo quello che OSM scrive (campeggio, agriturismo, B&B, ostello, albergo), niente di dedotto
+  if (t.tourism === 'camp_site') return 'campeggio';
+  if (t.guest_house === 'agritourism' || t.agritourism === 'yes') return 'agriturismo';
+  if (t.tourism === 'guest_house' && t.guest_house === 'bed_and_breakfast') return 'bb';
+  if (t.tourism === 'hostel') return 'ostello';
+  if (t.tourism === 'hotel') return 'albergo';
+  if (t.tourism === 'guest_house' || t.tourism === 'chalet') return 'alloggio';
   if (t.tourism === 'wilderness_hut') return 'bivacco';
   if (t.amenity === 'shelter') return 'ricovero';
   if (t.natural === 'spring') return 'fonte';
@@ -61,7 +80,7 @@ export function puntoDaElemento(el) {
   if (no(t.access) || t.access === 'private') p.privato = true;
   if (/closed|chius/i.test(`${t.note ?? ''} ${t.description ?? ''}`) || t['disused:tourism'] || si(t.disused)) p.chiuso = true;
   if (si(t.fireplace)) p.camino = true;
-  if (TIPI_PUNTO[tipo].gruppo === 'rifugi') Object.assign(p, datiRifugio(t));
+  if (['rifugi', 'strutture'].includes(TIPI_PUNTO[tipo].gruppo)) Object.assign(p, datiRifugio(t));
   return p;
 }
 
@@ -146,7 +165,34 @@ export function puntiNelRiquadro(punti, [s, o, n, e]) {
 }
 
 // Dove passare la notte: rifugi, bivacchi e ricoveri non chiusi né privati
-export const perLaNotte = (p) => TIPI_PUNTO[p.tipo]?.gruppo === 'rifugi' && !p.chiuso && !p.privato;
+export const perLaNotte = (p) => ['rifugi', 'strutture'].includes(TIPI_PUNTO[p.tipo]?.gruppo) && !p.chiuso && !p.privato;
+// "Dove dormire": qualsiasi (predefinito) / solo rifugi e bivacchi / solo strutture (campeggi, agriturismi, B&B, ostelli, alberghi)
+export const DOVE_DORMIRE = { qualsiasi: 'Qualsiasi', rifugi: 'Solo rifugi e bivacchi', strutture: 'Solo strutture' };
+export function perLaNotteScelta(dove = 'qualsiasi') {
+  return (p) => perLaNotte(p) && (dove === 'qualsiasi' || (dove === 'rifugi' ? TIPI_PUNTO[p.tipo].gruppo === 'rifugi' : TIPI_PUNTO[p.tipo].gruppo === 'strutture'));
+}
+const CHIAVE_DORMIRE = 'orme.doveDormire';
+export function doveDormire() {
+  try {
+    const v = globalThis.localStorage?.getItem(CHIAVE_DORMIRE);
+    return DOVE_DORMIRE[v] ? v : 'qualsiasi';
+  } catch {
+    return 'qualsiasi';
+  }
+}
+export function ricordaDoveDormire(v) {
+  try {
+    globalThis.localStorage?.setItem(CHIAVE_DORMIRE, v);
+  } catch {
+    // vale solo per questa visita
+  }
+}
+// "Campeggio Sorgente (campeggio, a 800 m dalla traccia)": il posto per dormire, con tipo e distanza
+export function etichettaPernotto(p) {
+  const tipo = TIPI_PUNTO[p.tipo]?.nome ?? 'posto';
+  const dist = p.distanzaM == null ? '' : p.distanzaM < 30 ? ', sulla traccia' : `, a ${p.distanzaM} m dalla traccia`;
+  return p.nome ? `${p.nome} (${tipo.toLowerCase()}${dist})` : `${tipo === 'B&B' ? 'un B&B' : `${tipo === 'Alloggio' ? 'un' : 'un'} ${tipo.toLowerCase()}`}${dist ? ` (${dist.slice(2)})` : ''}`;
+}
 // Acqua: sorgenti e fontanelle non segnate come non potabili
 export const conAcqua = (p) => TIPI_PUNTO[p.tipo]?.gruppo === 'acqua' && p.potabile !== false;
 

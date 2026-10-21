@@ -7,7 +7,7 @@ import { quoteDeiPezzi, quoteDeiPunti, testoFonteQuote } from './quote.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1, quotaPiuVicina, testoDislivelloRifugio, lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
-import { perLaNotte, TIPI_PUNTO } from '../lib/puntiUtili.js';
+import { perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, TIPI_PUNTO } from '../lib/puntiUtili.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import { PARCHI } from '../datiParchi.js';
@@ -20,6 +20,8 @@ export const htmlPiuGiorni = () => `<section class="riquadro piu-giorni">
     <h2>Su più giorni</h2>
     <p class="tenue piccolo">Ore di cammino al giorno, soste escluse:</p>
     <div class="ore-giorno" role="group" aria-label="Ore di cammino al giorno">${ORE_AL_GIORNO.map((o) => `<button type="button" class="chip-scorciatoia" data-ore="${o}" aria-pressed="false">${o} h</button>`).join('')}</div>
+    <p class="tenue piccolo">Dove dormire:</p>
+    <div class="ore-giorno dove-dormire" role="group" aria-label="Dove dormire">${Object.entries(DOVE_DORMIRE).map(([k, t]) => `<button type="button" class="chip-scorciatoia ${k === doveDormire() ? 'attiva' : ''}" data-dormire="${k}" aria-pressed="${k === doveDormire()}">${t}</button>`).join('')}</div>
     <div class="giorni-risultato" aria-live="polite"></div>
   </section>`;
 
@@ -39,7 +41,7 @@ export function quoteDisponibili(percorso, pezzi) {
 }
 
 // Pezzi con le quote: già disponibili o chieste ora a Open-Meteo
-async function pezziConQuote(percorso, pezzi) {
+export async function pezziConQuote(percorso, pezzi) {
   const pronte = quoteDisponibili(percorso, pezzi);
   if (pronte) return pronte;
   const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
@@ -83,10 +85,22 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
   if (!sezione) return;
   const risultato = sezione.querySelector('.giorni-risultato');
   let richiesta = 0;
+  let oreOra = null;
   sezione.addEventListener('click', async (e) => {
+    const d = e.target.closest('[data-dormire]');
+    if (d) {
+      ricordaDoveDormire(d.dataset.dormire);
+      sezione.querySelectorAll('[data-dormire]').forEach((x) => {
+        x.classList.toggle('attiva', x === d);
+        x.setAttribute('aria-pressed', String(x === d));
+      });
+      if (oreOra) sezione.querySelector(`[data-ore="${oreOra}"]`)?.click(); // si rifà il calcolo con la nuova scelta
+      return;
+    }
     const b = e.target.closest('[data-ore]');
     if (!b) return;
     const ore = Number(b.dataset.ore);
+    oreOra = ore;
     sezione.querySelectorAll('[data-ore]').forEach((x) => {
       x.classList.toggle('attiva', x === b);
       x.setAttribute('aria-pressed', String(x === b));
@@ -115,7 +129,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
     const giorni = await Promise.all(
       fini.map(async (f) => ({
         ...f,
-        rifugi: await conDislivello(rifugiPerLaNotte(tutti ?? [], pezzi, fineSullAndata(f, kmAndata), { perLaNotte }).slice(0, 4), pq),
+        rifugi: await conDislivello(rifugiPerLaNotte(tutti ?? [], pezzi, fineSullAndata(f, kmAndata), { perLaNotte: perLaNotteScelta(doveDormire()) }).slice(0, 4), pq),
         parco: await parcoNazionaleIn(f.punto),
       })),
     );
@@ -128,7 +142,7 @@ export function collegaPiuGiorni(sezione, percorso, pezzi, punti, { conQuote = (
         .map(
           (g) => `<li>
           <b>Fine giorno ${g.giorno}</b> · km ${km1(g.km)} <span class="tenue">(dopo ${escapeHtml(durata(Math.round(g.minuti)))})</span>
-          ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? 'Nessun rifugio o bivacco entro 1 km dalla traccia qui vicino.' : 'Dati su rifugi non disponibili.'}</p>`}
+          ${g.rifugi.length ? `<ul class="giorni-rifugi">${g.rifugi.map(htmlRifugio).join('')}</ul>` : `<p class="tenue piccolo">${tutti ? `Nessun posto per dormire (${doveDormire() === 'qualsiasi' ? 'rifugio, bivacco o struttura' : doveDormire() === 'rifugi' ? 'rifugio o bivacco' : 'struttura'}) vicino alla traccia qui: 1 km per i rifugi, 2 km per le strutture.` : 'Dati su rifugi non disponibili.'}</p>`}
           ${g.parco ? `<p class="avviso-pernotto">${ICONE.avviso}<span>${escapeHtml(g.parco.nomeBreve)}: nei parchi nazionali campeggio e bivacco liberi sono in genere vietati. Verifica il regolamento del parco.</span></p>` : ''}
         </li>`,
         )

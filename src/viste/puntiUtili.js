@@ -12,7 +12,7 @@ const senzaDoppioni = (punti) => [...new Map(punti.map((p) => [p.id, p])).values
 const ZOOM_ROBOT = 11;
 import { escapeHtml } from '../lib/formato.js';
 import { celleNelRiquadro, cellaScaduta, ZOOM_CELLE, queryPuntiParco, puntiDallaRisposta, inCentroAbitato } from '../lib/puntiUtili.js';
-import { TIPI_PUNTO, noteDelPunto, righeRifugio, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
+import { sulMappa, TIPI_PUNTO, noteDelPunto, righeRifugio, puntiLungoIlPercorso, riassuntoPunti, puntiNelRiquadro, RAGGIO_LUNGO_IL_PERCORSO_M, perLaNotte, categoriaAcqua, acquaSuCuiContare, CATEGORIE_ACQUA } from '../lib/puntiUtili.js';
 import { kmLungoLaTraccia, lunghezzaDeiPezzi, trattoPiuLungoSenza, km1 } from '../lib/lungoIlPercorso.js';
 import { cronometra } from '../lib/misura.js';
 import { partiDaSvg } from '../lib/tracciati.js';
@@ -147,7 +147,7 @@ export function aggiungiPuntiUtili(mappa) {
   const aggiungi = cronometra('rifugi e acqua: segnaposto nuovi', (punti) => aggiungiPunti(punti));
   function aggiungiPunti(punti) {
     for (const p of punti) {
-      if (disegnati.has(p.id)) continue;
+      if (disegnati.has(p.id) || !sulMappa(p)) continue;
       disegnati.add(p.id);
       const t = TIPI_PUNTO[p.tipo];
       // sulla tela, non come segnaposto HTML (con centinaia di punti il telefono rallentava)
@@ -277,7 +277,7 @@ export async function mostraPuntiLungoIlPercorso(contenitore, geojson, { punti: 
     return null;
   }
   // fontanelle in paese: dopo le fonti fuori dai centri abitati (in ordine di km, solo segnate)
-  let vicini = puntiLungoIlPercorso(punti, geojson).map((p) => ({ ...p, inPaese: inCentroAbitato(p, punti) }));
+  let vicini = puntiLungoIlPercorso(punti, geojson).filter(sulMappa).map((p) => ({ ...p, inPaese: inCentroAbitato(p, punti) }));
   if (pezzi) vicini = vicini.map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi) })).sort((a, b) => a.km - b.km);
   else vicini.sort((a, b) => a.inPaese - b.inPaese || a.distanzaM - b.distanzaM);
   contenitore.innerHTML = `<section class="riquadro punti-percorso">${titolo}

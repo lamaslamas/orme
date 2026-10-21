@@ -6,7 +6,7 @@ import { km1, profiloTempi, rifugiPerLaNotte, kmLungoLaTraccia, lunghezzaDeiPezz
 import { oraDaMinuti } from '../lib/andataRitorno.js';
 import { orariDelGiorno, ANTICIPO_ALBA_MIN } from '../lib/fotografia.js';
 import { confrontoGiornoNotte } from '../lib/giornoNotte.js';
-import { perLaNotte, conAcqua, puntiLungoIlPercorso, TIPI_PUNTO } from '../lib/puntiUtili.js';
+import { perLaNotteScelta, doveDormire, conAcqua, puntiLungoIlPercorso, TIPI_PUNTO } from '../lib/puntiUtili.js';
 import { testoTratto } from '../lib/trattoFauna.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { parcoNazionaleIn } from './piuGiorni.js';
@@ -109,7 +109,7 @@ export function collegaGiornoNotte(box, { id, pezzi, tratto = null, anello = fal
     const vicini = (tutti ?? []).length ? puntiLungoIlPercorso(tutti, geojson) : [];
     const kmDi = (p) => kmLungoLaTraccia([p.lon, p.lat], pezzi);
     const acqua = vicini.filter(conAcqua).map((p) => ({ ...p, km: kmDi(p) }));
-    const rifugi = rifugiPerLaNotte(tutti ?? [], pezzi, { km: kmTarget, punto: puntoTarget }, { perLaNotte });
+    const rifugi = rifugiPerLaNotte(tutti ?? [], pezzi, { km: kmTarget, punto: puntoTarget }, { perLaNotte: perLaNotteScelta(doveDormire()) });
     const rifugio = rifugi[0] ?? null;
     const acquaA = acqua.filter((p) => p.km != null && p.km <= kmTarget + 0.3).length;
     const acquaB = rifugio ? acqua.filter((p) => p.km != null && Math.abs(p.km - rifugio.km) <= 2).length : 0;
