@@ -3,6 +3,8 @@ import { giriConSentiero } from '../lib/giro.js';
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA } from '../lib/costanti.js';
 import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
 import { giornoOraIniziali } from '../lib/quandoAndare.js';
+import { inizializzaGiorno } from './giornoScelto.js';
+import { ritmoScelto, testoRitmo } from '../lib/ritmo.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { oraPartenzaTesto } from './andataRitorno.js';
 
@@ -266,7 +268,7 @@ export function numeriGrandi(m) {
   return `<div class="numeri-grandi">
     ${casella(m.km != null ? `${m.km.toFixed(1).replace('.', ',')} km` : null, 'Lunghezza', m.kmCalcolati ? ' (traccia)' : '')}
     ${casella(m.salita != null ? (m.discesa != null ? `+${m.salita}\u00a0/ −${m.discesa}\u00a0m` : `+${m.salita}\u00a0m`) : null, 'Dislivello')}
-    ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.durataStimata ? ' (stima)' : '')}
+    ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.conQuote === false ? ' (stima solo sui km: con il dislivello sarà di più)' : m.durataStimata ? ' (stima)' : '')}
   </div>`;
 }
 
@@ -378,7 +380,7 @@ export async function vistaScheda(app, id) {
     const diversa = tracciaDiversa(s.lunghezzaKm, ar.andata.km)
       ? `<p class="avviso-via">${ICONE.avviso}<span>La traccia (${ar.andata.km.toFixed(1).replace('.', ',')} km) non corrisponde al percorso descritto dalla fonte (${s.lunghezzaKm.toFixed(1).replace('.', ',')} km): forse comprende altri tratti. I numeri vengono dalla traccia: verifica sulla mappa.</span></p>`
       : '';
-    return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · metodo CAI${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
+    return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · ${ritmoScelto() === 'senza' ? 'metodo CAI' : testoRitmo()}${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
   };
   // il punto per l'alba e il tramonto: la partenza della traccia o del sentiero, altrimenti il centro del parco
   const kmTraccia = lunghezzaDeiPezzi(pezziGrezzi);
@@ -403,6 +405,7 @@ export async function vistaScheda(app, id) {
     const m0 = ar ? misureScelte(ar, modoScelto()) : null;
     return giornoOraIniziali({ oggi: oggiIt, domani, adessoMin: adesso.getHours() * 60 + adesso.getMinutes(), oraSolita: oraPartenzaTesto(), durataMin: m0?.durataMin ?? null, tramontoOggiMin: tramonto, daSuggerisci: consumaOrarioDaSuggerisci(s.id) });
   })();
+  inizializzaGiorno(inizialiOrari.giorno); // un solo giorno in «Percorrenza» e «Quando andare»
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
@@ -663,6 +666,7 @@ export async function vistaScheda(app, id) {
     const inizio = pezziTraccia[0]?.[0];
     collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
       ar,
+      ricarica: () => vistaScheda(app, id),
       partenza: inizio ? [inizio[0], inizio[1]] : puntoPartenza ? [puntoPartenza.lon, puntoPartenza.lat] : null,
       alCambioModo: (modo) => {
         app.querySelector('#numeriScheda').innerHTML = numeriScelti(modo);

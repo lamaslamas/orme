@@ -1,5 +1,5 @@
 // iNaturalist lungo percorsi e sentieri (ricerca solo a richiesta: serve la rete)
-import { STAGIONI, urlOsservazioni, interpretaOsservazioni } from '../lib/inaturalist.js';
+import { urlOsservazioni, interpretaOsservazioni } from '../lib/inaturalist.js';
 import {
   riquadroTraccia,
   osservazioniNellaFascia,
@@ -48,47 +48,45 @@ async function scarica(pezzi, filtri, raggioM) {
 const notaSfumate = (n) =>
   n ? `<p class="tenue piccolo">${n} osservazioni nella zona hanno la posizione approssimata dalla fonte: non si sa dove sono rispetto al percorso, quindi non sono mostrate.</p>` : '';
 
-// --- Percorsi (Pianifica) ---
+// --- Osservazioni vicine: la stessa sezione per i sentieri dell'archivio e per i percorsi disegnati o importati ---
+// Osservazioni di iNaturalist entro 250 m dalla traccia, per i gruppi scelti nel pannello Fauna, raggruppate per
+// specie (prime 5 e «Mostra tutte»). Si cercano da sole (nessun filtro da impostare).
+const FASCIA_M = 250;
 
-export function htmlNaturaPercorso() {
-  return `<section class="riquadro" id="natura">
-    <h2>Natura lungo il percorso</h2>
-    <p class="tenue">Osservazioni di iNaturalist in una fascia attorno alla traccia, per i gruppi scelti nel pannello Fauna della mappa.</p>
-    <p class="gruppi-attivi">Gruppi attivi: <b id="gruppiAttivi">${escapeHtml(testoGruppi(leggiGruppiSalvati()))}</b></p>
-    <form class="modulo heat-filtri" id="filtriNatura">
-      <select name="raggio" aria-label="Fascia">${FASCE_M.map((m) => `<option value="${m}" ${m === 250 ? 'selected' : ''}>Fascia di ${m} m</option>`).join('')}</select>
-      <select name="stagione" aria-label="Periodo">${Object.entries(STAGIONI).map(([k, s]) => `<option value="${k}">${s.nome}</option>`).join('')}</select>
-      <select name="anni" aria-label="Anni"><option value="0">Tutti gli anni</option><option value="3">Ultimi 3 anni</option><option value="5">Ultimi 5 anni</option><option value="10">Ultimi 10 anni</option></select>
-      <label class="scelta intera-riga"><input type="checkbox" name="soloVerificate" checked /> Solo research grade</label>
-      <button type="submit" class="bottone intera-riga">Cerca su iNaturalist</button>
-    </form>
-    <div id="risultatiNatura"></div>
+export function htmlNaturaVicina(chiave = 'natura') {
+  return `<section class="riquadro" id="${chiave}">
+    <h2>Osservazioni vicine</h2>
+    <p class="tenue">Osservazioni di iNaturalist entro ${FASCIA_M} m dalla traccia, per i gruppi scelti nel pannello Fauna della mappa.</p>
+    <p class="gruppi-attivi">Gruppi attivi: <b data-gruppi-attivi>${escapeHtml(testoGruppi(leggiGruppiSalvati()))}</b></p>
+    <div class="risultati-natura" aria-live="polite"></div>
   </section>`;
 }
 
-export function collegaNaturaPercorso(contenitore, pezzi, mostraPunti = () => {}) {
-  const form = contenitore.querySelector('#filtriNatura');
-  const esito = contenitore.querySelector('#risultatiNatura');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const f = form.elements;
-    // i gruppi sono quelli scelti nel pannello Fauna (nessun gruppo nuovo qui)
+// contenitore: la sezione; mostraPunti(osservazioni): per segnarle sulla mappa piccola
+export function collegaNaturaVicina(contenitore, pezzi, mostraPunti = () => {}) {
+  if (!contenitore) return;
+  const esito = contenitore.querySelector('.risultati-natura');
+  let fatta = false;
+  async function cerca() {
+    if (fatta) return;
+    fatta = true;
     const gruppi = leggiGruppiSalvati();
-    contenitore.querySelector('#gruppiAttivi').textContent = testoGruppi(gruppi);
+    contenitore.querySelector('[data-gruppi-attivi]').textContent = testoGruppi(gruppi);
     if (!gruppi.length) {
       esito.innerHTML = '<p class="tenue">Nessun gruppo attivo: scegli i gruppi nel pannello Fauna della mappa.</p>';
       return;
     }
-    const comuni = { stagione: f.stagione.value, anni: Number(f.anni.value), soloVerificate: f.soloVerificate.checked };
+    const comuni = { stagione: 'tutto', anni: 0, soloVerificate: true };
     const normali = gruppi.filter((g) => GRUPPI_FAUNA[g]?.inat);
     const ricerche = [...(normali.length ? [{ specie: 'notevoli', gruppi: normali, ...comuni }] : []), ...(gruppi.includes('rare') ? [{ specie: 'notevoli', gruppi: ['rare'], ...comuni }] : [])];
-    const raggio = Number(f.raggio.value);
     esito.innerHTML = '<p class="messaggio">Cerco su iNaturalist…</p>';
     let r;
     try {
-      r = await scarica(pezzi, ricerche, raggio);
+      r = await scarica(pezzi, ricerche, FASCIA_M);
     } catch (err) {
-      esito.innerHTML = `<p class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}).</p>`;
+      fatta = false;
+      esito.innerHTML = `<p class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}). <button type="button" class="bottone testo" data-riprova>Riprova</button></p>`;
+      esito.querySelector('[data-riprova]')?.addEventListener('click', cerca);
       return;
     }
     const ordinate = r.dentro.sort((a, b) => String(b.data).localeCompare(String(a.data)));
@@ -99,7 +97,7 @@ export function collegaNaturaPercorso(contenitore, pezzi, mostraPunti = () => {}
         <ul class="elenco-oss">${g.oss.map((o) => htmlVoceOsservazione(o, { extra: `a ${Math.round(o.distanzaM)} m dalla traccia`, conNome: false })).join('')}</ul>
       </details></li>`;
     esito.innerHTML = `
-      <p><b>${ordinate.length}</b> ${ordinate.length === 1 ? 'osservazione' : 'osservazioni'} di <b>${specie.length}</b> ${specie.length === 1 ? 'specie' : 'specie'} entro ${raggio} m dalla traccia.</p>
+      <p><b>${ordinate.length}</b> ${ordinate.length === 1 ? 'osservazione' : 'osservazioni'} di <b>${specie.length}</b> ${specie.length === 1 ? 'specie' : 'specie'} entro ${FASCIA_M} m dalla traccia.</p>
       ${r.totale > r.scaricate ? `<p class="tenue piccolo">Nella zona ce ne sono ${r.totale}: ho controllato le ${r.scaricate} più recenti.</p>` : ''}
       ${notaSfumate(r.sfumate)}
       <ul class="specie-oss">${specie.slice(0, SPECIE_VISIBILI).map(riga).join('')}</ul>
@@ -109,48 +107,15 @@ export function collegaNaturaPercorso(contenitore, pezzi, mostraPunti = () => {}
       esito.querySelector('.specie-altre').hidden = false;
       ev.currentTarget.remove();
     });
-  });
+  }
+  // dentro una sezione a tendina (scheda) si cerca alla prima apertura; altrove subito
+  const dentro = contenitore.closest('details');
+  if (dentro && !dentro.open) dentro.addEventListener('toggle', () => dentro.open && cerca(), { once: false });
+  else cerca();
 }
 
-// --- Sentieri (Parchi): solo specie consistenti ---
-
-export function htmlNaturaSentiero() {
-  return `<section class="riquadro" id="naturaSentiero">
-    <h2>Osservazioni iNaturalist vicine</h2>
-    <p class="tenue">Fauna osservata entro ${RAGGIO_SENTIERI_M} m dalla traccia, solo se consistente (almeno ${MINIMO_OSSERVAZIONI} osservazioni verificate da almeno ${MINIMO_PERSONE} persone).</p>
-    <button type="button" class="bottone" id="cercaNaturaSentiero">Cerca</button>
-    <div id="risultatiNaturaSentiero"></div>
-  </section>`;
-}
-
-export function collegaNaturaSentiero(contenitore, pezzi) {
-  const esito = contenitore.querySelector('#risultatiNaturaSentiero');
-  contenitore.querySelector('#cercaNaturaSentiero').addEventListener('click', async (e) => {
-    e.target.disabled = true;
-    esito.innerHTML = '<p class="messaggio">Cerco su iNaturalist…</p>';
-    let r;
-    try {
-      r = await scarica(pezzi, { gruppo: 'fauna', stagione: 'tutto', anni: 0, soloVerificate: true }, RAGGIO_SENTIERI_M);
-    } catch (err) {
-      esito.innerHTML = `<p class="errore">Osservazioni non disponibili (${escapeHtml(err.message)}).</p>`;
-      e.target.disabled = false;
-      return;
-    }
-    const specie = specieConsistenti(r.dentro);
-    esito.innerHTML = `
-      ${
-        specie.length
-          ? `<ul class="elenco-link">${specie
-              .map(
-                (s) =>
-                  `<li><b>${escapeHtml(s.specie)}</b>: ${s.osservazioni} osservazioni vicine, ${s.persone} persone${
-                    s.mesiMigliori ? `, soprattutto ${escapeHtml(s.mesiMigliori)}` : ''
-                  }</li>`,
-              )
-              .join('')}</ul>`
-          : `<p>Nessuna specie con osservazioni consistenti (${r.dentro.length} osservazioni in tutto entro ${RAGGIO_SENTIERI_M} m).</p>`
-      }
-      ${notaSfumate(r.sfumate)}
-      <p class="tenue piccolo">Non è un censimento: dipende da dove passano e fotografano le persone. Dati © iNaturalist (CC).</p>`;
-  });
-}
+// i vecchi nomi (usati dalle pagine)
+export const htmlNaturaPercorso = () => htmlNaturaVicina('natura');
+export const collegaNaturaPercorso = collegaNaturaVicina;
+export const htmlNaturaSentiero = () => htmlNaturaVicina('naturaSentiero');
+export const collegaNaturaSentiero = (contenitore, pezzi) => collegaNaturaVicina(contenitore, pezzi);

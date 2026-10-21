@@ -9,7 +9,8 @@ import { disegnaPercorso } from './disegnoTraccia.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { segnaTrattoFauna } from './trattoMappa.js';
 import { trattoDelMioPercorso } from './trattoProprio.js';
-import { percorsoSentiero } from '../lib/tracce.js';
+import { percorsoSentiero, invertiGeojson, invertiPercorso } from '../lib/tracce.js';
+import { versoDi } from '../lib/verso.js';
 import { testoTratto } from '../lib/trattoFauna.js';
 import { ICONE } from './icone.js';
 
@@ -29,10 +30,12 @@ export async function vistaMappaPercorso(app, id) {
   // Fauna: lo stesso pulsante, gli stessi gruppi e le stesse icone della mappa principale
   const heat = aggiungiHeatmap(mappa);
   const fermaGps = aggiungiGps(mappa, () => ({ geojson: p.geojson }));
-  const gruppo = disegnaPercorso(p.geojson, { colore: '#2563eb', frecce: true }).addTo(mappa);
+  // nel verso scelto con «Inverti senso» (partenza, arrivo e frecce)
+  const invertito = versoDi({ id: p.id });
+  const gruppo = disegnaPercorso(invertito ? invertiGeojson(p.geojson) : p.geojson, { colore: '#2563eb', frecce: true }).addTo(mappa);
   // il tratto con più fauna, se c'è (dalle osservazioni attorno alla traccia)
   let chiusa = false;
-  const pezzi = percorsoSentiero(p.geojson).pezzi;
+  const pezzi = invertito ? invertiPercorso(percorsoSentiero(p.geojson)).pezzi : percorsoSentiero(p.geojson).pezzi;
   trattoDelMioPercorso(pezzi, { annullata: () => chiusa }).then((tratto) => {
     if (chiusa || !tratto || !mappa._container?.isConnected) return;
     segnaTrattoFauna(mappa, pezzi, tratto);

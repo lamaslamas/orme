@@ -16,10 +16,12 @@ import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
 import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
-import { puntiLungoIlPercorso, conAcqua, perLaNotte } from '../lib/puntiUtili.js';
+import { puntiLungoIlPercorso, conAcqua, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
+import { htmlRitmo } from './ritmo.js';
+import { impostaRitmo as impostaRitmoLib } from '../lib/ritmo.js';
 import { agganciaPartenza, testoAggancio, sceltaIniziale, partenzaValida, daDoveParte, cambiaPartenza } from '../lib/partenzaAnello.js';
 import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
@@ -268,6 +270,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
       <p class="tenue piccolo">Tocca di nuovo una scelta attiva per toglierla: quel criterio non filtra più.</p>
       <h3>Quanto tempo</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
+      <h3>Ritmo</h3>${htmlRitmo()}
+      ${scelte.tempo === 'due' ? `<h3>Dove dormire</h3>${htmlGruppo('dormire', DOVE_DORMIRE, scelte.dormire ?? doveDormire())}` : ''}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       ${
         scelte.cerco.includes('fauna')
@@ -391,7 +395,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const [fine] = finiGiornata(serie, totale / 2 / 60);
     if (!fine) return null;
     // con A/R la giornata può finire sul ritorno: si cerca nel punto equivalente dell'andata
-    const [r] = rifugiPerLaNotte(puntiUtili, c.pezzi, fineSullAndata(fine, lunghezzaDeiPezzi(c.pezzi)), { perLaNotte });
+    const [r] = rifugiPerLaNotte(puntiUtili, c.pezzi, fineSullAndata(fine, lunghezzaDeiPezzi(c.pezzi)), { perLaNotte: perLaNotteScelta(scelte.dormire ?? doveDormire()) });
     if (!r) return null;
     // al rifugio si arriva con la luce: partenza + cammino del primo giorno entro mezz'ora prima del tramonto
     const inizio = c.pezzi[0]?.[0];
@@ -401,7 +405,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       c.notteSenzaLuce = true;
       return null;
     }
-    return r.nome || 'un rifugio';
+    return etichettaPernotto(r); // nome, tipo e distanza dalla traccia
   }
 
   // meteo del giorno scelto per un gruppo di proposte (giudizio come in "Dove vado domani")
@@ -468,7 +472,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         scelte.tempo === 'due'
           ? base.senzaLuce > 0
             ? "c'è troppo poca luce per arrivare a un rifugio"
-            : 'nessuno ha un rifugio o un bivacco a fine primo giorno'
+            : `nessuno ha ${{ qualsiasi: 'un rifugio, un bivacco o una struttura per dormire', rifugi: 'un rifugio o un bivacco', strutture: 'una struttura per dormire (campeggio, agriturismo, B&B, ostello, albergo)' }[scelte.dormire ?? doveDormire()]} a fine primo giorno`
           : `nessuno dura ${daIn(TEMPI[scelte.tempo])}`;
       prove.push({ chiave: 'tempo', etichetta: scelte.tempo === 'due' ? 'Senza la notte' : 'Con qualsiasi durata', ...contaCon(data, { tempo: '' }), motivo, variante: { tempo: '' } });
     }
@@ -1053,6 +1057,14 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
 
   foglio.addEventListener('click', (e) => {
+    const rit = e.target.closest('[data-ritmo]');
+    if (rit) {
+      // il ritmo vale per tutta l'app: i tempi si ricalcolano (con le proposte aperte, si rifà la ricerca)
+      impostaRitmoLib(rit.dataset.ritmo);
+      aggiornaScelte();
+      if (foglio.querySelector('.suggerisci-form')?.hidden) suggerisci(); // con le proposte aperte, ricalcolate col nuovo ritmo
+      return;
+    }
     const bp = e.target.closest('[data-partenza]');
     if (bp) {
       modoPartenza = bp.dataset.partenza;
@@ -1065,6 +1077,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (b) {
       const { scelta, valore } = b.dataset;
       if (scelta === 'cerco') scelte.cerco = scelte.cerco.includes(valore) ? scelte.cerco.filter((x) => x !== valore) : [...scelte.cerco, valore];
+      if (scelta === 'dormire') ricordaDoveDormire(valore);
       // tempo, distanza e fatica: toccando di nuovo la voce attiva si toglie la scelta (il criterio non filtra più)
       else if (scelta in SCELTE_FACOLTATIVE && scelte[scelta] === valore) scelte[scelta] = SCELTE_FACOLTATIVE[scelta];
       else scelte[scelta] = valore;

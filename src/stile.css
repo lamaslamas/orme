@@ -2194,3 +2194,15 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .spillo-partenza span b { transform: rotate(45deg); }
 /* il sentiero aperto dalla lista di Suggerisci, ritrovato tornando indietro */
 .proposta.aperta-prima { outline: 2px solid var(--verde-testo); outline-offset: 2px; border-radius: 14px; }
+
+/* pagina di un percorso disegnato o importato: su computer «Esporta GPX» e «Modifica traccia» accanto al titolo */
+.testata-percorso { display: block; }
+.testata-percorso .azioni-testata { display: none; }
+@media (min-width: 1024px) {
+  .testata-percorso { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; }
+  .testata-percorso h1 { margin: 0; }
+  .testata-percorso .azioni-testata { display: flex; gap: 8px; flex: none; }
+  .barra-azioni-percorso { display: none; }
+}
+.verso-traccia { margin: 4px 0 8px; }
+.ritmo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }

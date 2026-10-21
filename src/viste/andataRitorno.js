@@ -3,6 +3,9 @@
 // scelto con il tramonto calcolato nel punto di partenza. Gli anelli hanno solo il giro e gli orari.
 import { MODI, orariGiornata, oraDaMinuti, minutiDaOra, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
 import { avvisiOrari } from '../lib/quandoAndare.js';
+import { testoRitmo } from '../lib/ritmo.js';
+import { htmlRitmo, collegaRitmo } from './ritmo.js';
+import { giornoScelto, impostaGiorno, ascoltaGiorno } from './giornoScelto.js';
 import { albaTramonto, oraItaliana, minutiItaliani } from '../lib/sole.js';
 import { durata, escapeHtml } from '../lib/formato.js';
 import { ICONE } from './icone.js';
@@ -47,7 +50,7 @@ function riga(nome, m, classe = '') {
 // iniziali: { giorno, ora } con cui si apre (di base oggi e l'ora solita)
 export function htmlAndataRitorno(ar, modo = modoScelto(), iniziali = null) {
   const conAR = !ar.anello && ar.totale;
-  const giorno = iniziali?.giorno ?? oggi();
+  const giorno = giornoScelto() ?? iniziali?.giorno ?? oggi();
   const ora = iniziali?.ora ?? oraRicordata();
   return `<section class="riquadro andata-ritorno" aria-label="Percorrenza">
     <h2>${ar.anello ? 'Il giro' : 'Percorrenza'}</h2>
@@ -64,7 +67,8 @@ export function htmlAndataRitorno(ar, modo = modoScelto(), iniziali = null) {
     <table class="tabella-ar">
       ${ar.anello ? riga('Giro', ar.andata, 'totale') : conAR && modo === 'ar' ? riga('Andata', ar.andata) + riga('Ritorno', ar.ritorno) + riga('Totale', ar.totale, 'totale') : riga('Andata', ar.andata, 'totale')}
     </table>
-    <p class="tenue piccolo">Tempi CAI senza soste${conAR && modo === 'ar' ? ', calcolati nei due sensi' : ''}${ar.andata.salita == null ? ' (senza le quote: solo dai km)' : ''}.</p>
+    ${htmlRitmo()}
+    <p class="tenue piccolo">${testoRitmo()}${conAR && modo === 'ar' ? ', calcolati nei due sensi' : ''}${ar.andata.salita == null ? ' (senza le quote: solo dai km)' : ''}.</p>
     <div class="orari-ar">
       <div class="orari-scelte">
         <label>Giorno <input type="date" data-giorno value="${escapeHtml(giorno)}" /></label>
@@ -76,8 +80,18 @@ export function htmlAndataRitorno(ar, modo = modoScelto(), iniziali = null) {
 }
 
 // sezione: il blocco; alCambioModo(modo): la pagina aggiorna i numeri in alto e "Su più giorni"
-export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () => {} }) {
+export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () => {}, ricarica = () => {} }) {
   if (!sezione) return;
+  collegaRitmo(sezione, ricarica);
+  // il giorno è uno solo: se lo cambia «Quando andare» cambia anche qui
+  const smetti = ascoltaGiorno((g) => {
+    const campo = sezione.querySelector('[data-giorno]');
+    if (campo && campo.value !== g) {
+      campo.value = g;
+      aggiornaOrari();
+    }
+  });
+  new MutationObserver(() => !sezione.isConnected && smetti()).observe(document.body, { childList: true, subtree: true });
   let modo = modoScelto();
   function aggiornaOrari() {
     // il riquadro si ridisegna cambiando la scelta: si cerca ogni volta
@@ -88,7 +102,11 @@ export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () 
     const { tramonto } = partenza ? albaTramonto(giorno, partenza) : { tramonto: null };
     const conRitorno = modo === 'ar' && ar.ritorno && !ar.anello;
     const o = orariGiornata({ partenzaMin, andataMin: ar.andata.durataMin, ritornoMin: conRitorno ? ar.ritorno.durataMin : null, tramontoMin: minutiItaliani(tramonto) });
-    const fine = ar.anello ? `rientro <b>${oraDaMinuti(o.fineMin)}</b>` : conRitorno ? `arrivo <b>${oraDaMinuti(o.arrivoMin)}</b> · rientro <b>${oraDaMinuti(o.rientroMin)}</b>` : `arrivo <b>${oraDaMinuti(o.arrivoMin)}</b>`;
+    const fine = ar.anello
+      ? `Fine del giro alle <b>${oraDaMinuti(o.fineMin)}</b>`
+      : conRitorno
+        ? `Arrivo alle <b>${oraDaMinuti(o.arrivoMin)}</b> · rientro alla partenza alle <b>${oraDaMinuti(o.rientroMin)}</b>`
+        : `Arrivo alle <b>${oraDaMinuti(o.arrivoMin)}</b>`;
     // un avviso per ogni problema vero (partenza passata, fine oltre l'ultima luce utile), altrimenti l'ora utile
     const adesso = new Date();
     const avvisi = avvisiOrari({
@@ -102,11 +120,12 @@ export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () 
     const luce = avvisi.length
       ? avvisi.map((t) => `<p class="avviso-luce">${ICONE.avviso}<span>${escapeHtml(t)}</span></p>`).join('')
       : tramonto
-        ? `<p class="tenue">Tramonto ${oraItaliana(tramonto)} alla partenza · parti entro le <b>${oraDaMinuti(o.ultimaPartenzaMin)}</b> per ${conRitorno || ar.anello ? 'rientrare' : 'arrivare'} con la luce</p>`
+        ? `<p class="tenue">Tramonto alle ${oraItaliana(tramonto)}: per finire con la luce (e ${MARGINE_LUCE_MIN} minuti di margine) parti entro le <b>${oraDaMinuti(o.ultimaPartenzaMin)}</b></p>`
         : '';
     risultato.innerHTML = `<p>${fine}</p>${luce}`;
   }
   sezione.addEventListener('input', (e) => {
+    if (e.target.matches('[data-giorno]') && e.target.value) impostaGiorno(e.target.value);
     if (e.target.matches('[data-ora]') && e.target.value) ricorda(CHIAVE_ORA, e.target.value);
     aggiornaOrari();
   });

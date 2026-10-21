@@ -5,6 +5,7 @@ import { stato } from '../stato.js';
 import { datiPerMeteo, GIUDIZI } from '../lib/condizioni.js';
 import { GIORNI_STRISCIA, TEMPI_METEO, dateDaOggi, nomeGiorno, giornoDellaStriscia, testoDelGiorno, partenzaPassata } from '../lib/quandoAndare.js';
 import { oraPartenzaScelta } from './andataRitorno.js';
+import { giornoScelto, impostaGiorno, ascoltaGiorno } from './giornoScelto.js';
 import { escapeHtml } from '../lib/formato.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
 import { ICONE } from './icone.js';
@@ -73,13 +74,21 @@ export function collegaQuandoAndare(sezione, { sentiero, traccia, quote: quoteIn
     if (!d || !pronta) return;
     scelto = d;
     disegna();
+    impostaGiorno(d); // lo stesso giorno in «Percorrenza»
   });
+  const smetti = ascoltaGiorno((g) => {
+    if (!date.includes(g) || g === scelto) return;
+    scelto = g;
+    if (pronta) disegna();
+  });
+  new MutationObserver(() => !sezione.isConnected && smetti()).observe(document.body, { childList: true, subtree: true });
 
   scaricaPrevisioni([m.basso, m.alto].filter(Boolean), { giorni: GIORNI_STRISCIA })
     .then(() => {
       calcola();
-      // si parte dal primo giorno con una previsione
-      scelto = date.find((d, i) => giorni[i]) ?? date[0];
+      // si parte dal giorno scelto in «Percorrenza» (se c'è la previsione), altrimenti dal primo con una previsione
+      const voluto = giornoScelto();
+      scelto = date.includes(voluto) && giorni[date.indexOf(voluto)] ? voluto : date.find((d, i) => giorni[i]) ?? date[0];
       pronta = true;
       disegna();
     })
