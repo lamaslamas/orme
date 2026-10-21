@@ -17,6 +17,21 @@ export function htmlFaunaBreve(s, { mese = new Date().getMonth() + 1, riga = fal
   // il periodo migliore dell'anno, per sapere quando tornare
   const periodo = f.periodo ? ` <span class="tenue">· meglio ${escapeHtml(f.periodo)}</span>` : '';
   const testo = `<b>${POSSIBILITA_FAUNA[f.livello]}</b>${nomi ? ` · ${nomi}` : ''}${f.nelPeriodo && !compatta && !stagione ? ' <span class="tenue">(in questo periodo)</span>' : ''}${periodo}`;
-  if (riga) return `<span class="riga-meteo fauna-breve fauna-${f.livello}" title="${SPIEGAZIONE}">${ICONE.zampa}<span>${testo}</span></span>`;
-  return `<span class="fauna-breve fauna-${f.livello}" title="${SPIEGAZIONE}">${ICONE.zampa}<span>${testo}</span></span>`;
+  if (riga) return `<span class="riga-meteo fauna-breve fauna-${f.livello}" data-spiega="fauna">${ICONE.zampa}<span>${testo}</span></span>`;
+  return `<span class="fauna-breve fauna-${f.livello}" data-spiega="fauna">${ICONE.zampa}<span>${testo}</span></span>`;
+}
+
+// La spiegazione non è un fumetto del browser (usciva dalla tendina e copriva la barra laterale): un tocco sull'etichetta
+// la apre in una riga sotto, dentro la scheda o la tendina; un secondo tocco la chiude
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const et = e.target.closest?.('[data-spiega="fauna"]');
+    if (!et) return;
+    const aperta = et.nextElementSibling?.classList.contains('fauna-spiega');
+    if (aperta) et.nextElementSibling.remove();
+    else et.insertAdjacentHTML('afterend', `<span class="fauna-spiega">${SPIEGAZIONE}</span>`);
+    // dentro un link (scheda in lista) il tocco apre solo la spiegazione
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
 }

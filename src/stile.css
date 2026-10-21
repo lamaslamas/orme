@@ -1163,6 +1163,8 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* etichetta fauna, uguale in tutte le liste */
 .fauna-breve { display: grid; grid-template-columns: 16px 1fr; gap: 6px; align-items: start; font-size: 0.86rem; line-height: 1.35; margin: 4px 0; }
 .fauna-breve .icona { margin-top: 1px; }
+.fauna-breve[data-spiega] { cursor: help; }
+.fauna-spiega { display: block; margin: 2px 0 4px; padding: 6px 8px; border-radius: 8px; background: rgba(127, 127, 127, 0.16); font-size: 0.78rem; line-height: 1.35; font-weight: 400; white-space: normal; overflow-wrap: anywhere; }
 .riga-uscita { display: grid; grid-template-columns: 16px 1fr; gap: 6px; align-items: start; font-size: 0.86rem; line-height: 1.35; margin: 4px 0 0; color: var(--verde-testo); }
 .riga-uscita svg { width: 16px; height: 16px; margin-top: 1px; }
 .fauna-frequenti .icona { color: #2f7d4a; }
@@ -2209,3 +2211,21 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .verso-traccia { margin: 4px 0 8px; }
 .ritmo { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
 .chip-alba { display: inline-block; align-self: flex-start; padding: 2px 10px; border-radius: 12px; background: #f08c00; color: #1d1400; font-size: 0.78rem; font-weight: 700; }
+
+/* Quota e dislivello: slider a due cursori */
+.quota-dislivello .qd-slider { margin: 6px 0 14px; }
+.qd-valore { margin: 0 0 2px; font-weight: 700; font-size: 0.92rem; }
+.qd-cursori { position: relative; height: 34px; }
+.qd-binario { position: absolute; left: 0; right: 0; top: 15px; height: 4px; border-radius: 2px; background: rgba(127, 127, 127, 0.3); }
+.qd-binario::after { content: ''; position: absolute; top: 0; bottom: 0; left: var(--da, 0%); right: calc(100% - var(--a, 100%)); background: var(--verde); border-radius: 2px; }
+.qd-cursori input[type=range] { border: 0; padding: 0; box-shadow: none; outline-offset: 2px; position: absolute; left: 0; width: 100%; top: 0; height: 34px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+.qd-cursori input[type=range]::-webkit-slider-runnable-track { background: none; height: 34px; }
+.qd-cursori input[type=range]::-moz-range-track { background: none; }
+.qd-cursori input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 26px; height: 26px; margin-top: 4px; border-radius: 50%; background: var(--scheda-piena); border: 3px solid var(--verde); box-shadow: 0 1px 4px rgba(0,0,0,.3); cursor: grab; }
+.qd-cursori input[type=range]::-moz-range-thumb { pointer-events: auto; width: 20px; height: 20px; border-radius: 50%; background: var(--scheda-piena); border: 3px solid var(--verde); cursor: grab; }
+.qd-senza { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; }
+.qd-senza input { width: 20px; height: 20px; accent-color: var(--verde); }
+.quota-max { white-space: nowrap; }
+.qd-riquadro { margin: 10px 0; padding: 8px 12px; border-radius: 12px; background: var(--scheda); }
+.qd-riquadro summary { font-weight: 700; cursor: pointer; }
+.qd-riquadro .sezione-filtro h3 { display: none; }

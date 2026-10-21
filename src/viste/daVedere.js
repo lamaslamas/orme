@@ -1,6 +1,7 @@
 // Scheda "Da vedere": foto di Wikimedia Commons lungo il sentiero (striscia che scorre) e luoghi
 // con una voce su Wikipedia, uno per riga. Calcolati dal robot in dati/da-vedere.json, un file a
 // parte che si scarica solo quando si apre la scheda di un sentiero.
+import { tutteLeFoto } from '../db.js';
 import { escapeHtml } from '../lib/formato.js';
 import { improntaTraccia } from '../lib/panorama.js';
 import { riassuntoDaVedere, urlVoce } from '../lib/daVedere.js';
@@ -19,13 +20,29 @@ export function carica() {
   return inCorso;
 }
 
-// Foto di copertina di un percorso per le schede in lista (la prima di "Da vedere"), se già caricata.
-// Con una traccia mia (GPX) non si usa: potrebbe essere di un altro posto.
-export function copertina(s, traccia) {
-  if (!caricati || traccia?.origine === 'gpx') return null;
-  return caricati.percorsi?.[s.id]?.foto?.[0] ?? null;
+// Copertina di un percorso nelle schede in lista: solo una foto legata al sentiero, cioè una mia foto (salvata sul
+// telefono). Le foto "lungo il sentiero" di Commons sono dei dintorni e non bastano: senza una foto del sentiero
+// la scheda mostra il disegno della traccia.
+let mie = null; // sentiero → { url } con la miniatura della mia prima foto
+export async function caricaCopertine() {
+  if (mie) return mie;
+  const nuove = new Map();
+  try {
+    const tutte = (await tutteLeFoto()).sort((x, y) => (x.aggiunta ?? '').localeCompare(y.aggiunta ?? ''));
+    for (const f of tutte) if (!nuove.has(f.sentieroId) && f.miniatura) nuove.set(f.sentieroId, { url: URL.createObjectURL(new Blob([f.miniatura], { type: f.tipo || 'image/jpeg' })) });
+  } catch {
+    // senza foto personali le schede mostrano la traccia
+  }
+  mie = nuove;
+  return mie;
 }
-export const copertineCaricate = () => Boolean(caricati);
+// dopo aver aggiunto o tolto una mia foto: le copertine si rileggono
+export function azzeraCopertine() {
+  mie?.forEach((f) => URL.revokeObjectURL(f.url));
+  mie = null;
+}
+export const copertina = (s) => mie?.get(s.id) ?? null;
+export const copertineCaricate = () => Boolean(mie);
 
 // valido solo se calcolato su questa traccia (un GPX mio lo rende superato)
 export async function daVedereDellaTraccia(s, traccia) {

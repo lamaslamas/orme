@@ -11,7 +11,7 @@ import { puntiLungoIlPercorso, riassuntoPunti } from '../lib/puntiUtili.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
 import { iniziaBozza, aggiungiABozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
-import { copertina } from './daVedere.js';
+import { copertina, caricaCopertine } from './daVedere.js';
 import { caricaPunti } from './puntiUtili.js';
 import { ICONE } from './icone.js';
 
@@ -56,6 +56,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
 
   async function dettagli(s, traccia) {
     const el = foglio.querySelector('.foglio-dettagli');
+    await caricaCopertine();
     const foto = copertina(s, traccia);
     // difficoltà e accesso sono già in alto
     const etichette = s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : '';

@@ -1,6 +1,7 @@
 // "Le mie foto" nella scheda del sentiero. Le foto restano solo su questo telefono:
 // si salvano ridotte e ricodificate in JPEG, così perdono i dati nascosti (EXIF) e la posizione GPS.
 import { fotoDelSentiero, salvaFoto, eliminaFoto } from '../db.js';
+import { azzeraCopertine } from './daVedere.js';
 import { dimensioniRidotte, creaIdFoto, LATO_FOTO, LATO_MINIATURA, QUALITA_JPEG } from '../lib/foto.js';
 import { escapeHtml } from '../lib/formato.js';
 
@@ -86,6 +87,7 @@ export function collegaFotoPersonali(contenitore, sentieroId) {
           altezza: grande.altezza,
           scattata: f.lastModified ? new Date(f.lastModified).toISOString() : null,
         });
+        azzeraCopertine();
       } catch (e) {
         alert(`Non riesco a leggere "${f.name}": ${e.message}`);
       }
@@ -106,6 +108,7 @@ export function collegaFotoPersonali(contenitore, sentieroId) {
     if (e.target === visore) visore.close();
     if (e.target.closest('[data-azione="elimina-foto"]') && fotoAperta && confirm('Eliminare questa foto dal telefono?')) {
       await eliminaFoto(fotoAperta.id);
+      azzeraCopertine();
       visore.close();
       await disegna();
     }
