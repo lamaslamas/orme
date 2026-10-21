@@ -309,7 +309,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     foglio.innerHTML = `
       <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire, abbassare o chiudere"><span class="foglio-maniglia"></span></button>
       <div class="suggerisci-corpo">
-        <div class="suggerisci-riepilogo" hidden><span></span><button type="button" class="bottone testo" data-azione="cambia">Cambia</button></div>
+        <div class="suggerisci-riepilogo" hidden><span>${escapeHtml(testoScelte())}</span><button type="button" class="bottone testo" data-azione="cambia">Cambia</button></div>
         <div class="suggerisci-form">
           <div class="suggerisci-scelte">${htmlScelte()}</div>
           <button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">${testoBottone()}</button>
@@ -477,9 +477,9 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     try {
       await scaricaPrevisioni([...celle.values()], { giorni });
     } catch {
-      return; // senza meteo le proposte restano nell'ordine delle scelte
+      return false; // senza meteo le proposte restano nell'ordine delle scelte
     }
-    if (mia !== richiesta) return;
+    if (mia !== richiesta) return false;
     // si giudica con la partenza scelta (la stessa della scheda); per oggi, se è già passata, è tardi
     const partenza = oraPartenzaScelta();
     const ora = new Date();
@@ -494,6 +494,43 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       const durataMin = scelte.tempo === 'due' && v.notte ? (v.notte.giorno1 ?? v.notte.giorno2).durataMin : (v.misure.durataMin ?? m.durataMin) / (scelte.tempo === 'due' ? 2 : 1);
       v.giudizio = basso && !tardiOggi ? giudicaGiornata({ basso, alto, durataMin, percorso: m.percorso, soglie: SOGLIE_PREDEFINITE, attivita, dopoMin }) : null;
     }
+    return true;
+  }
+
+  // Il meteo non blocca mai i risultati: la lista si mostra subito senza, poi arriva il meteo (al massimo 10 secondi
+  // per richiesta) e riordina i percorsi; se non c'è, resta una nota piccola con «Riprova»
+  let meteoChiesto = new Set();
+  let meteoAssente = false;
+  const NOTA_METEO = '<p class="tenue piccolo meteo-assente">Meteo non disponibile ora · <button type="button" class="bottone testo" data-azione="riprova-meteo">Riprova</button></p>';
+  async function meteoInSottofondo(voci, data, inizio) {
+    const mia = richiesta;
+    voci = voci.filter((v) => !meteoChiesto.has(v));
+    if (!voci.length) return;
+    voci.forEach((v) => meteoChiesto.add(v));
+    const ok = await conMeteo(voci, data, mia).catch(() => false);
+    if (mia !== richiesta || !foglio.isConnected) return;
+    const risultati = foglio.querySelector('.suggerisci-risultati');
+    if (!ok) {
+      meteoAssente = true;
+      voci.forEach((v) => meteoChiesto.delete(v));
+      const azioni = risultati.querySelector('.azioni-proposte');
+      if (azioni && !risultati.querySelector('.meteo-assente')) azioni.insertAdjacentHTML('afterend', NOTA_METEO);
+      return;
+    }
+    meteoAssente = false;
+    risultati.querySelector('.meteo-assente')?.remove();
+    // si riordina il gruppo e si ridisegna la pagina mostrata, senza spostare scorrimento e tendina
+    const riordinati = scelte.tempo === 'due' ? ordinaProposteNotte(voci, confrontaNotte) : ordinaProposte(voci);
+    const posti = voci.map((v) => classifica.indexOf(v)).filter((i) => i >= 0).sort((a, b) => a - b);
+    posti.forEach((i, k) => (classifica[i] = riordinati[k]));
+    const corpo = foglio.querySelector('.suggerisci-corpo');
+    const scorrimento = corpo?.scrollTop ?? 0;
+    const posizione = tendina.posizione();
+    if (Number(risultati.dataset.pagina ?? 0) !== inizio) return; // nel frattempo si è passati ad altri percorsi
+    mostrate = inizio;
+    await mostraAltre(data, { inquadraMappa: false });
+    tendina.vai(posizione);
+    if (corpo) corpo.scrollTop = scorrimento;
   }
 
   // Quanti percorsi si trovano con una scelta cambiata (variante) e/o un'altra partenza; senzaLuce: quanti vanno
@@ -608,12 +645,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       mostraNessunRisultato(risultati, data);
       return;
     }
-    risultati.innerHTML = '<p class="tenue">Guardo il meteo…</p>';
-    // il meteo riordina i primi della classifica
-    const primi = lista.slice(0, METEO_PER_VOLTA);
-    await conMeteo(primi, data, mia);
-    if (mia !== richiesta) return;
-    classifica = [...(scelte.tempo === 'due' ? ordinaProposteNotte(primi, confrontaNotte) : ordinaProposte(primi)), ...lista.slice(METEO_PER_VOLTA)];
+    // subito la classifica senza meteo; il meteo dei primi la riordina quando arriva
+    classifica = lista;
+    meteoChiesto = new Set();
+    meteoAssente = false;
     mostrate = 0;
     mostraAltre(data);
   }
@@ -666,20 +701,13 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   async function mostraAltre(data = dataDelQuando(scelte.quando, oggiItalia()), { inquadraMappa = true } = {}) {
     const risultati = foglio.querySelector('.suggerisci-risultati');
     let pagina = classifica.slice(mostrate, mostrate + PER_VOLTA);
-    // oltre i primi: meteo anche per questi (con calma, solo quando servono)
-    if (pagina.some((v) => v.giudizio === undefined) && mostrate >= METEO_PER_VOLTA - PER_VOLTA) {
-      const mia = richiesta;
-      const altri = classifica.slice(mostrate, mostrate + METEO_PER_VOLTA);
-      await conMeteo(altri, data, mia);
-      if (mia !== richiesta) return;
-      const riordinati = scelte.tempo === 'due' ? ordinaProposteNotte(altri, confrontaNotte) : ordinaProposte(altri);
-      classifica.splice(mostrate, riordinati.length, ...riordinati);
-      pagina = classifica.slice(mostrate, mostrate + PER_VOLTA);
-    }
     if (!pagina.length) {
       mostrate = 0;
       return mostraAltre(data);
     }
+    // meteo per il gruppo di percorsi che comincia da qui (senza aspettarlo)
+    const inizioMeteo = mostrate;
+    if (pagina.some((v) => v.giudizio === undefined && !meteoChiesto.has(v))) meteoInSottofondo(classifica.slice(mostrate, mostrate + METEO_PER_VOLTA), data, inizioMeteo);
     disegnate.clearLayers();
     soloRisultati(true);
     const limiti = L.latLngBounds([]);
@@ -705,7 +733,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       <div class="azioni-proposte">
         ${classifica.length > PER_VOLTA ? `<button type="button" class="bottone" data-azione="altre">Altre 3</button>` : ''}
         <span class="tenue piccolo">${mostrate + 1}–${fine} di ${classifica.length}</span>
-      </div>`;
+      </div>${meteoAssente ? NOTA_METEO : ''}`;
     risultati.dataset.pagina = String(mostrate);
     mostrate = fine >= classifica.length ? 0 : fine;
     paginaOra = pagina;
@@ -1268,6 +1296,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     else if (azione === 'rigenera-da-qui') creaAnelli(0);
     else if (azione === 'modifica') return modificaNelDisegno(anelliOra[e.target.closest('[data-anello]').dataset.anello]);
     else if (azione === 'altre') mostraAltre();
+    else if (azione === 'riprova-meteo') {
+      meteoAssente = false;
+      foglio.querySelector('.meteo-assente')?.remove();
+      const inizio = Number(foglio.querySelector('.suggerisci-risultati').dataset.pagina ?? 0);
+      meteoInSottofondo(classifica.slice(inizio, inizio + METEO_PER_VOLTA), dataDelQuando(scelte.quando, oggiItalia()), inizio);
+    }
     else if (azione === 'cambia') {
       soloRisultati(false);
       tendina.vai('aperta');

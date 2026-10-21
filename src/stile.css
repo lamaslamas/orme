@@ -1936,6 +1936,8 @@ body.disegno main { padding: 0; }
   .home-sotto .pill-mappa { padding: 0 11px; gap: 5px; font-size: 0.92rem; }
   .home-sotto .pill-mappa.tondo { padding: 0; flex: none; }
 }
+.suggerisci-riepilogo > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.suggerisci-riepilogo > button { flex: none; }
 .suggerisci-riepilogo { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 2px; font-size: 0.88rem; font-weight: 700; }
 .suggerisci-riepilogo[hidden], .suggerisci-form[hidden] { display: none; }
 .foglio-suggerisci .scelta-modo { grid-template-columns: 1fr 1fr; margin: 4px 0 6px; box-shadow: none; }

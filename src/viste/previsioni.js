@@ -21,6 +21,34 @@ function salva() {
   }
 }
 
+export const TEMPO_MASSIMO_MS = 10_000; // oltre, la richiesta si lascia: i risultati non aspettano il meteo
+export const ATTESA_429_MS = 3000;
+const inCorso = new Map(); // url → richiesta già partita (stesse celle chieste due volte: una sola chiamata)
+
+const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// una richiesta con limite di tempo; con 429 (troppe richieste) si aspetta e si riprova una volta
+async function scarica(url, segnale) {
+  for (let tentativo = 0; ; tentativo++) {
+    const controllo = new AbortController();
+    const scaduto = setTimeout(() => controllo.abort(), TEMPO_MASSIMO_MS);
+    segnale?.addEventListener('abort', () => controllo.abort(), { once: true });
+    try {
+      const r = await fetch(url, { signal: controllo.signal });
+      if (r.status === 429 && tentativo === 0) {
+        clearTimeout(scaduto);
+        await attendi(ATTESA_429_MS);
+        continue;
+      }
+      if (r.status === 429) throw new Error('troppe richieste a Open-Meteo, riprova tra un minuto');
+      if (!r.ok) throw new Error(`Open-Meteo ha risposto ${r.status}`);
+      return await r.json();
+    } finally {
+      clearTimeout(scaduto);
+    }
+  }
+}
+
 // punti: [{ chiave, lat, lon }] (puntoMeteo); giorni: quanti giorni avanti servono
 export async function scaricaPrevisioni(punti, { segnale, giorni = 2 } = {}) {
   const adesso = Date.now();
@@ -29,10 +57,8 @@ export async function scaricaPrevisioni(punti, { segnale, giorni = 2 } = {}) {
     return !(m?.quando > adesso - VALIDITA_MS && (m.finoA ?? 2) >= giorni);
   });
   for (const { url, punti: gruppo } of urlPrevisioni(mancanti, { giorni })) {
-    const r = await fetch(url, { signal: segnale });
-    if (r.status === 429) throw new Error('troppe richieste a Open-Meteo, riprova tra un minuto');
-    if (!r.ok) throw new Error(`Open-Meteo ha risposto ${r.status}`);
-    const json = await r.json();
+    if (!inCorso.has(url)) inCorso.set(url, scarica(url, segnale).finally(() => inCorso.delete(url)));
+    const json = await inCorso.get(url);
     const risposte = Array.isArray(json) ? json : [json];
     gruppo.forEach((p, i) => memoria.set(p.chiave, { giorni: giorniDaRisposta(risposte[i]), quando: adesso, finoA: giorni }));
   }
