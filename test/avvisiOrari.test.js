@@ -28,3 +28,23 @@ describe('giorno e ora iniziali della pagina del sentiero', () => {
     expect(giornoOraIniziali({ ...base, adessoMin: 400 })).toMatchObject({ giorno: '2026-10-20', ora: '09:00' });
   });
 });
+
+describe('«parti entro»: un solo orario, il più restrittivo, con il motivo', () => {
+  it('la pioggia chiude prima della luce: vince il meteo', async () => {
+    const { partiEntro } = await import('../src/lib/quandoAndare.js');
+    const r = partiEntro({ luceMin: 16 * 60 + 21, meteo: { entroMin: 16 * 60, poi: 'è probabile la pioggia' }, tramontoMin: 18 * 60 + 8 });
+    expect(r).toMatchObject({ entroMin: 960, motivo: 'meteo' });
+    expect(r.testo).toBe('Parti entro le 16:00: dopo è probabile la pioggia (tramonto alle 18:08)');
+  });
+  it('la luce è più restrittiva: vince la luce', async () => {
+    const { partiEntro } = await import('../src/lib/quandoAndare.js');
+    const r = partiEntro({ luceMin: 15 * 60 + 33, meteo: { entroMin: 16 * 60, poi: 'è probabile la pioggia' }, tramontoMin: 17 * 60 + 2 });
+    expect(r).toMatchObject({ entroMin: 933, motivo: 'luce' });
+    expect(r.testo).toBe('Parti entro le 15:33: dopo non finisci con la luce (tramonto alle 17:02, con 30 minuti di margine)');
+  });
+  it('senza meteo o con il meteo che parla già di luce: la luce', async () => {
+    const { partiEntro } = await import('../src/lib/quandoAndare.js');
+    expect(partiEntro({ luceMin: 900, meteo: null, tramontoMin: 1080 }).motivo).toBe('luce');
+    expect(partiEntro({ luceMin: 900, meteo: { entroMin: 870, poi: "non c'è abbastanza luce per finire" }, tramontoMin: 1080 })).toMatchObject({ motivo: 'luce', entroMin: 870 });
+  });
+});

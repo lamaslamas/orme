@@ -5,6 +5,7 @@
 import { salvaPercorso, leggiPercorso } from '../db.js';
 import { quoteDeiPezzi, quoteDeiPunti, testoFonteQuote } from './quote.js';
 import { improntaTraccia } from '../lib/panorama.js';
+import { quoteDisponibili } from '../lib/quoteSalvate.js';
 import { profiloTempi, finiGiornata, rifugiPerLaNotte, km1, quotaPiuVicina, testoDislivelloRifugio, lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { pezziScelti, fineSullAndata } from '../lib/andataRitorno.js';
 import { perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, TIPI_PUNTO } from '../lib/puntiUtili.js';
@@ -31,14 +32,7 @@ export async function parcoNazionaleIn([lon, lat]) {
   return PARCHI.find((p) => p.nazionale && (confini[p.id]?.length ? puntoNelPoligono([lon, lat], confini[p.id]) : lat >= p.bbox[0] && lat <= p.bbox[2] && lon >= p.bbox[1] && lon <= p.bbox[3])) ?? null;
 }
 
-// Pezzi con le quote già disponibili: della traccia o salvate prima da Open-Meteo (null se mancano)
-export function quoteDisponibili(percorso, pezzi) {
-  if (profiloTempi(pezzi).conQuote) return { pezzi, fonte: 'traccia' };
-  const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
-  // quote salvate nel percorso (TINITALY o, prima, Open-Meteo)
-  const q = percorso.quote ?? (percorso.quoteOpenMeteo ? { ...percorso.quoteOpenMeteo, fonte: 'open-meteo' } : null);
-  return q?.impronta === impronta ? { pezzi: q.coordinates, fonte: q.fonte ?? 'open-meteo' } : null;
-}
+export { quoteDisponibili };
 
 // Pezzi con le quote: già disponibili o chieste ora a Open-Meteo
 export async function pezziConQuote(percorso, pezzi) {

@@ -5,7 +5,8 @@ import { stato } from '../stato.js';
 import { datiPerMeteo, GIUDIZI } from '../lib/condizioni.js';
 import { GIORNI_STRISCIA, TEMPI_METEO, dateDaOggi, nomeGiorno, giornoDellaStriscia, testoDelGiorno, partenzaPassata } from '../lib/quandoAndare.js';
 import { oraPartenzaScelta } from './andataRitorno.js';
-import { giornoScelto, impostaGiorno, ascoltaGiorno } from './giornoScelto.js';
+import { giornoScelto, impostaGiorno, ascoltaGiorno, pubblicaLimiteMeteo } from './giornoScelto.js';
+import { minutiDaOra } from '../lib/andataRitorno.js';
 import { escapeHtml } from '../lib/formato.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
 import { ICONE } from './icone.js';
@@ -49,6 +50,8 @@ export function collegaQuandoAndare(sezione, { sentiero, traccia, quote: quoteIn
       const g = giornoDellaStriscia({ basso: previsioneDi(m.basso.chiave, d), alto: m.alto ? previsioneDi(m.alto.chiave, d) : null }, m, { attivita, dopoMin: partenza ?? 0 });
       return d === oggi && tardi && g ? { ...g, giudizio: null, motivo: null, partenza: null, tardi: true } : g;
     });
+    // il limite «parti entro» di ogni giorno lo mostra «Percorrenza», insieme alla luce: qui non si ripete
+    giorni.forEach((g, i) => pubblicaLimiteMeteo(date[i], g?.partenza?.entro ? { entroMin: minutiDaOra(g.partenza.entro), poi: g.partenza.poi } : null));
   }
   function disegna() {
     striscia.innerHTML = date
@@ -65,7 +68,7 @@ export function collegaQuandoAndare(sezione, { sentiero, traccia, quote: quoteIn
       })
       .join('');
     const i = date.indexOf(scelto);
-    riga.textContent = testoDelGiorno(giorni[i], nomeGiorno(scelto, oggi));
+    riga.textContent = testoDelGiorno(giorni[i] ? { ...giorni[i], partenza: null } : giorni[i], nomeGiorno(scelto, oggi));
     riga.className = `giorno-meteo meteo-${giorni[i]?.giudizio ?? 'nessuno'}`;
   }
 

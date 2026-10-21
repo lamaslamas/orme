@@ -22,6 +22,7 @@ import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO, quoteDisponibili, pezziConQuote } from './piuGiorni.js';
 import { oraPartenzaTesto } from './andataRitorno.js';
+import { serveScaricoQuote, chiaveQuote } from '../lib/quoteSalvate.js';
 import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { testoFonteQuote } from './quote.js';
 import { misureAR, misureScelte, eAnelloPezzi } from '../lib/andataRitorno.js';
@@ -46,7 +47,7 @@ function htmlNumeri(misure, fonte, ar = null, modo = modoScelto(), scarico = fal
       }`;
 }
 
-const quoteProvate = new Set(); // percorsi per cui si è già provato a scaricare le quote in questa visita
+const quoteProvate = new Set(); // (percorso|traccia) per cui si è già provato a scaricare le quote in questa visita
 
 export async function vistaPercorso(app, id) {
   const p = await leggiPercorso(id);
@@ -83,7 +84,7 @@ export async function vistaPercorso(app, id) {
     return giornoOraIniziali({ oggi: oggiIt, domani, adessoMin: adesso.getHours() * 60 + adesso.getMinutes(), oraSolita: oraPartenzaTesto(), durataMin: m0?.durataMin ?? null, tramontoOggiMin: tramonto });
   })();
   inizializzaGiorno(inizialiOrari.giorno);
-  const scaricoQuote = !quote && originali.length > 0 && !quoteProvate.has(p.id);
+  const scaricoQuote = serveScaricoQuote(p, originali, quoteProvate);
 
   app.innerHTML = `
     <a class="indietro" href="#/pianifica">‹ Pianifica</a>
@@ -190,7 +191,7 @@ export async function vistaPercorso(app, id) {
   }
   // senza quote (percorso disegnato o importato senza altitudini): si scaricano da sole, si salvano e la pagina si ricalcola
   if (scaricoQuote) {
-    quoteProvate.add(p.id);
+    quoteProvate.add(chiaveQuote(p, originali));
     pezziConQuote(p, originali).then(({ fonte }) => {
       if (fonte && app.isConnected && location.hash === `#/percorso/${idUrl}`) vistaPercorso(app, id);
       else if (!fonte) app.querySelector('#numeriPercorso')?.insertAdjacentHTML('beforeend', '<p class="tenue piccolo">Quote non scaricabili ora (sei offline?): riprova riaprendo la pagina.</p>');

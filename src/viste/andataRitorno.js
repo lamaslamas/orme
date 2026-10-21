@@ -2,10 +2,10 @@
 // Andata e ritorno (ricordato sul telefono), righe Andata, Ritorno e Totale, e gli orari del giorno
 // scelto con il tramonto calcolato nel punto di partenza. Gli anelli hanno solo il giro e gli orari.
 import { MODI, orariGiornata, oraDaMinuti, minutiDaOra, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
-import { avvisiOrari } from '../lib/quandoAndare.js';
+import { avvisiOrari, partiEntro } from '../lib/quandoAndare.js';
 import { testoRitmo } from '../lib/ritmo.js';
 import { htmlRitmo, collegaRitmo } from './ritmo.js';
-import { giornoScelto, impostaGiorno, ascoltaGiorno } from './giornoScelto.js';
+import { giornoScelto, impostaGiorno, ascoltaGiorno, limiteMeteoDi, ascoltaLimiti } from './giornoScelto.js';
 import { albaTramonto, oraItaliana, minutiItaliani } from '../lib/sole.js';
 import { durata, escapeHtml } from '../lib/formato.js';
 import { ICONE } from './icone.js';
@@ -91,7 +91,14 @@ export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () 
       aggiornaOrari();
     }
   });
-  new MutationObserver(() => !sezione.isConnected && smetti()).observe(document.body, { childList: true, subtree: true });
+  // il meteo del giorno arriva da «Quando andare» (dopo le previsioni): si rifà il «parti entro»
+  const smettiLimiti = ascoltaLimiti((g) => g === sezione.querySelector('[data-giorno]')?.value && aggiornaOrari());
+  new MutationObserver(() => {
+    if (!sezione.isConnected) {
+      smetti();
+      smettiLimiti();
+    }
+  }).observe(document.body, { childList: true, subtree: true });
   let modo = modoScelto();
   function aggiornaOrari() {
     // il riquadro si ridisegna cambiando la scelta: si cerca ogni volta
@@ -120,7 +127,11 @@ export function collegaAndataRitorno(sezione, { ar, partenza, alCambioModo = () 
     const luce = avvisi.length
       ? avvisi.map((t) => `<p class="avviso-luce">${ICONE.avviso}<span>${escapeHtml(t)}</span></p>`).join('')
       : tramonto
-        ? `<p class="tenue">Tramonto alle ${oraItaliana(tramonto)}: per finire con la luce (e ${MARGINE_LUCE_MIN} minuti di margine) parti entro le <b>${oraDaMinuti(o.ultimaPartenzaMin)}</b></p>`
+        ? (() => {
+            // un solo «parti entro»: il più restrittivo tra luce e meteo, con il motivo
+            const pe = partiEntro({ luceMin: o.ultimaPartenzaMin, meteo: limiteMeteoDi(giorno), tramontoMin: minutiItaliani(tramonto) });
+            return pe ? `<p class="tenue">${escapeHtml(pe.testo)}</p>` : '';
+          })()
         : '';
     risultato.innerHTML = `<p>${fine}</p>${luce}`;
   }

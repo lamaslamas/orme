@@ -2,6 +2,8 @@
 // accanto alla traccia, come elenco di quote nell'ordine dei punti. La traccia resta quella di prima
 // (la sua impronta non cambia: panorama, fauna e terreno non si ricalcolano).
 import { lineeConQuote } from './quote.js';
+import { profiloTempi } from './lungoIlPercorso.js';
+import { improntaTraccia } from './panorama.js';
 
 const conta = (pezzi) => pezzi.reduce((n, l) => n + l.length, 0);
 
@@ -27,3 +29,17 @@ export function quoteDellaScheda(pezzi, salvate, impronta) {
   const conQuote = conQuoteSalvate(pezzi, salvate, impronta);
   return conQuote ? { pezzi: conQuote, fonte: salvate.fonte ?? 'tinitaly' } : null;
 }
+
+// Pezzi di un percorso mio con le quote già disponibili: della traccia o salvate prima (TINITALY, Terrain Tiles o, prima,
+// Open-Meteo). Valgono solo per questa traccia: se la traccia cambia (modifica, inversione dei punti, nuova importazione)
+// la sua impronta è un'altra e le vecchie quote non si usano. null se mancano.
+export function quoteDisponibili(percorso, pezzi) {
+  if (profiloTempi(pezzi).conQuote) return { pezzi, fonte: 'traccia' };
+  const impronta = improntaTraccia({ type: 'MultiLineString', coordinates: pezzi });
+  const q = percorso.quote ?? (percorso.quoteOpenMeteo ? { ...percorso.quoteOpenMeteo, fonte: 'open-meteo' } : null);
+  return q?.impronta === impronta ? { pezzi: q.coordinates, fonte: q.fonte ?? 'open-meteo' } : null;
+}
+
+// Il tentativo di scaricare le quote si ricorda per percorso E per traccia: dopo una modifica la traccia nuova ne ha diritto
+export const chiaveQuote = (percorso, pezzi) => `${percorso.id}|${improntaTraccia({ type: 'MultiLineString', coordinates: pezzi })}`;
+export const serveScaricoQuote = (percorso, pezzi, provate) => pezzi?.length > 0 && !quoteDisponibili(percorso, pezzi) && !provate.has(chiaveQuote(percorso, pezzi));

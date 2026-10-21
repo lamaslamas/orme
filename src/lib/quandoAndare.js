@@ -123,3 +123,15 @@ export function giornoOraIniziali({ oggi, domani, adessoMin, oraSolita, durataMi
   if (passata || senzaLuce) return { giorno: domani, ora: '08:00', motivo: passata ? 'passata' : 'luce' };
   return { giorno: oggi, ora: oraSolita, motivo: null };
 }
+
+// «Parti entro»: un solo orario, il più restrittivo tra la luce (tramonto meno margine, con il ritmo scelto) e il meteo
+// («Quando andare»: pioggia, temporali, vento…), con il motivo. meteo: { entroMin, poi } o null.
+export function partiEntro({ luceMin, meteo = null, tramontoMin }) {
+  if (!Number.isFinite(luceMin) && !Number.isFinite(meteo?.entroMin)) return null;
+  const tr = Number.isFinite(tramontoMin) ? ` (tramonto alle ${hhmm(tramontoMin)})` : '';
+  const poiDiLuce = !meteo?.poi || /luce/i.test(meteo.poi);
+  const meteoPrima = Number.isFinite(meteo?.entroMin) && !poiDiLuce && (!Number.isFinite(luceMin) || meteo.entroMin < luceMin);
+  if (meteoPrima) return { entroMin: meteo.entroMin, motivo: 'meteo', testo: `Parti entro le ${hhmm(meteo.entroMin)}: dopo ${meteo.poi}${tr}` };
+  const entro = Number.isFinite(luceMin) ? Math.min(luceMin, Number.isFinite(meteo?.entroMin) ? meteo.entroMin : Infinity) : meteo.entroMin;
+  return { entroMin: entro, motivo: 'luce', testo: `Parti entro le ${hhmm(entro)}: dopo non finisci con la luce${Number.isFinite(tramontoMin) ? ` (tramonto alle ${hhmm(tramontoMin)}, con ${MARGINE_TRAMONTO_MIN} minuti di margine)` : ''}` };
+}
