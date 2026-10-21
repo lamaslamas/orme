@@ -4,7 +4,7 @@ import { STATI_COMPATIBILITA, ATTIVITA } from '../lib/compatibilita.js';
 import { stato } from '../stato.js';
 import { misureSentiero, testoIncompleta } from '../lib/riassunto.js';
 import { sagomaSvg } from '../lib/sagoma.js';
-import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
 import { testoUscita } from '../lib/filtri.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, definizioni } from './filtri.js';
 import improntaSvg from '../impronta.svg?raw';
@@ -12,7 +12,7 @@ import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
-import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
+import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici: da verificare' };
@@ -59,6 +59,7 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
   const dati = [
     m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
     m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+    m.quotaMax != null ? `<span class="quota-max">max ${migliaia(m.quotaMax)} m</span>` : '',
     m.durataMin != null ? `<span>${ICONE.orologio}${m.durataStimata ? '~' : ''}${durata(m.durataMin)}</span>` : '',
   ].join('');
   // al massimo due etichette: le più utili per decidere

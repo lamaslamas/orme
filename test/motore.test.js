@@ -20,9 +20,9 @@ describe('motore di filtraggio', () => {
     expect(nelIntervallo(null, '0-5')).toBe(false);
   });
 
-  it('filtra per distanza, dislivello e durata', () => {
+  it('filtra per distanza, dislivello (in salita, 0–300 m) e durata', () => {
     expect(ids(filtraPercorsi(p, f({ distanza: '10-15' })))).toEqual(['b']);
-    expect(ids(filtraPercorsi(p, f({ dislivello: '0-300' })))).toEqual(['a']);
+    expect(ids(filtraPercorsi(p, f({ salita: '0-300' })))).toEqual(['a']);
     expect(ids(filtraPercorsi(p, f({ durata: '240-360' })))).toEqual(['b']);
   });
 

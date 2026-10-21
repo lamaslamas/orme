@@ -9,7 +9,7 @@ import { senzaTracciaNellaZona, testoRiassunto } from '../lib/elencoZona.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
-import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
@@ -26,7 +26,7 @@ import { htmlFaunaBreve } from './faunaBreve.js';
 import { aggiungiDaQui } from './daQui.js';
 import { ICONE } from './icone.js';
 import { miniatura } from './lista.js';
-import { copertina, copertineCaricate, carica as caricaDaVedere } from './daVedere.js';
+import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
@@ -410,6 +410,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
           const dati = [
             m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
             m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+            m.quotaMax != null ? `<span class="quota-max">max ${migliaia(m.quotaMax)} m</span>` : '',
             m.durataMin != null ? `<span>${ICONE.orologio}${durata(m.durataMin)}</span>` : '',
           ].join('');
           return `<li><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">

@@ -24,7 +24,7 @@ export function misureSentiero(s, traccia) {
   // una rete di sentieri (aree protette): solo i km di sentieri, niente durata né dislivello di un giro
   if (s.tipoPercorso === 'rete_sentieri') {
     const km = Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : traccia?.geojson ? lunghezzaKm(traccia.geojson) : null;
-    return { km, kmCalcolati: false, salita: null, discesa: null, durataMin: null, durataStimata: false };
+    return { km, kmCalcolati: false, salita: null, discesa: null, quotaMax: null, durataMin: null, durataStimata: false };
   }
   // traccia incompleta (salti oltre 500 m): non si usa per i numeri, valgono quelli della fonte
   const incompleta = tracciaDaNonUsare(s, traccia);
@@ -55,6 +55,7 @@ export function misureSentiero(s, traccia) {
     kmCalcolati: Boolean(daTraccia),
     salita,
     discesa: dislTraccia?.discesa ?? null,
+    quotaMax: Number.isFinite(profilo?.max) ? profilo.max : null, // il punto più alto (nel verso scelto non cambia)
     durataMin,
     durataStimata,
     durataDallaFonte: dallaFonte,

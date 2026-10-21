@@ -7,6 +7,8 @@ import { escapeHtml } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { stato } from '../stato.js';
 import { INTERVALLI } from '../lib/motore.js';
+import { CHIAVE_QD_ELENCHI, leggiQd, salvaQd, testoQuota, testoSalita } from '../lib/quotaDislivello.js';
+import { htmlQuotaDislivello, collegaQuotaDislivello } from './quotaDislivello.js';
 import { ICONE } from './icone.js';
 import { finestraTrascinabile } from './tendina.js';
 
@@ -17,12 +19,14 @@ import { finestraTrascinabile } from './tendina.js';
 export function leggiFiltri(parcoFisso = null) {
   const st = stato.leggi();
   const zona = parcoDa(parcoFisso)?.zona;
-  const base = { ...FILTRI_VUOTI, ...st.filtri, parco: parcoFisso ?? st.parco, animale: zona ? '' : st.specie };
+  // quota e dislivello si ricordano sul telefono, a parte da Suggerisci
+  const base = { ...FILTRI_VUOTI, ...st.filtri, ...leggiQd(CHIAVE_QD_ELENCHI), parco: parcoFisso ?? st.parco, animale: zona ? '' : st.specie };
   return zona ? { ...base, stagione: st.stagioneIntorno === 'no' ? '' : 'adesso' } : base;
 }
 
 function salvaFiltri(filtri) {
-  const { parco, animale, ...altri } = filtri;
+  salvaQd(CHIAVE_QD_ELENCHI, filtri);
+  const { parco, animale, quota, salita, senzaQuote, ...altri } = filtri;
   const voci = Object.fromEntries(Object.keys(stato.leggi().filtri).map((k) => [k, altri[k] ?? '']));
   if (parcoDa(parco)?.zona) {
     voci.stagione = stato.leggi().filtri.stagione ?? '';
@@ -61,6 +65,9 @@ export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
     { chiave: 'uscite', titolo: 'Uscite', voci: [['si', 'Uscite delle associazioni e delle guide']], breve: () => 'Uscite delle associazioni' },
     ...(inBici ? [{ chiave: 'soloBici', titolo: 'Percorribilità', voci: [['tutti', 'Anche i sentieri da verificare']], breve: () => 'Anche da verificare' }] : []),
     ...Object.entries(INTERVALLI).map(([chiave, d]) => ({ chiave, titolo: d.titolo, voci: d.voci })),
+    // quota e dislivello: due slider (nella finestra, un'unica sezione); qui servono per contarli e toglierli
+    { chiave: 'quota', titolo: 'Quota e dislivello', voci: [], breve: (v) => testoQuota({ quota: v }) },
+    { chiave: 'salita', titolo: 'Dislivello in salita', voci: [], breve: (v) => testoSalita({ salita: v }) },
     {
       chiave: 'panorama',
       titolo: 'Valore panoramico',
@@ -138,6 +145,9 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
   const attivi = contenitore.querySelector('.filtri-attivi');
   // il filtro per paese non c'è più: un valore rimasto in memoria non deve nascondere percorsi
   filtri.paese = '';
+  filtri.dislivello = ''; // sostituito da Quota e dislivello
+  // gli slider stanno nel pannello: si ridisegna solo a scelta finita
+  collegaQuotaDislivello(foglio.querySelector('.foglio-sezioni'), filtri, aggiorna);
 
   const etichetta = (d) => {
     const valore = filtri[d.chiave];
@@ -167,9 +177,9 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
 
   function disegnaFoglio() {
     foglio.querySelector('.foglio-sezioni').innerHTML = defs
-      .filter((d) => d.voci.length && !(parcoFisso && d.chiave === 'parco'))
+      .filter((d) => (d.voci.length || d.chiave === 'quota') && !(parcoFisso && d.chiave === 'parco'))
       .map(
-        (d) => `<section class="sezione-filtro"><h3>${escapeHtml(d.titolo)}</h3><div class="opzioni-filtro">${d.voci
+        (d) => d.chiave === 'quota' ? htmlQuotaDislivello(filtri) : `<section class="sezione-filtro"><h3>${escapeHtml(d.titolo)}</h3><div class="opzioni-filtro">${d.voci
           .map(([v, et]) => {
             // quanti percorsi restano scegliendo questa voce (con gli altri filtri attuali)
             const n = conta ? conta({ ...filtri, [d.chiave]: v }) : null;
@@ -206,6 +216,7 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
 
   function azzera() {
     for (const d of defs) filtri[d.chiave] = '';
+    filtri.senzaQuote = '';
     if (parcoFisso) filtri.parco = parcoFisso;
     aggiorna();
   }

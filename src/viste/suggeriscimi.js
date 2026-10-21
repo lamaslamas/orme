@@ -57,6 +57,8 @@ import { PARCHI, parcoDa } from '../datiParchi.js';
 import { caricaPunti } from './puntiUtili.js';
 import { zoneCoperte } from './copertura.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
+import { quotaAttiva, salitaAttiva, qdAttivo, testoQuota, testoSalita, testoValore } from '../lib/quotaDislivello.js';
+import { htmlQuotaDislivello, collegaQuotaDislivello } from './quotaDislivello.js';
 import { modoScelto, oraPartenzaScelta, oraPartenzaTesto, ricordaOraPartenza } from './andataRitorno.js';
 import { TESTO_TARDI, partenzaPassata } from '../lib/quandoAndare.js';
 import { tendinaTrascinabile } from './tendina.js';
@@ -288,6 +290,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           : ''
       }
       <h3>Fatica</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
+      ${htmlQuotaDislivello(scelte)}
       <h3>Quanto lontano</h3>${htmlGruppo('distanza', DISTANZE, scelte.distanza)}
       ${
         scelte.distanza === 'parco'
@@ -303,7 +306,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? etichettaSpecie() || COSE[c] : COSE[c]).toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : 'qualsiasi distanza';
     const fatica = !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase();
-    return [QUANDO[scelte.quando], scelte.tempo ? TEMPI[scelte.tempo].toLowerCase() : 'qualsiasi durata', fatica, lontano, ...cerco].join(' · ');
+    const qd = [quotaAttiva(scelte) ? testoQuota(scelte).replace('Quota massima: ', 'quota ') : '', salitaAttiva(scelte) ? testoSalita(scelte).replace('Dislivello: ', 'dislivello ') : ''].filter(Boolean);
+    return [QUANDO[scelte.quando], scelte.tempo ? TEMPI[scelte.tempo].toLowerCase() : 'qualsiasi durata', fatica, ...qd, lontano, ...cerco].join(' · ');
   }
   function disegnaForm() {
     foglio.innerHTML = `
@@ -576,6 +580,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (scelte.fatica && scelte.fatica !== 'qualsiasi') {
       prove.push({ chiave: 'fatica', etichetta: 'Con qualsiasi fatica', ...contaCon(data, { fatica: 'qualsiasi' }), motivo: `sono tutti fuori dalla fatica «${daIn(FATICHE[scelte.fatica])}»`, variante: { fatica: 'qualsiasi' } });
     }
+    // quota e dislivello: si allarga un filtro alla volta; il motivo è quello che ne esclude di più
+    if (quotaAttiva(scelte)) prove.push({ chiave: 'quota', etichetta: 'Senza il limite di quota', ...contaCon(data, { quota: '' }), motivo: `la quota massima scelta (${testoValore(scelte.quota, 'quota')}) li esclude`, variante: { quota: '' } });
+    if (salitaAttiva(scelte)) prove.push({ chiave: 'salita', etichetta: 'Senza il limite di dislivello', ...contaCon(data, { salita: '' }), motivo: `il dislivello scelto (${testoValore(scelte.salita, 'salita')}) li esclude`, variante: { salita: '' } });
+    if (qdAttivo(scelte) && !scelte.senzaQuote) prove.push({ chiave: 'senzaQuote', etichetta: 'Anche i percorsi senza dati di quota', ...contaCon(data, { senzaQuote: 'si' }), motivo: 'molti non hanno i dati di quota e sono esclusi dal filtro', variante: { senzaQuote: 'si' } });
     if (scelte.distanza) {
       const parco = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve : null;
       prove.push({
@@ -594,6 +602,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       scelte.tempo ? daIn(TEMPI[scelte.tempo]) : '',
       `partendo ${daIn(QUANDO[scelte.quando])} alle ${ora}`,
       scelte.fatica && scelte.fatica !== 'qualsiasi' ? `fatica ${daIn(FATICHE[scelte.fatica])}` : '',
+      quotaAttiva(scelte) ? `quota massima ${testoValore(scelte.quota, 'quota')}` : '',
+      salitaAttiva(scelte) ? `dislivello ${testoValore(scelte.salita, 'salita')}` : '',
       scelte.distanza === 'parco' ? `nel parco ${parcoDa(scelte.parco)?.nomeBreve ?? ''}`.trim() : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : '',
     ]
       .filter(Boolean)
@@ -1311,6 +1321,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const a = e.target.closest('.proposta-mappa[data-anello]')?.dataset.anello;
     if (a != null && anelliOra[a]) inquadra(L.geoJSON(anelliOra[a].geojson).getBounds(), 16);
   });
+  // quota e dislivello: la scelta si ricorda (insieme alle altre di Suggerisci, non con gli elenchi)
+  collegaQuotaDislivello(foglio, () => scelte, () => ricorda(scelte));
   foglio.addEventListener('change', (e) => {
     if (e.target.matches('[data-ora-partenza]')) return e.target.value && ricordaOraPartenza(e.target.value);
     if (!e.target.matches('.scelta-parco')) return;
