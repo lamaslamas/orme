@@ -644,13 +644,25 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const corpo = foglio.querySelector('.suggerisci-corpo');
     if (corpo) corpo.scrollTop = 0;
   }
+  // un errore non deve lasciare «Cerco…» per sempre: si dice e si può riprovare
   async function suggerisci() {
+    const mia = richiesta + 1;
+    try {
+      await cercaPercorsi();
+    } catch (e) {
+      console.error('Suggerisci', e);
+      if (mia !== richiesta) return;
+      foglio.querySelector('.suggerisci-risultati').innerHTML = `<p class="vuoto">Non sono riuscito a cercare i percorsi (${escapeHtml(e?.message ?? 'errore')}).</p><div class="azioni-vuoto"><button type="button" class="bottone" data-azione="riprova">Riprova</button></div>`;
+    }
+  }
+  async function cercaPercorsi() {
     const mia = ++richiesta;
     const risultati = foglio.querySelector('.suggerisci-risultati');
     mostraRisultatiInCima();
     notaDistanza = '';
     risultati.innerHTML = '<p class="tenue">Cerco tra i percorsi…</p>';
-    puntiUtili ??= await caricaPunti();
+    // i punti (rifugi, acqua) non devono bloccare la ricerca: dopo 8 secondi si va avanti senza
+    puntiUtili ??= await Promise.race([caricaPunti(), new Promise((r) => setTimeout(() => r(null), 8000))]);
     if (mia !== richiesta) return;
     const data = dataDelQuando(scelte.quando, oggiItalia());
     const adessoSuggerisci = new Date();
@@ -1338,6 +1350,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'suggerisci') scelte.modo === 'anello' ? creaAnelli(0) : suggerisci();
+    else if (azione === 'riprova') suggerisci();
     else if (azione === 'zona-riprova') caricaZona({ forza: true });
     else if (azione === 'allarga-mesi') {
       raggioMesi = 3;
