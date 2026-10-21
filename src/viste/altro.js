@@ -5,6 +5,7 @@ import { ANIMALI } from '../lib/costanti.js';
 import { escapeHtml } from '../lib/formato.js';
 import { collegaInstalla } from './installa.js';
 import { leggiTema, impostaTema, leggiNotte, impostaNotte } from './tema.js';
+import { htmlRitmo, collegaRitmo } from './ritmo.js';
 
 export async function vistaAltro(app) {
   const archivio = await infoArchivio();
@@ -35,6 +36,12 @@ export async function vistaAltro(app) {
       <p class="tenue piccolo">Automatico segue l'impostazione del telefono. Le mappe già aperte cambiano alla prossima apertura.</p>
       <button type="button" class="bottone interruttore-notte" role="switch" aria-checked="false" data-notte-toggle>Modo notturno rosso</button>
       <p class="tenue piccolo">Schermo rosso scuro su nero, per non abbagliarti al buio. Resta acceso finché non lo spegni.</p>
+    </section>
+
+    <section class="riquadro ritmo-altro">
+      <h2>Ritmo di cammino</h2>
+      ${htmlRitmo()}
+      <p class="tenue piccolo">I tempi CAI sono senza soste. «Con soste» li allunga del 25%, «Fotografico» del 75% (per chi si ferma spesso ad aspettare la luce o ad appostarsi). Vale per durata, orari, «parti entro», luce e fotografia, su più giorni e Suggerisci.</p>
     </section>
 
     <section class="riquadro">
@@ -82,6 +89,7 @@ export async function vistaAltro(app) {
     impostaTema(t);
     segna();
   });
+  collegaRitmo(app.querySelector('.ritmo-altro'), () => vistaAltro(app));
   const segnaNotte = () => {
     const b = app.querySelector('[data-notte-toggle]');
     b.setAttribute('aria-checked', String(leggiNotte()));

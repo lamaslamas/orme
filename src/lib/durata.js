@@ -6,6 +6,8 @@
 // La durata è il tempo maggiore tra "piano" e "dislivello", più metà del minore.
 // Le soste non sono comprese.
 
+import { fattoreRitmo } from './ritmo.js';
+
 export const VELOCITA_PIANO_KMH = 4;
 export const SALITA_MH = 300;
 export const DISCESA_MH = 500;
@@ -20,9 +22,10 @@ export const SPIEGAZIONE_DURATA =
 export function stimaDurataMin(km, disl) {
   if (!Number.isFinite(km) || km < 0) return null;
   const orePiano = km / VELOCITA_PIANO_KMH;
-  if (!disl) return Math.round(orePiano * 60);
+  const f = fattoreRitmo(); // 1 senza soste; con soste o fotografico i tempi si allungano
+  if (!disl) return Math.round(orePiano * 60 * f);
   const oreDislivello = disl.salita / SALITA_MH + disl.discesa / DISCESA_MH;
   const maggiore = Math.max(orePiano, oreDislivello);
   const minore = Math.min(orePiano, oreDislivello);
-  return Math.round((maggiore + minore / 2) * 60);
+  return Math.round((maggiore + minore / 2) * 60 * f);
 }

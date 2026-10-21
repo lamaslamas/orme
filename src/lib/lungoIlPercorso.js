@@ -4,6 +4,7 @@
 import { puntoNelPoligono } from './confini.js';
 import { distanzaKm, distanzaDallaTracciaM, lunghezzaKm } from './geo.js';
 import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH, stimaDurataMin } from './durata.js';
+import { fattoreRitmo } from './ritmo.js';
 import { dislivello, SOGLIA_RUMORE_M } from './quote.js';
 
 export const PASSO_COPERTURA_M = 500;
@@ -141,7 +142,7 @@ export function profiloTempi(pezzi) {
   const tempo = () => {
     const orePiano = fatti / VELOCITA_PIANO_KMH;
     const oreDisl = conQuote ? salita / SALITA_MH + discesa / DISCESA_MH : 0;
-    return (Math.max(orePiano, oreDisl) + Math.min(orePiano, oreDisl) / 2) * 60;
+    return (Math.max(orePiano, oreDisl) + Math.min(orePiano, oreDisl) / 2) * 60 * fattoreRitmo();
   };
   for (const linea of pezzi ?? []) {
     let rif = conQuote ? linea[0]?.[2] : 0;
@@ -197,14 +198,17 @@ export function finiGiornata(serie, ore) {
 // dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
 // Per dormire si accetta una deviazione più lunga che per l'acqua: 1 km dalla traccia (il resto
 // dell'app usa RAGGIO_LUNGO_IL_PERCORSO_M, 300 m)
+const STRUTTURE_TIPI = new Set(['campeggio', 'agriturismo', 'bb', 'ostello', 'albergo', 'alloggio']);
 export const RAGGIO_PERNOTTO_M = 1000;
-export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_PERNOTTO_M, finestraKm = 3, perLaNotte = () => true } = {}) {
+export const RAGGIO_STRUTTURE_M = 2000; // campeggi, agriturismi, B&B, ostelli e alberghi: fino a 2 km dalla traccia
+export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_PERNOTTO_M, raggioStruttureM = RAGGIO_STRUTTURE_M, finestraKm = 3, perLaNotte = () => true } = {}) {
   const geojson = { type: 'MultiLineString', coordinates: pezzi };
-  const vicino = (finestraKm * 1000 + raggioM) / 1000; // in linea d'aria, per scartare subito i lontani
+  const massimo = Math.max(raggioM, raggioStruttureM);
+  const vicino = (finestraKm * 1000 + massimo) / 1000; // in linea d'aria, per scartare subito i lontani
   return punti
     .filter((p) => perLaNotte(p) && distanzaKm([p.lon, p.lat], fine.punto) <= vicino)
     .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi), distanzaM: Math.round(distanzaDallaTracciaM([p.lon, p.lat], geojson)) }))
-    .filter((p) => p.km != null && Math.abs(p.km - fine.km) <= finestraKm && p.distanzaM <= raggioM)
+    .filter((p) => p.km != null && Math.abs(p.km - fine.km) <= finestraKm && p.distanzaM <= (STRUTTURE_TIPI.has(p.tipo) ? raggioStruttureM : raggioM))
     .sort((a, b) => Math.abs(a.km - fine.km) - Math.abs(b.km - fine.km));
 }
 
