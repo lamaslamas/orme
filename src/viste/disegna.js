@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { tendinaTrascinabile, finestraTrascinabile } from './tendina.js';
 import { leggiPercorso, salvaPercorso, leggiSentiero, leggiTraccia } from '../db.js';
 import { calcolaPercorso } from '../lib/brouter.js';
-import { nuovoIdPercorso } from '../lib/percorso.js';
+import { nuovoIdPercorso, conservaOriginale } from '../lib/percorso.js';
 import { leggiBozza, salvaBozza, cancellaBozza, consumaAperturaDisegno } from '../lib/bozza.js';
 import { normalizzaPunti, chiaveTratto, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi } from '../lib/disegno.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
@@ -46,6 +46,8 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
   const daBase = Boolean(base && base.linea.length > 1);
   const puntiDiPartenza = () => puntiIniziali(base);
   let punti = daBase ? puntiDiPartenza() : normalizzaPunti((esistente?.puntiControllo?.length ? esistente.puntiControllo : null) ?? (esistente ? null : leggiBozza()?.punti));
+  let forbici = false; // «Forbici»: il prossimo tocco sulla traccia sceglie dove tagliare
+  let sopprimiFinoA = 0;
   let aggiungiInizio = false; // «Aggiungi all'inizio»: i punti nuovi vanno prima della partenza
   let manoLibera = false;
   const tratti = new Map(); // chiave → tratto calcolato (si ricalcola solo quello che cambia)
@@ -64,6 +66,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
         <button type="button" class="pill-mappa tondo" data-azione="anello" aria-label="Chiudi ad anello" title="Chiudi ad anello">${ICONE.anello}</button>
         <button type="button" class="pill-mappa tondo" data-azione="inverti" aria-label="Inverti il verso" title="Inverti il verso">${ICONE.inverti}</button>
         <button type="button" class="pill-mappa tondo" data-azione="libera" aria-pressed="false" aria-label="Mano libera" title="Mano libera">${ICONE.matita}</button>
+        <button type="button" class="pill-mappa tondo" data-azione="forbici" aria-pressed="false" aria-label="Forbici: taglia la traccia" title="Forbici: tocca la traccia dove tagliare">✂</button>
         <button type="button" class="pill-mappa" data-azione="inizio" aria-pressed="false" title="I punti nuovi si aggiungono prima della partenza">+ Inizio</button>
         <button type="button" class="pill-mappa tondo" data-azione="menu" aria-expanded="false" aria-label="Altro" title="Altro">${ICONE.altro}</button>
       </div>
@@ -117,6 +120,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
   function suggerimentoBase() {
     if (puntoDaSpostare != null) return scriviSuggerimento('Tocca la mappa dove spostare il punto');
     if (!punti.length) return scriviSuggerimento('Tocca la mappa per la partenza');
+    if (forbici) return scriviSuggerimento('Forbici: tocca sulla traccia, nel punto dove tagliare');
     if (aggiungiInizio) return scriviSuggerimento('Tocca la mappa: i punti nuovi vanno prima della partenza');
     if (!manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return scriviSuggerimento('Avvicinati per disegnare sui sentieri');
     if (punti.length === 1) return scriviSuggerimento(manoLibera ? 'Mano libera: tocca il prossimo punto' : 'Tocca il prossimo punto: il percorso segue i sentieri');
@@ -196,6 +200,9 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       const c = { p: [Number(v.punto[0].toFixed(6)), Number(v.punto[1].toFixed(6))], ...(pos != null ? { pos } : {}) };
       punti = tagliaPunti(punti, v.k, c, b.dataset.fai === 'tieni-prima' ? 'prima' : 'dopo');
       tagliaPendente = null;
+      forbici = false;
+      strumenti.querySelector('[data-azione=forbici]')?.classList.remove('attiva');
+      strumenti.querySelector('[data-azione=forbici]')?.setAttribute('aria-pressed', 'false');
       return aggiorna();
     }
     const i = Number(b.dataset.punto);
@@ -232,11 +239,13 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       puntoDaSpostare = null;
       return spostaPunto(i, p);
     }
-    // un tocco sulla traccia (vicino alla linea) apre «Taglia qui»; per aggiungere punti si tocca la mappa più in là
-    if (risultato?.tratti?.length && !aggiungiInizio) {
-      const metriPerPixel = (40_075_016.686 * Math.cos((latlng.lat * Math.PI) / 180)) / (256 * 2 ** mappa.getZoom());
-      const v = vicinoAllaLinea(risultato.tratti, p, 16 * metriPerPixel);
+    // dopo una pressione lunga il rilascio non è un tocco
+    if (performance.now() < sopprimiFinoA) return;
+    // con le forbici attive il tocco sceglie il punto di taglio (non si aggiungono punti)
+    if (forbici) {
+      const v = trovaSullaTraccia(latlng, 28);
       if (v) return apriTaglio(v);
+      return scriviSuggerimento('Forbici: tocca sulla traccia, nel punto dove tagliare');
     }
     // da lontano i tratti non seguono i sentieri: la partenza si mette sempre, il resto dopo essersi avvicinati
     if (punti.length > 0 && !manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return suggerimentoBase();
@@ -244,6 +253,12 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
     if (eAnello(punti)) punti.pop();
     punti = prolunga(punti, p, { inizio: aggiungiInizio, libero: manoLibera });
     aggiorna();
+  }
+  // il punto della traccia più vicino a un tocco (entro `pixel`), o null
+  function trovaSullaTraccia(latlng, pixel) {
+    if (!risultato?.tratti?.length) return null;
+    const metriPerPixel = (40_075_016.686 * Math.cos((latlng.lat * Math.PI) / 180)) / (256 * 2 ** mappa.getZoom());
+    return vicinoAllaLinea(risultato.tratti, [latlng.lng, latlng.lat], pixel * metriPerPixel);
   }
   let ultimoClick = 0;
   mappa.on('click', (e) => {
@@ -254,11 +269,30 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
   // click: mappa ancora in movimento, segnaposto sotto il dito…). Se entro un attimo non è arrivato, si aggiunge
   const contenitoreMappa = mappa.getContainer();
   let giu = null;
+  let pressioneLunga = null;
   contenitoreMappa.addEventListener('pointerdown', (e) => {
     const sulla = e.isPrimary && !e.target.closest('.leaflet-control, .leaflet-marker-icon, .leaflet-popup');
     giu = sulla ? { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId } : null;
+    // pressione lunga sulla traccia: «Taglia qui»
+    clearTimeout(pressioneLunga);
+    if (sulla) {
+      const latlng = mappa.mouseEventToLatLng(e);
+      const id = e.pointerId;
+      pressioneLunga = setTimeout(() => {
+        if (!giu || giu.id !== id || chiusa) return;
+        const v = trovaSullaTraccia(latlng, 18);
+        if (!v) return;
+        sopprimiFinoA = performance.now() + 600;
+        apriTaglio(v);
+      }, 550);
+    }
   });
+  contenitoreMappa.addEventListener('pointermove', (e) => {
+    if (giu && e.pointerId === giu.id && Math.hypot(e.clientX - giu.x, e.clientY - giu.y) > 8) clearTimeout(pressioneLunga);
+  });
+  contenitoreMappa.addEventListener('pointercancel', () => clearTimeout(pressioneLunga));
   contenitoreMappa.addEventListener('pointerup', (e) => {
+    clearTimeout(pressioneLunga);
     const g = giu;
     giu = null;
     if (!g || e.pointerId !== g.id || Math.hypot(e.clientX - g.x, e.clientY - g.y) > 8 || performance.now() - g.t > 700) return;
@@ -406,8 +440,20 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
     } else if (azione === 'inverti' && punti.length >= 2) {
       punti = inverti(punti);
       aggiorna();
+    } else if (azione === 'forbici') {
+      forbici = !forbici;
+      b.setAttribute('aria-pressed', String(forbici));
+      b.classList.toggle('attiva', forbici);
+      if (forbici) aggiungiInizio = false;
+      if (forbici) scriviSuggerimento('Forbici: tocca sulla traccia, nel punto dove tagliare');
+      else suggerimentoBase();
     } else if (azione === 'inizio') {
       aggiungiInizio = !aggiungiInizio;
+      if (aggiungiInizio) {
+        forbici = false;
+        strumenti.querySelector('[data-azione=forbici]')?.classList.remove('attiva');
+        strumenti.querySelector('[data-azione=forbici]')?.setAttribute('aria-pressed', 'false');
+      }
       b.setAttribute('aria-pressed', String(aggiungiInizio));
       b.classList.toggle('attiva', aggiungiInizio);
       suggerimentoBase();
@@ -469,6 +515,8 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       origine: 'disegnato',
       puntiControllo: punti,
       geojson: { type: 'MultiLineString', coordinates: [risultato.linea] },
+      // la traccia del file importato si conserva (una volta sola): «Ripristina la traccia originale» nella scheda
+      ...conservaOriginale(esistente),
       terreno: conBase ? [] : risultato.terreno,
       fonteTerreno: conBase ? null : 'brouter',
       aggiornatoTerreno: conBase ? null : new Date().toISOString(),

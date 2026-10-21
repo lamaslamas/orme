@@ -35,7 +35,7 @@ export async function vistaPianifica(app) {
                   ${d ? `<svg class="miniatura" viewBox="0 0 88 88" aria-hidden="true"><path d="${d}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '<div class="miniatura vuota"></div>'}
                   <div class="carta-corpo">
                     <div class="nome">${escapeHtml(p.nome || 'Percorso senza nome')}</div>
-                    <div class="carta-dati">${p.origine === 'disegnato' ? 'Disegnato sulla mappa' : p.origine === 'esteso' ? 'Esteso da sentieri' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</div>
+                    <div class="carta-dati">${p.originale ? 'File importato, modificato' : p.origine === 'disegnato' ? 'Disegnato sulla mappa' : p.origine === 'esteso' ? 'Esteso da sentieri' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</div>
                     <div class="numeri"><b>${km.toFixed(1).replace('.', ',')}</b> km${disl ? `<span class="sep">·</span><b>+${disl.salita}</b> m` : ''}${quotaMax != null ? `<span class="sep">·</span><span class="quota-max">max ${migliaia(quotaMax)} m</span>` : ''}</div>
                   </div>
                 </a>${linkModificaTraccia('percorso', p.id, { stile: 'icona' })}</li>`;

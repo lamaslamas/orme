@@ -2263,3 +2263,10 @@ a.modifica-carta {
 .voce-percorso > a.modifica-carta { top: 52px; right: 10px; }
 .lista > li:not(.voce-percorso) > a.modifica-carta { top: 8px; right: 8px; }
 .modifica-traccia-via { margin-top: 8px; }
+/* disegno: con sette comandi, sui telefoni stretti si rimpiccioliscono per starci tutti */
+@media (max-width: 430px) {
+  .disegno-sopra { left: 6px; right: 6px; gap: 4px; }
+  .disegno-strumenti { gap: 4px; }
+  .disegno-strumenti .pill-mappa.tondo, .disegno-sopra > .pill-mappa.tondo { width: 35px; min-height: 40px; }
+  .disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 8px; font-size: 0.78rem; min-height: 40px; }
+}

@@ -30,6 +30,7 @@ import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRit
 import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { quoteMeteoDaiPezzi } from '../lib/quandoAndare.js';
 import L from 'leaflet';
+import { ripristinaOriginale } from '../lib/percorso.js';
 
 // numeri in alto: lo stesso calcolo del blocco Andata e ritorno, secondo la scelta
 function htmlNumeri(misure, fonte, ar = null, modo = modoScelto(), scarico = false) {
@@ -97,7 +98,7 @@ export async function vistaPercorso(app, id) {
           <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
         </div>
       </div>
-      <p class="zona">${p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
+      <p class="zona">${p.originale ? `Da file ${p.originale.origine === 'kml' ? 'KML' : 'GPX'}, modificato` : p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
       <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar, modoScelto(), scaricoQuote)}</div>
       <div id="profiloPercorso" class="profilo-scheda"></div>
       ${pezzi.length ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
@@ -121,6 +122,7 @@ export async function vistaPercorso(app, id) {
         <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
         <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
       </div>
+      ${p.originale ? `<section class="riquadro"><h2>Traccia originale</h2><p class="tenue piccolo">Hai modificato la traccia del file importato: l'originale è conservato.</p><button type="button" class="bottone pieno" id="ripristina">Ripristina la traccia originale</button></section>` : ''}
       <button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>
     </article>
   `;
@@ -169,6 +171,12 @@ export async function vistaPercorso(app, id) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+  });
+
+  app.querySelector('#ripristina')?.addEventListener('click', async () => {
+    if (!confirm('Ripristinare la traccia originale del file? Le modifiche fatte alla traccia andranno perse.')) return;
+    await salvaPercorso(ripristinaOriginale(p));
+    vistaPercorso(app, id);
   });
 
   app.querySelector('#elimina').addEventListener('click', async () => {
