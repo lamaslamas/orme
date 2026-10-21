@@ -15,7 +15,7 @@ import { avviaImportazione } from './importaFile.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { distanzaKm } from '../lib/geo.js';
 import { percorsoSentiero } from '../lib/tracce.js';
-import { creaBase, puntiIniziali, segnapostoVisibile, spostaEstremoBase, vicinoAllaLinea, posSulTratto, tagliaPunti, fetta } from '../lib/modificaTraccia.js';
+import { creaBase, puntiIniziali, segnapostoVisibile, spostaEstremoBase, vicinoAllaLinea, posSulTratto, tagliaPunti, prolunga, fetta } from '../lib/modificaTraccia.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml, durata, codici } from '../lib/formato.js';
 import { pezziNelVerso } from '../lib/estendi.js';
@@ -242,11 +242,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
     if (punti.length > 0 && !manoLibera && mappa.getZoom() < ZOOM_SENTIERI) return suggerimentoBase();
     // un anello chiuso si riapre togliendo l'arrivo, poi si allunga
     if (eAnello(punti)) punti.pop();
-    if (aggiungiInizio && punti.length) {
-      // prima della partenza: il nuovo punto diventa la partenza, e arriva alla vecchia per sentieri (o a mano libera)
-      punti[0] = { ...punti[0], libero: manoLibera };
-      punti.unshift({ p, libero: false });
-    } else punti.push({ p, libero: punti.length > 0 && manoLibera });
+    punti = prolunga(punti, p, { inizio: aggiungiInizio, libero: manoLibera });
     aggiorna();
   }
   let ultimoClick = 0;
@@ -525,4 +521,19 @@ export async function vistaDisegnaSentiero(app, idCodificato) {
     indietro: `#/sentiero/${encodeURIComponent(id)}`,
     daSentiero: id,
   });
+}
+
+// «Modifica traccia» da una carrareccia o un sentiero non segnato: il tratto l'ha preparato il foglio al tocco
+export async function vistaDisegnaVia(app) {
+  let via = null;
+  try {
+    via = JSON.parse(sessionStorage.getItem('orme.viaDaModificare') ?? 'null');
+  } catch {
+    via = null;
+  }
+  if (!via?.pezzi?.length) {
+    app.innerHTML = '<p class="vuoto">Tocca un sentiero sulla mappa e scegli «Modifica traccia». <a href="#/">Torna alla mappa</a></p>';
+    return;
+  }
+  return vistaDisegna(app, null, { ...via, indietro: '#/' });
 }

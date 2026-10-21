@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { creaBase, proietta, fetta, puntoAllaPos, puntiIniziali, estremiBase, segnapostoVisibile, spostaEstremoBase, vicinoAllaLinea, posSulTratto, tagliaPunti } from '../src/lib/modificaTraccia.js';
+import { creaBase, proietta, fetta, puntoAllaPos, puntiIniziali, estremiBase, segnapostoVisibile, spostaEstremoBase, vicinoAllaLinea, posSulTratto, tagliaPunti, prolunga } from '../src/lib/modificaTraccia.js';
 import { inverti, normalizzaPunti } from '../src/lib/disegno.js';
 import { distanzaKm } from '../src/lib/geo.js';
 
@@ -86,5 +86,34 @@ describe('verso e salvataggio dei punti', () => {
   });
   it('i punti senza posizione restano come prima', () => {
     expect(normalizzaPunti([[1, 2], { p: [3, 4], libero: true }])).toEqual([{ p: [1, 2], libero: false }, { p: [3, 4], libero: true }]);
+  });
+});
+
+describe('prolungare', () => {
+  const punti = puntiIniziali(base);
+  it('dopo l\'arrivo: un punto in fondo, agganciato ai sentieri', () => {
+    const r = prolunga(punti, [15.03, 40]);
+    expect(r).toHaveLength(3);
+    expect(r[2]).toEqual({ p: [15.03, 40], libero: false });
+    expect(r[1].pos).toBeGreaterThan(0); // l'arrivo sulla traccia resta com'era
+  });
+  it('a mano libera il nuovo tratto è libero', () => {
+    expect(prolunga(punti, [15.03, 40], { libero: true }).at(-1).libero).toBe(true);
+  });
+  it('all\'inizio: il nuovo punto diventa la partenza e arriva alla vecchia', () => {
+    const r = prolunga(punti, [14.99, 40], { inizio: true });
+    expect(r.map((x) => x.p[0])).toEqual([14.99, 15, 15.02]);
+    expect(r[0].libero).toBe(false);
+    expect(r[1].libero).toBe(false);
+    expect(r[1].pos).toBe(0); // la vecchia partenza è ancora sulla traccia
+    expect(prolunga(punti, [14.99, 40], { inizio: true, libero: true })[1].libero).toBe(true);
+  });
+  it('il percorso si estende su entrambi i lati e si può accorciare ancora', () => {
+    let r = prolunga(punti, [15.03, 40]);
+    r = prolunga(r, [14.99, 40], { inizio: true });
+    expect(estremiBase(r)).toEqual({ primo: 1, ultimo: 2, quanti: 2 });
+    expect(segnapostoVisibile(r, 0)).toBe(true); // punto nuovo: si vede
+    const s = spostaEstremoBase(r, 2, [15.015, 40], base); // l'arrivo sulla traccia si accorcia
+    expect(Math.round(s.pos)).toBe(1278);
   });
 });

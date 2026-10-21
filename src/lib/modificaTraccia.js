@@ -134,3 +134,10 @@ export function tagliaPunti(punti, k, c, tieni) {
   if (tieni === 'prima') return [...punti.slice(0, k + 1), { ...c, libero: Boolean(punti[k + 1]?.libero) }];
   return [{ ...c, libero: false }, ...punti.slice(k + 1)];
 }
+
+// Prolunga con un punto nuovo p: dopo l'arrivo oppure, con `inizio`, prima della partenza (il nuovo punto diventa la
+// partenza e arriva alla vecchia nel modo scelto: sentieri o mano libera).
+export function prolunga(punti, p, { inizio = false, libero = false } = {}) {
+  if (inizio && punti.length) return [{ p, libero: false }, { ...punti[0], libero }, ...punti.slice(1)];
+  return [...punti, { p, libero: punti.length > 0 && libero }];
+}

@@ -5,6 +5,7 @@
 import L from 'leaflet';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { queryViaVicina, viaDallaRisposta, viaVietata } from '../lib/viaOsm.js';
+import { queryViaCollegata, vieDallaRisposta, catenaVia, localitaVicina, nomeViaProposto, viaPiuVicina } from '../lib/viaCatena.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { iniziaBozza, aggiungiABozza, leggiBozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { escapeHtml } from '../lib/formato.js';
@@ -34,6 +35,7 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
   let punto = null; // [lon, lat] del tocco
   let richiesta = 0;
   let parcoAttuale = null;
+  let viaAttuale = null; // la via toccata, quando OpenStreetMap ha risposto
 
   // itinerari segnati del tratto: uno → "Scarica questo itinerario"; più di uno → si sceglie quale.
   // Quelli già sul telefono (archivio, zona o scaricati) si aprono e basta.
@@ -93,6 +95,8 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
           <button type="button" class="bottone primario" data-azione="inizia">${ICONE.bandierina}<span>Inizia da qui</span></button>
           <button type="button" class="bottone" data-azione="aggiungi">${ICONE.percorso}<span>${bozza ? `Aggiungi (${bozza})` : 'Aggiungi'}</span></button>
         </div>
+        <a class="bottone pieno-largo modifica-traccia-via" href="#/via/disegna" data-azione="modifica">${ICONE.matita}<span>Modifica traccia</span></a>
+        <p class="tenue piccolo stato-modifica" role="status"></p>
         <div class="itinerari-via"></div>
         ${via.id ? `<a class="tenue piccolo link-osm" href="https://www.openstreetmap.org/way/${via.id}" target="_blank" rel="noopener">Dati OpenStreetMap ↗</a>` : ''}
       </div>`;
@@ -104,6 +108,7 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
     punto = [Number(latlng.lng.toFixed(6)), Number(latlng.lat.toFixed(6))];
     const mia = ++richiesta;
     selezione.clearLayers();
+    viaAttuale = null;
     const parco = await parcoDelPunto(punto);
     if (mia !== richiesta) return;
     const provvisoria = {
@@ -127,6 +132,7 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
       L.polyline(via.linea.map(([lon, lat]) => [lat, lon]), { color: '#ef9f27', weight: 8, opacity: 0.55, interactive: false }).addTo(selezione);
       foglio.innerHTML = htmlVia(via, parco);
       parcoAttuale = parco;
+      viaAttuale = via;
       if (via.percorsi.length) mostraItinerari(via.percorsi, mia);
     } catch (e) {
       if (mia !== richiesta) return;
@@ -154,6 +160,10 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
       return;
     }
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
+    if (azione === 'modifica' && punto) {
+      e.preventDefault();
+      return modificaTraccia(foglio.querySelector('.stato-modifica'));
+    }
     if (azione === 'chiudi') chiudi();
     else if (azione === 'inizia' && punto) {
       iniziaBozza(punto);
@@ -165,6 +175,35 @@ export function creaFoglioVia(mappa, { allaChiusura = () => {} } = {}) {
       location.hash = '#/percorso-nuovo';
     }
   });
+  // «Modifica traccia»: tutto il tratto con lo stesso nome o collegato senza incroci, non solo il pezzo toccato
+  async function modificaTraccia(stato) {
+    const [lon, lat] = punto;
+    const bottone = foglio.querySelector('.modifica-traccia-via');
+    bottone.setAttribute('aria-disabled', 'true');
+    stato.textContent = 'Carico il tratto da OpenStreetMap…';
+    try {
+      const json = await interrogaOverpass(queryViaCollegata(lat, lon), { timeoutMs: 30000 });
+      const vie = vieDallaRisposta(json);
+      const toccata = viaAttuale?.id ?? viaPiuVicina(vie, punto)?.id;
+      const catena = vie.length && toccata ? catenaVia(vie, toccata) : null;
+      if (!catena) throw new Error('tratto non trovato');
+      const via = viaAttuale ?? viaDallaRisposta({ elements: json.elements.filter((x) => x.type === 'way' && x.id === toccata) }, punto);
+      const luogo = localitaVicina(json, punto)?.nome ?? null;
+      const prima = vie.find((v) => v.id === toccata);
+      const nonSegnata = viaAttuale ? viaAttuale.segnata === false : true;
+      const avvisi = [
+        viaVietata(via ?? {}) ? 'Accesso privato o vietato secondo OpenStreetMap.' : '',
+        parcoAttuale && nonSegnata ? `Nel ${parcoAttuale.nomeBreve} i tratti non segnati possono essere vietati: verifica le regole del parco.` : '',
+      ].filter(Boolean);
+      const nomeProposto = nomeViaProposto({ nome: catena.nome, highway: prima?.highway ?? 'path' }, luogo);
+      sessionStorage.setItem('orme.viaDaModificare', JSON.stringify({ pezzi: [catena.linea], nomeProposto, note: `Da ${nomeProposto} (OpenStreetMap).`, avviso: avvisi.join(' ') }));
+      location.hash = '#/via/disegna';
+    } catch (err) {
+      console.warn('Modifica traccia della via', err);
+      stato.textContent = 'Non sono riuscito a caricare il tratto (OpenStreetMap non risponde): riprova tra poco.';
+      bottone.removeAttribute('aria-disabled');
+    }
+  }
   mappa.on('unload', () => {
     foglio.remove();
   });
