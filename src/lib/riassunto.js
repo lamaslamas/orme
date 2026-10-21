@@ -6,6 +6,7 @@ import { dislivello } from './quote.js';
 import { stimaDurataMin } from './durata.js';
 import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from './tracce.js';
 import { versoDi, invertiQuote } from './verso.js';
+import { fattoreRitmo } from './ritmo.js';
 import { improntaTraccia } from './panorama.js';
 
 // Profilo delle quote calcolato dal robot, se è di questa traccia (un GPX mio lo rende superato)
@@ -41,7 +42,9 @@ export function misureSentiero(s, traccia) {
   const salita = dislTraccia?.salita ?? (Number.isFinite(s.dislivelloM) ? s.dislivelloM : null);
   const disl = dislTraccia ?? (salita != null ? { salita, discesa: 0 } : null);
   // durata: dalla traccia si stima; senza traccia valgono la durata della fonte o la stima sui km
-  let durataMin = daTraccia ? null : Number.isFinite(s.durataMin) ? s.durataMin : null;
+  // il tempo dichiarato dalla fonte si adatta al ritmo scelto (stessa maggiorazione dei tempi CAI)
+  const dallaFonte = !daTraccia && Number.isFinite(s.durataMin);
+  let durataMin = dallaFonte ? Math.round(s.durataMin * fattoreRitmo()) : null;
   let durataStimata = false;
   if (durataMin == null && km != null) {
     durataMin = stimaDurataMin(km, disl);
@@ -54,6 +57,8 @@ export function misureSentiero(s, traccia) {
     discesa: dislTraccia?.discesa ?? null,
     durataMin,
     durataStimata,
+    durataDallaFonte: dallaFonte,
+    durataAdattata: dallaFonte && fattoreRitmo() !== 1,
     incompleta: incompleta.incompleta ? incompleta : null,
     fonte: { km: s.lunghezzaKm ?? null, salita: s.dislivelloM ?? null, durataMin: s.durataMin ?? null },
   };

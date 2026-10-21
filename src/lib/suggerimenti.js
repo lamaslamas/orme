@@ -61,9 +61,12 @@ export const entroDistanza = (auto, distanza) => !distanza || distanza === 'parc
 // → null se non va bene per le scelte, altrimenti { punteggio, trovati: [cose cercate trovate] }
 export function valuta(c, scelte) {
   const tempo = scelte.tempo ?? '';
-  if (!adattoAlTempo(c.misure.durataMin, tempo)) return null;
+  // due giorni con la notte: le giornate sono calcolate sulla luce (c.giorni) e la fatica vale per ciascuna
+  const perGiornata = tempo === 'due' && c.giorni?.length > 0;
+  if (!perGiornata && !adattoAlTempo(c.misure.durataMin, tempo)) return null;
   if (tempo === 'due' && !c.rifugioNotte) return null;
-  if (!adattoAllaFatica(c.misure, c.difficolta, scelte.fatica ?? 'qualsiasi')) return null;
+  const fatica = scelte.fatica ?? 'qualsiasi';
+  if (perGiornata ? !c.giorni.every((g) => adattoAllaFatica(g, c.difficolta, fatica)) : !adattoAllaFatica(c.misure, c.difficolta, fatica)) return null;
   if (!entroDistanza(c.auto, scelte.distanza)) return null;
   // una specie scelta (con "Fauna" tra le cose cercate): solo i percorsi con segnalazioni nel periodo
   const specie = (scelte.cerco ?? []).includes('fauna') && scelte.specie ? c.specie ?? null : undefined;

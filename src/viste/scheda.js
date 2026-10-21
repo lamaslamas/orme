@@ -268,7 +268,7 @@ export function numeriGrandi(m) {
   return `<div class="numeri-grandi">
     ${casella(m.km != null ? `${m.km.toFixed(1).replace('.', ',')} km` : null, 'Lunghezza', m.kmCalcolati ? ' (traccia)' : '')}
     ${casella(m.salita != null ? (m.discesa != null ? `+${m.salita}\u00a0/ −${m.discesa}\u00a0m` : `+${m.salita}\u00a0m`) : null, 'Dislivello')}
-    ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.conQuote === false ? ' (stima solo sui km: con il dislivello sarà di più)' : m.durataStimata ? ' (stima)' : '')}
+    ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.conQuote === false ? ' (stima solo sui km: con il dislivello sarà di più)' : m.durataAdattata ? ' (dalla fonte, adattato al ritmo)' : m.durataStimata ? ' (stima)' : '')}
   </div>`;
 }
 

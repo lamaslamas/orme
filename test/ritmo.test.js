@@ -40,3 +40,19 @@ describe('ritmo di cammino', () => {
     expect(km).toBeGreaterThan(6);
   });
 });
+
+describe('ritmo sui tempi delle fonti', () => {
+  it('la durata dichiarata si adatta al ritmo e lo dice', async () => {
+    const { misureSentiero } = await import('../src/lib/riassunto.js');
+    const { notaFonte } = await import('../src/lib/andataRitorno.js');
+    const s = { durataMin: 240, lunghezzaKm: 8 };
+    expect(misureSentiero(s, null)).toMatchObject({ durataMin: 240, durataDallaFonte: true, durataAdattata: false });
+    impostaRitmo('soste');
+    expect(misureSentiero(s, null)).toMatchObject({ durataMin: 300, durataAdattata: true });
+    impostaRitmo('fotografico');
+    expect(misureSentiero(s, null).durataMin).toBe(420);
+    expect(notaFonte({ durataMin: 240 }, { durataMin: 120 })).toBe('Indicato dalla fonte, adattato al ritmo: 7 h');
+    impostaRitmo('senza');
+    expect(notaFonte({ durataMin: 240 }, { durataMin: 120 })).toBe('Indicato dalla fonte: 4 h');
+  });
+});

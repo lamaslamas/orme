@@ -1,6 +1,7 @@
 // Andata, ritorno e totale A/R di un percorso non ad anello, con i tempi CAI calcolati nei due sensi
 // (al ritorno salita e discesa si scambiano), e gli orari di una giornata: arrivo, rientro e ultima
 // partenza per rientrare con la luce.
+import { fattoreRitmo } from './ritmo.js';
 import { stimaDurataMin } from './durata.js';
 import { distanzaKm, lunghezzaKm } from './geo.js';
 import { dislivello } from './quote.js';
@@ -91,11 +92,15 @@ export const minutiDaOra = (ora) => {
 // "Indicato dalla fonte: 6,0 km · +450 m · 3 h": solo i dati della fonte diversi dal calcolo
 export function notaFonte(fonte, calcolate) {
   const parti = [];
+  const f = fattoreRitmo();
   const diverso = (a, b, assoluto, relativo) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) > Math.max(assoluto, relativo * b);
   if (diverso(fonte.km, calcolate.km, 0.2, 0.1)) parti.push(`${fonte.km.toFixed(1).replace('.', ',')} km`);
   if (diverso(fonte.salita, calcolate.salita, 50, 0.15)) parti.push(`+${Math.round(fonte.salita)} m`);
-  if (diverso(fonte.durataMin, calcolate.durataMin, 15, 0.15)) parti.push(testoDurata(fonte.durataMin));
-  return parti.length ? `Indicato dalla fonte: ${parti.join(' · ')}` : '';
+  // il tempo della fonte si adatta al ritmo scelto (con soste o fotografico), come i tempi CAI
+  const durataFonte = Number.isFinite(fonte.durataMin) ? Math.round(fonte.durataMin * f) : null;
+  if (diverso(durataFonte, calcolate.durataMin, 15, 0.15)) parti.push(testoDurata(durataFonte));
+  const adattato = f !== 1 && durataFonte != null && parti.some((p) => p === testoDurata(durataFonte));
+  return parti.length ? `Indicato dalla fonte${adattato ? ', adattato al ritmo' : ''}: ${parti.join(' · ')}` : '';
 }
 
 // Con A/R una giornata può finire sul ritorno: per cercare i rifugi si usa il punto equivalente

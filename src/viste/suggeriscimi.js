@@ -16,12 +16,14 @@ import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
 import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
-import { puntiLungoIlPercorso, conAcqua, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
-import { profiloTempi, finiGiornata, rifugiPerLaNotte, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
-import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti, fineSullAndata, MARGINE_LUCE_MIN } from '../lib/andataRitorno.js';
+import { TIPI_PUNTO, puntiLungoIlPercorso, conAcqua, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
+import { profiloTempi, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, RAGGIO_PERNOTTO_M, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
+import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { htmlRitmo } from './ritmo.js';
 import { impostaRitmo as impostaRitmoLib } from '../lib/ritmo.js';
+import { pianoDueGiorni } from '../lib/dueGiorni.js';
+import { trattoDelPercorso } from '../lib/trattoFauna.js';
 import { agganciaPartenza, testoAggancio, sceltaIniziale, partenzaValida, daDoveParte, cambiaPartenza } from '../lib/partenzaAnello.js';
 import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
@@ -41,6 +43,8 @@ import {
   ordinaProposte,
   testoPerche,
   SCELTE_FACOLTATIVE,
+  adattoAllaFatica,
+  entroDistanza,
   spiegaNessunRisultato,
 } from '../lib/suggerimenti.js';
 import { escapeHtml, codici, durata, titoloConBadge } from '../lib/formato.js';
@@ -387,25 +391,68 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // (entro 1 km dalla traccia) ci deve essere un rifugio o un bivacco
   // partenza da provare al posto di quella scelta (per contare i percorsi con un'altra ora), in minuti
   let partenzaForzata = null;
+  // «2 giorni con notte»: le giornate secondo la luce (src/lib/dueGiorni.js). Imposta su c: giorni (per la fatica di
+  // ciascuna), notte (orari e posto), notteMotivo (perché no). Restituisce l'etichetta del posto per dormire o null
   function rifugioPerLaNotte(c, data) {
     c.notteSenzaLuce = false;
+    c.notteMotivo = null;
+    c.giorni = null;
+    c.notte = null;
     if (!puntiUtili) return null;
-    const serie = profiloTempi(pezziScelti(c.pezzi, modoScelto(), c.anello));
-    const totale = serie.min.at(-1) ?? 0;
-    const [fine] = finiGiornata(serie, totale / 2 / 60);
-    if (!fine) return null;
-    // con A/R la giornata può finire sul ritorno: si cerca nel punto equivalente dell'andata
-    const [r] = rifugiPerLaNotte(puntiUtili, c.pezzi, fineSullAndata(fine, lunghezzaDeiPezzi(c.pezzi)), { perLaNotte: perLaNotteScelta(scelte.dormire ?? doveDormire()) });
-    if (!r) return null;
-    // al rifugio si arriva con la luce: partenza + cammino del primo giorno entro mezz'ora prima del tramonto
     const inizio = c.pezzi[0]?.[0];
-    const tramonto = data && inizio ? minutiItaliani(albaTramonto(data, [inizio[0], inizio[1]]).tramonto) : null;
-    const partenza = partenzaForzata ?? oraPartenzaScelta() ?? 540;
-    if (tramonto != null && partenza + fine.minuti > tramonto - MARGINE_LUCE_MIN) {
-      c.notteSenzaLuce = true;
+    if (!inizio) return null;
+    const modo = modoScelto();
+    const camminata = pezziScelti(c.pezzi, modo, c.anello);
+    const serie = profiloTempi(camminata);
+    // senza le quote sui pezzi il tempo del cammino sarebbe solo in piano: si riporta al tempo mostrato nei risultati
+    // (con il dislivello), tenendo le proporzioni lungo il percorso
+    const mostrata = c.misure?.durataMin;
+    if (!serie.conQuote && Number.isFinite(mostrata) && serie.min.at(-1) > 0) {
+      const k = mostrata / serie.min.at(-1);
+      serie.min = serie.min.map((m) => m * k);
+    }
+    const data2 = new Date(new Date(`${data}T12:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10);
+    const sole = (d) => {
+      const x = albaTramonto(d, [inizio[0], inizio[1]]);
+      return { alba: minutiItaliani(x.alba), tramonto: minutiItaliani(x.tramonto) };
+    };
+    const comune = {
+      serie,
+      lunghezzaKm: lunghezzaDeiPezzi(c.pezzi),
+      conRitorno: camminata.length > c.pezzi.length,
+      partenzaMin: partenzaForzata ?? oraPartenzaScelta() ?? 540,
+      sole1: sole(data),
+      sole2: sole(data2),
+      trattoFauna: Boolean(trattoDelPercorso(c.sentiero, c.traccia)),
+    };
+    // prima la sola durata (veloce): troppo breve o troppo lungo per due giornate di luce, senza cercare i posti
+    const prima = pianoDueGiorni({ ...comune, posti: [] });
+    if (prima.motivo === 'breve' || prima.motivo === 'troppo-lungo') {
+      c.notteMotivo = prima.motivo;
       return null;
     }
-    return etichettaPernotto(r); // nome, tipo e distanza dalla traccia
+    const dove = perLaNotteScelta(scelte.dormire ?? doveDormire());
+    const geo = c.traccia?.geojson;
+    const posti = geo
+      ? puntiLungoIlPercorso(puntiUtili, geo, RAGGIO_STRUTTURE_M)
+          .filter(dove)
+          .filter((p) => p.distanzaM <= (TIPI_PUNTO[p.tipo].gruppo === 'strutture' ? RAGGIO_STRUTTURE_M : RAGGIO_PERNOTTO_M))
+          .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], c.pezzi) }))
+          .filter((p) => p.km != null)
+      : [];
+    const piano = pianoDueGiorni({ ...comune, posti });
+    if (!piano.ok) {
+      c.notteMotivo = piano.motivo;
+      c.notteSenzaLuce = piano.motivo === 'luce';
+      return null;
+    }
+    // senza quote sui pezzi il dislivello di ogni giornata si ripartisce secondo il tempo di cammino
+    const stima = (g) => (g.salita == null && Number.isFinite(c.misure?.salita) ? { ...g, salita: Math.round((c.misure.salita * g.durataMin) / (piano.giorno1.durataMin + piano.giorno2.durataMin)) } : g);
+    piano.giorno1 = stima(piano.giorno1);
+    piano.giorno2 = stima(piano.giorno2);
+    c.giorni = [piano.giorno1, piano.giorno2];
+    c.notte = piano;
+    return etichettaPernotto(piano.posto); // nome, tipo e distanza dalla traccia
   }
 
   // meteo del giorno scelto per un gruppo di proposte (giudizio come in "Dove vado domani")
@@ -431,7 +478,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       const basso = giornoAllaQuota(previsioneDi(m.basso.chiave, data), m.basso.quota);
       const alto = m.alto ? giornoAllaQuota(previsioneDi(m.alto.chiave, data), m.alto.quota) : null;
       // su due giorni si giudica la prima giornata (metà del cammino)
-      const durataMin = (v.misure.durataMin ?? m.durataMin) / (scelte.tempo === 'due' ? 2 : 1);
+      // su due giorni si giudica la prima giornata: quella calcolata sulla luce
+      const durataMin = scelte.tempo === 'due' && v.notte ? v.notte.giorno1.durataMin : (v.misure.durataMin ?? m.durataMin) / (scelte.tempo === 'due' ? 2 : 1);
       v.giudizio = basso && !tardiOggi ? giudicaGiornata({ basso, alto, durataMin, percorso: m.percorso, soglie: SOGLIE_PREDEFINITE, attivita, dopoMin }) : null;
     }
   }
@@ -449,7 +497,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       for (const c of candidati(data)) {
         if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c, data);
         if (valuta(c, scelte)) n++;
-        else if (c.notteSenzaLuce && valuta({ ...c, rifugioNotte: 'rifugio' }, scelte)) senzaLuce++;
+        else if (c.notteMotivo === 'luce' && adattoAllaFatica(c.misure, c.difficolta, scelte.fatica) && entroDistanza(c.auto, scelte.distanza)) senzaLuce++;
       }
     } finally {
       scelte = prima;
@@ -471,7 +519,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       const motivo =
         scelte.tempo === 'due'
           ? base.senzaLuce > 0
-            ? "c'è troppo poca luce per arrivare a un rifugio"
+            ? "c'è troppo poca luce per arrivare a un posto per dormire"
             : `nessuno ha ${{ qualsiasi: 'un rifugio, un bivacco o una struttura per dormire', rifugi: 'un rifugio o un bivacco', strutture: 'una struttura per dormire (campeggio, agriturismo, B&B, ostello, albergo)' }[scelte.dormire ?? doveDormire()]} a fine primo giorno`
           : `nessuno dura ${daIn(TEMPI[scelte.tempo])}`;
       prove.push({ chiave: 'tempo', etichetta: scelte.tempo === 'due' ? 'Senza la notte' : 'Con qualsiasi durata', ...contaCon(data, { tempo: '' }), motivo, variante: { tempo: '' } });
@@ -558,6 +606,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
 
   const NOMI_GIORNO = { ok: 'Meteo favorevole', attenzione: 'Attenzione', sconsigliato: 'Sconsigliato' };
+  const ora = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`;
+  const sal = (g) => (g.salita != null ? ` · +${g.salita} m` : '');
+  // "Giorno 1: 15:00–17:20 (2 h 20 · km 6,1 · +420 m) · notte: X · Giorno 2: 08:00–12:10 (4 h 10 · km 6,1 · +310 m)"
+  const testoGiornate = (n) =>
+    `Giorno 1: ${ora(n.giorno1.daMin)}–${ora(n.giorno1.aMin)} (${durata(n.giorno1.durataMin)} · km ${km1(n.giorno1.km)}${sal(n.giorno1)}) · notte: ${etichettaPernotto(n.posto)} · Giorno 2: ${ora(n.giorno2.daMin)}${n.giorno2.dallAlba ? ' (all\'alba)' : ''}–${ora(n.giorno2.aMin)} (${durata(n.giorno2.durataMin)} · km ${km1(n.giorno2.km)}${sal(n.giorno2)})`;
   function htmlProposta(v, i, data) {
     const s = v.sentiero;
     const g = v.giudizio;
@@ -573,6 +626,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           return `${t.badge ? `<span class="codice">${escapeHtml(t.badge)}</span> ` : ''}${escapeHtml(t.titolo)}`;
         })()}</a>
         <span class="perche">${escapeHtml(testoPerche(v, { trovati: v.valutazione.trovati, modo: modoScelto() }))}</span>
+        ${v.notte ? `<span class="tenue piccolo giornate-notte">${escapeHtml(testoGiornate(v.notte))}</span>` : ''}
         ${meteo}
         <span class="tenue piccolo">${escapeHtml([parcoDa(s.parco)?.nomeBreve, testoAuto(v.auto)].filter(Boolean).join(' · '))}${posizione() ? '' : ' dal centro della mappa'}</span>
       </div>
