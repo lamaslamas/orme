@@ -12,6 +12,7 @@ import { vistaGiro } from './viste/giri.js';
 import { vistaModificaGiro } from './viste/modificaGiro.js';
 import { vistaMappaGiro } from './viste/mappaGiro.js';
 import { vistaEstendi } from './viste/estendi.js';
+import { vistaCondiviso } from './viste/condiviso.js';
 import { vistaAltro } from './viste/altro.js';
 import { vistaCodice } from './viste/codice.js';
 import { vistaMiei } from './viste/miei.js';
@@ -82,6 +83,7 @@ const percorsi = [
   [/^\/giro\/([^/]+)\/?$/, vistaGiro],
   [/^\/giro\/([^/]+)\/modifica\/?$/, vistaModificaGiro],
   [/^\/giro\/([^/]+)\/mappa\/?$/, vistaMappaGiro],
+  [/^\/condiviso\?(.+)$/, vistaCondiviso],
   [/^\/estendi\/(sentiero|percorso)\/([^/]+)\/?$/, vistaEstendi],
 ];
 

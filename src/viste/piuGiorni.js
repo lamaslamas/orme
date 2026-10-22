@@ -47,7 +47,8 @@ export async function pezziConQuote(percorso, pezzi) {
     // si rilegge il percorso: nel frattempo potrei averne cambiato nome o note
     const ora = (await leggiPercorso(percorso.id)) ?? percorso;
     const quote = { impronta, coordinates: conQuote, fonte };
-    await salvaPercorso({ ...ora, quote });
+    // un percorso arrivato da un link (sola lettura) non si scrive sul telefono
+    if (!percorso.virtuale) await salvaPercorso({ ...ora, quote });
     percorso.quote = quote;
     return { pezzi: conQuote, fonte };
   } catch (e) {

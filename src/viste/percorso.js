@@ -30,7 +30,8 @@ import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRit
 import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { quoteMeteoDaiPezzi } from '../lib/quandoAndare.js';
 import L from 'leaflet';
-import { ripristinaOriginale } from '../lib/percorso.js';
+import { ripristinaOriginale, nuovoIdPercorso } from '../lib/percorso.js';
+import { apriCondividi } from './condividi.js';
 
 // numeri in alto: lo stesso calcolo del blocco Andata e ritorno, secondo la scelta
 function htmlNumeri(misure, fonte, ar = null, modo = modoScelto(), scarico = false) {
@@ -50,14 +51,16 @@ function htmlNumeri(misure, fonte, ar = null, modo = modoScelto(), scarico = fal
 
 const quoteProvate = new Set(); // (percorso|traccia) per cui si è già provato a scaricare le quote in questa visita
 
-export async function vistaPercorso(app, id) {
-  const p = await leggiPercorso(id);
+// virtuale: un percorso arrivato da un link («#/condiviso?…»): si vede in sola lettura, senza scrivere niente sul telefono,
+// con «Salva nei miei percorsi». { nome, note, verso, pezzi }
+export async function vistaPercorso(app, id, virtuale = null) {
+  const p = virtuale ? { id: 'condiviso', nome: virtuale.nome, note: virtuale.note, origine: 'condiviso', virtuale: true, geojson: { type: 'MultiLineString', coordinates: virtuale.pezzi }, terreno: [], fonteTerreno: null, quote: virtuale.quote } : await leggiPercorso(id);
   if (!p) {
     app.innerHTML = '<p class="vuoto">Percorso non trovato. <a href="#/pianifica">Torna a Pianifica</a></p>';
     return;
   }
   // verso: «Inverti senso» (anelli: «Gira al contrario») capovolge profilo, salita e discesa, tempi e orari; la traccia salvata resta com'è
-  const invertito = versoDi({ id: p.id });
+  const invertito = virtuale ? Boolean(virtuale.verso) : versoDi({ id: p.id });
   const originali = percorsoSentiero(p.geojson).pezzi;
   const capovolgi = (z) => (invertito ? invertiPercorso({ pezzi: z, salti: [] }).pezzi : z);
   const pezzi = capovolgi(originali);
@@ -73,6 +76,7 @@ export async function vistaPercorso(app, id) {
   const serveGiorni = (modo) => ar && misureScelte(ar, modo).durataMin > ORE_AL_GIORNO[0] * 60;
   const e = estremiTraccia(invertito ? invertiGeojson(p.geojson) : p.geojson);
   const idUrl = encodeURIComponent(p.id);
+  const suPagina = () => (virtuale ? location.hash.startsWith('#/condiviso') : location.hash === `#/percorso/${idUrl}`);
   const eAnello = eAnelloPezzi(pezzi);
   // giorno e ora iniziali: oggi all'ora solita; se è già passata o non lascia luce per finire, domani alle 8:00
   const inizialiOrari = (() => {
@@ -88,20 +92,21 @@ export async function vistaPercorso(app, id) {
   const scaricoQuote = serveScaricoQuote(p, originali, quoteProvate);
 
   app.innerHTML = `
-    <a class="indietro" href="#/pianifica">‹ Pianifica</a>
+    <a class="indietro" href="${virtuale ? '#/' : '#/pianifica'}">‹ ${virtuale ? 'Mappa' : 'Pianifica'}</a>
     <article class="scheda">
-      <a class="anteprima-mappa" href="#/percorso/${idUrl}/mappa" aria-label="Apri la mappa grande del percorso"><div id="miniMappa"></div></a>
+      ${virtuale ? '<div class="anteprima-mappa"><div id="miniMappa"></div></div>' : `<a class="anteprima-mappa" href="#/percorso/${idUrl}/mappa" aria-label="Apri la mappa grande del percorso"><div id="miniMappa"></div></a>`}
       <div class="testata-percorso">
         <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
         <div class="azioni-testata">
-          <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
-          <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
+          ${virtuale ? '<button type="button" class="bottone primario" data-salva-condiviso>Salva nei miei percorsi</button>' : '<button type="button" class="bottone primario" data-esporta>Esporta GPX</button>'}
+          ${virtuale ? '<button type="button" class="bottone" data-esporta>Esporta GPX</button>' : `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>`}
+          <button type="button" class="bottone" data-condividi>${ICONE.condividi ?? ''}<span>Condividi</span></button>
         </div>
       </div>
-      <p class="zona">${p.originale ? `Da file ${p.originale.origine === 'kml' ? 'KML' : 'GPX'}, modificato` : p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
+      <p class="zona">${virtuale ? 'Percorso condiviso con te: in sola lettura' : ''}${virtuale ? '' : p.origine === 'condiviso' ? 'Condiviso con me' : ''}${virtuale || p.origine === 'condiviso' ? '' : p.originale ? `Da file ${p.originale.origine === 'kml' ? 'KML' : 'GPX'}, modificato` : p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
       <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar, modoScelto(), scaricoQuote)}</div>
       <div id="profiloPercorso" class="profilo-scheda"></div>
-      ${pezzi.length ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
+      ${pezzi.length && !virtuale ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
       ${ar ? htmlAndataRitorno(ar, modoScelto(), inizialiOrari) : ''}
       ${htmlQuandoAndare()}
       ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
@@ -110,20 +115,20 @@ export async function vistaPercorso(app, id) {
       ${pezzi.length ? `<div id="contenitoreGiorni" ${serveGiorni(modoScelto()) ? '' : 'hidden'}>${htmlPiuGiorni()}</div>` : ''}
       ${pezzi.length ? htmlNaturaPercorso() : ''}
       ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
-      <section class="riquadro">
+      ${virtuale ? (virtuale.note ? `<section class="riquadro"><h2>Note</h2><p>${escapeHtml(virtuale.note)}</p></section>` : '') : `<section class="riquadro">
         <h2>Note</h2>
         <form class="modulo" id="moduloPercorso">
           <label class="campo"><span>Nome</span><input name="nome" value="${escapeHtml(p.nome)}" /></label>
           <label class="campo"><span>Note</span><textarea name="note" rows="3">${escapeHtml(p.note)}</textarea></label>
           <button type="submit" class="bottone">Salva</button> <span class="salvato" id="salvato" hidden>Salvato</span>
         </form>
-      </section>
+      </section>`}
       <div class="barra-azioni barra-azioni-percorso">
-        <button type="button" class="bottone primario" data-esporta>Esporta GPX</button>
-        <a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>
+        ${virtuale ? '<button type="button" class="bottone primario" data-salva-condiviso>Salva nei miei percorsi</button>' : '<button type="button" class="bottone primario" data-esporta>Esporta GPX</button>'}
+        ${virtuale ? '<button type="button" class="bottone" data-condividi>Condividi</button>' : `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a><button type="button" class="bottone" data-condividi>Condividi</button>`}
       </div>
-      ${p.originale ? `<section class="riquadro"><h2>Traccia originale</h2><p class="tenue piccolo">Hai modificato la traccia del file importato: l'originale è conservato.</p><button type="button" class="bottone pieno" id="ripristina">Ripristina la traccia originale</button></section>` : ''}
-      <button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>
+      ${!virtuale && p.originale ? `<section class="riquadro"><h2>Traccia originale</h2><p class="tenue piccolo">Hai modificato la traccia del file importato: l'originale è conservato.</p><button type="button" class="bottone pieno" id="ripristina">Ripristina la traccia originale</button></section>` : ''}
+      ${virtuale ? '' : '<button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>'}
     </article>
   `;
 
@@ -139,7 +144,8 @@ export async function vistaPercorso(app, id) {
       stato.textContent = 'Chiedo a OpenStreetMap le vie lungo il percorso…';
       try {
         const terreno = await leggiTerrenoDaOsm(pezzi);
-        attuale = await salvaPercorso({ ...attuale, terreno, fonteTerreno: 'overpass', aggiornatoTerreno: new Date().toISOString() });
+        const nuovoTerreno = { ...attuale, terreno, fonteTerreno: 'overpass', aggiornatoTerreno: new Date().toISOString() };
+        attuale = virtuale ? nuovoTerreno : await salvaPercorso(nuovoTerreno);
         contenitoreTerreno.innerHTML = htmlTerreno(attuale, pezzi);
       } catch (err) {
         stato.innerHTML = `<span class="errore">${escapeHtml(err.message)}</span>`;
@@ -148,7 +154,7 @@ export async function vistaPercorso(app, id) {
     }
   });
 
-  app.querySelector('#moduloPercorso').addEventListener('submit', async (ev) => {
+  app.querySelector('#moduloPercorso')?.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target;
     attuale = await salvaPercorso({ ...attuale, nome: f.elements.nome.value.trim(), note: f.elements.note.value.trim() });
@@ -156,7 +162,7 @@ export async function vistaPercorso(app, id) {
   });
 
   for (const b of app.querySelectorAll('[data-esporta]')) b.addEventListener('click', async () => {
-    const file = new File([creaGpx({ nome: p.nome || 'Percorso', linee: pezzi })], nomeFileGpx(p.nome), { type: 'application/gpx+xml' });
+    const file = new File([creaGpx({ nome: p.nome || 'Percorso', note: attuale.note ?? p.note ?? '', linee: quote?.pezzi ?? pezzi })], nomeFileGpx(p.nome), { type: 'application/gpx+xml' });
     if (navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: p.nome });
@@ -173,13 +179,26 @@ export async function vistaPercorso(app, id) {
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   });
 
+  // condividere: GPX, link (senza server) o immagine; da un link ricevuto, salvarlo nei miei percorsi
+  for (const b of app.querySelectorAll('[data-condividi]')) {
+    b.addEventListener('click', () => apriCondividi({ nome: attuale.nome || p.nome, note: attuale.note ?? p.note ?? '', pezzi: quote?.pezzi ?? pezzi, originali, verso: invertito }));
+  }
+  for (const b of app.querySelectorAll('[data-salva-condiviso]')) {
+    b.addEventListener('click', async () => {
+      const idNuovo = nuovoIdPercorso();
+      await salvaPercorso({ id: idNuovo, nome: virtuale.nome, note: virtuale.note, origine: 'condiviso', geojson: p.geojson, terreno: [], fonteTerreno: null });
+      if (virtuale.verso) impostaVerso(idNuovo, true, false);
+      location.hash = `#/percorso/${encodeURIComponent(idNuovo)}`;
+    });
+  }
+
   app.querySelector('#ripristina')?.addEventListener('click', async () => {
     if (!confirm('Ripristinare la traccia originale del file? Le modifiche fatte alla traccia andranno perse.')) return;
     await salvaPercorso(ripristinaOriginale(p));
-    vistaPercorso(app, id);
+    vistaPercorso(app, id, virtuale);
   });
 
-  app.querySelector('#elimina').addEventListener('click', async () => {
+  app.querySelector('#elimina')?.addEventListener('click', async () => {
     if (!confirm(`Eliminare il percorso "${p.nome}"?`)) return;
     await eliminaPercorso(p.id);
     location.hash = '#/pianifica';
@@ -187,7 +206,7 @@ export async function vistaPercorso(app, id) {
 
   app.querySelector('[data-inverti-verso]')?.addEventListener('click', () => {
     impostaVerso(p.id, !invertito, false);
-    vistaPercorso(app, id);
+    vistaPercorso(app, id, virtuale);
   });
   // il profilo altimetrico, se ci sono le quote
   const serieProfilo = quote?.pezzi ? profiloPezzi(quote.pezzi) : [];
@@ -201,7 +220,8 @@ export async function vistaPercorso(app, id) {
   if (scaricoQuote) {
     quoteProvate.add(chiaveQuote(p, originali));
     pezziConQuote(p, originali).then(({ fonte }) => {
-      if (fonte && app.isConnected && location.hash === `#/percorso/${idUrl}`) vistaPercorso(app, id);
+      if (virtuale && p.quote) virtuale.quote = p.quote; // le quote scaricate restano per la prossima volta che la pagina si ridisegna
+      if (fonte && app.isConnected && suPagina()) vistaPercorso(app, id, virtuale);
       else if (!fonte) app.querySelector('#numeriPercorso')?.insertAdjacentHTML('beforeend', '<p class="tenue piccolo">Quote non scaricabili ora (sei offline?): riprova riaprendo la pagina.</p>');
     });
   }
@@ -211,7 +231,7 @@ export async function vistaPercorso(app, id) {
   // fuori dai parchi e da "Intorno a me" i punti si scaricano per la zona del percorso
   const contenitorePunti = app.querySelector('#puntiLungo');
   contenitorePunti.innerHTML = '<section class="riquadro punti-percorso"><h2>Rifugi e acqua lungo il percorso</h2><p class="tenue">Cerco lungo il percorso…</p></section>';
-  const puntiDelPercorso = puntiPerIlPercorso(p.id, pezzi);
+  const puntiDelPercorso = puntiPerIlPercorso(virtuale ? 'bozza-disegno' : p.id, pezzi);
   puntiDelPercorso.then(({ punti, avviso }) => {
     if (contenitorePunti.isConnected) mostraPuntiLungoIlPercorso(contenitorePunti, { type: 'MultiLineString', coordinates: pezzi }, { punti, avviso, pezzi });
   });
@@ -227,7 +247,7 @@ export async function vistaPercorso(app, id) {
   // andata e ritorno: la scelta cambia i numeri in alto, "Su più giorni" e il meteo
   const collegaAR = () => collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
     ar,
-    ricarica: () => vistaPercorso(app, id),
+    ricarica: () => vistaPercorso(app, id, virtuale),
     partenza: e ? e.inizio : null,
     alCambioModo: (modo) => {
       app.querySelector('#numeriPercorso').innerHTML = htmlNumeri(misure, fonteQuote, ar, modo);

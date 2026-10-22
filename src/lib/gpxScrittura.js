@@ -7,7 +7,7 @@ const xml = (s) =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
 
-export function creaGpx({ nome, linee }) {
+export function creaGpx({ nome, linee, note = '' }) {
   const segmenti = linee
     .filter((l) => l.length > 1)
     .map(
@@ -23,10 +23,10 @@ export function creaGpx({ nome, linee }) {
     .join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Orme" xmlns="http://www.topografix.com/GPX/1/1">
-  <metadata><name>${xml(nome)}</name></metadata>
+  <metadata><name>${xml(nome)}</name>${note ? `<desc>${xml(note)}</desc>` : ''}</metadata>
   <trk>
     <name>${xml(nome)}</name>
-${segmenti}
+${note ? `    <desc>${xml(note)}</desc>\n` : ''}${segmenti}
   </trk>
 </gpx>
 `;

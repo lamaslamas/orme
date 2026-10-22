@@ -28,6 +28,7 @@ import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { ICONE } from './icone.js';
 import { trattiARischio, testiAvvisi, intervalliLiberi } from '../lib/avvisiParco.js';
 import { preparaAvvisi } from './avvisiParco.js';
+import { apriCondividi } from './condividi.js';
 
 const COLORE = '#0f6e56'; // verde: diverso dal viola dei percorsi dell'archivio
 const ATTESA_PUNTI_MS = 1200; // rifugi e acqua si cercano quando il disegno si ferma un attimo
@@ -73,6 +74,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
         <button type="button" data-azione="inizio" aria-pressed="false">${ICONE.indietro}<span>Aggiungi all'inizio</span><b class="stato-voce" aria-hidden="true"></b></button>
         <button type="button" data-azione="importa">${ICONE.carica}<span>Importa file (GPX, KML, zip)</span></button>
         <button type="button" data-azione="esporta">${ICONE.scarica}<span>Esporta GPX</span></button>
+        <button type="button" data-azione="condividi">${ICONE.condividi ?? ICONE.scarica}<span>Condividi…</span></button>
         <button type="button" data-azione="ricomincia">${ICONE.cestino}<span>Ricomincia</span></button>
       </div>
     </div>
@@ -475,6 +477,9 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       b.setAttribute('aria-expanded', String(!menu.hidden));
     } else if (azione === 'importa') avviaImportazione();
     else if (azione === 'esporta' && risultato) esporta();
+    else if (azione === 'condividi' && risultato) {
+      apriCondividi({ nome: app.querySelector('#nomePercorso').value.trim() || esistente?.nome || sorgente?.nomeProposto || 'Percorso Orme', note: esistente?.note ?? sorgente?.note ?? '', pezzi: risultato.pezziQuote ?? [risultato.linea], verso: false });
+    }
     else if (azione === 'ricomincia' && daBase && confirm('Tornare alla traccia com\'era all\'inizio?')) {
       punti = puntiDiPartenza();
       aggiorna();
