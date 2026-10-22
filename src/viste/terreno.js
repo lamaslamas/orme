@@ -23,7 +23,7 @@ function barra(segmenti, totaleM, colore) {
     .join('')}</svg>`;
 }
 
-// aperto: valutazione MTB già aperta (modalità MTB ed e-MTB)
+// aperto: valutazione MTB già aperta (modalità MTB)
 export function htmlTerreno(percorso, pezzi, attributo = 'highway', { aperto = false } = {}) {
   const tratti = percorso.terreno ?? [];
   if (!tratti.length) {

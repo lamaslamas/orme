@@ -50,7 +50,7 @@ export function ritagliaESemplifica(linee, [s, o, n, e], margine = MARGINE) {
 
 // area: il parco, oppure una zona con il suo riquadro (es. "Intorno a me")
 // cicloturistici: itinerari ciclabili qualsiasi (route=bicycle), non solo quelli MTB: su strade e
-// sterrate, segnati per le bici. Sono "itinerari per bici" come gli MTB (visibili in MTB ed e-MTB).
+// sterrate, segnati per le bici. Sono "itinerari per bici" come gli MTB (visibili in MTB).
 export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { cicloturistici = false } = {}) {
   const tag = new Map((json?.elements ?? []).filter((e) => e.type === 'relation').map((e) => [e.id, e.tags ?? {}]));
   const candidati = [];
@@ -102,7 +102,6 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { ciclotur
         mtb: mtb
           ? { stato: 'percorribile', motivi: ['Itinerario MTB segnato su OpenStreetMap: verifica sempre le regole del Parco'] }
           : { stato: 'percorribile', motivi: ['Itinerario ciclabile segnato su OpenStreetMap: spesso su strade secondarie e sterrate'] },
-        emtb: { stato: 'da_verificare', motivi: ['Regole per le bici elettriche non documentate'] },
       },
       traccia,
     });

@@ -60,7 +60,7 @@ const STATI_VERIFICA = {
   non_piu_verificabile: 'Fonte non più raggiungibile',
 };
 
-// Compatibilità con trekking, MTB ed e-MTB (stima prudente, sezione 15 del piano)
+// Compatibilità con trekking e MTB (stima prudente, sezione 15 del piano)
 function htmlCompatibilita(s, traccia) {
   const c = valutaCompatibilita(s, traccia);
   const attuale = statoApp.leggi().attivita;
@@ -126,7 +126,7 @@ function htmlFauna(s, traccia) {
   </section>`;
 }
 
-// Terreno lungo la traccia (tag OSM), visibile in tutte le modalità; in MTB ed e-MTB
+// Terreno lungo la traccia (tag OSM), visibile in tutte le modalità; in MTB
 // la valutazione per la bici è già aperta. Dato dall'archivio o letto qui da OSM.
 async function collegaTerreno(app, s, traccia) {
   const box = app.querySelector('#contenitoreTerreno');

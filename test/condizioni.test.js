@@ -190,8 +190,9 @@ describe('giudizio e orario di partenza', () => {
   });
 
   it('durata in bici', () => {
-    expect(durataInBici(24, 500, 'mtb')).toBe(150); // 2 h in piano, 1 h di salita
-    expect(durataInBici(24, 500, 'emtb')).toBeLessThan(120);
+    // 12 km/h in piano (2 h) e 400 m/h in salita (1 h 15): la più lunga più metà dell'altra
+    expect(durataInBici(24, 500, 'mtb')).toBe(158);
+    expect(durataInBici(24, 500, 'emtb')).toBeNull(); // la bici elettrica non c'è più
     expect(durataInBici(24, 500, 'trekking')).toBeNull();
   });
 
@@ -253,7 +254,7 @@ describe('dai percorsi ai punti meteo', () => {
     const d = datiPerMeteo({ sentiero: { id: 'b' }, traccia, misure: { km: 24, salita: 500 } }, 'mtb');
     expect(d.basso).toMatchObject({ chiave: '41.8,13.8', quota: null });
     expect(d.alto).toBeNull();
-    expect(d.durataMin).toBe(150);
+    expect(d.durataMin).toBe(158);
     expect(datiPerMeteo({ sentiero: { id: 'c', partenza: {} }, traccia: null, misure: {} }, 'trekking')).toBeNull();
   });
 });

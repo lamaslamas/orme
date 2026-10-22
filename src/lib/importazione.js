@@ -201,7 +201,6 @@ function attivitaUscitaGuidata(c) {
   return {
     trekking: { stato: 'con_limitazioni', motivi: [`Uscita guidata (${c.organizzatore}): in autonomia il percorso va verificato`] },
     mtb: { stato: 'non_percorribile', motivi: ['Uscita guidata a piedi'] },
-    emtb: { stato: 'non_percorribile', motivi: ['Uscita guidata a piedi'] },
   };
 }
 

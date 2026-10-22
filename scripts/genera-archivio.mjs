@@ -18,7 +18,7 @@ function attivitaIniziali(s) {
       : { stato: 'da_verificare', motivi: ['Percorso descritto da una fonte, senza codice ufficiale'] };
   // la bici va valutata a parte (regole del parco e caratteristiche del sentiero)
   const bici = s.bici?.consentita === 'no' ? { stato: 'non_percorribile', motivi: ['Bici vietata (dato del sentiero)'] } : { stato: 'da_verificare', motivi: [] };
-  return { trekking, mtb: bici, emtb: { ...bici } };
+  return { trekking, mtb: bici };
 }
 
 const percorsi = DATI_INIZIALI.map((originale) => {

@@ -25,7 +25,7 @@ export function preparaPercorsi(sentieri, tracce) {
   });
 }
 
-// filtri: quelli dei sentieri + distanza/durata + quota e dislivello; attivita: trekking | mtb | emtb
+// filtri: quelli dei sentieri + distanza/durata + quota e dislivello; attivita: trekking | mtb
 export function filtraPercorsi(preparati, filtri, attivita = 'trekking') {
   const ammessi = new Set(filtraSentieri(preparati.map((p) => p.sentiero), filtri).map((s) => s.id));
   const risultato = preparati.filter(
@@ -41,7 +41,7 @@ export function filtraPercorsi(preparati, filtri, attivita = 'trekking') {
         filtri.soloBici === 'tutti' ||
         p.sentiero.tipoPercorso === 'itinerario_mtb' ||
         ['percorribile', 'con_limitazioni'].includes(p.compat[attivita]?.stato)) &&
-      // gli itinerari per bici compaiono solo nelle modalità MTB ed e-MTB
+      // gli itinerari per bici compaiono solo in modalità MTB
       !(attivita === 'trekking' && p.sentiero.tipoPercorso === 'itinerario_mtb'),
   );
   const ordine = new Map(ordinaSentieri(risultato.map((p) => p.sentiero)).map((s, i) => [s.id, i]));

@@ -3,6 +3,7 @@
 // Il giudizio non dice mai "sicuro": dice se le previsioni sono favorevoli, con i motivi.
 
 import { mesiDaTesto } from './faunaPercorso.js';
+import { fattoreRitmo } from './ritmo.js';
 
 export { mesiDaTesto };
 export const URL_PREVISIONI = 'https://api.open-meteo.com/v1/forecast';
@@ -158,14 +159,14 @@ export function durataConSoste(durataMin, passo = 'medio') {
 
 // Durata in bici (minuti, senza soste), con lo stesso schema della stima CAI:
 // il maggiore tra tempo in piano e tempo per il dislivello più metà del minore.
-// MTB: 12 km/h e 500 m/h in salita; e-MTB: 15 km/h e 900 m/h. La discesa è veloce, non si conta.
-export const BICI = { mtb: { kmh: 12, salitaMh: 500 }, emtb: { kmh: 15, salitaMh: 900 } };
+// MTB: 12 km/h in piano e 400 m/h in salita. La discesa è veloce, non si conta.
+export const BICI = { mtb: { kmh: 12, salitaMh: 400 } };
 export function durataInBici(km, salita, attivita) {
   const b = BICI[attivita];
   if (!b || !Number.isFinite(km)) return null;
   const piano = km / b.kmh;
   const su = (salita ?? 0) / b.salitaMh;
-  return Math.round((Math.max(piano, su) + Math.min(piano, su) / 2) * 60);
+  return Math.round((Math.max(piano, su) + Math.min(piano, su) / 2) * 60 * fattoreRitmo()); // il ritmo scelto si applica anche in bici
 }
 
 // Valuta i fattori nelle ore [inizio, fine) (minuti dalla mezzanotte).

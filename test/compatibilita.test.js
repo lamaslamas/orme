@@ -9,7 +9,7 @@ describe('compatibilità del percorso', () => {
     const c = valutaCompatibilita({ codici: ['F2'], bici: { consentita: 'da_verificare' } }, null);
     expect(c.trekking.stato).toBe('percorribile');
     expect(c.mtb.stato).toBe('da_verificare');
-    expect(c.emtb.stato).toBe('da_verificare');
+    expect(c.emtb).toBeUndefined(); // la bici elettrica non c'è più
   });
 
   it('i divieti prevalgono', () => {
@@ -20,13 +20,9 @@ describe('compatibilità del percorso', () => {
     expect(guidato.trekking.stato).toBe('con_limitazioni');
   });
 
-  it('con permesso e dati tecnici buoni è percorribile in MTB, ma l\'e-MTB resta da verificare', () => {
+  it('con permesso e dati tecnici buoni è percorribile in MTB', () => {
     const c = valutaCompatibilita({ codici: ['X'], bici: { consentita: 'si', scalaMtb: 'S1' } }, null);
     expect(c.mtb.stato).toBe('percorribile');
-    expect(c.emtb.stato).toBe('da_verificare');
-    expect(c.emtb.motivi.join()).toContain('elettriche');
-    const conEmtb = valutaCompatibilita({ bici: { consentita: 'si', scalaMtb: 'S1', emtb: 'si' } }, null);
-    expect(conEmtb.emtb.stato).toBe('percorribile');
   });
 
   it('difficoltà tecnica alta o tratti a spinta danno "con limitazioni"', () => {

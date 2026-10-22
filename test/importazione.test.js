@@ -193,12 +193,12 @@ describe('itinerari MTB da OpenStreetMap', () => {
     expect(queryMtbParco('pnalm')).toContain('area(id:3608426003)');
   });
 
-  it('percorribile in MTB, e-MTB e trekking da verificare, nessun codice escursionistico', () => {
+  it('percorribile in MTB e trekking da verificare, nessun codice escursionistico', () => {
     const [c] = candidatiMtb(json, 'pnalm');
     expect(c.nome).toBe("Coppa dell'Orso (MTB 09)");
     expect(c.codici).toEqual([]);
     expect(c.attivita.mtb.stato).toBe('percorribile');
-    expect(c.attivita.emtb.stato).toBe('da_verificare');
+    expect(c.attivita.emtb).toBeUndefined();
     expect(c.attivita.trekking.stato).toBe('da_verificare');
     expect(c.traccia.geojson.coordinates[0][1]).toEqual([13.71235, 41.91]);
     expect(c.lunghezzaKm).toBeGreaterThan(1);

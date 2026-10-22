@@ -87,10 +87,8 @@ describe('modulo: parco', () => {
   });
 });
 
-describe('modulo: e-MTB', () => {
-  it('salva il permesso e-MTB e lo vieta se la bici è vietata', () => {
-    expect(sentieroDaModulo({ nome: 'X', biciConsentita: 'si', biciEmtb: 'si' }).bici.emtb).toBe('si');
-    expect(sentieroDaModulo({ nome: 'X', biciConsentita: 'no', biciEmtb: 'si' }).bici.emtb).toBe('no');
-    expect(sentieroDaModulo({ nome: 'X' }).bici.emtb).toBe('da_verificare');
+describe('modulo: niente e-MTB', () => {
+  it('la bici elettrica non è più un campo', () => {
+    expect(sentieroDaModulo({ nome: 'X', biciConsentita: 'si', biciEmtb: 'si' }).bici.emtb).toBeUndefined();
   });
 });

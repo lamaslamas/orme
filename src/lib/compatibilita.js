@@ -1,4 +1,4 @@
-// Compatibilità di un percorso con trekking, MTB ed e-MTB (stima prudente).
+// Compatibilità di un percorso con trekking e MTB (stima prudente).
 // Due aspetti distinti: percorribilità legale (regole, divieti) e fattibilità tecnica.
 // Senza informazioni sufficienti lo stato è sempre "da_verificare".
 import { analizzaPendenze } from './pendenza.js';
@@ -11,7 +11,7 @@ export const STATI_COMPATIBILITA = {
   da_verificare: 'Da verificare',
 };
 
-export const ATTIVITA = { trekking: 'Trekking', mtb: 'MTB', emtb: 'e-MTB' };
+export const ATTIVITA = { trekking: 'Trekking', mtb: 'MTB' };
 
 const ACCESSI_SOLO_GUIDATI = ['guida', 'numero_chiuso'];
 
@@ -41,7 +41,7 @@ function tecnica(traccia) {
   };
 }
 
-function bici(s, traccia, { elettrica = false } = {}) {
+function bici(s, traccia) {
   const motivi = [];
   const t = tecnica(traccia);
   // 1. divieti
@@ -50,13 +50,12 @@ function bici(s, traccia, { elettrica = false } = {}) {
   if (ACCESSI_SOLO_GUIDATI.includes(s.accesso?.tipo)) {
     return { stato: 'non_percorribile', motivi: ['Accesso solo a piedi con guida o a numero chiuso'] };
   }
-  const archivio = s.attivita?.[elettrica ? 'emtb' : 'mtb'];
+  const archivio = s.attivita?.mtb;
   if (archivio?.stato === 'non_percorribile') return { stato: 'non_percorribile', motivi: archivio.motivi ?? [] };
 
   // 2. permesso: dal sentiero, da una fonte dell'archivio o dai tag OSM di tutti i tratti
   const permesso = s.bici?.consentita === 'si' || archivio?.stato === 'percorribile' || t.consentitaOsm;
   if (!permesso) motivi.push('Permesso per le bici non documentato');
-  if (elettrica && s.bici?.emtb !== 'si' && archivio?.stato !== 'percorribile') motivi.push('Regole per le bici elettriche non documentate');
 
   // 3. tecnica
   const scala = s.bici?.scalaMtb ? Number(s.bici.scalaMtb.slice(1)) : t.scalaMax;
@@ -76,7 +75,6 @@ export function valutaCompatibilita(s, traccia) {
   return {
     trekking: trekking(s),
     mtb: bici(s, traccia),
-    emtb: bici(s, traccia, { elettrica: true }),
   };
 }
 

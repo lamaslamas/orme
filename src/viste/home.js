@@ -31,7 +31,7 @@ function htmlCredito(chiave, titolo) {
   return f ? htmlPulsanteCrediti({ url: f.url, autore: f.autore, licenza: f.licenza, pagina: f.pagina, titolo }) : '';
 }
 
-// attivita: { trekking, mtb, emtb } = quanti percorsi del parco sono adatti a ciascuna
+// attivita: { trekking, mtb } = quanti percorsi del parco sono adatti a ciascuna
 function htmlParco(p, n, evidenziato, attivita) {
   const specie = p.animali.slice(0, 3).map((a) => ANIMALI[a]).join(', ');
   return `<li class="carta-foto ${evidenziato ? 'evidenziata' : ''}">
@@ -72,7 +72,7 @@ export async function vistaHome(app) {
   const preparati = preparaPercorsi(sentieri, tracce);
   const st = stato.leggi();
   // per i badge dei parchi: percorsi non "non percorribili" per ciascuna attività
-  const perAttivita = new Map(PARCHI.map((p) => [p.id, { trekking: 0, mtb: 0, emtb: 0 }]));
+  const perAttivita = new Map(PARCHI.map((p) => [p.id, { trekking: 0, mtb: 0 }]));
   for (const { sentiero, compat } of preparati) {
     for (const id of sentiero.parchi ?? [sentiero.parco]) {
       const conta = perAttivita.get(id);

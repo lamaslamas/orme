@@ -2,7 +2,7 @@
 // e livelli della mappa. Resta valido mentre si passa da una sezione all'altra.
 
 export const STATO_INIZIALE = {
-  attivita: 'trekking', // trekking | mtb | emtb
+  attivita: 'trekking', // trekking | mtb
   parco: '',
   specie: '', // chiave dell'animale ('' = nessuno)
   filtri: { stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', dislivello: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '', uscite: '' },
@@ -32,6 +32,8 @@ export function creaStato(memoria = null, chiave = 'orme.stato') {
   } catch {
     // memoria non leggibile: si parte dallo stato iniziale
   }
+  // una scelta salvata di prima (e-MTB, che non c'è più) diventa MTB; un valore sconosciuto, Trekking
+  if (!['trekking', 'mtb'].includes(stato.attivita)) stato = { ...stato, attivita: stato.attivita === 'emtb' ? 'mtb' : 'trekking' };
   const ascoltatori = new Set();
   return {
     leggi: () => stato,
