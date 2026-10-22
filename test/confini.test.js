@@ -164,3 +164,53 @@ describe('ritaglio sul confine (Terra delle Gravine)', () => {
     expect(g.osm).toEqual({ relazione: 8221789 });
   });
 });
+
+import { ritagliaCatena, PONTE_MAX_M } from '../src/lib/confini.js';
+import { candidatiMtb } from '../src/lib/fonti/osmMtb.js';
+
+describe('ritaglio di un itinerario lungo: ponti fuori dall\'area e parti', () => {
+  // punti ogni 0,005° di longitudine (≈ 430 m a 40° N) lungo lat 40; «dentro» = lon tra 13,00 e 13,05 o tra una seconda area
+  const fila = (da, a) => Array.from({ length: Math.round((a - da) / 0.005) + 1 }, (_, i) => [da + i * 0.005, 40]);
+  const area = (areeLon) => ([lon]) => areeLon.some(([a, b]) => lon >= a - 1e-9 && lon <= b + 1e-9);
+  it('toglie solo le parti iniziali e finali fuori', () => {
+    const r = ritagliaCatena([fila(12.95, 13.1)], area([[13.0, 13.05]]));
+    expect(r.parti).toHaveLength(1);
+    expect(r.parti[0][0][0][0]).toBeCloseTo(13.0, 5);
+    expect(r.parti[0][0].at(-1)[0]).toBeCloseTo(13.05, 5);
+    expect(r.ritagliata).toBe(true);
+  });
+  it('un tratto fuori in mezzo più corto di 3 km resta nella traccia', () => {
+    // dentro 13,00–13,03, fuori 13,03–13,06 (≈ 2,6 km), dentro 13,06–13,09
+    const r = ritagliaCatena([fila(13.0, 13.09)], area([[13.0, 13.03], [13.06, 13.09]]));
+    expect(r.parti).toHaveLength(1);
+    expect(r.parti[0].flat().length).toBe(fila(13.0, 13.09).length);
+  });
+  it('un tratto fuori più lungo di 3 km divide l\'itinerario in due parti', () => {
+    // fuori 13,02–13,08 (≈ 5,1 km)
+    const r = ritagliaCatena([fila(13.0, 13.1)], area([[13.0, 13.02], [13.08, 13.1]]));
+    expect(PONTE_MAX_M).toBe(3000);
+    expect(r.parti).toHaveLength(2);
+    expect(r.parti[0][0].at(-1)[0]).toBeCloseTo(13.02, 5);
+    expect(r.parti[1][0][0][0]).toBeCloseTo(13.08, 5);
+  });
+  it('i buchi veri (pezzi non collegati) restano nella traccia: li giudica la regola delle tracce incomplete', () => {
+    const a = fila(13.0, 13.02);
+    const b = fila(13.04, 13.06); // buco di ≈ 1,7 km tra 13,02 e 13,04, tutto dentro l'area
+    const r = ritagliaCatena([a, b], area([[13.0, 13.06]]));
+    expect(r.parti).toHaveLength(1);
+    expect(r.parti[0]).toHaveLength(2); // due linee: il salto non si riempie
+    expect(r.ritagliata).toBe(false);
+  });
+  it('tutto fuori: nessuna parte', () => {
+    expect(ritagliaCatena([fila(12.0, 12.1)], area([[13, 14]])).parti).toEqual([]);
+  });
+  it('MTB e sentieri di un parco con bbox: un itinerario che esce e rientra si divide in parti con id e indirizzi distinti', () => {
+    const parco = { id: 'x', nome: 'X', bbox: [39.9, 12.9, 40.1, 13.1] };
+    const geom = fila(12.95, 13.05).concat(fila(13.5, 13.6), fila(13.0, 13.05)).map(([lon, lat]) => ({ lon, lat }));
+    const json = { elements: [{ type: 'relation', id: 7, tags: { route: 'mtb', name: 'Giro' }, members: [{ type: 'way', ref: 70, geometry: geom }] }] };
+    const r = candidatiMtb(json, 'x', parco);
+    expect(r.map((c) => c.id)).toEqual(['osm-mtb-7', 'osm-mtb-7-2']);
+    expect(r[1].url).toContain('#parte-2');
+    expect(r.map((c) => c.nome)).toEqual(['Giro (MTB) · tratto 1', 'Giro (MTB) · tratto 2']);
+  });
+});

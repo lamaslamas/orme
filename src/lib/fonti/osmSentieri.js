@@ -4,7 +4,7 @@
 import { dentroIlParco, interpretaRisposta, combinaTraccia } from '../overpass.js';
 import { lunghezzaKm } from '../geo.js';
 import { parcoDa } from '../../datiParchi.js';
-import { ritagliaESemplifica } from './osmMtb.js';
+import { ritagliaESemplifica, parteDi } from './osmMtb.js';
 import { ritagliaSulConfine, quotaDentroIlConfine, semplifica } from '../confini.js';
 
 export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm', 'gallipoli-cognato', 'majella', 'gravine'] };
@@ -37,7 +37,8 @@ export function ritagliaNelParco(linee, anelli, { margineM = 200, minimoDentro =
   if (quotaDentroIlConfine(linee, anelli) < minimoDentro) return null;
   const r = ritagliaSulConfine(linee, anelli, margineM);
   const arrotonda = (l) => l.map(([lon, lat]) => [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5]);
-  return { linee: r.linee.map((l) => arrotonda(semplifica(l, 0.00008))).filter((l) => l.length > 1), ritagliata: r.ritagliata };
+  const parti = r.parti.map((p) => p.map((l) => arrotonda(semplifica(l, 0.00008))).filter((l) => l.length > 1)).filter((p) => p.length);
+  return { linee: parti.flat(), parti, ritagliata: r.ritagliata };
 }
 export const SUFFISSO_TRATTO = ' · tratto nel parco';
 
@@ -58,49 +59,57 @@ export function candidatiSentieri(json, idParco, parco = parcoDa(idParco), { ane
     const t = tag.get(c.idOsm) ?? {};
     const sulConfine = parco.ritaglio && anelli?.length ? ritagliaNelParco(c.linee, anelli, parco.ritaglio) : null;
     if (parco.ritaglio && anelli?.length && !sulConfine) continue; // passa appena dal parco
-    const { linee, ritagliata } = sulConfine ?? ritagliaESemplifica(c.linee, parco.bbox);
-    const traccia = combinaTraccia([{ ...c, linee }]);
-    const km = Math.round(lunghezzaKm(traccia.geojson) * 10) / 10;
-    if (km < MINIMO_KM) continue;
-    const impronta = JSON.stringify(linee);
-    if (viste.has(impronta)) continue;
-    viste.add(impronta);
-    const url = `https://www.openstreetmap.org/relation/${c.idOsm}`;
-    const ref = (t.ref ?? '').trim();
-    // "SI" da solo indica il Sentiero Italia, non un numero di sentiero
-    const codici = ref && ref.toUpperCase() !== 'SI' ? [ref] : [];
-    // roundtrip=yes: la relazione stessa dice che è un anello (niente andata e ritorno)
-    traccia.dettagli = { ...traccia.dettagli, codici, fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
-    const zona = [t.from, t.to].filter(Boolean).join(' – ');
-    const nomeBase = t.name || (ref.toUpperCase().startsWith('SI') ? `Sentiero Italia CAI${zona ? `: ${zona}` : ''}` : `Sentiero ${ref || c.idOsm}${zona ? `: ${zona}` : ''}`);
-    const nome = sulConfine ? `${nomeBase}${SUFFISSO_TRATTO}` : nomeBase;
-    const ferrata = eViaFerrata(t, tagTratti.get(c.idOsm) ?? []);
-    const difficolta = ferrata ? 'EEA' : DIFFICOLTA_CAI.includes((t.cai_scale ?? '').toUpperCase()) ? t.cai_scale.toUpperCase() : null;
-    candidati.push({
-      fonte: `${OSM_SENTIERI.fonte}:${idParco}`,
-      tipo: 'sentiero',
-      chiave: `${idParco}:${c.idOsm}`,
-      id: `osm-sentiero-${c.idOsm}`,
-      idOsm: c.idOsm,
-      url,
-      nome,
-      zona,
-      codici,
-      difficolta,
-      organizzatore: t.operator ?? '',
-      titoloFonte: 'OpenStreetMap (ODbL)',
-      parco: idParco,
-      descrizione: [t.description, ritagliata ? `Sentiero più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : sulConfine ? 'nel parco, con 200 m di margine' : 'nel parco e nei dintorni'}.` : ''].filter(Boolean).join(' ').slice(0, 280),
-      animali: [],
-      lunghezzaKm: km,
-      // percorribile a piedi perché segnato; la bici resta da valutare (regole del parco e terreno)
-      attivita: {
-        trekking: ferrata
-          ? { stato: 'con_limitazioni', motivi: [MOTIVO_FERRATA] }
-          : { stato: 'percorribile', motivi: ['Sentiero segnato su OpenStreetMap (CAI, Parco o Sentiero Italia)'] },
-      },
-      traccia,
-    });
+    const grezzo = sulConfine ?? ritagliaESemplifica(c.linee, parco.bbox);
+    const ritagliata = grezzo.ritagliata;
+    // un itinerario che esce a lungo dall'area si divide in più parti: ognuna è un percorso a sé
+    const parti = grezzo.parti
+      .map((linee) => {
+        const traccia = combinaTraccia([{ ...c, linee }]);
+        return { linee, traccia, km: Math.round(lunghezzaKm(traccia.geojson) * 10) / 10 };
+      })
+      .filter((x) => x.km >= MINIMO_KM);
+    for (const [k, { linee, traccia, km }] of parti.entries()) {
+      const { numero, id: sfx, ancora } = parteDi(k, parti.length);
+      const impronta = JSON.stringify(linee);
+      if (viste.has(impronta)) continue;
+      viste.add(impronta);
+      const url = `https://www.openstreetmap.org/relation/${c.idOsm}${ancora}`;
+      const ref = (t.ref ?? '').trim();
+      // "SI" da solo indica il Sentiero Italia, non un numero di sentiero
+      const codici = ref && ref.toUpperCase() !== 'SI' ? [ref] : [];
+      // roundtrip=yes: la relazione stessa dice che è un anello (niente andata e ritorno)
+      traccia.dettagli = { ...traccia.dettagli, codici, fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
+      const zona = [t.from, t.to].filter(Boolean).join(' – ');
+      const nomeBase = t.name || (ref.toUpperCase().startsWith('SI') ? `Sentiero Italia CAI${zona ? `: ${zona}` : ''}` : `Sentiero ${ref || c.idOsm}${zona ? `: ${zona}` : ''}`);
+      const nome = sulConfine ? `${nomeBase}${SUFFISSO_TRATTO}${numero}` : numero ? `${nomeBase} · tratto${numero}` : nomeBase;
+      const ferrata = eViaFerrata(t, tagTratti.get(c.idOsm) ?? []);
+      const difficolta = ferrata ? 'EEA' : DIFFICOLTA_CAI.includes((t.cai_scale ?? '').toUpperCase()) ? t.cai_scale.toUpperCase() : null;
+      candidati.push({
+        fonte: `${OSM_SENTIERI.fonte}:${idParco}`,
+        tipo: 'sentiero',
+        chiave: `${idParco}:${c.idOsm}${sfx}`,
+        id: `osm-sentiero-${c.idOsm}${sfx}`,
+        idOsm: c.idOsm,
+        url,
+        nome,
+        zona,
+        codici,
+        difficolta,
+        organizzatore: t.operator ?? '',
+        titoloFonte: 'OpenStreetMap (ODbL)',
+        parco: idParco,
+        descrizione: [t.description, ritagliata ? `Sentiero più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : sulConfine ? 'nel parco, con 200 m di margine' : 'nel parco e nei dintorni'}.` : ''].filter(Boolean).join(' ').slice(0, 280),
+        animali: [],
+        lunghezzaKm: km,
+        // percorribile a piedi perché segnato; la bici resta da valutare (regole del parco e terreno)
+        attivita: {
+          trekking: ferrata
+            ? { stato: 'con_limitazioni', motivi: [MOTIVO_FERRATA] }
+            : { stato: 'percorribile', motivi: ['Sentiero segnato su OpenStreetMap (CAI, Parco o Sentiero Italia)'] },
+        },
+        traccia,
+      });
+    }
   }
   // nomi uguali: si distinguono con partenza e arrivo, o con il numero
   const conta = new Map();

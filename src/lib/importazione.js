@@ -176,7 +176,10 @@ function perNomeUscita(percorsi, c) {
 // Sentieri OSM già presenti come sentieri scritti a mano: stessa relazione OSM nella traccia,
 // oppure stesso codice nello stesso parco (solo se il codice è univoco tra i candidati)
 function perSentieroOsm(percorsi, c, codiciUnivoci) {
-  const perRelazione = percorsi.findIndex((p) => (p.traccia?.dettagli?.relazioniOsm ?? []).includes(c.idOsm));
+  // le parti di un itinerario diviso (chiave …-2, …-3) sono percorsi a sé: si riconoscono solo dalla chiave
+  const eParte = (chiave) => /-\d+$/.test(chiave ?? '');
+  if (eParte(c.chiave)) return -1;
+  const perRelazione = percorsi.findIndex((p) => (p.traccia?.dettagli?.relazioniOsm ?? []).includes(c.idOsm) && !eParte(p.importazione?.chiave));
   if (perRelazione >= 0) return perRelazione;
   const codice = c.codici?.[0]?.toUpperCase();
   if (!codice || !codiciUnivoci?.has(codice)) return -1;

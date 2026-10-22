@@ -1,6 +1,7 @@
 // Confini dei parchi: costruzione del poligono dalla relazione OSM e test "punto dentro".
 // Gli anelli sono liste di punti [lon, lat].
-import { concatenaLinee } from './tracce.js';
+import { concatenaLinee, percorsoSentiero } from './tracce.js';
+import { distanzaKm } from './geo.js';
 
 // osm: { relazione } oppure { way } (alcuni parchi su OSM sono una sola linea chiusa)
 export function queryConfine(osm) {
@@ -128,25 +129,64 @@ function distanzaDalBordoM([x, y], anelli, limiteM) {
   return min;
 }
 
-// Tiene i punti dentro il parco o a meno di margineM dal suo confine; il resto si taglia in pezzi separati.
-// linee: [[lon, lat]…][] → { linee, ritagliata }
-export function ritagliaSulConfine(linee, anelli, margineM = 200) {
-  let ritagliata = false;
-  const pezzi = [];
-  for (const linea of linee) {
-    let attuale = [];
-    for (const p of linea) {
-      if (puntoNelPoligono(p, anelli) || distanzaDalBordoM(p, anelli, margineM) <= margineM) attuale.push(p);
-      else {
-        ritagliata = true;
-        if (attuale.length > 1) pezzi.push(attuale);
-        attuale = [];
-      }
+// Ritaglio di un itinerario lungo su un'area. `dentro(p)` dice se un punto sta nell'area (con il suo margine).
+// L'itinerario si segue nell'ordine (i tratti collegati, poi i pezzi staccati in fila):
+// - si tolgono solo le parti iniziali e finali fuori dall'area;
+// - un tratto fuori in mezzo, tra due parti dentro, resta nella traccia se è lungo meno di ponteM (3 km);
+//   se è più lungo, l'itinerario si divide in due (o più) parti separate.
+// I buchi veri di OpenStreetMap (tratti non collegati) restano dove sono: li giudica poi la regola delle tracce incomplete.
+// → { parti: [linee…], linee (tutte le parti insieme), ritagliata }; linee: [[lon, lat]…][]
+export const PONTE_MAX_M = 3000;
+export function ritagliaCatena(linee, dentro, { ponteM = PONTE_MAX_M } = {}) {
+  if (linee.every((l) => l.every((p) => dentro(p)))) return { parti: [linee], linee, ritagliata: false };
+  const { pezzi } = percorsoSentiero({ coordinates: linee });
+  const punti = [];
+  pezzi.forEach((pezzo, i) => pezzo.forEach((p, k) => punti.push({ p, salto: k === 0 && i > 0 })));
+  const dentroPunto = punti.map((x) => dentro(x.p));
+  const primo = dentroPunto.indexOf(true);
+  if (primo < 0) return { parti: [], linee: [], ritagliata: true };
+  const ultimo = dentroPunto.lastIndexOf(true);
+  let ritagliata = primo > 0 || ultimo < punti.length - 1;
+  const lungo = (da, a) => {
+    let m = 0;
+    for (let k = da + 1; k <= a; k++) m += distanzaKm(punti[k - 1].p, punti[k].p) * 1000;
+    return m;
+  };
+  const intervalli = [];
+  let inizio = primo;
+  let i = primo;
+  while (i <= ultimo) {
+    if (dentroPunto[i]) {
+      i++;
+      continue;
     }
-    if (attuale.length > 1) pezzi.push(attuale);
+    // tratto fuori: da i a j−1; l'ultimo punto dentro è i−1, il prossimo j
+    let j = i;
+    while (!dentroPunto[j]) j++;
+    if (lungo(i - 1, j) > ponteM) {
+      intervalli.push([inizio, i - 1]);
+      inizio = j;
+      ritagliata = true;
+    }
+    i = j;
   }
-  return { linee: pezzi, ritagliata };
+  intervalli.push([inizio, ultimo]);
+  // ogni parte in linee: ai salti tra pezzi si stacca
+  const parti = intervalli.map(([da, a]) => {
+    const l = [[]];
+    for (let k = da; k <= a; k++) {
+      if (punti[k].salto && k > da) l.push([]);
+      l.at(-1).push(punti[k].p);
+    }
+    return l.filter((x) => x.length > 1);
+  });
+  return { parti: parti.filter((x) => x.length), linee: parti.flat(), ritagliata };
 }
+
+// Il punto è dentro il parco o a meno di margineM dal suo confine
+export const dentroIlConfine = (anelli, margineM = 200) => (p) => puntoNelPoligono(p, anelli) || distanzaDalBordoM(p, anelli, margineM) <= margineM;
+
+export const ritagliaSulConfine = (linee, anelli, margineM = 200, opzioni) => ritagliaCatena(linee, dentroIlConfine(anelli, margineM), opzioni);
 
 // Quanta parte (0–1) della lunghezza sta dentro il confine (conta ogni tratto dal suo punto medio)
 export function quotaDentroIlConfine(linee, anelli) {

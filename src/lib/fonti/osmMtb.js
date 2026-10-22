@@ -2,7 +2,7 @@
 // Dati © OpenStreetMap, licenza ODbL: la geometria si può salvare citando la fonte.
 import { dentroIlParco, interpretaRisposta, combinaTraccia } from '../overpass.js';
 import { lunghezzaKm } from '../geo.js';
-import { semplifica, puntoNelPoligono } from '../confini.js';
+import { semplifica, puntoNelPoligono, ritagliaCatena } from '../confini.js';
 import { parcoDa } from '../../datiParchi.js';
 
 export const OSM_MTB = { fonte: 'osm-mtb' };
@@ -30,23 +30,15 @@ const MINIMO_KM = 1;
 // che lo attraversano restano leggeri. Poi semplifica e arrotonda a 5 decimali (circa 1 m).
 export function ritagliaESemplifica(linee, [s, o, n, e], margine = MARGINE) {
   const dentro = ([lon, lat]) => lat >= s - margine && lat <= n + margine && lon >= o - margine && lon <= e + margine;
-  let ritagliata = false;
-  const pezzi = [];
-  for (const linea of linee) {
-    let attuale = [];
-    for (const p of linea) {
-      if (dentro(p)) attuale.push(p);
-      else {
-        ritagliata = true;
-        if (attuale.length > 1) pezzi.push(attuale);
-        attuale = [];
-      }
-    }
-    if (attuale.length > 1) pezzi.push(attuale);
-  }
+  const r = ritagliaCatena(linee, dentro);
   const arrotonda = (l) => l.map(([lon, lat]) => [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5]);
-  return { linee: pezzi.map((l) => arrotonda(semplifica(l, TOLLERANZA))).filter((l) => l.length > 1), ritagliata };
+  const parti = r.parti.map((p) => p.map((l) => arrotonda(semplifica(l, TOLLERANZA))).filter((l) => l.length > 1)).filter((p) => p.length);
+  return { linee: parti.flat(), parti, ritagliata: r.ritagliata };
 }
+
+// Nome, id, chiave e indirizzo di una parte quando l'itinerario si divide in più parti (la prima resta com'era;
+// l'indirizzo cambia con un'àncora, così ogni parte è un percorso a sé)
+export const parteDi = (k, quante) => ({ numero: quante > 1 ? ` ${k + 1}` : '', id: k ? `-${k + 1}` : '', ancora: k ? `#parte-${k + 1}` : '' });
 
 // area: il parco, oppure una zona con il suo riquadro (es. "Intorno a me")
 // cicloturistici: itinerari ciclabili qualsiasi (route=bicycle), non solo quelli MTB: su strade e
@@ -57,54 +49,63 @@ export function candidatiMtb(json, idParco, parco = parcoDa(idParco), { ciclotur
   const geometrieViste = new Set();
   for (const c of interpretaRisposta(json)) {
     const t = tag.get(c.idOsm) ?? {};
-    const { linee, ritagliata } = ritagliaESemplifica(c.linee, parco.bbox);
-    const traccia = combinaTraccia([{ ...c, linee }]);
-    const km = Math.round(lunghezzaKm(traccia.geojson) * 10) / 10;
-    if (km < MINIMO_KM) continue; // passa appena dal bordo del parco
-    // la stessa geometria in due relazioni (es. tappa e itinerario completo) si tiene una volta
-    const impronta = JSON.stringify(linee);
-    if (geometrieViste.has(impronta)) continue;
-    geometrieViste.add(impronta);
-    const url = `https://www.openstreetmap.org/relation/${c.idOsm}`;
-    traccia.dettagli = { ...traccia.dettagli, codici: [], fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
-    const mtb = !cicloturistici || t.route === 'mtb' || /mtb/i.test(t.network ?? '') || t.mtb === 'yes';
-    const rif = t.ref ? `${mtb ? 'MTB ' : ''}${t.ref}` : mtb ? 'MTB' : '';
-    const zona = [t.from, t.to].filter(Boolean).join(' – ');
-    const nome = mtb
-      ? t.name ? (/\bmtb\b/i.test(t.name) && !t.ref ? t.name : `${t.name} (${rif})`) : `Itinerario ${rif}`
-      : t.name ? (rif && !t.name.includes(rif) ? `${t.name} (${rif})` : t.name) : `Itinerario ciclabile${rif ? ` ${rif}` : zona ? `: ${zona}` : ''}`;
-    const descrizione = [t.description, ritagliata ? `Itinerario più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : 'nel parco e nei dintorni'}.` : '']
-      .filter(Boolean)
-      .join(' ')
-      .slice(0, 280);
-    candidati.push({
-      // una fonte per parco: se un parco oggi non risponde, gli altri si aggiornano lo stesso
-      fonte: `${OSM_MTB.fonte}:${idParco}`,
-      // gli itinerari ciclabili si fanno anche a piedi: non sono "solo bici" come gli MTB
-      tipo: mtb ? 'itinerario_mtb' : 'itinerario_bici',
-      chiave: `${idParco}:${c.idOsm}`,
-      id: `osm-mtb-${c.idOsm}`,
-      url,
-      nome,
-      zona,
-      // codici vuoti: i numeri della rete MTB non sono codici dei sentieri escursionistici
-      codici: [],
-      organizzatore: t.operator ?? '',
-      titoloFonte: 'OpenStreetMap (ODbL)',
-      parco: idParco,
-      descrizione,
-      animali: [],
-      lunghezzaKm: km,
-      attivita: {
-        trekking: mtb
-          ? { stato: 'da_verificare', motivi: ['Itinerario per bici: a piedi va verificato'] }
-          : { stato: 'percorribile', motivi: ['Itinerario segnato su OpenStreetMap, su strade secondarie e sterrate'] },
-        mtb: mtb
-          ? { stato: 'percorribile', motivi: ['Itinerario MTB segnato su OpenStreetMap: verifica sempre le regole del Parco'] }
-          : { stato: 'percorribile', motivi: ['Itinerario ciclabile segnato su OpenStreetMap: spesso su strade secondarie e sterrate'] },
-      },
-      traccia,
-    });
+    const grezzo = ritagliaESemplifica(c.linee, parco.bbox);
+    const ritagliata = grezzo.ritagliata;
+    // un itinerario che esce a lungo dal parco si divide in più parti: ognuna è un percorso a sé
+    const parti = grezzo.parti
+      .map((linee) => {
+        const traccia = combinaTraccia([{ ...c, linee }]);
+        return { linee, traccia, km: Math.round(lunghezzaKm(traccia.geojson) * 10) / 10 };
+      })
+      .filter((x) => x.km >= MINIMO_KM); // le parti che passano appena dal bordo del parco si scartano
+    for (const [k, { linee, traccia, km }] of parti.entries()) {
+      const { numero, id: sfx, ancora } = parteDi(k, parti.length);
+      // la stessa geometria in due relazioni (es. tappa e itinerario completo) si tiene una volta
+      const impronta = JSON.stringify(linee);
+      if (geometrieViste.has(impronta)) continue;
+      geometrieViste.add(impronta);
+      const url = `https://www.openstreetmap.org/relation/${c.idOsm}${ancora}`;
+      traccia.dettagli = { ...traccia.dettagli, codici: [], fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
+      const mtb = !cicloturistici || t.route === 'mtb' || /mtb/i.test(t.network ?? '') || t.mtb === 'yes';
+      const rif = t.ref ? `${mtb ? 'MTB ' : ''}${t.ref}` : mtb ? 'MTB' : '';
+      const zona = [t.from, t.to].filter(Boolean).join(' – ');
+      const nomeBase = mtb
+        ? t.name ? (/\bmtb\b/i.test(t.name) && !t.ref ? t.name : `${t.name} (${rif})`) : `Itinerario ${rif}`
+        : t.name ? (rif && !t.name.includes(rif) ? `${t.name} (${rif})` : t.name) : `Itinerario ciclabile${rif ? ` ${rif}` : zona ? `: ${zona}` : ''}`;
+      const nome = numero ? `${nomeBase} · tratto${numero}` : nomeBase;
+      const descrizione = [t.description, ritagliata ? `Itinerario più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : 'nel parco e nei dintorni'}.` : '']
+        .filter(Boolean)
+        .join(' ')
+        .slice(0, 280);
+      candidati.push({
+        // una fonte per parco: se un parco oggi non risponde, gli altri si aggiornano lo stesso
+        fonte: `${OSM_MTB.fonte}:${idParco}`,
+        // gli itinerari ciclabili si fanno anche a piedi: non sono "solo bici" come gli MTB
+        tipo: mtb ? 'itinerario_mtb' : 'itinerario_bici',
+        chiave: `${idParco}:${c.idOsm}${sfx}`,
+        id: `osm-mtb-${c.idOsm}${sfx}`,
+        url,
+        nome,
+        zona,
+        // codici vuoti: i numeri della rete MTB non sono codici dei sentieri escursionistici
+        codici: [],
+        organizzatore: t.operator ?? '',
+        titoloFonte: 'OpenStreetMap (ODbL)',
+        parco: idParco,
+        descrizione,
+        animali: [],
+        lunghezzaKm: km,
+        attivita: {
+          trekking: mtb
+            ? { stato: 'da_verificare', motivi: ['Itinerario per bici: a piedi va verificato'] }
+            : { stato: 'percorribile', motivi: ['Itinerario segnato su OpenStreetMap, su strade secondarie e sterrate'] },
+          mtb: mtb
+            ? { stato: 'percorribile', motivi: ['Itinerario MTB segnato su OpenStreetMap: verifica sempre le regole del Parco'] }
+            : { stato: 'percorribile', motivi: ['Itinerario ciclabile segnato su OpenStreetMap: spesso su strade secondarie e sterrate'] },
+        },
+        traccia,
+      });
+    }
   }
   // nomi uguali (es. le tappe del Sentiero Italia in bici): si distinguono con partenza e arrivo
   const conteggio = new Map();
