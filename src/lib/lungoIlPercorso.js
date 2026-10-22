@@ -5,6 +5,7 @@ import { puntoNelPoligono } from './confini.js';
 import { distanzaKm, distanzaDallaTracciaM, lunghezzaKm } from './geo.js';
 import { VELOCITA_PIANO_KMH, SALITA_MH, DISCESA_MH, stimaDurataMin } from './durata.js';
 import { fattoreRitmo } from './ritmo.js';
+import { BICI } from './condizioni.js';
 import { dislivello, SOGLIA_RUMORE_M } from './quote.js';
 
 export const PASSO_COPERTURA_M = 500;
@@ -131,7 +132,8 @@ export const km1 = (x) => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',')
 // soglia, ogni pezzo per conto suo, resto finale compreso): l'ultimo punto dà la stessa durata
 // di misureDeiPezzi, quella in alto nella pagina.
 // Senza quote su tutti i punti il tempo è proporzionale ai km (4 km/h).
-export function profiloTempi(pezzi) {
+// velocità: a piedi (metodo CAI) o in bici (profiloTempiBici)
+export function profiloTempi(pezzi, { kmh = VELOCITA_PIANO_KMH, salitaMh = SALITA_MH, discesaMh = DISCESA_MH } = {}) {
   const punti = (pezzi ?? []).flat();
   const conQuote = punti.length > 1 && punti.every((p) => Number.isFinite(p[2]));
   const km = [];
@@ -140,8 +142,8 @@ export function profiloTempi(pezzi) {
   let salita = 0;
   let discesa = 0;
   const tempo = () => {
-    const orePiano = fatti / VELOCITA_PIANO_KMH;
-    const oreDisl = conQuote ? salita / SALITA_MH + discesa / DISCESA_MH : 0;
+    const orePiano = fatti / kmh;
+    const oreDisl = conQuote ? salita / salitaMh + discesa / discesaMh : 0;
     return (Math.max(orePiano, oreDisl) + Math.min(orePiano, oreDisl) / 2) * 60 * fattoreRitmo();
   };
   for (const linea of pezzi ?? []) {
@@ -236,3 +238,6 @@ export function testoDislivelloRifugio(quotaRifugio, quotaTraccia) {
   if (Math.abs(d) < 10) return 'circa in piano';
   return `circa ${d > 0 ? '+' : '−'}${Math.abs(d)} m`;
 }
+
+// I tempi lungo il percorso in MTB: 12 km/h in piano e 400 m/h in salita (la discesa non si conta), con il ritmo scelto
+export const profiloTempiBici = (pezzi) => profiloTempi(pezzi, { kmh: BICI.mtb.kmh, salitaMh: BICI.mtb.salitaMh, discesaMh: Infinity });

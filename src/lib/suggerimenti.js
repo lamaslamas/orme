@@ -6,7 +6,7 @@ import { passaQuotaDislivello, passaLunghezza } from './quotaDislivello.js';
 import { ANIMALI } from './costanti.js';
 import { durata, migliaia, suUnaRiga } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '', lunghezzaKm: '' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '', lunghezzaKm: '', biciDaVerificare: '' };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };

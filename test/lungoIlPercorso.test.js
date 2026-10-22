@@ -46,7 +46,8 @@ describe('punti lungo la traccia: al km X', () => {
   });
 });
 
-import { profiloTempi, finiGiornata, rifugiPerLaNotte } from '../src/lib/lungoIlPercorso.js';
+import { profiloTempi, profiloTempiBici, finiGiornata, rifugiPerLaNotte } from '../src/lib/lungoIlPercorso.js';
+import { durataInBici } from '../src/lib/condizioni.js';
 import { stimaDurataMin } from '../src/lib/durata.js';
 describe('percorsi su più giorni', () => {
   // 20 km circa verso est, in piano e poi in salita di 1200 m
@@ -60,6 +61,15 @@ describe('percorsi su più giorni', () => {
     expect(Math.round(s.min.at(-1))).toBeCloseTo(stimaDurataMin(s.km.at(-1), { salita: 1200, discesa: 0 }), -1);
     // la seconda metà (in salita) è più lenta della prima
     expect(s.min[40] - s.min[20]).toBeGreaterThan(s.min[20] - s.min[0]);
+  });
+
+  it('in MTB: 12 km/h in piano e 400 m/h in salita, l\'ultimo uguale alla durata in bici della scheda', () => {
+    const s = profiloTempiBici(pezzi);
+    expect(Math.round(s.min.at(-1))).toBe(durataInBici(s.km.at(-1), 1200, 'mtb'));
+    expect(s.min.at(-1)).toBeLessThan(profiloTempi(pezzi).min.at(-1)); // in bici si fa prima che a piedi
+    // la discesa non si conta: lo stesso percorso al contrario non è più lento in salita
+    const senzaQuote = profiloTempiBici([linea.map(([x, y]) => [x, y])]);
+    expect(senzaQuote.min.at(-1)).toBeCloseTo((senzaQuote.km.at(-1) / 12) * 60, 5);
   });
 
   it('senza quote: tempo proporzionale ai km', () => {

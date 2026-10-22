@@ -8,6 +8,7 @@ import { minutiAlKm } from './fotografia.js';
 import { dislivello } from './quote.js';
 import { MARGINE_TRAMONTO_MIN } from './quandoAndare.js';
 import { stimaDurataMin } from './durata.js';
+import { durataInBici } from './condizioni.js';
 
 export const PARTENZA_SECONDO_GIORNO_MIN = 8 * 60;
 
@@ -25,10 +26,12 @@ export const PRIMO_GIORNO_MINIMO_MIN = 30; // sotto, non è un primo giorno: è 
 
 // Il tempo per andare dalla traccia al posto per dormire (e, il giorno dopo, per tornare): a piedi, con il ritmo scelto
 // (stimaDurataMin) e il dislivello se lo si conosce ({ salita, discesa } dal punto della traccia al posto)
-export function tempoDeviazione(distanzaM, dislivelloAndata = null) {
+// In MTB la deviazione si fa in bici (stessi tempi della bici: 12 km/h, 400 m/h in salita).
+export function tempoDeviazione(distanzaM, dislivelloAndata = null, attivita = 'trekking') {
   if (!Number.isFinite(distanzaM) || distanzaM < 30) return { andataMin: 0, ritornoMin: 0 };
   const km = distanzaM / 1000;
   const ritorno = dislivelloAndata ? { salita: dislivelloAndata.discesa ?? 0, discesa: dislivelloAndata.salita ?? 0 } : null;
+  if (attivita === 'mtb') return { andataMin: durataInBici(km, dislivelloAndata?.salita ?? null, 'mtb') ?? 0, ritornoMin: durataInBici(km, ritorno?.salita ?? null, 'mtb') ?? 0 };
   return { andataMin: stimaDurataMin(km, dislivelloAndata), ritornoMin: stimaDurataMin(km, ritorno) };
 }
 
@@ -44,7 +47,7 @@ function tratto2(tratto, kmPosto, lunghezzaKm, conRitorno) {
 // sole1 / sole2: { alba, tramonto } in minuti dalla mezzanotte del giorno stesso; tratto: { daKm, aKm } con più fauna
 // dislivelloDeviazione(p): { salita, discesa } dal punto della traccia al posto, se noto
 // → { ok, motivo?, tipo: 'due-giorni' | 'notte-vicina', posto, kmPosto, giorno1?, giorno2 }
-export function pianoDueGiorni({ serie, posti, lunghezzaKm, conRitorno, partenzaMin, sole1, sole2, tratto = null, dislivelloDeviazione = () => null, margineMin = MARGINE_TRAMONTO_MIN }) {
+export function pianoDueGiorni({ serie, posti, lunghezzaKm, conRitorno, partenzaMin, sole1, sole2, tratto = null, dislivelloDeviazione = () => null, margineMin = MARGINE_TRAMONTO_MIN, attivita = 'trekking' }) {
   const totale = serie.min.at(-1) ?? 0;
   const fine1 = (sole1?.tramonto ?? Infinity) - margineMin;
   const fine2 = (sole2?.tramonto ?? Infinity) - margineMin;
@@ -59,7 +62,7 @@ export function pianoDueGiorni({ serie, posti, lunghezzaKm, conRitorno, partenza
   const valutati = candidati
     .map((c) => {
       const t = minutiAlKm(serie, c.kmCammino);
-      const dev = tempoDeviazione(c.p.distanzaM, dislivelloDeviazione(c.p));
+      const dev = tempoDeviazione(c.p.distanzaM, dislivelloDeviazione(c.p), attivita);
       const alba = tratto2(tratto, c.kmCammino, lunghezzaKm, conRitorno);
       const ini2 = inizio2(alba);
       return { ...c, t1: t, dev, alba, ini2, d2: fine2 - ini2 };

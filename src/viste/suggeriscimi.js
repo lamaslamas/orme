@@ -17,7 +17,7 @@ import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
 import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
 import { TIPI_PUNTO, puntiLungoIlPercorso, conAcqua, perLaNotte, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
-import { profiloTempi, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, RAGGIO_PERNOTTO_M, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
+import { profiloTempi, profiloTempiBici, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, RAGGIO_PERNOTTO_M, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { htmlRitmo } from './ritmo.js';
@@ -279,9 +279,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
     return `${modoPagina ? '' : modo}
       <h3>Attività</h3>${htmlGruppo('attivita', ATTIVITA, stato.leggi().attivita)}
+      ${inBici() ? `<label class="qd-senza"><input type="checkbox" data-bici-verificare ${scelte.biciDaVerificare ? 'checked' : ''} /> Anche quelli da verificare per la bici</label>` : ''}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
-      <h3>Quanto tempo${AIUTO}</h3>${htmlGruppo('tempo', inBici() ? Object.fromEntries(Object.entries(TEMPI).filter(([k]) => k !== 'due')) : TEMPI, scelte.tempo)}
+      <h3>Quanto tempo${AIUTO}</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       ${
         scelte.cerco.includes('fauna')
@@ -419,7 +420,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       usciteDi.set(v.sentiero ?? v.chiave, v.uscite.map((u) => u.escursione?.nomeUscita || u.nome));
     }
     // compatibili con l'attività scelta (a piedi niente itinerari MTB), come negli altri elenchi
-    return filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI }, stato.leggi().attivita)
+    // in MTB, di base solo i percorribili in bici; con «Anche quelli da verificare per la bici» anche quelli con la bici da verificare
+    return filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI, soloBici: inBici() && scelte.biciDaVerificare ? 'tutti' : '' }, stato.leggi().attivita)
       .filter((p) => p.traccia?.geojson && !['uscita_guidata', 'rete_sentieri'].includes(p.sentiero.tipoPercorso))
       // traccia incompleta (salti oltre 500 m): si propone solo se la fonte dà i km, e con quelli
       .filter((p) => !tracciaDaNonUsare(p.sentiero, p.traccia).incompleta || p.misure.km != null)
@@ -488,7 +490,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (!inizio) return null;
     const modo = modoScelto();
     const camminata = pezziScelti(c.pezzi, modo, c.anello);
-    const serie = profiloTempi(camminata);
+    // in MTB i tempi sono da bici (fine del primo giorno, luce, deviazione per dormire)
+    const serie = inBici() ? profiloTempiBici(camminata) : profiloTempi(camminata);
     // senza le quote sui pezzi il tempo del cammino sarebbe solo in piano: si riporta al tempo mostrato nei risultati
     // (con il dislivello), tenendo le proporzioni lungo il percorso
     const mostrata = c.misure?.durataMin;
@@ -505,6 +508,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       serie,
       lunghezzaKm: lunghezzaDeiPezzi(c.pezzi),
       conRitorno: camminata.length > c.pezzi.length,
+      attivita: stato.leggi().attivita,
       partenzaMin: partenzaForzata ?? oraPartenzaScelta() ?? 540,
       sole1: sole(data),
       sole2: sole(data2),
@@ -673,6 +677,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     // quota e dislivello: si allarga un filtro alla volta; il motivo è quello che ne esclude di più
     if (quotaAttiva(scelte)) prove.push({ chiave: 'quota', etichetta: 'Senza il limite di quota', ...contaCon(data, { quota: '' }), motivo: `la quota massima scelta (${testoValore(scelte.quota, 'quota')}) li esclude`, variante: { quota: '' } });
     if (salitaAttiva(scelte)) prove.push({ chiave: 'salita', etichetta: 'Senza il limite di dislivello', ...contaCon(data, { salita: '' }), motivo: `il dislivello scelto (${testoValore(scelte.salita, 'salita')}) li esclude`, variante: { salita: '' } });
+    if (inBici() && !scelte.biciDaVerificare) prove.push({ chiave: 'bici', etichetta: 'Anche quelli da verificare per la bici', ...contaCon(data, { biciDaVerificare: 'si' }), motivo: 'molti hanno la bici ancora da verificare', variante: { biciDaVerificare: 'si' } });
     if (lunghezzaAttiva(scelte)) prove.push({ chiave: 'lunghezza', etichetta: 'Senza il limite di lunghezza', ...contaCon(data, { lunghezzaKm: '' }), motivo: `la lunghezza scelta (${testoValore(scelte.lunghezzaKm, 'km')}) li esclude`, variante: { lunghezzaKm: '' } });
     if (qdAttivo(scelte) && !scelte.senzaQuote) prove.push({ chiave: 'senzaQuote', etichetta: 'Anche i percorsi senza dati di quota', ...contaCon(data, { senzaQuote: 'si' }), motivo: 'molti non hanno i dati di quota e sono esclusi dal filtro', variante: { senzaQuote: 'si' } });
     if (scelte.distanza) {
@@ -696,6 +701,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       quotaAttiva(scelte) ? `quota massima ${testoValore(scelte.quota, 'quota')}` : '',
       salitaAttiva(scelte) ? `dislivello ${testoValore(scelte.salita, 'salita')}` : '',
       lunghezzaAttiva(scelte) ? `lunghezza ${testoValore(scelte.lunghezzaKm, 'km')}` : '',
+      inBici() && scelte.biciDaVerificare ? 'anche bici da verificare' : '',
       scelte.distanza === 'parco' ? `nel parco ${parcoDa(scelte.parco)?.nomeBreve ?? ''}`.trim() : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : '',
     ]
       .filter(Boolean)
@@ -851,12 +857,14 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   const ICONA_METEO = { ok: () => ICONE.ok, attenzione: () => ICONE.avviso, sconsigliato: () => ICONE.avviso };
 
   // in MTB: la difficoltà con la scala MTB (quando c'è) e, dentro un parco nazionale dove la bici non è documentata come ammessa, l'avviso
-  function schedaBici(s) {
+  function schedaBici(v) {
     if (!inBici()) return '';
+    const s = v.sentiero;
+    const daVerificare = v.compat?.mtb?.stato === 'da_verificare' ? '<span class="chip chip-verifica">Bici: da verificare</span>' : '';
     const scala = s.bici?.scalaMtb ? `<span class="chip chip-mtb">MTB ${escapeHtml(s.bici.scalaMtb)}</span>` : '';
     const nelParco = parcoDa(s.parco)?.nazionale && s.bici?.consentita !== 'si';
     const avviso = nelParco ? `<span class="avviso-bici">${ICONE.avviso}<span>Nel ${escapeHtml(parcoDa(s.parco).nomeBreve)} la bici potrebbe non essere ammessa su questo sentiero: verifica le regole del parco.</span></span>` : '';
-    return `${scala}${avviso}`;
+    return `${daVerificare}${scala}${avviso}`;
   }
   function htmlProposta(v, i) {
     const s = v.sentiero;
@@ -879,7 +887,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         ${v.notte ? `<span class="tenue piccolo giornate-notte">${escapeHtml(testoGiornate(v.notte))}</span>` : ''}
         ${meteo}
         <span class="tenue piccolo">${escapeHtml(rigaSotto)}</span>
-        ${schedaBici(s)}
+        ${schedaBici(v)}
         ${v.ancheAlContrario ? `<span class="chip chip-contrario">anche al contrario${typeof v.ancheAlContrario === 'string' ? ` (${escapeHtml(v.ancheAlContrario)})` : ''}</span>` : ''}
         ${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}
       </div>
@@ -1428,7 +1436,6 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       else if (scelta === 'attivita') {
         // l'attività vale per tutta l'app (le schede di Percorsi qui, i filtri…)
         stato.imposta({ attivita: valore });
-        if (valore === 'mtb' && scelte.tempo === 'due') scelte.tempo = '';
       } else Object.assign(scelte, applicaScelta(scelte, scelta, valore));
       if (scelta === 'specie') scelte.specieNome = b.dataset.nome ?? '';
       raggioMesi = 1;
@@ -1545,6 +1552,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   });
   foglio.addEventListener('toggle', (e) => e.target.matches?.('.altre-scelte') && (altreAperte = e.target.open), true);
   foglio.addEventListener('change', (e) => {
+    if (e.target.matches('[data-bici-verificare]')) {
+      scelte.biciDaVerificare = e.target.checked ? 'si' : '';
+      ricorda(scelte);
+      segnaCambio();
+      return;
+    }
     if (e.target.matches('[data-ora-partenza]')) {
       if (e.target.value) (ricordaOraPartenza(e.target.value), segnaCambio());
       return;
@@ -1618,7 +1631,6 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (nuovo.attivita === attivitaVista) return;
     attivitaVista = nuovo.attivita;
     if (foglio.hidden) return;
-    if (nuovo.attivita === 'mtb' && scelte.tempo === 'due') scelte.tempo = '';
     aggiornaScelte();
     segnaCambio();
   });

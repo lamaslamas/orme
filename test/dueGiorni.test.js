@@ -103,3 +103,22 @@ describe('notte vicino alla partenza, deviazione per dormire, ordine', () => {
     expect([sbilanciato, piano('lunga', 40, 35)].sort(confrontaNotte)[0].id).toBe('lunga');
   });
 });
+
+describe('due giorni in MTB: la deviazione per dormire si fa in bici', () => {
+  it('più veloce che a piedi, con il dislivello della deviazione', () => {
+    const piedi = tempoDeviazione(3000, { salita: 300, discesa: 0 });
+    const bici = tempoDeviazione(3000, { salita: 300, discesa: 0 }, 'mtb');
+    expect(bici.andataMin).toBeLessThan(piedi.andataMin);
+    // 3 km a 12 km/h = 15 min, 300 m a 400 m/h = 45 min: 45 + metà di 15
+    expect(bici.andataMin).toBe(53);
+    expect(bici.ritornoMin).toBe(15); // il ritorno è in discesa: conta solo il piano
+    expect(tempoDeviazione(10, null, 'mtb')).toEqual({ andataMin: 0, ritornoMin: 0 });
+  });
+  it('il piano usa i tempi della serie e della deviazione dell\'attività', () => {
+    const base = { serie: serie(20, 30), posti: posti(9).map((p) => ({ ...p, distanzaM: 1700 })), lunghezzaKm: 20, conRitorno: false, partenzaMin: 9 * 60, sole1: T1, sole2: T2 };
+    const piedi = pianoDueGiorni(base);
+    const bici = pianoDueGiorni({ ...base, attivita: 'mtb' });
+    expect(piedi.ok && bici.ok).toBe(true);
+    expect(bici.giorno1.deviazioneMin).toBeLessThan(piedi.giorno1.deviazioneMin);
+  });
+});
