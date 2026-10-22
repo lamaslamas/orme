@@ -2321,3 +2321,9 @@ a.modifica-carta {
 .meteo-icona.meteo-sconsigliato { color: #c44a3a; }
 .chip-contrario { display: inline-block; align-self: flex-start; padding: 1px 9px; border-radius: 12px; border: 1px solid var(--bordo); font-size: 0.78rem; font-weight: 600; color: var(--testo-tenue); }
 .proposta a.modifica-carta { top: 8px; right: 8px; }
+
+/* ricerca automatica: sul computer, a pagina intera, il pulsante non c'è e la lista si aggiorna da sola */
+.suggerisci-risultati.aggiorna { opacity: 0.55; transition: opacity 0.15s; pointer-events: none; }
+@media (min-width: 1024px) {
+  .foglio-suggerisci.in-pagina .suggerisci-piede { display: none; }
+}

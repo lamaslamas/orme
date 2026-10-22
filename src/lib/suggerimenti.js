@@ -150,3 +150,11 @@ export function spiegaNessunRisultato(riassunto, prove) {
     : `Nessun percorso con ${riassunto}, nemmeno togliendo una scelta alla volta: prova a cambiare zona o giorno.`;
   return { testo, alternative: utili.map((p) => ({ ...p, testo: `${p.etichetta} ne trovo ${p.n}` })) };
 }
+
+// Il testo del pulsante in fondo alle scelte, col numero di percorsi che si trovano: «Mostra 23 percorsi»
+// (n = null: non si sa ancora)
+export function testoConteggio(n) {
+  if (n == null) return 'Suggerisci';
+  if (n === 0) return 'Nessun percorso: tocca per vedere perché';
+  return n === 1 ? 'Mostra 1 percorso' : `Mostra ${n} percorsi`;
+}

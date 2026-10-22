@@ -41,6 +41,7 @@ import {
   dataDelQuando,
   stimaAuto,
   testoAuto,
+  testoConteggio,
   valuta,
   ordinaProposte,
   ordinaProposteNotte,
@@ -96,6 +97,7 @@ import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodi
 import { linkModificaTraccia } from './modificaTraccia.js';
 import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi } from '../lib/risultatiSuggerisci.js';
 import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
+import { conRitardo } from '../lib/ritardo.js';
 
 const CHIAVE_DISTANZA_VERIFICATA = 'orme.suggerisci.distanzaVerificata';
 // il «?» accanto ai titoli: la nota su come togliere una scelta
@@ -324,7 +326,49 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       </div>
       ${modoPagina ? '' : piede}`;
   }
-  const testoBottone = () => (scelte.modo === 'anello' ? 'Crea l\'anello' : 'Suggerisci');
+  // «Tra i percorsi»: i risultati senza premere il pulsante. A pagina intera su computer la lista a destra si aggiorna da sola;
+  // altrove (tendina, telefono) il pulsante in fondo mostra quanti percorsi si trovano e un tocco porta ai risultati.
+  // In tutti e due i casi la ricerca parte 400 ms dopo l'ultima scelta (più scelte di fila: una sola ricerca).
+  const live = () => modoPagina && Boolean(globalThis.matchMedia?.('(min-width: 1024px)').matches);
+  let conteggio = null; // quanti percorsi con le scelte attuali (null: non si sa)
+  let contando = false;
+  let idConteggio = 0;
+  const testoBottone = () => (scelte.modo === 'anello' ? 'Crea l\'anello' : contando ? 'Conto i percorsi…' : testoConteggio(conteggio));
+  async function aggiornaConteggio() {
+    if (scelte.modo !== 'percorsi') return;
+    const mia = ++idConteggio;
+    contando = true;
+    aggiornaBottone();
+    try {
+      puntiUtili ??= await Promise.race([caricaPunti(), new Promise((r) => setTimeout(() => r(null), 8000))]);
+      if (specieDinamica()) {
+        await caricaZona();
+        if (zonaSpecie.stato !== 'ok') throw new Error('specie della zona non disponibili');
+      }
+      if (mia !== idConteggio) return;
+      conteggio = contaCon(dataDelQuando(scelte.quando, oggiItalia())).n;
+    } catch {
+      conteggio = null;
+    }
+    if (mia !== idConteggio) return;
+    contando = false;
+    aggiornaBottone();
+  }
+  const scelteCambiate = conRitardo(() => {
+    if (scelte.modo !== 'percorsi') return;
+    if (live()) suggerisci();
+    else aggiornaConteggio();
+  });
+  // una scelta è cambiata: il numero sul pulsante (o la lista) si aggiorna tra poco
+  const segnaCambio = () => {
+    if (scelte.modo !== 'percorsi') return;
+    if (!live()) {
+      conteggio = null;
+      contando = true;
+      aggiornaBottone();
+    }
+    scelteCambiate();
+  };
   // con le proposte: scelte in una riga sopra; "Cambia" le riapre
   function soloRisultati(si) {
     // a pagina intera su computer le scelte restano sempre in vista, a sinistra
@@ -639,6 +683,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // le scelte si chiudono: in cima riepilogo e «Cambia», sotto «Cerco…» e poi i risultati o il messaggio
   function mostraRisultatiInCima() {
+    if (live()) return; // la lista a destra si aggiorna dov'è: niente salti né scorrimenti
     soloRisultati(true);
     tendina.vai('aperta');
     const corpo = foglio.querySelector('.suggerisci-corpo');
@@ -647,12 +692,18 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // un errore non deve lasciare «Cerco…» per sempre: si dice e si può riprovare
   async function suggerisci() {
     const mia = richiesta + 1;
+    const box = foglio.querySelector('.suggerisci-risultati');
     try {
       await cercaPercorsi();
     } catch (e) {
       console.error('Suggerisci', e);
       if (mia !== richiesta) return;
       foglio.querySelector('.suggerisci-risultati').innerHTML = `<p class="vuoto">Non sono riuscito a cercare i percorsi (${escapeHtml(e?.message ?? 'errore')}).</p><div class="azioni-vuoto"><button type="button" class="bottone" data-azione="riprova">Riprova</button></div>`;
+    } finally {
+      if (mia === richiesta) {
+        box.classList.remove('aggiorna');
+        box.style.minHeight = '';
+      }
     }
   }
   async function cercaPercorsi() {
@@ -660,7 +711,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const risultati = foglio.querySelector('.suggerisci-risultati');
     mostraRisultatiInCima();
     notaDistanza = '';
-    risultati.innerHTML = '<p class="tenue">Cerco tra i percorsi…</p>';
+    if (live()) {
+      // la lista resta dov'è (un po' schiarita) finché non arriva quella nuova: la pagina non salta
+      risultati.style.minHeight = `${risultati.offsetHeight}px`;
+      risultati.classList.add('aggiorna');
+    } else risultati.innerHTML = '<p class="tenue">Cerco tra i percorsi…</p>';
     // i punti (rifugi, acqua) non devono bloccare la ricerca: dopo 8 secondi si va avanti senza
     puntiUtili ??= await Promise.race([caricaPunti(), new Promise((r) => setTimeout(() => r(null), 8000))]);
     if (mia !== richiesta) return;
@@ -1309,6 +1364,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       // il ritmo vale per tutta l'app: i tempi si ricalcolano (con le proposte aperte, si rifà la ricerca)
       impostaRitmoLib(rit.dataset.ritmo);
       aggiornaScelte();
+      segnaCambio();
       if (foglio.querySelector('.suggerisci-form')?.hidden) suggerisci(); // con le proposte aperte, ricalcolate col nuovo ritmo
       return;
     }
@@ -1331,6 +1387,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       raggioMesi = 1;
       scalaArea = 1;
       ricorda(scelte);
+      segnaCambio();
       if (scelta === 'modo' && valore === 'anello') decidiPartenza();
       foglio.querySelector('.suggerisci-scelte').innerHTML = htmlScelte();
       aggiornaBottone();
@@ -1402,8 +1459,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       meteoInSottofondo(classifica.slice(inizio, inizio + METEO_PER_VOLTA), dataDelQuando(scelte.quando, oggiItalia()), inizio);
     }
     else if (azione === 'cambia') {
+      // si torna alle scelte com'erano (il modulo non si ridisegna); il pulsante rifà il conto
       soloRisultati(false);
       tendina.vai('aperta');
+      if (!live() && conteggio == null) aggiornaConteggio();
     }
     const n = e.target.closest('[data-proposta]')?.dataset.proposta;
     if (n != null && paginaOra[n]) inquadra(L.geoJSON(paginaOra[n].traccia.geojson).getBounds(), 15);
@@ -1411,7 +1470,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (a != null && anelliOra[a]) inquadra(L.geoJSON(anelliOra[a].geojson).getBounds(), 16);
   });
   // quota e dislivello: la scelta si ricorda (insieme alle altre di Suggerisci, non con gli elenchi)
-  collegaQuotaDislivello(foglio, () => scelte, () => ricorda(scelte));
+  collegaQuotaDislivello(foglio, () => scelte, () => {
+    ricorda(scelte);
+    segnaCambio();
+  });
   // «?» accanto ai titoli: apre o chiude la nota sotto il titolo; «Altre scelte» ricorda se è aperta
   foglio.addEventListener('click', (e) => {
     const q = e.target.closest('[data-aiuto]');
@@ -1424,10 +1486,14 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   });
   foglio.addEventListener('toggle', (e) => e.target.matches?.('.altre-scelte') && (altreAperte = e.target.open), true);
   foglio.addEventListener('change', (e) => {
-    if (e.target.matches('[data-ora-partenza]')) return e.target.value && ricordaOraPartenza(e.target.value);
+    if (e.target.matches('[data-ora-partenza]')) {
+      if (e.target.value) (ricordaOraPartenza(e.target.value), segnaCambio());
+      return;
+    }
     if (!e.target.matches('.scelta-parco')) return;
     scelte.parco = e.target.value;
     ricorda(scelte);
+    segnaCambio();
   });
 
   function apri() {
@@ -1439,7 +1505,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     tendina.apri('aperta');
     livelloPartenza.addTo(mappa);
     if (scelte.modo === 'anello') decidiPartenza();
-    else aggiornaBottone();
+    else {
+      aggiornaBottone();
+      if (!modoPagina) aggiornaConteggio(); // il pulsante dice subito quanti percorsi si trovano
+    }
   }
   // "Crea un anello da qui" (da «Nessun percorso passa da qui»): la tendina si apre sugli anelli, con quel punto
   function apriAnelloDa(punto) {
