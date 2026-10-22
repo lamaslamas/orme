@@ -12,6 +12,7 @@ import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tra
 import { versoDi } from '../lib/verso.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
 import { zonaDaScelte } from '../lib/zonaSpecie.js';
+import { leggiLuoghiZona, salvaLuogoZona, chiaveZona } from '../lib/luoghiZona.js';
 import { urlLuogoVicino, luogoVicinoDallaRisposta } from '../lib/cercaLuogo.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { linkCodice } from './codice.js';
@@ -201,23 +202,25 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // «Quanto lontano»: il parco scelto o l'area raggiungibile da me nel tempo scelto
   const zonaDaScelta = () => zonaDaScelte(scelte, { parcoScelto: parcoDa(scelte.parco), centro: posizione() ?? centroMappa(), daMe: Boolean(posizione()), luogo: luogoZona() });
   // il paese più vicino al centro dell'ultima zona guardata (solo se non c'è la posizione): una richiesta per zona
-  const luoghiVicini = new Map();
-  const chiaveLuogo = () => centroMappa().map((x) => x.toFixed(2)).join(',');
+  const luoghiVicini = new Map(Object.entries(leggiLuoghiZona()));
+  const senzaNome = new Set(); // zone già provate senza esito in questa sessione: niente nuove richieste
+  const chiaveLuogo = () => chiaveZona(centroMappa());
   const luogoZona = () => (posizione() ? null : luoghiVicini.get(chiaveLuogo()) ?? null);
   async function cercaLuogoZona() {
     const chiave = chiaveLuogo();
-    if (posizione() || luoghiVicini.has(chiave)) return;
-    luoghiVicini.set(chiave, null);
+    if (posizione() || luoghiVicini.has(chiave) || senzaNome.has(chiave)) return;
+    senzaNome.add(chiave);
     try {
       const [lon, lat] = centroMappa();
       const r = await fetch(urlLuogoVicino(lon, lat));
       const nome = r.ok ? luogoVicinoDallaRisposta(await r.json()) : null;
       if (nome) {
         luoghiVicini.set(chiave, nome);
+        salvaLuogoZona(chiave, nome);
         if (chiave === chiaveLuogo()) aggiornaScelte();
-      } else luoghiVicini.delete(chiave);
+      }
     } catch {
-      luoghiVicini.delete(chiave);
+      // nessun nome: la zona resta «quella che guardavi»
     }
   }
   const chiaveVista = () => `${centroMappa().map((x) => x.toFixed(2))}|${mappa.getZoom()}`;
