@@ -54,3 +54,15 @@ export function risultatiOrdinati(testo, parchi, luoghi) {
   const altri = l.filter((x) => normalizza(x.nome) !== t);
   return [...esatti, ...p, ...altri];
 }
+
+// Il paese più vicino a un punto (Nominatim, ricerca inversa a livello di paese): una richiesta per zona, mai di continuo
+export function urlLuogoVicino(lon, lat) {
+  const u = new URL('https://nominatim.openstreetmap.org/reverse');
+  for (const [k, v] of Object.entries({ lat: lat.toFixed(4), lon: lon.toFixed(4), format: 'jsonv2', zoom: '10', 'accept-language': 'it' })) u.searchParams.set(k, v);
+  return u.href;
+}
+// Risposta → nome del paese (o null)
+export function luogoVicinoDallaRisposta(json) {
+  const a = json?.address ?? {};
+  return a.city || a.town || a.village || a.municipality || a.hamlet || json?.name || null;
+}

@@ -12,6 +12,7 @@ import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tra
 import { versoDi } from '../lib/verso.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
 import { zonaDaScelte } from '../lib/zonaSpecie.js';
+import { urlLuogoVicino, luogoVicinoDallaRisposta } from '../lib/cercaLuogo.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
@@ -198,7 +199,27 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   // La zona di «Più segnalate qui»: nella tendina sulla mappa è quella inquadrata; a pagina intera (niente mappa) è quella di
   // «Quanto lontano»: il parco scelto o l'area raggiungibile da me nel tempo scelto
-  const zonaDaScelta = () => zonaDaScelte(scelte, { parcoScelto: parcoDa(scelte.parco), centro: posizione() ?? centroMappa(), daMe: Boolean(posizione()) });
+  const zonaDaScelta = () => zonaDaScelte(scelte, { parcoScelto: parcoDa(scelte.parco), centro: posizione() ?? centroMappa(), daMe: Boolean(posizione()), luogo: luogoZona() });
+  // il paese più vicino al centro dell'ultima zona guardata (solo se non c'è la posizione): una richiesta per zona
+  const luoghiVicini = new Map();
+  const chiaveLuogo = () => centroMappa().map((x) => x.toFixed(2)).join(',');
+  const luogoZona = () => (posizione() ? null : luoghiVicini.get(chiaveLuogo()) ?? null);
+  async function cercaLuogoZona() {
+    const chiave = chiaveLuogo();
+    if (posizione() || luoghiVicini.has(chiave)) return;
+    luoghiVicini.set(chiave, null);
+    try {
+      const [lon, lat] = centroMappa();
+      const r = await fetch(urlLuogoVicino(lon, lat));
+      const nome = r.ok ? luogoVicinoDallaRisposta(await r.json()) : null;
+      if (nome) {
+        luoghiVicini.set(chiave, nome);
+        if (chiave === chiaveLuogo()) aggiornaScelte();
+      } else luoghiVicini.delete(chiave);
+    } catch {
+      luoghiVicini.delete(chiave);
+    }
+  }
   const chiaveVista = () => `${centroMappa().map((x) => x.toFixed(2))}|${mappa.getZoom()}`;
   const etichettaZona = () => (modoPagina ? zonaDaScelta()?.etichetta : null) ?? 'nella zona inquadrata';
   const testoPeriodo = () => (scelte.periodo === 'anno' ? "tutto l'anno" : scelte.periodo === 'mese' ? nomeMese() : `${nomeMese()} e mesi vicini`);
@@ -234,16 +255,21 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const vista = modoPagina ? null : chiaveVista();
     zonaSpecie = { chiave, stato: 'carico', osservazioni: [], etichetta, vista };
     aggiornaScelte();
+    if (modoPagina) cercaLuogoZona();
+    // se GBIF non risponde entro 10 secondi si smette di aspettare
+    const fermo = new AbortController();
+    const scadenza = setTimeout(() => fermo.abort(), 10000);
     try {
       const osservazioni = [];
       for (let pagina = 0; pagina < (scalaArea > 1 ? 8 : 5); pagina++) {
-        const r = await fetch(urlOsservazioniGbif(riquadro, { specie: 'notevoli', gruppi: ['rapaci', 'acqua', 'mammiferi'] }, { limite: 300, scarto: pagina * 300 }));
+        const r = await fetch(urlOsservazioniGbif(riquadro, { specie: 'notevoli', gruppi: ['rapaci', 'acqua', 'mammiferi'] }, { limite: 300, scarto: pagina * 300 }), { signal: fermo.signal });
         if (!r.ok) throw new Error(`GBIF ${r.status}`);
         const json = await r.json();
         // solo i campi che servono ai conti: l'osservatore è un codice anonimo
         for (const x of interpretaGbif(json)) osservazioni.push({ nomeScientifico: x.nomeScientifico, specie: x.specie, animale: x.animale, classe: x.classe, ordine: x.ordine, data: x.data, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore });
         if (json.endOfRecords || !json.results?.length) break;
       }
+      clearTimeout(scadenza);
       if (zonaSpecie.chiave !== chiave) return;
       zonaSpecie = { chiave, stato: 'ok', osservazioni, etichetta, vista };
       aggiornaScelte();
@@ -264,6 +290,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         if (zonaSpecie.chiave === chiave) aggiornaScelte();
       }
     } catch {
+      clearTimeout(scadenza);
       if (zonaSpecie.chiave === chiave) {
         zonaSpecie = { chiave, stato: 'errore', osservazioni: [], etichetta, vista };
         aggiornaScelte();
@@ -277,11 +304,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const { stato } = zonaSpecie;
     const zona = modoPagina ? etichettaZona() : 'nella zona inquadrata';
     if (stato === 'lontano') return modoPagina ? '' : '<p class="tenue piccolo">Avvicina la mappa (zoom 9 o più) per vedere le specie più segnalate nella zona.</p>';
-    if (stato === 'carico') return `<p class="tenue piccolo">Cerco le specie più segnalate ${escapeHtml(zona)}…</p>`;
-    if (stato === 'errore') return '<p class="tenue piccolo">Non riesco a leggere le specie della zona (sei offline?). <button type="button" class="bottone testo" data-azione="zona-riprova">Riprova</button></p>';
+    if (stato === 'carico') return '<p class="tenue piccolo">Carico le specie più segnalate…</p>';
+    if (stato === 'errore') return '<p class="tenue piccolo">Non riesco a caricarle ora · <button type="button" class="bottone testo" data-azione="zona-riprova">Riprova</button></p>';
     if (stato !== 'ok') return '';
     const lista = specieDellaZonaPerOsservatori(zonaSpecie.osservazioni, mesePeriodo(meseDelQuando()), { raggioMesi: raggioMesi(), gruppo: gruppoScelto() });
-    const titolo = `Più segnalate ${escapeHtml(zonaSpecie.etichetta ?? zona)}`;
+    const titolo = `Più segnalate ${escapeHtml(modoPagina ? zona : zonaSpecie.etichetta ?? zona)}`;
     // «Aggiorna per la zona inquadrata» solo nella tendina sulla mappa e solo se la mappa si è spostata dall'ultimo aggiornamento
     const aggiorna = modoPagina ? '' : ` <button type="button" class="bottone testo zona-aggiorna" data-azione="zona-riprova" ${zonaSpecie.vista === chiaveVista() ? 'hidden' : ''}>Aggiorna per la zona inquadrata</button>`;
     if (!lista.length) return `<h3>${titolo}</h3><p class="tenue piccolo">Poche segnalazioni ${modoPagina ? 'qui' : 'nella zona inquadrata'} (${escapeHtml(testoPeriodo())}).${modoPagina ? '' : ' Prova con «Tutto l\'anno» o avvicina la mappa.'}${aggiorna}</p>`;

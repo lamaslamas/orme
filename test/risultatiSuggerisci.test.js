@@ -146,6 +146,8 @@ describe('zona di «Più segnalate qui» senza mappa', () => {
   });
   it('senza la mia posizione si dice da dove si guarda; senza centro né parco niente zona', () => {
     expect(zonaDaScelte({ distanza: '120' }, { centro: [13.9, 41.9], daMe: false }).etichetta).toBe('entro 2 h dalla zona che guardavi');
+    expect(zonaDaScelte({ distanza: '30' }, { centro: [13.9, 41.9], daMe: false, luogo: 'Sulmona' }).etichetta).toBe("entro 30 min da Sulmona (l'ultima zona guardata sulla mappa)");
+    expect(zonaDaScelte({ distanza: '30' }, { centro: [13.9, 41.9], daMe: true, luogo: 'Sulmona' }).etichetta).toBe('entro 30 min da te');
     expect(zonaDaScelte({ distanza: '60' }, {})).toBeNull();
     expect(zonaDaScelte({ distanza: 'parco', parco: '' }, { centro: [13.9, 41.9] }).tipo).toBe('tempo');
   });

@@ -11,13 +11,13 @@ export const raggioDaMinuti = (minuti) => Math.max(5, Math.min(RAGGIO_MAX_ZONA_K
 
 // scelte: { distanza, parco }; parco: il parco della scelta (con nome e riquadro) o null; centro: [lon, lat] mio o della mappa
 // → { tipo: 'parco' | 'tempo', riquadro | raggioKm + centro, etichetta, chiave } oppure null se manca il centro
-export function zonaDaScelte({ distanza, parco = null }, { parcoScelto = null, centro = null, daMe = true } = {}) {
+export function zonaDaScelte({ distanza, parco = null }, { parcoScelto = null, centro = null, daMe = true, luogo = null } = {}) {
   if (distanza === 'parco' && parcoScelto?.bbox) {
     return { tipo: 'parco', riquadro: parcoScelto.bbox, etichetta: `nel ${PREPOSIZIONE_PARCO(parcoScelto.nome)}`, chiave: `parco:${parcoScelto.id ?? parco}` };
   }
   if (!centro) return null;
   const minuti = Number(distanza);
-  const chi = daMe ? 'da te' : 'dalla zona che guardavi';
+  const chi = daMe ? 'da te' : luogo ? `da ${luogo} (l'ultima zona guardata sulla mappa)` : 'dalla zona che guardavi';
   const raggioKm = minuti > 0 ? raggioDaMinuti(minuti) : RAGGIO_MAX_ZONA_KM;
   const durata = minuti > 0 ? `entro ${DISTANZE[distanza] ?? `${minuti} min`}` : `entro ${RAGGIO_MAX_ZONA_KM} km`;
   return { tipo: 'tempo', centro, raggioKm, etichetta: `${durata} ${chi}`, chiave: `tempo:${centro.map((x) => x.toFixed(2))}|${raggioKm}` };
