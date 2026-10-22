@@ -2289,3 +2289,35 @@ a.modifica-carta {
 .condividi-anteprima img { width: 100%; max-height: 52dvh; object-fit: contain; border-radius: 12px; }
 .condividi-link { width: 100%; font: inherit; font-size: 0.8rem; word-break: break-all; }
 .avviso-condividi { position: fixed; z-index: 3000; left: 50%; transform: translateX(-50%); bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 18px); max-width: min(90vw, 420px); padding: 10px 16px; border-radius: 14px; background: var(--testo); color: var(--sfondo); font-weight: 600; font-size: 0.92rem; box-shadow: var(--ombra-alta); text-align: center; }
+
+/* «Dove vado domani?»: Suggerisci a pagina intera. Su telefono scelte e poi risultati; su computer le scelte in una colonna
+   fissa a sinistra e le card in due colonne */
+.pagina-domani { max-width: 1280px; margin: 0 auto; }
+.suggerisci-pagina .foglio-suggerisci.in-pagina { position: static; inset: auto; width: auto; z-index: auto; display: block; max-height: none; background: none; border: none; box-shadow: none; border-radius: 0; }
+.foglio-suggerisci.in-pagina .suggerisci-corpo { overflow: visible; padding: 0; }
+.foglio-suggerisci.in-pagina .suggerisci-piede { position: sticky; bottom: 0; padding: 8px 0 10px; background: var(--sfondo, #f4f6f4); border-top: 1px solid var(--bordo); }
+.foglio-suggerisci.in-pagina .proposte { grid-template-columns: minmax(0, 1fr); }
+.foglio-suggerisci.in-pagina .proposta { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1024px) {
+  .foglio-suggerisci.in-pagina .suggerisci-corpo { display: grid; grid-template-columns: 380px minmax(0, 1fr); column-gap: 28px; align-items: start; }
+  .foglio-suggerisci.in-pagina .suggerisci-riepilogo { display: none; }
+  .foglio-suggerisci.in-pagina .suggerisci-form {
+    grid-column: 1; position: sticky; top: calc(var(--altezza-cima) + 16px); max-height: calc(100dvh - var(--altezza-cima) - 32px);
+    overflow-y: auto; padding: 4px 6px 0 0; scrollbar-width: thin; display: block !important;
+  }
+  .foglio-suggerisci.in-pagina .suggerisci-risultati { grid-column: 2; min-width: 0; }
+  .foglio-suggerisci.in-pagina .proposte { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+.riassunto-zona { margin: 6px 0 10px; padding: 8px 12px; border-radius: 12px; background: var(--scheda); font-size: 0.9rem; }
+.riassunto-zona p { margin: 2px 0; }
+/* card dei risultati: icona del meteo accanto al titolo, motivi solo se cambiano, matita dentro il bordo */
+.proposta { position: relative; }
+.proposta-testa { display: flex; gap: 8px; align-items: flex-start; padding-right: 40px; }
+.proposta-testa .nome { min-width: 0; overflow-wrap: anywhere; }
+.meteo-icona { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; }
+.meteo-icona svg { width: 20px; height: 20px; }
+.meteo-icona.meteo-ok { color: #2f7d3e; }
+.meteo-icona.meteo-attenzione { color: #c98a1b; }
+.meteo-icona.meteo-sconsigliato { color: #c44a3a; }
+.chip-contrario { display: inline-block; align-self: flex-start; padding: 1px 9px; border-radius: 12px; border: 1px solid var(--bordo); font-size: 0.78rem; font-weight: 600; color: var(--testo-tenue); }
+.proposta a.modifica-carta { top: 8px; right: 8px; }

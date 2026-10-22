@@ -290,19 +290,6 @@ export function giudicaGiornata({ basso, alto = null, durataMin, percorso = {}, 
   };
 }
 
-// Riassunto di un parco: il giudizio più frequente tra i suoi percorsi e il motivo più comune
-export function riassuntoParco(giudizi) {
-  const validi = giudizi.filter(Boolean);
-  if (!validi.length) return null;
-  const conta = { ok: 0, attenzione: 0, sconsigliato: 0 };
-  for (const g of validi) conta[g.giudizio]++;
-  const motivi = new Map();
-  for (const g of validi) for (const f of g.fattori.filter((x) => LIVELLI[x.livello] > 0)) motivi.set(f.chiave, (motivi.get(f.chiave) ?? 0) + 1);
-  const motivo = [...motivi.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-  const giudizio = conta.ok >= validi.length / 2 ? 'ok' : conta.sconsigliato > validi.length / 2 ? 'sconsigliato' : 'attenzione';
-  return { giudizio, conta, motivo, motivi: Object.fromEntries(motivi), totale: validi.length };
-}
-
 export const NOMI_FATTORI = {
   temporali: 'temporali',
   pioggia: 'pioggia',
@@ -315,18 +302,6 @@ export const NOMI_FATTORI = {
   luce: 'poca luce',
   panorama: 'panorama',
 };
-
-// Intervalli di durata della scelta rapida (minuti di cammino, soste comprese)
-export const DURATE = {
-  breve: { nome: 'Fino a 3 h', max: 180 },
-  media: { nome: '3–5 h', min: 150, max: 300 },
-  lunga: { nome: 'Giornata', min: 240, max: 540 },
-};
-export function nellaDurata(durataPrevista, chiave) {
-  const d = DURATE[chiave];
-  if (!d || !Number.isFinite(durataPrevista)) return true;
-  return (d.min == null || durataPrevista >= d.min) && durataPrevista <= d.max;
-}
 
 // ---------- dai percorsi dell'app ai punti meteo ----------
 
@@ -354,14 +329,4 @@ export function datiPerMeteo({ sentiero: s, traccia, misure }, attivita, quote =
       quotaFangosa: quotaFangosa(traccia?.dettagli?.terreno),
     },
   };
-}
-
-// Ordine della classifica: prima i favorevoli, poi il punteggio meteo, poi il panorama
-export function ordinaClassifica(voci) {
-  return [...voci].sort(
-    (a, b) =>
-      LIVELLI[a.giudizio.giudizio] - LIVELLI[b.giudizio.giudizio] ||
-      (b.giudizio.punteggio ?? 0) - (a.giudizio.punteggio ?? 0) ||
-      (b.panorama ?? 0) - (a.panorama ?? 0),
-  );
 }

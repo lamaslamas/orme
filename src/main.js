@@ -18,7 +18,7 @@ import { vistaCodice } from './viste/codice.js';
 import { vistaMiei } from './viste/miei.js';
 import { vistaAssociazioni } from './viste/associazioni.js';
 import { vistaUscitaAMano } from './viste/uscitaAMano.js';
-import { vistaDoveVado } from './viste/doveVado.js';
+import { vistaDomani } from './viste/domani.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna, vistaDisegnaSentiero, vistaDisegnaVia } from './viste/disegna.js';
 import { vistaMappaPercorso } from './viste/mappaPercorso.js';
@@ -72,7 +72,7 @@ const percorsi = [
   [/^\/backup\/?$/, vistaBackup],
   [/^\/altro\/?$/, vistaAltro],
   [/^\/codice\/?$/, vistaCodice],
-  [/^\/domani(?:\?zona=([^&]+))?$/, vistaDoveVado],
+  [/^\/domani(?:\?zona=([^&]+))?$/, vistaDomani],
   [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
   [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],

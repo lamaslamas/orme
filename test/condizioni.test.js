@@ -8,13 +8,10 @@ import {
   durataConSoste,
   durataInBici,
   quotaFangosa,
-  riassuntoParco,
-  nellaDurata,
   mesiDaTesto,
   MAX_LUOGHI_RICHIESTA,
   datiPerMeteo,
   giornoAllaQuota,
-  ordinaClassifica,
 } from '../src/lib/condizioni.js';
 import { profiloQuote } from '../src/lib/profiloQuote.js';
 
@@ -215,23 +212,6 @@ describe('altri calcoli', () => {
     expect(quotaFangosa(null)).toBeNull();
   });
 
-  it('riassunto di un parco', () => {
-    const r = riassuntoParco([
-      { giudizio: 'ok', fattori: [] },
-      { giudizio: 'attenzione', fattori: [{ chiave: 'vento', livello: 'attenzione' }] },
-      { giudizio: 'ok', fattori: [{ chiave: 'panorama', livello: 'info' }] },
-      null,
-    ]);
-    expect(r).toMatchObject({ giudizio: 'ok', motivo: 'vento', totale: 3 });
-  });
-
-  it('durate della scelta rapida', () => {
-    expect(nellaDurata(170, 'breve')).toBe(true);
-    expect(nellaDurata(200, 'breve')).toBe(false);
-    expect(nellaDurata(400, 'lunga')).toBe(true);
-    expect(nellaDurata(null, 'breve')).toBe(true);
-  });
-
   it('mesi dal testo', () => {
     expect([...mesiDaTesto('giu, ago–set')]).toEqual([6, 8, 9]);
     expect([...mesiDaTesto('nov–gen')]).toEqual([11, 12, 1]);
@@ -275,11 +255,5 @@ describe('dai percorsi ai punti meteo', () => {
     expect(d.alto).toBeNull();
     expect(d.durataMin).toBe(150);
     expect(datiPerMeteo({ sentiero: { id: 'c', partenza: {} }, traccia: null, misure: {} }, 'trekking')).toBeNull();
-  });
-
-  it('ordina: favorevoli, punteggio, panorama', () => {
-    const v = (id, giudizio, punteggio, panorama) => ({ id, giudizio: { giudizio, punteggio }, panorama });
-    const r = ordinaClassifica([v('a', 'attenzione', 85, 90), v('b', 'ok', 100, 10), v('c', 'ok', 100, 60), v('d', 'sconsigliato', 0, 99)]);
-    expect(r.map((x) => x.id)).toEqual(['c', 'b', 'a', 'd']);
   });
 });

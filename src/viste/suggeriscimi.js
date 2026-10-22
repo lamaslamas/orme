@@ -16,7 +16,7 @@ import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
 import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
-import { TIPI_PUNTO, puntiLungoIlPercorso, conAcqua, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
+import { TIPI_PUNTO, puntiLungoIlPercorso, conAcqua, perLaNotte, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
 import { profiloTempi, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, RAGGIO_PERNOTTO_M, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
@@ -96,6 +96,7 @@ import { quoteDeiPezzi } from './quote.js';
 import { puntiDelRobot } from './puntiRobot.js';
 import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodiVicini, puntiLungo } from '../lib/reteSentieri.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
+import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi } from '../lib/risultatiSuggerisci.js';
 
 const CHIAVE = 'orme.suggerisci';
 const CHIAVE_DISTANZA_VERIFICATA = 'orme.suggerisci.distanzaVerificata';
@@ -157,14 +158,19 @@ function htmlGruppo(nome, voci, scelto, multipla = false) {
 
 // mappa: la mappa della home; sentieri e tracce: tutti quelli sul telefono;
 // posizione(): [lon, lat] mia (o null); allApertura(): chi apre questa tendina chiude le altre
-export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizione = () => null, allApertura = () => {} }) {
+// modoPagina: la vista a pagina intera dei risultati («Dove vado domani?»): niente tendina né segnali sulla mappa (che qui è
+// nascosta e serve solo per il centro), le scelte in una colonna e le card tutte insieme
+export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizione = () => null, allApertura = () => {}, modoPagina = false }) {
   let scelte = scelteRicordate();
   const foglio = document.createElement('section');
-  foglio.className = 'foglio-suggerisci';
+  foglio.className = `foglio-suggerisci${modoPagina ? ' in-pagina' : ''}`;
   foglio.hidden = true;
   foglio.setAttribute('aria-label', 'Suggeriscimi');
   contenitore.appendChild(foglio);
-  const tendina = tendinaTrascinabile(foglio, { corpo: '.suggerisci-corpo', naturale: true, allaChiusura: () => chiudi() });
+  const tendina = modoPagina
+    ? { apri() {}, vai() {}, chiudi() {}, posizione: () => 'aperta', visibile: () => 0 }
+    : tendinaTrascinabile(foglio, { corpo: '.suggerisci-corpo', naturale: true, allaChiusura: () => chiudi() });
+  const perPagina = modoPagina ? 12 : PER_VOLTA;
   // le proposte sopra le altre tracce, ben visibili
   if (!mappa.getPane('proposte')) {
     mappa.createPane('proposte');
@@ -285,7 +291,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         ${htmlPartenza()}
         <p class="tenue piccolo">Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
     }
-    return `${modo}
+    return `${modoPagina ? '' : modo}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
       <h3>Quanto tempo${AIUTO}</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
@@ -322,20 +328,25 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     return [QUANDO[scelte.quando], scelte.tempo ? TEMPI[scelte.tempo].toLowerCase() : 'qualsiasi durata', fatica, ...qd, lontano, ...cerco].join(' · ');
   }
   function disegnaForm() {
+    const piede = `<div class="suggerisci-piede"><button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">${testoBottone()}</button></div>`;
+    // a pagina intera il pulsante sta in fondo alla colonna delle scelte; nella tendina, fisso in fondo alla tendina
     foglio.innerHTML = `
-      <button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire, abbassare o chiudere"><span class="foglio-maniglia"></span></button>
+      ${modoPagina ? '' : '<button type="button" class="foglio-maniglia-zona" aria-label="Trascina per aprire, abbassare o chiudere"><span class="foglio-maniglia"></span></button>'}
       <div class="suggerisci-corpo">
         <div class="suggerisci-riepilogo" hidden><span>${escapeHtml(testoScelte())}</span><button type="button" class="bottone testo" data-azione="cambia">Cambia</button></div>
         <div class="suggerisci-form">
           <div class="suggerisci-scelte">${htmlScelte()}</div>
+          ${modoPagina ? piede : ''}
         </div>
         <div class="suggerisci-risultati" aria-live="polite"></div>
       </div>
-      <div class="suggerisci-piede"><button type="button" class="bottone primario pieno-largo" data-azione="suggerisci">${testoBottone()}</button></div>`;
+      ${modoPagina ? '' : piede}`;
   }
   const testoBottone = () => (scelte.modo === 'anello' ? 'Crea l\'anello' : 'Suggerisci');
   // con le proposte: scelte in una riga sopra; "Cambia" le riapre
   function soloRisultati(si) {
+    // a pagina intera su computer le scelte restano sempre in vista, a sinistra
+    if (modoPagina && globalThis.matchMedia?.('(min-width: 1024px)').matches) si = false;
     foglio.querySelector('.suggerisci-form').hidden = si;
     foglio.querySelector('.suggerisci-piede').hidden = si; // il pulsante sta in fondo alle scelte, non ai risultati
     const r = foglio.querySelector('.suggerisci-riepilogo');
@@ -399,6 +410,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           bosco: s.panorama?.boscoPercento ?? null,
           apertura: s.panorama?.criteri?.apertura ?? null,
           quotaMax: quote?.max ?? null,
+          specieLungo: specieDelPercorso(s, trattoDelPercorso(s, p.traccia)),
           acqua: vicini.filter(conAcqua).length,
           vicini,
           uscite: usciteDi.get(s.id) ?? [],
@@ -695,7 +707,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         }
       }
     }
-    const lista = [];
+    let lista = [];
     let senzaSpecie = 0; // quanti percorsi andrebbero bene se non si guardasse la specie
     for (const c of candidati(data)) {
       if (scelte.tempo === 'due') c.rifugioNotte = rifugioPerLaNotte(c, data);
@@ -705,6 +717,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
     // con la notte: prima il secondo giorno all'alba nel tratto con più fauna, poi le giornate equilibrate, poi gli altri
     lista.sort((a, b) => (scelte.tempo === 'due' ? confrontaNotte(a.notte, b.notte) : 0) || b.valutazione.punteggio - a.valutazione.punteggio);
+    // un sentiero e il suo inverso (536 e 536A) una volta sola, nel verso che viene prima in classifica
+    lista = unisciInversi(lista, (v) => ({ codici: v.sentiero.codici ?? [], km: v.misure?.km, inizio: v.pezzi?.[0]?.[0], fine: v.pezzi?.at(-1)?.at(-1) }));
     if (!lista.length) {
       classifica = [];
       disegnate.clearLayers();
@@ -745,26 +759,50 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const g1 = n.giorno1;
     return `Giorno 1: ${ora(g1.daMin)}–${ora(g1.aMin)} (${durata(g1.durataMin)} · km ${km1(g1.km)}${sal(g1)}${dev(g1, n.posto, 'arrivare')}) · notte: ${etichettaPernotto(n.posto)} · Giorno 2: ${ora(g2.daMin)}${alba}–${ora(g2.aMin)} (${durata(g2.durataMin)} · km ${km1(g2.km)}${sal(g2)}${dev(g2, n.posto, 'tornare')})`;
   };
-  function htmlProposta(v, i, data) {
+  // Cosa vale per tutti i risultati si dice una volta in cima; nelle card restano le differenze
+  let contestoCard = { specieComuni: [], motiviComuni: [], motiviDi: new Map() };
+  function calcolaContesto() {
+    const conMeteo = classifica.filter((v) => v.giudizio);
+    const { comuni, perVoce } = motiviDistintivi(conMeteo.map((v) => v.giudizio));
+    contestoCard = {
+      specieComuni: comuniATutti(classifica.map((v) => v.specieLungo ?? [])),
+      motiviComuni: comuni,
+      motiviDi: new Map(conMeteo.map((v, k) => [v, perVoce[k]])),
+    };
+  }
+  const nomiSpecie = (xs) => xs.map((a) => (ANIMALI[a] ?? String(a).replace(/_/g, ' ')).toLowerCase()).join(', ');
+  function htmlRiassuntoZona() {
+    const righe = [
+      contestoCard.specieComuni.length ? `In tutta la zona: ${nomiSpecie(contestoCard.specieComuni)}` : '',
+      contestoCard.motiviComuni.length ? `Meteo uguale per tutti: ${contestoCard.motiviComuni.map((m) => m.testo).join(' · ')}` : '',
+    ].filter(Boolean);
+    return righe.length ? `<div class="riassunto-zona">${righe.map((r) => `<p>${escapeHtml(r)}</p>`).join('')}</div>` : '';
+  }
+  const ICONA_METEO = { ok: () => ICONE.ok, attenzione: () => ICONE.avviso, sconsigliato: () => ICONE.avviso };
+
+  function htmlProposta(v, i) {
     const s = v.sentiero;
     const g = v.giudizio;
-    const giorno = scelte.quando === 'oggi' ? 'oggi' : scelte.quando === 'domani' ? 'domani' : QUANDO[scelte.quando].toLowerCase();
-    const meteo = g
-      ? `<span class="meteo-proposta meteo-${g.giudizio}">${escapeHtml(`${giorno}: ${g.fattori?.[0]?.testo ?? NOMI_GIORNO[g.giudizio].toLowerCase()}`)}${g.partenza?.entro ? escapeHtml(` · parti entro le ${g.partenza.entro}`) : ''}</span>`
-      : '';
+    // «Condizioni favorevoli» solo come icona; in chiaro solo i motivi che cambiano da un percorso all'altro
+    const icona = g ? `<span class="meteo-icona meteo-${g.giudizio}" role="img" aria-label="${NOMI_GIORNO[g.giudizio]}" title="${NOMI_GIORNO[g.giudizio]}">${ICONA_METEO[g.giudizio]()}</span>` : '';
+    const motivi = contestoCard.motiviDi.get(v) ?? [];
+    const entro = g?.partenza?.entro ? `parti entro le ${g.partenza.entro}` : '';
+    const meteo = motivi.length || entro ? `<span class="meteo-proposta meteo-${g.giudizio}">${escapeHtml([...motivi.map((m) => m.testo), entro].filter(Boolean).join(' · '))}</span>` : '';
+    // il posto per dormire, se c'è (con «2 giorni con notte» lo dice già la riga sopra)
+    const posti = v.notte ? [] : (v.vicini ?? []).filter(perLaNotte).slice(0, 2).map((p) => p.nome ?? TIPI_PUNTO[p.tipo].nome);
+    const t = titoloConBadge(s);
+    const rigaSotto = [parcoDa(s.parco)?.nomeBreve, `${testoAuto(v.auto)}${v.auto ? (posizione() ? '' : modoPagina ? ' dalla zona che guardavi' : ' dal centro della mappa') : ''}`, posti.length ? `per dormire: ${posti.join(', ')}` : ''].filter(Boolean).join(' · ');
     return `<li class="proposta ${s.id === idEvidenziato ? 'aperta-prima' : ''}" data-id="${escapeHtml(s.id)}">
-      <button type="button" class="proposta-mappa" data-proposta="${i}" aria-label="Mostra sulla mappa"><span class="numero-proposta" style="background:${COLORI_PROPOSTE[i % 3]}">${i + 1}</span></button>
+      ${modoPagina ? '' : `<button type="button" class="proposta-mappa" data-proposta="${i}" aria-label="Mostra sulla mappa"><span class="numero-proposta" style="background:${COLORI_PROPOSTE[i % 3]}">${i + 1}</span></button>`}
       <div class="proposta-corpo">
-        <a class="nome" href="#/sentiero/${encodeURIComponent(s.id)}" data-apri-sentiero="${escapeHtml(s.id)}">${(() => {
-          const t = titoloConBadge(s);
-          return `${t.badge ? `<span class="codice">${escapeHtml(t.badge)}</span> ` : ''}${escapeHtml(t.titolo)}`;
-        })()}</a>
-        <span class="perche">${escapeHtml(testoPerche(v, { trovati: v.valutazione.trovati, modo: modoScelto() }))}</span>
+        <div class="proposta-testa">${icona}<a class="nome" href="#/sentiero/${encodeURIComponent(s.id)}" data-apri-sentiero="${escapeHtml(s.id)}">${t.badge ? `<span class="codice">${escapeHtml(t.badge)}</span> ` : ''}${escapeHtml(t.titolo)}</a></div>
+        <span class="perche">${escapeHtml(testoPerche(v, { trovati: v.valutazione.trovati, modo: modoScelto(), specieComuni: contestoCard.specieComuni }))}</span>
         ${v.notte?.giorno2?.dallAlba ? '<span class="chip chip-alba">All\'alba nel tratto con più fauna</span>' : ''}
         ${v.notte ? `<span class="tenue piccolo giornate-notte">${escapeHtml(testoGiornate(v.notte))}</span>` : ''}
         ${meteo}
-        <span class="tenue piccolo">${escapeHtml([parcoDa(s.parco)?.nomeBreve, testoAuto(v.auto)].filter(Boolean).join(' · '))}${posizione() ? '' : ' dal centro della mappa'}</span>
-        ${linkModificaTraccia('sentiero', s.id, { classe: 'piccolo' })}
+        <span class="tenue piccolo">${escapeHtml(rigaSotto)}</span>
+        ${v.ancheAlContrario ? `<span class="chip chip-contrario">anche al contrario${typeof v.ancheAlContrario === 'string' ? ` (${escapeHtml(v.ancheAlContrario)})` : ''}</span>` : ''}
+        ${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}
       </div>
     </li>`;
   }
@@ -774,7 +812,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   let idEvidenziato = null; // il sentiero aperto dalla lista (tornando indietro resta evidenziato)
   async function mostraAltre(data = dataDelQuando(scelte.quando, oggiItalia()), { inquadraMappa = true } = {}) {
     const risultati = foglio.querySelector('.suggerisci-risultati');
-    let pagina = classifica.slice(mostrate, mostrate + PER_VOLTA);
+    let pagina = classifica.slice(mostrate, mostrate + perPagina);
     if (!pagina.length) {
       mostrate = 0;
       return mostraAltre(data);
@@ -784,8 +822,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (pagina.some((v) => v.giudizio === undefined && !meteoChiesto.has(v))) meteoInSottofondo(classifica.slice(mostrate, mostrate + METEO_PER_VOLTA), data, inizioMeteo);
     disegnate.clearLayers();
     soloRisultati(true);
+    calcolaContesto();
     const limiti = L.latLngBounds([]);
-    pagina.forEach((v, i) => {
+    // a pagina intera la mappa non si vede: niente tracce né segnali
+    if (!modoPagina) pagina.forEach((v, i) => {
       L.geoJSON(v.traccia.geojson, { renderer: tela, pane: 'proposte', style: { color: '#fff', weight: 10, opacity: 0.95 }, interactive: false }).addTo(disegnate);
       const linea = L.geoJSON(v.traccia.geojson, { renderer: tela, pane: 'proposte', style: { color: COLORI_PROPOSTE[i], weight: 6, opacity: 1 }, interactive: false }).addTo(disegnate);
       const p = puntoDiPartenza(v.sentiero, v.traccia);
@@ -804,9 +844,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     risultati.innerHTML = `
       ${notaDistanza ? `<p class="avviso-luce">${ICONE.avviso}<span>${escapeHtml(notaDistanza)}</span></p>` : ''}
       ${tardiOggi ? `<p class="avviso-luce">${ICONE.avviso}<span>${TESTO_TARDI}</span></p>` : ''}
+      ${htmlRiassuntoZona()}
       <ol class="proposte">${pagina.map((v, i) => htmlProposta(v, i, data)).join('')}</ol>
       <div class="azioni-proposte">
-        ${classifica.length > PER_VOLTA ? `<button type="button" class="bottone" data-azione="altre">Altre 3</button>` : ''}
+        ${classifica.length > perPagina ? `<button type="button" class="bottone" data-azione="altre">Altre ${perPagina}</button>` : ''}
         <span class="tenue piccolo">${mostrate + 1}–${fine} di ${classifica.length}</span>
       </div>${meteoAssente ? NOTA_METEO : ''}`;
     risultati.dataset.pagina = String(mostrate);
@@ -819,7 +860,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     // dopo i risultati la tendina scende a metà: si vedono mappa e proposte
     tendina.vai('meta');
     foglio.querySelector('.suggerisci-corpo').scrollTop = 0;
-    if (inquadraMappa && limiti.isValid()) inquadra(limiti, 14);
+    if (!modoPagina && inquadraMappa && limiti.isValid()) inquadra(limiti, 14);
   }
   // Tornando dalla pagina di un sentiero aperto dalla lista: la lista com'era (stessa pagina, scorrimento,
   // vista della mappa), senza ricalcolare. true se c'era qualcosa da riprendere
@@ -1414,7 +1455,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     disegnaForm();
     if (scelte.modo === 'percorsi' && scelte.cerco.includes('fauna')) caricaZona();
     foglio.hidden = false;
-    document.body.classList.add('suggerisci-aperto');
+    if (!modoPagina) document.body.classList.add('suggerisci-aperto');
     tendina.apri('aperta');
     livelloPartenza.addTo(mappa);
     if (scelte.modo === 'anello') decidiPartenza();
@@ -1469,5 +1510,13 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     document.body.classList.remove('con-proposte');
     foglio.parentElement?.remove();
   });
-  return { apri, apriAnelloDa, chiudi, riprendi, aperto: () => !foglio.hidden };
+  // pagina intera: si apre con le scelte ricordate (e «Quando» se richiesto) e cerca subito
+  function apriPagina({ quando = null } = {}) {
+    scelte.modo = 'percorsi';
+    if (quando) scelte.quando = quando;
+    ricorda(scelte);
+    apri();
+    return suggerisci();
+  }
+  return { apri, apriPagina, apriAnelloDa, chiudi, riprendi, aperto: () => !foglio.hidden };
 }
