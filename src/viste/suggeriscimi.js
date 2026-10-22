@@ -32,7 +32,6 @@ import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
 import { puntoDiPartenza } from '../lib/navigazione.js';
 import {
-  SCELTE_PREDEFINITE,
   MODI_SUGGERISCI,
   QUANDO,
   TEMPI,
@@ -46,7 +45,6 @@ import {
   ordinaProposte,
   ordinaProposteNotte,
   testoPerche,
-  SCELTE_FACOLTATIVE,
   adattoAllaFatica,
   entroDistanza,
   spiegaNessunRisultato,
@@ -97,8 +95,8 @@ import { puntiDelRobot } from './puntiRobot.js';
 import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodiVicini, puntiLungo } from '../lib/reteSentieri.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
 import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi } from '../lib/risultatiSuggerisci.js';
+import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
 
-const CHIAVE = 'orme.suggerisci';
 const CHIAVE_DISTANZA_VERIFICATA = 'orme.suggerisci.distanzaVerificata';
 // il «?» accanto ai titoli: la nota su come togliere una scelta
 const AIUTO = ' <button type="button" class="aiuto-scelta" data-aiuto aria-label="Come togliere una scelta" aria-expanded="false">?</button>';
@@ -107,25 +105,9 @@ const PER_VOLTA = 3;
 const METEO_PER_VOLTA = 12; // previsioni per i primi della classifica (poi per i successivi, se servono)
 const COLORI_PROPOSTE = ['#e8590c', '#1971c2', '#2b8a3e'];
 
-function scelteRicordate() {
-  try {
-    const salvate = { ...SCELTE_PREDEFINITE, ...JSON.parse(localStorage.getItem(CHIAVE) ?? '{}') };
-    // un valore salvato in un altro formato (o rovinato) non deve rompere la tendina
-    if (!Array.isArray(salvate.cerco)) salvate.cerco = typeof salvate.cerco === 'string' && salvate.cerco ? salvate.cerco.split(',').filter((c) => c in COSE) : [];
-    salvate.cerco = salvate.cerco.filter((c) => c in COSE);
-    for (const k of ['quota', 'salita', 'senzaQuote', 'specie', 'specieNome', 'parco']) if (typeof salvate[k] !== 'string') salvate[k] = SCELTE_PREDEFINITE[k];
-    return salvate;
-  } catch {
-    return { ...SCELTE_PREDEFINITE };
-  }
-}
-function ricorda(scelte) {
-  try {
-    localStorage.setItem(CHIAVE, JSON.stringify(scelte));
-  } catch {
-    // senza memoria del browser le scelte valgono solo ora
-  }
-}
+// (le scelte si leggono e si salvano in src/lib/scelteSuggerisci.js, che le rimette sempre in forma)
+const scelteRicordate = () => leggiScelte();
+const ricorda = (scelte) => salvaScelte(scelte);
 // le scelte di "Quale animale": qualsiasi, i gruppi, poi le singole specie
 const VOCI_SPECIE = { '': 'Qualsiasi', ...Object.fromEntries(Object.entries(GRUPPI_SPECIE).map(([k, g]) => [k, g.nome])), ...Object.fromEntries(SPECIE_SCEGLIBILI.map((a) => [a, ANIMALI[a] ?? a])) };
 // nomi italiani delle specie della zona, ricordati sul telefono (una ricerca per specie, una volta sola)
@@ -1342,11 +1324,9 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (b) {
       const { scelta, valore } = b.dataset;
       if (scelta === 'distanza') segnaDistanzaVerificata(); // una scelta fatta a mano non si cambia da sola
-      if (scelta === 'cerco') scelte.cerco = scelte.cerco.includes(valore) ? scelte.cerco.filter((x) => x !== valore) : [...scelte.cerco, valore];
+      // «dormire» si ricorda a parte (non è una scelta di Suggerisci); le altre passano da applicaScelta, che tiene «cerco» una lista
       if (scelta === 'dormire') ricordaDoveDormire(valore);
-      // tempo, distanza e fatica: toccando di nuovo la voce attiva si toglie la scelta (il criterio non filtra più)
-      else if (scelta in SCELTE_FACOLTATIVE && scelte[scelta] === valore) scelte[scelta] = SCELTE_FACOLTATIVE[scelta];
-      else scelte[scelta] = valore;
+      else Object.assign(scelte, applicaScelta(scelte, scelta, valore));
       if (scelta === 'specie') scelte.specieNome = b.dataset.nome ?? '';
       raggioMesi = 1;
       scalaArea = 1;
