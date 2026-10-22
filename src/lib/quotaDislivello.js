@@ -6,8 +6,11 @@ import { migliaia } from './formato.js';
 export const PASSO = 50;
 export const QUOTA_MAX = 3000;
 export const SALITA_MAX = 2000;
-export const LIMITI = { quota: QUOTA_MAX, salita: SALITA_MAX };
-export const QD_VUOTO = { quota: '', salita: '', senzaQuote: '' };
+export const KM_MAX = 40; // «Lunghezza»: 0–40 km a passi di 1 km
+export const LIMITI = { quota: QUOTA_MAX, salita: SALITA_MAX, km: KM_MAX };
+export const PASSI = { quota: PASSO, salita: PASSO, km: 1 };
+export const UNITA = { quota: 'm', salita: 'm', km: 'km' };
+export const QD_VUOTO = { quota: '', salita: '', senzaQuote: '', lunghezzaKm: '' };
 
 
 // '300-800' → [300, 800] (estremi compresi); '' → [0, max]
@@ -25,6 +28,7 @@ export function testoIntervallo(da, a, tipo) {
 }
 export const quotaAttiva = (c) => Boolean(c?.quota);
 export const salitaAttiva = (c) => Boolean(c?.salita);
+export const lunghezzaAttiva = (c) => Boolean(c?.lunghezzaKm);
 export const qdAttivo = (c) => quotaAttiva(c) || salitaAttiva(c);
 
 // il valore scelto in chiaro: «fino a 1.200 m», «da 1.800 m», «300–800 m»
@@ -32,12 +36,26 @@ export function testoValore(testo, tipo) {
   const [da, a] = intervalloDi(testo, tipo);
   const max = LIMITI[tipo];
   if (da <= 0 && a >= max) return 'qualsiasi';
-  if (da <= 0) return `fino a ${migliaia(a)} m`;
-  if (a >= max) return `da ${migliaia(da)} m`;
-  return `${migliaia(da)}–${migliaia(a)} m`;
+  const u = UNITA[tipo] ?? 'm';
+  if (da <= 0) return `fino a ${migliaia(a)} ${u}`;
+  if (a >= max) return `da ${migliaia(da)} ${u}`;
+  return `${migliaia(da)}–${migliaia(a)} ${u}`;
 }
 export const testoQuota = (c) => `Quota massima: ${testoValore(c?.quota, 'quota')}`;
 export const testoSalita = (c) => `Dislivello: ${testoValore(c?.salita, 'salita')}`;
+export const testoLunghezza = (c) => `Lunghezza: ${testoValore(c?.lunghezzaKm, 'km')}`;
+
+// I km da percorrere davvero: un anello è la sua lunghezza, un percorso lineare è andata e ritorno (il doppio), salvo
+// con «Solo andata» (modo 'andata'), che conta l'andata. misure: { km, anello }
+export function kmPercorsi(misure, modo = 'ar') {
+  if (!Number.isFinite(misure?.km)) return null;
+  return misure.anello || modo === 'andata' ? misure.km : misure.km * 2;
+}
+// il filtro «Lunghezza» (km da percorrere): spento se non è scelto; un percorso senza i km è escluso quando è acceso
+export function passaLunghezza(c, km) {
+  if (!lunghezzaAttiva(c)) return true;
+  return Number.isFinite(km) && dentro(km, c.lunghezzaKm, 'km');
+}
 
 const dentro = (valore, testo, tipo) => {
   const [da, a] = intervalloDi(testo, tipo);
@@ -56,7 +74,7 @@ export function passaQuotaDislivello(c, { quotaMax = null, salita = null } = {})
 // le scelte lette da un oggetto qualsiasi (valori non validi → spento)
 export function pulisciQd(c = {}) {
   const ok = (t, tipo) => (t && Number.isFinite(Number(String(t).split('-')[0])) && String(t).includes('-') ? testoIntervallo(...intervalloDi(t, tipo), tipo) : '');
-  return { quota: ok(c.quota, 'quota'), salita: ok(c.salita, 'salita'), senzaQuote: c.senzaQuote ? 'si' : '' };
+  return { quota: ok(c.quota, 'quota'), salita: ok(c.salita, 'salita'), senzaQuote: c.senzaQuote ? 'si' : '', lunghezzaKm: ok(c.lunghezzaKm, 'km') };
 }
 
 // memoria sul telefono: una chiave per gli elenchi e una per Suggerisci

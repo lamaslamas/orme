@@ -15,6 +15,7 @@ import { ICONE } from './icone.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
 import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
+import { modoScelto } from './andataRitorno.js';
 
 const BOLLINO_BICI = { si: 'Bici sì', no: 'Bici no', da_verificare: 'Bici: da verificare' };
 
@@ -137,7 +138,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
   const lista = contenitore.querySelector('.lista');
   const conteggio = contenitore.querySelector('.conteggio');
   const preparati = preparaPercorsi(sentieri, tracce);
-  const contaCon = (f) => filtraPercorsi(preparati, f, stato.leggi().attivita).length;
+  const contaCon = (f) => filtraPercorsi(preparati, f, stato.leggi().attivita, modoScelto()).length;
   collegaSalvaDaLista();
   // le foto di copertina arrivano dopo: quando ci sono, le schede già mostrate si ridisegnano
   if (!copertineCaricate())
@@ -186,7 +187,7 @@ export function montaElenco(contenitore, sentieri, tracce, { parcoFisso = null, 
     filtri,
     () => {
       const attivita = stato.leggi().attivita;
-      const filtrati = filtraPercorsi(preparati, filtri, attivita);
+      const filtrati = filtraPercorsi(preparati, filtri, attivita, modoScelto());
       const risultato = ordina ? ordina(filtrati) : filtrati;
       conteggio.textContent = `${risultato.length} ${risultato.length === 1 ? 'percorso' : 'percorsi'}${
         attivita !== 'trekking' ? ` per ${ATTIVITA[attivita]}` : ''

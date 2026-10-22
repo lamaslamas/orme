@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect } from 'vitest';
-import { intervalloDi, testoIntervallo, testoValore, testoQuota, testoSalita, passaQuotaDislivello, qdAttivo, leggiQd, salvaQd, CHIAVE_QD_ELENCHI, QD_VUOTO } from '../src/lib/quotaDislivello.js';
+import { intervalloDi, testoIntervallo, testoValore, testoQuota, testoSalita, testoLunghezza, kmPercorsi, passaLunghezza, passaQuotaDislivello, qdAttivo, leggiQd, salvaQd, CHIAVE_QD_ELENCHI, QD_VUOTO } from '../src/lib/quotaDislivello.js';
 import { preparaPercorsi, filtraPercorsi } from '../src/lib/motore.js';
 import { FILTRI_VUOTI } from '../src/lib/filtri.js';
 import { valuta, SCELTE_PREDEFINITE, spiegaNessunRisultato } from '../src/lib/suggerimenti.js';
@@ -71,7 +71,7 @@ describe('memoria separata', () => {
   it('elenchi e Suggerisci non si mescolano', () => {
     const m = memoria();
     salvaQd(CHIAVE_QD_ELENCHI, { quota: '0-1200', salita: '', senzaQuote: 'si' }, m);
-    expect(leggiQd(CHIAVE_QD_ELENCHI, m)).toEqual({ quota: '0-1200', salita: '', senzaQuote: 'si' });
+    expect(leggiQd(CHIAVE_QD_ELENCHI, m)).toEqual({ quota: '0-1200', salita: '', senzaQuote: 'si', lunghezzaKm: '' });
     expect(leggiQd('orme.suggerisci.quotaDislivello', m)).toEqual(QD_VUOTO);
     expect(leggiQd('x', { getItem: () => '{rotto' })).toEqual(QD_VUOTO);
   });
@@ -95,5 +95,39 @@ describe('Suggerisci', () => {
     expect(r.testo).toBe('Nessun percorso con mezza giornata: la quota massima scelta (fino a 1.200 m) li esclude.');
     expect(r.alternative[0].testo).toBe('Senza il limite di quota ne trovo 9');
     expect(r.alternative[0].variante).toEqual({ quota: '' });
+  });
+});
+
+describe('Lunghezza (km da percorrere)', () => {
+  it('0–40 km a passi di 1: gli estremi spengono il filtro', () => {
+    expect(testoIntervallo(0, 40, 'km')).toBe('');
+    expect(testoIntervallo(5, 40, 'km')).toBe('5-40');
+    expect(intervalloDi('', 'km')).toEqual([0, 40]);
+    expect(intervalloDi('8-60', 'km')).toEqual([8, 40]);
+  });
+  it('il valore in chiaro, in km', () => {
+    expect(testoLunghezza({ lunghezzaKm: '0-12' })).toBe('Lunghezza: fino a 12 km');
+    expect(testoLunghezza({ lunghezzaKm: '20-40' })).toBe('Lunghezza: da 20 km');
+    expect(testoLunghezza({ lunghezzaKm: '8-15' })).toBe('Lunghezza: 8–15 km');
+    expect(testoLunghezza({ lunghezzaKm: '' })).toBe('Lunghezza: qualsiasi');
+  });
+  it('un anello è la sua lunghezza, un lineare è andata e ritorno; con Solo andata conta l\'andata', () => {
+    expect(kmPercorsi({ km: 6, anello: true }, 'ar')).toBe(6);
+    expect(kmPercorsi({ km: 6, anello: false }, 'ar')).toBe(12);
+    expect(kmPercorsi({ km: 6, anello: false }, 'andata')).toBe(6);
+    expect(kmPercorsi({ km: 6, anello: true }, 'andata')).toBe(6);
+    expect(kmPercorsi({ km: null }, 'ar')).toBeNull();
+  });
+  it('il filtro: estremi compresi; senza km escluso quando è acceso; spento non esclude', () => {
+    expect(passaLunghezza({ lunghezzaKm: '8-15' }, 8)).toBe(true);
+    expect(passaLunghezza({ lunghezzaKm: '8-15' }, 15)).toBe(true);
+    expect(passaLunghezza({ lunghezzaKm: '8-15' }, 16)).toBe(false);
+    expect(passaLunghezza({ lunghezzaKm: '8-15' }, null)).toBe(false);
+    expect(passaLunghezza({ lunghezzaKm: '' }, null)).toBe(true);
+  });
+  it('in Suggerisci conta la distanza delle misure scelte', () => {
+    const c = { misure: { km: 12, salita: 300, durataMin: 200 }, anello: false, difficolta: 'E', auto: { lineaKm: 5, minuti: 20 } };
+    expect(valuta(c, { ...SCELTE_PREDEFINITE, lunghezzaKm: '0-10' })).toBeNull();
+    expect(valuta(c, { ...SCELTE_PREDEFINITE, lunghezzaKm: '10-14' })).not.toBeNull();
   });
 });

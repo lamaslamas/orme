@@ -20,8 +20,13 @@ describe('motore di filtraggio', () => {
     expect(nelIntervallo(null, '0-5')).toBe(false);
   });
 
-  it('filtra per distanza, dislivello (in salita, 0–300 m) e durata', () => {
-    expect(ids(filtraPercorsi(p, f({ distanza: '10-15' })))).toEqual(['b']);
+  it('filtra per lunghezza, dislivello (in salita, 0–300 m) e durata', () => {
+    // lunghezza = km da percorrere: un lineare è andata e ritorno (a 4 km → 8, b 12 km → 24)
+    expect(ids(filtraPercorsi(p, f({ lunghezzaKm: '10-30' })))).toEqual(['b']);
+    expect(ids(filtraPercorsi(p, f({ lunghezzaKm: '0-9' })))).toEqual(['a']);
+    // con «Solo andata» conta l'andata (a 4 km, b 12 km)
+    expect(ids(filtraPercorsi(p, f({ lunghezzaKm: '0-9' }), 'trekking', 'andata'))).toEqual(['a']);
+    expect(ids(filtraPercorsi(p, f({ lunghezzaKm: '5-13' }), 'trekking', 'andata'))).toEqual(['b']);
     expect(ids(filtraPercorsi(p, f({ salita: '0-300' })))).toEqual(['a']);
     expect(ids(filtraPercorsi(p, f({ durata: '240-360' })))).toEqual(['b']);
   });

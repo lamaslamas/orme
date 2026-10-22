@@ -8,6 +8,7 @@ import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from './tracce.j
 import { versoDi, invertiQuote } from './verso.js';
 import { fattoreRitmo } from './ritmo.js';
 import { improntaTraccia } from './panorama.js';
+import { eAnelloPezzi } from './andataRitorno.js';
 
 // Profilo delle quote calcolato dal robot, se è di questa traccia (un GPX mio lo rende superato)
 // (con "Inverti senso" il profilo e salita/discesa nel verso scelto)
@@ -24,7 +25,7 @@ export function misureSentiero(s, traccia) {
   // una rete di sentieri (aree protette): solo i km di sentieri, niente durata né dislivello di un giro
   if (s.tipoPercorso === 'rete_sentieri') {
     const km = Number.isFinite(s.lunghezzaKm) ? s.lunghezzaKm : traccia?.geojson ? lunghezzaKm(traccia.geojson) : null;
-    return { km, kmCalcolati: false, salita: null, discesa: null, quotaMax: null, durataMin: null, durataStimata: false };
+    return { km, kmCalcolati: false, salita: null, discesa: null, quotaMax: null, durataMin: null, durataStimata: false, anello: false };
   }
   // traccia incompleta (salti oltre 500 m): non si usa per i numeri, valgono quelli della fonte
   const incompleta = tracciaDaNonUsare(s, traccia);
@@ -55,6 +56,7 @@ export function misureSentiero(s, traccia) {
     kmCalcolati: Boolean(daTraccia),
     salita,
     discesa: dislTraccia?.discesa ?? null,
+    anello: percorso?.pezzi.length ? eAnelloPezzi(percorso.pezzi, { roundtrip: Boolean(traccia?.dettagli?.roundtrip) }) : false, // un anello si fa una volta sola: i km da percorrere sono i suoi
     quotaMax: Number.isFinite(profilo?.max) ? profilo.max : null, // il punto più alto (nel verso scelto non cambia)
     durataMin,
     durataStimata,

@@ -21,7 +21,7 @@ import { profiloTempi, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, RAGGIO_PERNOTTO_M, 
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { htmlRitmo } from './ritmo.js';
-import { impostaRitmo as impostaRitmoLib } from '../lib/ritmo.js';
+import { impostaRitmo as impostaRitmoLib, ritmoScelto } from '../lib/ritmo.js';
 import { pianoDueGiorni, confrontaNotte } from '../lib/dueGiorni.js';
 import { quoteDeiPunti } from './quote.js';
 import { parcoNazionaleIn, testoAvvisoPernotto } from './piuGiorni.js';
@@ -56,8 +56,8 @@ import { PARCHI, parcoDa } from '../datiParchi.js';
 import { caricaPunti } from './puntiUtili.js';
 import { zoneCoperte } from './copertura.js';
 import { scaricaPrevisioni, previsioneDi } from './previsioni.js';
-import { quotaAttiva, salitaAttiva, qdAttivo, testoQuota, testoSalita, testoValore } from '../lib/quotaDislivello.js';
-import { htmlQuotaDislivello, collegaQuotaDislivello } from './quotaDislivello.js';
+import { quotaAttiva, salitaAttiva, lunghezzaAttiva, qdAttivo, testoQuota, testoSalita, testoLunghezza, testoValore } from '../lib/quotaDislivello.js';
+import { htmlQuotaDislivello, htmlLunghezza, collegaQuotaDislivello } from './quotaDislivello.js';
 import { modoScelto, oraPartenzaScelta, oraPartenzaTesto, ricordaOraPartenza } from './andataRitorno.js';
 import { TESTO_TARDI, partenzaPassata } from '../lib/quandoAndare.js';
 import { tendinaTrascinabile } from './tendina.js';
@@ -285,12 +285,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       ${
         scelte.cerco.includes('fauna')
-          ? `<h3>Quale animale</h3>${htmlGruppo('specie', VOCI_SPECIE, scelte.specie ?? '')}
+          ? `<h3>Quale animale</h3>${htmlSpecie()}
       <p class="tenue piccolo">In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo. ${linkCodice}</p>${htmlSpecieZona()}`
           : ''
       }
       <h3>Fatica${AIUTO}</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
-      ${htmlQuotaDislivello(scelte)}
       <h3>Quanto lontano${AIUTO}</h3>${htmlGruppo('distanza', DISTANZE, scelte.distanza)}
       ${
         scelte.distanza === 'parco'
@@ -299,19 +298,36 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
               .join('')}</select>`
           : ''
       }
-      <details class="altre-scelte" ${altreAperte ? 'open' : ''}><summary>Altre scelte</summary>
+      <details class="altre-scelte" ${altreAperte ? 'open' : ''}><summary>${testoAltreScelte()}</summary>
         <h3>Ritmo</h3>${htmlRitmo()}
         ${scelte.tempo === 'due' ? `<h3>Dove dormire</h3>${htmlGruppo('dormire', DOVE_DORMIRE, scelte.dormire ?? doveDormire())}` : ''}
+        ${htmlQuotaDislivello(scelte)}
+        ${htmlLunghezza(scelte)}
       </details>`;
   }
   let altreAperte = false;
+  let specieTutte = false; // «Quale animale»: i primi 6 o tutti
+  // «Quale animale»: i primi 6 (più quello scelto, se è oltre) e «Mostra tutti»
+  function htmlSpecie() {
+    const voci = Object.entries(VOCI_SPECIE);
+    const mostrate = specieTutte ? voci : voci.filter(([k], i) => i < 6 || k === scelte.specie);
+    const resto = voci.length - mostrate.length;
+    return `${htmlGruppo('specie', Object.fromEntries(mostrate), scelte.specie ?? '')}${
+      voci.length > 6 ? `<button type="button" class="bottone testo piccolo" data-azione="specie-tutte">${specieTutte ? 'Mostra meno' : `Mostra tutti (${resto})`}</button>` : ''
+    }`;
+  }
+  // «Altre scelte · 2»: quante scelte attive ci sono lì dentro (ritmo diverso dal solito, dove dormire, quota, dislivello, lunghezza)
+  function contaAltreAttive() {
+    return [ritmoScelto() !== 'senza', scelte.tempo === 'due' && (scelte.dormire ?? doveDormire()) !== 'qualsiasi', quotaAttiva(scelte), salitaAttiva(scelte), lunghezzaAttiva(scelte)].filter(Boolean).length;
+  }
+  const testoAltreScelte = () => `Altre scelte${contaAltreAttive() ? ` · ${contaAltreAttive()}` : ''}`;
   // riepilogo delle scelte in una riga, quando ci sono le proposte ("Cambia" riapre le scelte)
   function testoScelte() {
     if (scelte.modo === 'anello') return ['Anello', LUNGHEZZE[scelte.lunghezza], !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase(), daDoveParte({ modo: modoPartenza, scelta: sceltaPartenza })].join(' · ');
     const cerco = scelte.cerco.map((c) => (c === 'fauna' && scelte.specie ? etichettaSpecie() || COSE[c] : COSE[c]).toLowerCase());
     const lontano = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve ?? 'un parco' : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : 'qualsiasi distanza';
     const fatica = !scelte.fatica || scelte.fatica === 'qualsiasi' ? 'qualsiasi fatica' : FATICHE[scelte.fatica].toLowerCase();
-    const qd = [quotaAttiva(scelte) ? testoQuota(scelte).replace('Quota massima: ', 'quota ') : '', salitaAttiva(scelte) ? testoSalita(scelte).replace('Dislivello: ', 'dislivello ') : ''].filter(Boolean);
+    const qd = [quotaAttiva(scelte) ? testoQuota(scelte).replace('Quota massima: ', 'quota ') : '', salitaAttiva(scelte) ? testoSalita(scelte).replace('Dislivello: ', 'dislivello ') : '', lunghezzaAttiva(scelte) ? testoLunghezza(scelte).replace('Lunghezza: ', 'lunghezza ') : ''].filter(Boolean);
     return [QUANDO[scelte.quando], scelte.tempo ? TEMPI[scelte.tempo].toLowerCase() : 'qualsiasi durata', fatica, ...qd, lontano, ...cerco].join(' · ');
   }
   function disegnaForm() {
@@ -366,6 +382,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   });
   // una scelta è cambiata: il numero sul pulsante (o la lista) si aggiorna tra poco
   const segnaCambio = () => {
+    const riassuntoAltre = foglio.querySelector('.altre-scelte summary');
+    if (riassuntoAltre) riassuntoAltre.textContent = testoAltreScelte();
     if (scelte.modo !== 'percorsi') return;
     if (!live()) {
       conteggio = null;
@@ -655,6 +673,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     // quota e dislivello: si allarga un filtro alla volta; il motivo è quello che ne esclude di più
     if (quotaAttiva(scelte)) prove.push({ chiave: 'quota', etichetta: 'Senza il limite di quota', ...contaCon(data, { quota: '' }), motivo: `la quota massima scelta (${testoValore(scelte.quota, 'quota')}) li esclude`, variante: { quota: '' } });
     if (salitaAttiva(scelte)) prove.push({ chiave: 'salita', etichetta: 'Senza il limite di dislivello', ...contaCon(data, { salita: '' }), motivo: `il dislivello scelto (${testoValore(scelte.salita, 'salita')}) li esclude`, variante: { salita: '' } });
+    if (lunghezzaAttiva(scelte)) prove.push({ chiave: 'lunghezza', etichetta: 'Senza il limite di lunghezza', ...contaCon(data, { lunghezzaKm: '' }), motivo: `la lunghezza scelta (${testoValore(scelte.lunghezzaKm, 'km')}) li esclude`, variante: { lunghezzaKm: '' } });
     if (qdAttivo(scelte) && !scelte.senzaQuote) prove.push({ chiave: 'senzaQuote', etichetta: 'Anche i percorsi senza dati di quota', ...contaCon(data, { senzaQuote: 'si' }), motivo: 'molti non hanno i dati di quota e sono esclusi dal filtro', variante: { senzaQuote: 'si' } });
     if (scelte.distanza) {
       const parco = scelte.distanza === 'parco' ? parcoDa(scelte.parco)?.nomeBreve : null;
@@ -676,6 +695,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       scelte.fatica && scelte.fatica !== 'qualsiasi' ? `fatica ${daIn(FATICHE[scelte.fatica])}` : '',
       quotaAttiva(scelte) ? `quota massima ${testoValore(scelte.quota, 'quota')}` : '',
       salitaAttiva(scelte) ? `dislivello ${testoValore(scelte.salita, 'salita')}` : '',
+      lunghezzaAttiva(scelte) ? `lunghezza ${testoValore(scelte.lunghezzaKm, 'km')}` : '',
       scelte.distanza === 'parco' ? `nel parco ${parcoDa(scelte.parco)?.nomeBreve ?? ''}`.trim() : scelte.distanza ? `entro ${DISTANZE[scelte.distanza]}` : '',
     ]
       .filter(Boolean)
@@ -1456,6 +1476,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'suggerisci') scelte.modo === 'anello' ? creaAnelli(0) : suggerisci();
     else if (azione === 'riprova') suggerisci();
+    else if (azione === 'specie-tutte') {
+      specieTutte = !specieTutte;
+      aggiornaScelte();
+    }
     else if (azione === 'zona-riprova') caricaZona({ forza: true });
     else if (azione === 'allarga-mesi') {
       raggioMesi = 3;

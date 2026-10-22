@@ -2,7 +2,7 @@ import { ANIMALI } from './costanti.js';
 import { PARCHI, ID_INTORNO } from '../datiParchi.js';
 import { animaliPossibili, possibilitaFauna } from './faunaPercorso.js';
 
-export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', distanza: '', quota: '', salita: '', senzaQuote: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '', uscite: '' };
+export const FILTRI_VUOTI = { parco: '', animale: '', stato: '', difficolta: '', accesso: '', paese: '', bici: '', testo: '', lunghezzaKm: '', quota: '', salita: '', senzaQuote: '', durata: '', soloBici: '', panorama: '', fauna: '', stagione: '', uscite: '' };
 
 export function normalizza(s) {
   return String(s ?? '')

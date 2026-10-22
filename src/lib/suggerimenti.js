@@ -2,11 +2,11 @@
 // proposte, con regole e niente servizi di AI. Ogni proposta ha un punteggio e una riga che spiega
 // perché. Il meteo del giorno scelto riordina le proposte (giudicaGiornata, in condizioni.js).
 import { distanzaKm } from './geo.js';
-import { passaQuotaDislivello } from './quotaDislivello.js';
+import { passaQuotaDislivello, passaLunghezza } from './quotaDislivello.js';
 import { ANIMALI } from './costanti.js';
 import { durata, migliaia, suUnaRiga } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '', lunghezzaKm: '' };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };
@@ -71,6 +71,8 @@ export function valuta(c, scelte) {
   if (!entroDistanza(c.auto, scelte.distanza)) return null;
   // quota massima e dislivello (le scelte di Suggerisci, a parte da quelle degli elenchi)
   if (!passaQuotaDislivello(scelte, { quotaMax: c.quotaMax, salita: c.misure.salita })) return null;
+  // lunghezza: i km da percorrere davvero (le misure di Suggerisci sono già quelle di «Solo andata» o di andata e ritorno)
+  if (!passaLunghezza(scelte, c.misure.km)) return null;
   // una specie scelta (con "Fauna" tra le cose cercate): solo i percorsi con segnalazioni nel periodo
   const specie = (scelte.cerco ?? []).includes('fauna') && scelte.specie ? c.specie ?? null : undefined;
   if (specie === null || (specie && specie.punti <= 0)) return null;

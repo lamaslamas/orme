@@ -96,6 +96,7 @@ async function avviaCompletamento(dentroLavoro = false) {
 }
 import { creaFaunaHome } from './faunaHome.js';
 import { creaFoglioVia } from './foglioVia.js';
+import { modoScelto } from './andataRitorno.js';
 
 // Italia intera: la vista di riserva quando non c'è né la posizione né una vista salvata
 const LIMITI_ITALIA = [[36.4, 6.6], [47.1, 18.6]];
@@ -469,7 +470,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
 
   function disegna() {
     mostraConfineScelto(filtri.parco);
-    filtratiOra = filtraPercorsi(preparati, filtri, stato.leggi().attivita);
+    filtratiOra = filtraPercorsi(preparati, filtri, stato.leggi().attivita, modoScelto());
     const filtrati = filtratiOra.map((p) => p.sentiero);
     const { conTraccia, senzaTraccia } = dividiPerTraccia(filtrati, tracce);
     visibili = conTraccia.map((x) => x.traccia);

@@ -5,7 +5,7 @@ import { LUNGHEZZE } from './anello.js';
 
 export const CHIAVE_SCELTE = 'orme.suggerisci';
 const DOVE = ['qualsiasi', 'rifugi', 'strutture'];
-const CAMPI_TESTO = ['specie', 'specieNome', 'parco', 'quota', 'salita', 'senzaQuote'];
+const CAMPI_TESTO = ['specie', 'specieNome', 'parco', 'quota', 'salita', 'senzaQuote', 'lunghezzaKm'];
 
 const come = (v, predefinito) => (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : predefinito);
 

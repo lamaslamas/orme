@@ -7,8 +7,8 @@ import { escapeHtml } from '../lib/formato.js';
 import { PARCHI, parcoDa } from '../datiParchi.js';
 import { stato } from '../stato.js';
 import { INTERVALLI } from '../lib/motore.js';
-import { CHIAVE_QD_ELENCHI, leggiQd, salvaQd, testoQuota, testoSalita } from '../lib/quotaDislivello.js';
-import { htmlQuotaDislivello, collegaQuotaDislivello } from './quotaDislivello.js';
+import { CHIAVE_QD_ELENCHI, leggiQd, salvaQd, testoQuota, testoSalita, testoLunghezza } from '../lib/quotaDislivello.js';
+import { htmlQuotaDislivello, htmlLunghezza, collegaQuotaDislivello } from './quotaDislivello.js';
 import { ICONE } from './icone.js';
 import { finestraTrascinabile } from './tendina.js';
 
@@ -26,7 +26,7 @@ export function leggiFiltri(parcoFisso = null) {
 
 function salvaFiltri(filtri) {
   salvaQd(CHIAVE_QD_ELENCHI, filtri);
-  const { parco, animale, quota, salita, senzaQuote, ...altri } = filtri;
+  const { parco, animale, quota, salita, senzaQuote, lunghezzaKm, ...altri } = filtri;
   const voci = Object.fromEntries(Object.keys(stato.leggi().filtri).map((k) => [k, altri[k] ?? '']));
   if (parcoDa(parco)?.zona) {
     voci.stagione = stato.leggi().filtri.stagione ?? '';
@@ -68,6 +68,8 @@ export function definizioni(sentieri, parcoFisso, attivita = 'trekking') {
     // quota e dislivello: due slider (nella finestra, un'unica sezione); qui servono per contarli e toglierli
     { chiave: 'quota', titolo: 'Quota e dislivello', voci: [], breve: (v) => testoQuota({ quota: v }) },
     { chiave: 'salita', titolo: 'Dislivello in salita', voci: [], breve: (v) => testoSalita({ salita: v }) },
+    // lunghezza: i km da percorrere davvero (un anello, o andata e ritorno): due cursori, come quota e dislivello
+    { chiave: 'lunghezzaKm', titolo: 'Lunghezza', voci: [], breve: (v) => testoLunghezza({ lunghezzaKm: v }) },
     {
       chiave: 'panorama',
       titolo: 'Valore panoramico',
@@ -177,9 +179,9 @@ export function collegaFiltri(contenitore, sentieri, filtri, alAggiornamento, { 
 
   function disegnaFoglio() {
     foglio.querySelector('.foglio-sezioni').innerHTML = defs
-      .filter((d) => (d.voci.length || d.chiave === 'quota') && !(parcoFisso && d.chiave === 'parco'))
+      .filter((d) => (d.voci.length || d.chiave === 'quota' || d.chiave === 'lunghezzaKm') && !(parcoFisso && d.chiave === 'parco'))
       .map(
-        (d) => d.chiave === 'quota' ? htmlQuotaDislivello(filtri) : `<section class="sezione-filtro"><h3>${escapeHtml(d.titolo)}</h3><div class="opzioni-filtro">${d.voci
+        (d) => d.chiave === 'quota' ? htmlQuotaDislivello(filtri) : d.chiave === 'lunghezzaKm' ? htmlLunghezza(filtri) : `<section class="sezione-filtro"><h3>${escapeHtml(d.titolo)}</h3><div class="opzioni-filtro">${d.voci
           .map(([v, et]) => {
             // quanti percorsi restano scegliendo questa voce (con gli altri filtri attuali)
             const n = conta ? conta({ ...filtri, [d.chiave]: v }) : null;
