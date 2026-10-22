@@ -101,3 +101,65 @@ export function parcoDelPunto(punto, confini) {
   }
   return null;
 }
+
+// ---------- ritaglio di una traccia sul confine di un parco ----------
+
+// Distanza in metri di un punto dal bordo (qualsiasi anello), con un prefiltro sul riquadro per non contare tutto
+function distanzaDalBordoM([x, y], anelli, limiteM) {
+  const kx = 111_320 * Math.cos((y * Math.PI) / 180);
+  const ky = 110_540;
+  const dLat = limiteM / ky;
+  const dLon = limiteM / kx;
+  let min = Infinity;
+  for (const anello of anelli) {
+    for (let i = 0; i < anello.length - 1; i++) {
+      const [ax, ay] = anello[i];
+      const [bx, by] = anello[i + 1];
+      if (Math.max(ax, bx) < x - dLon || Math.min(ax, bx) > x + dLon || Math.max(ay, by) < y - dLat || Math.min(ay, by) > y + dLat) continue;
+      const vx = (bx - ax) * kx;
+      const vy = (by - ay) * ky;
+      const l2 = vx * vx + vy * vy;
+      const px = (x - ax) * kx;
+      const py = (y - ay) * ky;
+      const t = l2 ? Math.max(0, Math.min(1, (px * vx + py * vy) / l2)) : 0;
+      min = Math.min(min, Math.hypot(px - vx * t, py - vy * t));
+    }
+  }
+  return min;
+}
+
+// Tiene i punti dentro il parco o a meno di margineM dal suo confine; il resto si taglia in pezzi separati.
+// linee: [[lon, lat]…][] → { linee, ritagliata }
+export function ritagliaSulConfine(linee, anelli, margineM = 200) {
+  let ritagliata = false;
+  const pezzi = [];
+  for (const linea of linee) {
+    let attuale = [];
+    for (const p of linea) {
+      if (puntoNelPoligono(p, anelli) || distanzaDalBordoM(p, anelli, margineM) <= margineM) attuale.push(p);
+      else {
+        ritagliata = true;
+        if (attuale.length > 1) pezzi.push(attuale);
+        attuale = [];
+      }
+    }
+    if (attuale.length > 1) pezzi.push(attuale);
+  }
+  return { linee: pezzi, ritagliata };
+}
+
+// Quanta parte (0–1) della lunghezza sta dentro il confine (conta ogni tratto dal suo punto medio)
+export function quotaDentroIlConfine(linee, anelli) {
+  let dentro = 0;
+  let tutto = 0;
+  for (const linea of linee) {
+    for (let i = 0; i < linea.length - 1; i++) {
+      const [a, b] = [linea[i], linea[i + 1]];
+      const kx = 111_320 * Math.cos((a[1] * Math.PI) / 180);
+      const m = Math.hypot((b[0] - a[0]) * kx, (b[1] - a[1]) * 110_540);
+      tutto += m;
+      if (puntoNelPoligono([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], anelli)) dentro += m;
+    }
+  }
+  return tutto ? dentro / tutto : 0;
+}

@@ -73,3 +73,27 @@ describe('sentieri con nome dalla risposta', () => {
     expect(sentieriConNome({ elements: [v] }, { esistenti: new Set(['osm-nome-10']) })).toEqual([]);
   });
 });
+
+import { candidatiSentieriConNome, queryVieConNomeParco } from '../src/lib/sentieriConNome.js';
+
+describe('sentieri con nome di un parco (robot)', () => {
+  it('scarto ferrovie e piste ciclabili anche se sono highway=path', () => {
+    for (const n of ['Ferrovia Bari – Taranto', 'tratta ciclopedonale', 'Pista ciclabile del Parco', 'Ciclovia dell\'Acquedotto']) expect(nomeDaSentiero(n, 'path')).toBe(false);
+    expect(nomeDaSentiero('Sentiero della Gravina', 'path')).toBe(true);
+  });
+  it('la query lavora nell\'area del parco e prende anche le relazioni, per escluderne i tratti', () => {
+    const q = queryVieConNomeParco({ osm: { relazione: 8221789 }, bbox: [1, 2, 3, 4] });
+    expect(q).toContain('area(id:3608221789)->.parco');
+    expect(q).toContain('(area.parco)');
+    expect(q).toContain('route"~"^(hiking|foot|bicycle|mtb)$');
+  });
+  it('candidati per l\'archivio: fonte e chiave del parco, tratti ritagliati, ferrovie e tratti di relazioni fuori', () => {
+    const json = { elements: [via(1, 'Sentiero Santa Lucia', 'path', 40.5), via(2, 'Ferrovia Bari – Taranto', 'path', 40.6), via(3, 'Sentiero Breve', 'path', 40.7, 2), via(4, 'Sentiero in relazione', 'path', 40.8), { type: 'relation', id: 9, tags: { route: 'hiking' }, members: [{ type: 'way', ref: 4 }] }] };
+    const c = candidatiSentieriConNome(json, 'gravine');
+    expect(c.map((x) => x.nome)).toEqual(['Sentiero Santa Lucia']);
+    expect(c[0]).toMatchObject({ fonte: 'osm-nomi:gravine', chiave: 'gravine:1', id: 'osm-nome-1', parco: 'gravine', tipo: 'sentiero' });
+    // ritaglio: solo la metà a nord
+    const meta = candidatiSentieriConNome(json, 'gravine', { ritaglia: (linee) => linee.map((l) => l.slice(0, 3)) });
+    expect(meta).toHaveLength(0); // 3 punti ≈ 0,55 km: sotto 1 km
+  });
+});

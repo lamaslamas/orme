@@ -91,6 +91,27 @@ export const PARCHI = [
     daVerificare: true,
   },
   {
+    id: 'gravine',
+    nome: 'Parco naturale regionale Terra delle Gravine',
+    nomeBreve: 'Terra delle Gravine',
+    regioni: ['Puglia'],
+    // sito indicato su OpenStreetMap (Provincia di Taranto, Ente di gestione): da verificare
+    sito: 'http://parcodellegravine.provincia.ta.it/',
+    // parco regionale diviso in più parti (Massafra, Mottola, Castellaneta, Laterza, Ginosa, Crispiano, Statte, Grottaglie…)
+    osm: { relazione: 8221789 },
+    bbox: [40.47, 16.71, 40.74, 17.49],
+    centro: [40.6, 17.1],
+    // itinerari lunghi (Sentiero Italia, Via Ellenica…) attraversano il parco: si tiene il tratto dentro il confine (+200 m), se è almeno il 25%
+    ritaglio: { margineM: 200, minimoDentro: 0.25 },
+    // da Wikipedia (rapaci, mammiferi comuni)
+    animali: ['volpe', 'cinghiale', 'tasso', 'riccio', 'falco_grillaio', 'gufo_reale'],
+    regole:
+      "Resta sui sentieri segnati. È un parco regionale: verifica le regole dell'Ente Parco (accessi, chiusure, divieti) prima di partire.",
+    descrizione:
+      "Le gravine (canyon scavati nel calcare) delle Murge tarantine, tra Massafra, Mottola, Castellaneta, Laterza e Ginosa a ovest e Crispiano, Statte e Grottaglie a est, con chiese rupestri e boschi di fragno. Tra gli animali citati: grillaio, lanario, gufo reale, volpe, tasso, istrice.",
+    daVerificare: true,
+  },
+  {
     id: 'majella',
     nazionale: true,
     nome: 'Parco Nazionale della Majella',

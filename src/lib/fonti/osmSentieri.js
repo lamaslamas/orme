@@ -5,8 +5,10 @@ import { dentroIlParco, interpretaRisposta, combinaTraccia } from '../overpass.j
 import { lunghezzaKm } from '../geo.js';
 import { parcoDa } from '../../datiParchi.js';
 import { ritagliaESemplifica } from './osmMtb.js';
+import { ritagliaSulConfine, quotaDentroIlConfine, semplifica } from '../confini.js';
 
-export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm', 'gallipoli-cognato', 'majella'] };
+export const OSM_SENTIERI = { fonte: 'osm-sentieri', parchi: ['pollino', 'foreste-casentinesi', 'appennino-lucano', 'pnalm', 'gallipoli-cognato', 'majella', 'gravine'] };
+export const OSM_NOMI = { fonte: 'osm-nomi', parchi: ['gravine'] };
 
 export function querySentieriParco(idParco) {
   const { prima, filtro } = dentroIlParco(parcoDa(idParco));
@@ -28,8 +30,20 @@ export function eViaFerrata(tagRelazione = {}, tagTratti = []) {
 const MOTIVO_FERRATA = 'Via ferrata: servono imbrago, set da ferrata, casco ed esperienza';
 const MINIMO_KM = 0.5;
 
+// Ritaglio sul confine vero (parchi con `ritaglio: { margineM, minimoDentro }`, come Terra delle Gravine, dove gli itinerari
+// lunghi attraversano il parco per un tratto): si tengono solo quelli con almeno `minimoDentro` della lunghezza dentro il
+// confine, ritagliati sul confine con un margine, semplificati e arrotondati a 5 decimali (circa 1 m)
+export function ritagliaNelParco(linee, anelli, { margineM = 200, minimoDentro = 0 } = {}) {
+  if (quotaDentroIlConfine(linee, anelli) < minimoDentro) return null;
+  const r = ritagliaSulConfine(linee, anelli, margineM);
+  const arrotonda = (l) => l.map(([lon, lat]) => [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5]);
+  return { linee: r.linee.map((l) => arrotonda(semplifica(l, 0.00008))).filter((l) => l.length > 1), ritagliata: r.ritagliata };
+}
+export const SUFFISSO_TRATTO = ' · tratto nel parco';
+
 // area: il parco, oppure una zona con il suo riquadro (es. "Intorno a me")
-export function candidatiSentieri(json, idParco, parco = parcoDa(idParco)) {
+// anelli: il confine del parco, per i parchi con `ritaglio`
+export function candidatiSentieri(json, idParco, parco = parcoDa(idParco), { anelli = null } = {}) {
   const tag = new Map((json?.elements ?? []).filter((e) => e.type === 'relation').map((e) => [e.id, e.tags ?? {}]));
   // tag dei tratti di ogni relazione (per riconoscere le vie ferrate)
   const tagWay = new Map((json?.elements ?? []).filter((e) => e.type === 'way').map((e) => [e.id, e.tags ?? {}]));
@@ -42,7 +56,9 @@ export function candidatiSentieri(json, idParco, parco = parcoDa(idParco)) {
   const viste = new Set();
   for (const c of interpretaRisposta(json)) {
     const t = tag.get(c.idOsm) ?? {};
-    const { linee, ritagliata } = ritagliaESemplifica(c.linee, parco.bbox);
+    const sulConfine = parco.ritaglio && anelli?.length ? ritagliaNelParco(c.linee, anelli, parco.ritaglio) : null;
+    if (parco.ritaglio && anelli?.length && !sulConfine) continue; // passa appena dal parco
+    const { linee, ritagliata } = sulConfine ?? ritagliaESemplifica(c.linee, parco.bbox);
     const traccia = combinaTraccia([{ ...c, linee }]);
     const km = Math.round(lunghezzaKm(traccia.geojson) * 10) / 10;
     if (km < MINIMO_KM) continue;
@@ -56,7 +72,8 @@ export function candidatiSentieri(json, idParco, parco = parcoDa(idParco)) {
     // roundtrip=yes: la relazione stessa dice che è un anello (niente andata e ritorno)
     traccia.dettagli = { ...traccia.dettagli, codici, fonte: url, ...(ritagliata ? { ritagliata: true } : {}), ...(t.roundtrip === 'yes' ? { roundtrip: true } : {}) };
     const zona = [t.from, t.to].filter(Boolean).join(' – ');
-    const nome = t.name || (ref.toUpperCase().startsWith('SI') ? `Sentiero Italia CAI${zona ? `: ${zona}` : ''}` : `Sentiero ${ref || c.idOsm}${zona ? `: ${zona}` : ''}`);
+    const nomeBase = t.name || (ref.toUpperCase().startsWith('SI') ? `Sentiero Italia CAI${zona ? `: ${zona}` : ''}` : `Sentiero ${ref || c.idOsm}${zona ? `: ${zona}` : ''}`);
+    const nome = sulConfine ? `${nomeBase}${SUFFISSO_TRATTO}` : nomeBase;
     const ferrata = eViaFerrata(t, tagTratti.get(c.idOsm) ?? []);
     const difficolta = ferrata ? 'EEA' : DIFFICOLTA_CAI.includes((t.cai_scale ?? '').toUpperCase()) ? t.cai_scale.toUpperCase() : null;
     candidati.push({
@@ -73,7 +90,7 @@ export function candidatiSentieri(json, idParco, parco = parcoDa(idParco)) {
       organizzatore: t.operator ?? '',
       titoloFonte: 'OpenStreetMap (ODbL)',
       parco: idParco,
-      descrizione: [t.description, ritagliata ? `Sentiero più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : 'nel parco e nei dintorni'}.` : ''].filter(Boolean).join(' ').slice(0, 280),
+      descrizione: [t.description, ritagliata ? `Sentiero più lungo: qui c'è solo il tratto ${parco.zona ? 'nella zona' : sulConfine ? 'nel parco, con 200 m di margine' : 'nel parco e nei dintorni'}.` : ''].filter(Boolean).join(' ').slice(0, 280),
       animali: [],
       lunghezzaKm: km,
       // percorribile a piedi perché segnato; la bici resta da valutare (regole del parco e terreno)

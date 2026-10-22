@@ -18,9 +18,11 @@ const giorniDa = (data) => (Date.parse(oggi) - Date.parse(data)) / 86_400_000;
 const salvati = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : { parchi: {} };
 const confini = existsSync(CONFINI) ? JSON.parse(readFileSync(CONFINI, 'utf8')).confini : {};
 const forza = process.argv.includes('--forza');
+// con degli id (node scripts/scarica-punti.mjs gravine) solo quei parchi
+const solo = process.argv.slice(2).filter((a) => !a.startsWith('--'));
 
 const parchi = { ...salvati.parchi };
-for (const p of PARCHI) {
+for (const p of PARCHI.filter((p) => !solo.length || solo.includes(p.id))) {
   const prima = parchi[p.id];
   if (!forza && prima && giorniDa(prima.aggiornato) < RINNOVA_GIORNI) {
     console.log(`${p.id}: aggiornato il ${prima.aggiornato}, salto`);

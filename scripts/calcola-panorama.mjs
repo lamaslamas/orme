@@ -312,7 +312,8 @@ const FILE_FAUNA = 'public/dati/fauna-parchi.json';
 const faunaParchi = existsSync(FILE_FAUNA) ? JSON.parse(readFileSync(FILE_FAUNA, 'utf8')) : { parchi: {} };
 const confiniParchi = existsSync('public/dati/confini.json') ? JSON.parse(readFileSync('public/dati/confini.json', 'utf8')).confini : {};
 let parchiFauna = 0;
-for (const parco of PARCHI) {
+const soloParchi = process.argv.slice(2).filter((a) => !a.startsWith('--')); // es. gravine: solo la fauna di quei parchi
+for (const parco of PARCHI.filter((p) => !soloParchi.length || soloParchi.includes(p.id))) {
   const prima = faunaParchi.parchi[parco.id];
   if (!tutti && !soloFauna && prima?.versione === VERSIONE_FAUNA && prima?.calcolato && (new Date(oggi) - new Date(prima.calcolato)) / 86_400_000 < 7) continue;
   try {

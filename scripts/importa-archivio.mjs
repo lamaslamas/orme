@@ -10,13 +10,16 @@ import { ASSOCIAZIONI } from '../src/lib/fonti/associazioni.js';
 import { controllaFonte, controllaCandidato, attesaTraLePagine, testoLuoghi } from '../src/lib/fonti/schema.js';
 import { WOLF_HOWLING, linkNotizieWolfHowling, linkPdfWolfHowling, righeTabella, candidatiWolfHowling } from '../src/lib/fonti/wolfHowling.js';
 import { OSM_MTB, queryMtbParco, candidatiMtb, soloDentroIlConfine } from '../src/lib/fonti/osmMtb.js';
-import { OSM_SENTIERI, querySentieriParco, candidatiSentieri } from '../src/lib/fonti/osmSentieri.js';
+import { OSM_SENTIERI, OSM_NOMI, querySentieriParco, candidatiSentieri, ritagliaNelParco } from '../src/lib/fonti/osmSentieri.js';
+import { queryVieConNomeParco, candidatiSentieriConNome } from '../src/lib/sentieriConNome.js';
 import { queryConfine, anelliDaRelazione } from '../src/lib/confini.js';
 import { interrogaOverpass } from '../src/lib/overpass.js';
 import { controllaArchivio } from '../src/lib/archivio.js';
-import { PARCHI } from '../src/datiParchi.js';
+import { PARCHI, parcoDa } from '../src/datiParchi.js';
 
 const FILE = 'public/dati/archivio.json';
+// confini dei parchi (public/dati/confini.json): per i parchi con `ritaglio` si ritaglia la traccia sul confine
+const confini = JSON.parse(readFileSync('public/dati/confini.json', 'utf8')).confini;
 const AGENTE = 'Orme/0.6 (archivio personale di sentieri; https://lamaslamas.github.io/orme/)';
 const oggi = new Date().toISOString().slice(0, 10);
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -165,7 +168,15 @@ const FONTI = [
   ...PARCHI.filter((p) => OSM_SENTIERI.parchi.includes(p.id)).map((p) => ({
     fonte: `${OSM_SENTIERI.fonte}:${p.id}`,
     gruppo: 'osm-sentieri',
-    esegui: () => importaDaOsm(p, querySentieriParco, candidatiSentieri),
+    esegui: () => importaDaOsm(p, querySentieriParco, (json, id) => candidatiSentieri(json, id, parcoDa(id), { anelli: confini[id] })),
+  })),
+  ...PARCHI.filter((p) => OSM_NOMI.parchi.includes(p.id)).map((p) => ({
+    fonte: `${OSM_NOMI.fonte}:${p.id}`,
+    gruppo: 'osm-nomi',
+    esegui: () =>
+      importaDaOsm(p, () => queryVieConNomeParco(p), (json, id) =>
+        candidatiSentieriConNome(json, id, { ritaglia: (linee) => ritagliaNelParco(linee, confini[id], { margineM: p.ritaglio?.margineM })?.linee ?? [] }),
+      ),
   })),
 ];
 

@@ -117,3 +117,50 @@ describe('confine con i buchi', () => {
     expect(puntoNelPoligono([0.5, 0.5], anelli)).toBe(false);
   });
 });
+
+import { ritagliaSulConfine, quotaDentroIlConfine } from '../src/lib/confini.js';
+import { ritagliaNelParco, SUFFISSO_TRATTO } from '../src/lib/fonti/osmSentieri.js';
+import { candidatiSentieri } from '../src/lib/fonti/osmSentieri.js';
+import { parcoDa } from '../src/datiParchi.js';
+
+describe('ritaglio sul confine (Terra delle Gravine)', () => {
+  // quadrato di circa 2,2 km di lato attorno a (13,40)
+  const quadrato = [[[13, 40], [13.02, 40], [13.02, 40.02], [13, 40.02], [13, 40]]];
+  // una linea verso est lungo lat 40,01, da 12,98 (fuori) a 13,06 (fuori): dentro solo i 2 km centrali
+  const linea = Array.from({ length: 17 }, (_, i) => [12.98 + i * 0.005, 40.01]);
+  it('quota dentro il confine, per lunghezza', () => {
+    expect(quotaDentroIlConfine([linea], quadrato)).toBeCloseTo(0.25, 1);
+    expect(quotaDentroIlConfine([[[14, 41], [14.01, 41]]], quadrato)).toBe(0);
+  });
+  it('tiene il tratto dentro più 200 m di margine, il resto no', () => {
+    const { linee, ritagliata } = ritagliaSulConfine([linea], quadrato, 200);
+    expect(ritagliata).toBe(true);
+    const lon = linee[0].map((p) => p[0]);
+    expect(Math.min(...lon)).toBeGreaterThan(12.995); // 200 m ≈ 0,0023°: il punto a 13−0,005 resta fuori
+    expect(Math.min(...lon)).toBeLessThanOrEqual(13);
+    expect(Math.max(...lon)).toBeLessThanOrEqual(13.0251);
+  });
+  it('ritagliaNelParco scarta gli itinerari con meno del 25% dentro', () => {
+    expect(ritagliaNelParco([linea], quadrato, { minimoDentro: 0.4 })).toBeNull();
+    expect(ritagliaNelParco([linea], quadrato, { minimoDentro: 0.2 }).linee.length).toBe(1);
+  });
+  it('un parco con ritaglio: nome «· tratto nel parco», traccia sul confine', () => {
+    const parco = { ...parcoDa('gravine'), bbox: [39, 12, 41, 14], ritaglio: { margineM: 200, minimoDentro: 0.2 } };
+    const json = { elements: [
+      { type: 'relation', id: 5, tags: { route: 'hiking', name: 'Via lunga', ref: 'X1' }, members: [{ type: 'way', ref: 50, geometry: linea.map(([lon, lat]) => ({ lon, lat })) }] },
+      { type: 'way', id: 50, tags: { highway: 'path' } },
+    ] };
+    const [c] = candidatiSentieri(json, 'gravine', parco, { anelli: quadrato });
+    expect(c.nome).toBe(`Via lunga${SUFFISSO_TRATTO}`);
+    expect(c.traccia.dettagli.ritagliata).toBe(true);
+    expect(c.lunghezzaKm).toBeLessThan(3);
+    // senza abbastanza traccia nel parco: niente
+    expect(candidatiSentieri(json, 'gravine', { ...parco, ritaglio: { margineM: 200, minimoDentro: 0.6 } }, { anelli: quadrato })).toHaveLength(0);
+  });
+  it('Terra delle Gravine: parco regionale con confine, non nazionale', () => {
+    const g = parcoDa('gravine');
+    expect(g.nazionale).toBeFalsy();
+    expect(g.regioni).toEqual(['Puglia']);
+    expect(g.osm).toEqual({ relazione: 8221789 });
+  });
+});
