@@ -66,3 +66,32 @@ describe('un sentiero e il suo inverso', () => {
     expect(r[0].ancheAlContrario).toBe('536');
   });
 });
+
+import { separaLuce, testoLuce } from '../src/lib/risultatiSuggerisci.js';
+
+describe('la luce non è meteo', () => {
+  const luce = (ultima, durata = 420) => ({ chiave: 'luce', livello: 'sconsigliato', testo: 'troppo lungo', tramonto: '18:05', ultimaPartenzaMin: ultima, durataMin: durata });
+  const g = (...fattori) => ({ fattori });
+  it('la luce comune a tutti esce dai motivi del meteo', () => {
+    const comuni = [{ chiave: 'luce', livello: 'sconsigliato' }, { chiave: 'vento', livello: 'attenzione', testo: 'raffiche 70' }];
+    const r = separaLuce(comuni, [g(luce(10 * 60 + 35)), g(luce(9 * 60 + 5))], { oraPartenza: '12:00' });
+    expect(r.meteo.map((m) => m.chiave)).toEqual(['vento']);
+    expect(r.luce).toMatchObject({ tramonto: '18:05', ultimaPartenza: '10:35', oraPartenza: '12:00', proposta: '09:00' });
+  });
+  it('la riga: parti entro le 10:35, con la partenza scelta', () => {
+    expect(testoLuce({ tramonto: '18:05', ultimaPartenza: '10:35', oraPartenza: '12:00', proposta: '09:00' })).toBe('Partendo alle 12:00 una giornata finisce dopo il tramonto (18:05): parti entro le 10:35');
+  });
+  it('se le 9:00 sono troppo tardi si propone l\'ora giusta; se nemmeno le 6:00 bastano, niente pulsante', () => {
+    const r = separaLuce([{ chiave: 'luce', livello: 'sconsigliato' }], [g(luce(8 * 60 + 40))], { oraPartenza: '12:00' });
+    expect(r.luce.proposta).toBe('08:40');
+    const nessuno = separaLuce([{ chiave: 'luce', livello: 'sconsigliato' }], [g(luce(5 * 60))], { oraPartenza: '12:00' });
+    expect(nessuno.luce.proposta).toBeNull();
+    expect(testoLuce(nessuno.luce)).toContain('nessun percorso si fa con la luce di quel giorno');
+  });
+  it('senza luce tra i motivi comuni: niente riga', () => {
+    const r = separaLuce([{ chiave: 'vento', livello: 'attenzione' }], [g()], {});
+    expect(r.luce).toBeNull();
+    expect(r.meteo).toHaveLength(1);
+    expect(testoLuce(null)).toBe('');
+  });
+});

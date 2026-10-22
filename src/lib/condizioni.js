@@ -254,7 +254,8 @@ export function giudicaGiornata({ basso, alto = null, durataMin, percorso = {}, 
     return {
       ...base,
       giudizio: 'sconsigliato',
-      fattori: [{ chiave: 'luce', livello: 'sconsigliato', testo: `troppo lungo per le ore di luce (${Math.round(durata / 60)} h, tramonto alle ${oraTesto(basso.tramonto)})` }],
+      // la luce non è meteo: tramonto, ultima partenza e partenza scelta servono a dire «parti entro le …» una volta sola
+      fattori: [{ chiave: 'luce', livello: 'sconsigliato', testo: `troppo lungo per le ore di luce (${Math.round(durata / 60)} h, tramonto alle ${oraTesto(basso.tramonto)})`, tramonto: oraTesto(basso.tramonto), tramontoMin: basso.tramonto, ultimaPartenzaMin: ultimaPartenza, partenzaMin: primaPartenza, durataMin: durata }],
       partenza: null,
     };
   }

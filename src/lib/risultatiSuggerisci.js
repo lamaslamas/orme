@@ -64,3 +64,32 @@ export function unisciInversi(voci, estremiDi) {
   }
   return tenute.map((t) => t.voce);
 }
+
+// ---------- la luce non è meteo ----------
+const oraDaMinuti = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
+
+// Separa dai motivi comuni a tutti quelli di luce («troppo lungo per le ore di luce»): sono un problema dell'ora di
+// partenza, non del meteo. → { meteo: [motivi], luce: { tramonto, ultimaPartenza, oraPartenza, proposta } | null }
+//  - luce: parti entro `ultimaPartenza` (la più tarda tra i percorsi: almeno uno si fa); `proposta` = l'ora da impostare
+//    col pulsante (le 9:00, o prima se non basta); null se nemmeno alle 6:00 una giornata finisce col sole.
+export function separaLuce(comuni, giudizi, { oraPartenza = null, oraConsigliata = 9 * 60 } = {}) {
+  const meteo = comuni.filter((m) => m.chiave !== 'luce');
+  if (!comuni.some((m) => m.chiave === 'luce')) return { meteo, luce: null };
+  const fattori = giudizi.flatMap((g) => (g?.fattori ?? []).filter((f) => f.chiave === 'luce' && Number.isFinite(f.ultimaPartenzaMin)));
+  if (!fattori.length) return { meteo, luce: { tramonto: null, ultimaPartenza: null, oraPartenza, proposta: null } };
+  const migliore = fattori.reduce((a, f) => (f.ultimaPartenzaMin > a.ultimaPartenzaMin ? f : a));
+  const utile = migliore.ultimaPartenzaMin >= 6 * 60;
+  const proposta = utile ? oraDaMinuti(Math.floor(Math.min(oraConsigliata, migliore.ultimaPartenzaMin) / 5) * 5) : null;
+  return {
+    meteo,
+    luce: { tramonto: migliore.tramonto, ultimaPartenza: utile ? oraDaMinuti(migliore.ultimaPartenzaMin) : null, oraPartenza, proposta },
+  };
+}
+
+// la riga in cima: «Partendo alle 12:00 una giornata finisce dopo il tramonto (18:05): parti entro le 10:35»
+export function testoLuce(luce) {
+  if (!luce) return '';
+  const quando = luce.oraPartenza ? `Partendo alle ${luce.oraPartenza} una` : 'Una';
+  if (!luce.ultimaPartenza) return `${quando} giornata finisce dopo il tramonto${luce.tramonto ? ` (${luce.tramonto})` : ''}, e nessun percorso si fa con la luce di quel giorno.`;
+  return `${quando} giornata finisce dopo il tramonto (${luce.tramonto}): parti entro le ${luce.ultimaPartenza}`;
+}

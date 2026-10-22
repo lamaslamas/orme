@@ -2331,3 +2331,6 @@ a.modifica-carta {
 .chip-mtb { display: inline-block; align-self: flex-start; padding: 1px 9px; border-radius: 12px; background: rgba(15, 110, 86, 0.14); font-size: 0.78rem; font-weight: 700; color: var(--verde-testo); }
 .avviso-bici { display: flex; gap: 6px; align-items: flex-start; font-size: 0.82rem; color: #9a6408; }
 .avviso-bici svg { flex: none; width: 16px; height: 16px; margin-top: 1px; }
+.riassunto-zona .riga-luce { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.riassunto-zona .riga-luce svg { flex: none; width: 18px; height: 18px; color: #c98a1b; }
+.riassunto-zona .riga-luce > span { flex: 1 1 220px; min-width: 0; }

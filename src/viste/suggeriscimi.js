@@ -95,7 +95,7 @@ import { quoteDeiPezzi } from './quote.js';
 import { puntiDelRobot } from './puntiRobot.js';
 import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodiVicini, puntiLungo } from '../lib/reteSentieri.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
-import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi } from '../lib/risultatiSuggerisci.js';
+import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi, separaLuce, testoLuce } from '../lib/risultatiSuggerisci.js';
 import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
 import { conRitardo } from '../lib/ritardo.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
@@ -823,23 +823,30 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     return `Giorno 1: ${ora(g1.daMin)}–${ora(g1.aMin)} (${durata(g1.durataMin)} · km ${km1(g1.km)}${sal(g1)}${dev(g1, n.posto, 'arrivare')}) · notte: ${etichettaPernotto(n.posto)} · Giorno 2: ${ora(g2.daMin)}${alba}–${ora(g2.aMin)} (${durata(g2.durataMin)} · km ${km1(g2.km)}${sal(g2)}${dev(g2, n.posto, 'tornare')})`;
   };
   // Cosa vale per tutti i risultati si dice una volta in cima; nelle card restano le differenze
-  let contestoCard = { specieComuni: [], motiviComuni: [], motiviDi: new Map() };
+  let contestoCard = { specieComuni: [], luceComune: null, motiviComuni: [], motiviDi: new Map() };
   function calcolaContesto() {
     const conMeteo = classifica.filter((v) => v.giudizio);
     const { comuni, perVoce } = motiviDistintivi(conMeteo.map((v) => v.giudizio));
+    // «troppo lungo per le ore di luce» è un problema dell'ora di partenza, non del meteo: va in una riga a parte
+    const { meteo, luce } = separaLuce(comuni, conMeteo.map((v) => v.giudizio), { oraPartenza: oraPartenzaTesto() });
     contestoCard = {
       specieComuni: comuniATutti(classifica.map((v) => v.specieLungo ?? [])),
-      motiviComuni: comuni,
+      luceComune: luce,
+      motiviComuni: meteo,
       motiviDi: new Map(conMeteo.map((v, k) => [v, perVoce[k]])),
     };
   }
   const nomiSpecie = (xs) => xs.map((a) => (ANIMALI[a] ?? String(a).replace(/_/g, ' ')).toLowerCase()).join(', ');
   function htmlRiassuntoZona() {
     const righe = [
-      contestoCard.specieComuni.length ? `In tutta la zona: ${nomiSpecie(contestoCard.specieComuni)}` : '',
-      contestoCard.motiviComuni.length ? `Meteo uguale per tutti: ${contestoCard.motiviComuni.map((m) => m.testo).join(' · ')}` : '',
+      contestoCard.specieComuni.length ? `<p>${escapeHtml(`In tutta la zona: ${nomiSpecie(contestoCard.specieComuni)}`)}</p>` : '',
+      // la luce: «Partendo alle 12:00 una giornata finisce dopo il tramonto (18:05): parti entro le 10:35» + «Imposta le 9:00»
+      contestoCard.luceComune
+        ? `<p class="riga-luce">${ICONE.avviso}<span>${escapeHtml(testoLuce(contestoCard.luceComune))}</span>${contestoCard.luceComune.proposta ? ` <button type="button" class="bottone piccolo" data-azione="imposta-ora" data-ora="${contestoCard.luceComune.proposta}">Imposta le ${Number(contestoCard.luceComune.proposta.slice(0, 2))}:${contestoCard.luceComune.proposta.slice(3)}</button>` : ''}</p>`
+        : '',
+      contestoCard.motiviComuni.length ? `<p>${escapeHtml(`Meteo uguale per tutti: ${contestoCard.motiviComuni.map((m) => m.testo).join(' · ')}`)}</p>` : '',
     ].filter(Boolean);
-    return righe.length ? `<div class="riassunto-zona">${righe.map((r) => `<p>${escapeHtml(r)}</p>`).join('')}</div>` : '';
+    return righe.length ? `<div class="riassunto-zona">${righe.join('')}</div>` : '';
   }
   const ICONA_METEO = { ok: () => ICONE.ok, attenzione: () => ICONE.avviso, sconsigliato: () => ICONE.avviso };
 
@@ -1476,7 +1483,15 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (azione === 'suggerisci') scelte.modo === 'anello' ? creaAnelli(0) : suggerisci();
     else if (azione === 'riprova') suggerisci();
-    else if (azione === 'specie-tutte') {
+    else if (azione === 'imposta-ora') {
+      // l'ora di partenza consigliata: si imposta e si cerca di nuovo
+      const ora = e.target.closest('[data-ora]').dataset.ora;
+      ricordaOraPartenza(ora);
+      const campoOra = foglio.querySelector('[data-ora-partenza]');
+      if (campoOra) campoOra.value = ora;
+      segnaCambio();
+      if (!live() && foglio.querySelector('.suggerisci-form')?.hidden) suggerisci(); // con i risultati aperti si rifà subito
+    } else if (azione === 'specie-tutte') {
       specieTutte = !specieTutte;
       aggiornaScelte();
     }
