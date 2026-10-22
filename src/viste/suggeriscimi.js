@@ -62,7 +62,7 @@ import { modoScelto, oraPartenzaScelta, oraPartenzaTesto, ricordaOraPartenza } f
 import { TESTO_TARDI, partenzaPassata } from '../lib/quandoAndare.js';
 import { tendinaTrascinabile } from './tendina.js';
 import { ICONE } from './icone.js';
-import { calcolaPercorso, PREFERENZA_SEGNATI } from '../lib/brouter.js';
+import { calcolaPercorso, PREFERENZA_SEGNATI, profiloPer } from '../lib/brouter.js';
 import { trattiARischio, ACCESSI_REGOLATI } from '../lib/avvisiParco.js';
 import { distanzaKm } from '../lib/geo.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
@@ -98,6 +98,8 @@ import { linkModificaTraccia } from './modificaTraccia.js';
 import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi } from '../lib/risultatiSuggerisci.js';
 import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
 import { conRitardo } from '../lib/ritardo.js';
+import { ATTIVITA } from '../lib/compatibilita.js';
+import { durataInBici } from '../lib/condizioni.js';
 
 const CHIAVE_DISTANZA_VERIFICATA = 'orme.suggerisci.distanzaVerificata';
 // il «?» accanto ai titoli: la nota su come togliere una scelta
@@ -276,9 +278,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         <p class="tenue piccolo">Nei parchi solo sentieri segnati e aperti a tutti; fuori anche i non segnati, evidenziati.</p>`;
     }
     return `${modoPagina ? '' : modo}
+      <h3>Attività</h3>${htmlGruppo('attivita', ATTIVITA, stato.leggi().attivita)}
       <h3>Quando</h3>${htmlGruppo('quando', QUANDO, scelte.quando)}
       <label class="scelta-ora">Partenza <input type="time" data-ora-partenza value="${escapeHtml(oraPartenzaTesto())}" step="300" /></label>
-      <h3>Quanto tempo${AIUTO}</h3>${htmlGruppo('tempo', TEMPI, scelte.tempo)}
+      <h3>Quanto tempo${AIUTO}</h3>${htmlGruppo('tempo', inBici() ? Object.fromEntries(Object.entries(TEMPI).filter(([k]) => k !== 'due')) : TEMPI, scelte.tempo)}
       <h3>Cosa cerchi</h3>${htmlGruppo('cerco', COSE, scelte.cerco, true)}
       ${
         scelte.cerco.includes('fauna')
@@ -329,6 +332,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // «Tra i percorsi»: i risultati senza premere il pulsante. A pagina intera su computer la lista a destra si aggiorna da sola;
   // altrove (tendina, telefono) il pulsante in fondo mostra quanti percorsi si trovano e un tocco porta ai risultati.
   // In tutti e due i casi la ricerca parte 400 ms dopo l'ultima scelta (più scelte di fila: una sola ricerca).
+  // MTB: percorsi percorribili in bici, tempi da bici (12 km/h in piano, 400 m/h in salita, ritmo applicato); «2 giorni con notte» no
+  const inBici = () => stato.leggi().attivita === 'mtb';
   const live = () => modoPagina && Boolean(globalThis.matchMedia?.('(min-width: 1024px)').matches);
   let conteggio = null; // quanti percorsi con le scelte attuali (null: non si sa)
   let contando = false;
@@ -423,7 +428,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           ...p,
           pezzi,
           quote,
-          misure,
+          // in MTB i tempi sono da bici (non i tempi CAI a piedi)
+          misure: inBici() ? { ...misure, durataMin: durataInBici(misure.km, misure.salita, 'mtb') ?? misure.durataMin } : misure,
           anello,
           difficolta: s.difficolta,
           fauna: possibilitaFauna(s, mese, { stagione: true }),
@@ -817,6 +823,14 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   const ICONA_METEO = { ok: () => ICONE.ok, attenzione: () => ICONE.avviso, sconsigliato: () => ICONE.avviso };
 
+  // in MTB: la difficoltà con la scala MTB (quando c'è) e, dentro un parco nazionale dove la bici non è documentata come ammessa, l'avviso
+  function schedaBici(s) {
+    if (!inBici()) return '';
+    const scala = s.bici?.scalaMtb ? `<span class="chip chip-mtb">MTB ${escapeHtml(s.bici.scalaMtb)}</span>` : '';
+    const nelParco = parcoDa(s.parco)?.nazionale && s.bici?.consentita !== 'si';
+    const avviso = nelParco ? `<span class="avviso-bici">${ICONE.avviso}<span>Nel ${escapeHtml(parcoDa(s.parco).nomeBreve)} la bici potrebbe non essere ammessa su questo sentiero: verifica le regole del parco.</span></span>` : '';
+    return `${scala}${avviso}`;
+  }
   function htmlProposta(v, i) {
     const s = v.sentiero;
     const g = v.giudizio;
@@ -838,6 +852,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         ${v.notte ? `<span class="tenue piccolo giornate-notte">${escapeHtml(testoGiornate(v.notte))}</span>` : ''}
         ${meteo}
         <span class="tenue piccolo">${escapeHtml(rigaSotto)}</span>
+        ${schedaBici(s)}
         ${v.ancheAlContrario ? `<span class="chip chip-contrario">anche al contrario${typeof v.ancheAlContrario === 'string' ? ` (${escapeHtml(v.ancheAlContrario)})` : ''}</span>` : ''}
         ${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}
       </div>
@@ -1137,7 +1152,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     const varianti = [];
     const ottenute = []; // lunghezze riportate alla voluta: correggono le prossime
     const conti = { fuoriRegole: 0, errori: 0, occupato: false };
-    const calcola = (tappe) => calcolaPercorso(tappe, { preferenzaSegnati: PREFERENZA_SEGNATI });
+    // «Crea un anello» con MTB usa il profilo MTB di BRouter
+    const calcola = (tappe) => calcolaPercorso(tappe, { preferenzaSegnati: PREFERENZA_SEGNATI, profilo: profiloPer(stato.leggi().attivita) });
     // una richiesta alla volta (il server pubblico di BRouter è di tutti); basta con 3 anelli buoni
     for (const [k, gradi] of direzioniDelGiro(giro).entries()) {
       if (scegliAnelli(varianti, PER_VOLTA).length === PER_VOLTA) break;
@@ -1382,7 +1398,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       if (scelta === 'distanza') segnaDistanzaVerificata(); // una scelta fatta a mano non si cambia da sola
       // «dormire» si ricorda a parte (non è una scelta di Suggerisci); le altre passano da applicaScelta, che tiene «cerco» una lista
       if (scelta === 'dormire') ricordaDoveDormire(valore);
-      else Object.assign(scelte, applicaScelta(scelte, scelta, valore));
+      else if (scelta === 'attivita') {
+        // l'attività vale per tutta l'app (le schede di Percorsi qui, i filtri…)
+        stato.imposta({ attivita: valore });
+        if (valore === 'mtb' && scelte.tempo === 'due') scelte.tempo = '';
+      } else Object.assign(scelte, applicaScelta(scelte, scelta, valore));
       if (scelta === 'specie') scelte.specieNome = b.dataset.nome ?? '';
       raggioMesi = 1;
       scalaArea = 1;
@@ -1553,7 +1573,18 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   // un altro pannello o strumento si apre: Suggerisci, se non è quello aperto, non lascia proposte
   const allAltroPannello = () => foglio.hidden && disegnate.clearLayers();
   window.addEventListener('orme:pannello', allAltroPannello);
+  // l'attività cambia altrove (Percorsi qui, filtri): le scelte e i risultati la seguono
+  let attivitaVista = stato.leggi().attivita;
+  const scollegaAttivita = stato.ascolta((nuovo) => {
+    if (nuovo.attivita === attivitaVista) return;
+    attivitaVista = nuovo.attivita;
+    if (foglio.hidden) return;
+    if (nuovo.attivita === 'mtb' && scelte.tempo === 'due') scelte.tempo = '';
+    aggiornaScelte();
+    segnaCambio();
+  });
   mappa.on('unload', () => {
+    scollegaAttivita();
     window.removeEventListener('orme:pannello', allAltroPannello);
     avvisoProposte.remove();
     document.body.classList.remove('con-proposte');

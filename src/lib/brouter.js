@@ -3,6 +3,9 @@
 
 export const URL_BROUTER = 'https://brouter.de/brouter';
 export const PROFILO_ESCURSIONE = 'hiking-mountain';
+export const PROFILO_MTB = 'mtb';
+// il profilo secondo l'attività scelta (Trekking o MTB)
+export const profiloPer = (attivita) => (attivita === 'mtb' ? PROFILO_MTB : PROFILO_ESCURSIONE);
 export const TEMPO_MAX_MS = 25_000;
 
 // "Crea un anello" chiede di preferire i sentieri segnati: nel profilo le vie fuori dai percorsi
@@ -11,7 +14,8 @@ export const TEMPO_MAX_MS = 25_000;
 export const PREFERENZA_SEGNATI = 0.6;
 export function urlBrouter(punti, profilo = PROFILO_ESCURSIONE, { preferenzaSegnati = null } = {}) {
   const lonlats = punti.map(([lon, lat]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join('|');
-  const extra = preferenzaSegnati ? `&profile:hiking_routes_preference=${preferenzaSegnati}` : '';
+  // la preferenza per i sentieri segnati è un parametro del profilo escursionistico, non di quello MTB
+  const extra = preferenzaSegnati && profilo === PROFILO_ESCURSIONE ? `&profile:hiking_routes_preference=${preferenzaSegnati}` : '';
   return `${URL_BROUTER}?lonlats=${encodeURIComponent(lonlats)}&profile=${profilo}&alternativeidx=0&format=geojson${extra}`;
 }
 
@@ -50,12 +54,12 @@ export function interpretaBrouter(json) {
   };
 }
 
-export async function calcolaPercorso(punti, { fetchFn = fetch, preferenzaSegnati = null } = {}) {
+export async function calcolaPercorso(punti, { fetchFn = fetch, preferenzaSegnati = null, profilo = PROFILO_ESCURSIONE } = {}) {
   if (punti.length < 2) throw new Error('Servono almeno due punti.');
   let risposta;
   try {
     // senza risposta entro 25 secondi si rinuncia (il disegno offre la mano libera)
-    risposta = await fetchFn(urlBrouter(punti, PROFILO_ESCURSIONE, { preferenzaSegnati }), { signal: AbortSignal.timeout(TEMPO_MAX_MS) });
+    risposta = await fetchFn(urlBrouter(punti, profilo, { preferenzaSegnati }), { signal: AbortSignal.timeout(TEMPO_MAX_MS) });
   } catch {
     throw new Error('Il server dei sentieri (BRouter) non risponde: controlla la connessione.');
   }

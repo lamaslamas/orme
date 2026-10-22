@@ -79,7 +79,11 @@ export function schedaInLista(s, traccia, mostraParco = true, compat = null, not
       <a class="carta-percorso ${s.stato === 'fatto' ? 'fatto' : ''}" href="#/sentiero/${encodeURIComponent(s.id)}">
         <span class="copertina ${foto ? 'con-foto' : ''}">
           ${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}
-          ${s.difficolta ? `<span class="difficolta-copertina difficolta-${s.difficolta}">${escapeHtml(DIFFICOLTA_BREVE[s.difficolta] ?? s.difficolta)}</span>` : ''}
+          ${(() => {
+            // in MTB la difficoltà è la scala MTB (quando c'è); altrimenti quella CAI
+            if (stato.leggi().attivita === 'mtb' && s.bici?.scalaMtb) return `<span class="difficolta-copertina difficolta-E">MTB ${escapeHtml(s.bici.scalaMtb)}</span>`;
+            return s.difficolta ? `<span class="difficolta-copertina difficolta-${s.difficolta}">${escapeHtml(DIFFICOLTA_BREVE[s.difficolta] ?? s.difficolta)}</span>` : '';
+          })()}
         </span>
         <span class="carta-percorso-corpo">
           <span class="nome">${cod ? `<span class="codice">${escapeHtml(cod)}</span> ` : ''}${escapeHtml(s.nome)}</span>

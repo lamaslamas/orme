@@ -49,3 +49,13 @@ describe('heatmap e stato', () => {
     expect(p.has('iconic_taxa')).toBe(false);
   });
 });
+
+describe('attività salvate di prima', () => {
+  it('e-MTB (che non c\'è più) diventa MTB; un valore sconosciuto, Trekking', () => {
+    const con = (a) => ({ getItem: () => JSON.stringify({ attivita: a }), setItem() {} });
+    expect(creaStato(con('emtb')).leggi().attivita).toBe('mtb');
+    expect(creaStato(con('mtb')).leggi().attivita).toBe('mtb');
+    expect(creaStato(con('volo')).leggi().attivita).toBe('trekking');
+    expect(creaStato(con(undefined)).leggi().attivita).toBe('trekking');
+  });
+});
