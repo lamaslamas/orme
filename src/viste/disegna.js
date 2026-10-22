@@ -64,13 +64,13 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       <div class="disegno-strumenti">
         <button type="button" class="pill-mappa tondo" data-azione="annulla" aria-label="Togli l'ultimo punto" title="Togli l'ultimo punto">${ICONE.indietro}</button>
         <button type="button" class="pill-mappa tondo" data-azione="anello" aria-label="Chiudi ad anello" title="Chiudi ad anello">${ICONE.anello}</button>
-        <button type="button" class="pill-mappa tondo" data-azione="inverti" aria-label="Inverti il verso" title="Inverti il verso">${ICONE.inverti}</button>
-        <button type="button" class="pill-mappa tondo" data-azione="libera" aria-pressed="false" aria-label="Mano libera" title="Mano libera">${ICONE.matita}</button>
         <button type="button" class="pill-mappa tondo" data-azione="forbici" aria-pressed="false" aria-label="Forbici: taglia la traccia" title="Forbici: tocca la traccia dove tagliare">✂</button>
-        <button type="button" class="pill-mappa" data-azione="inizio" aria-pressed="false" title="I punti nuovi si aggiungono prima della partenza">+ Inizio</button>
         <button type="button" class="pill-mappa tondo" data-azione="menu" aria-expanded="false" aria-label="Altro" title="Altro">${ICONE.altro}</button>
       </div>
       <div class="disegno-menu" hidden>
+        <button type="button" data-azione="inverti">${ICONE.inverti}<span>Inverti il verso</span></button>
+        <button type="button" data-azione="libera" aria-pressed="false">${ICONE.matita}<span>Mano libera</span><b class="stato-voce" aria-hidden="true"></b></button>
+        <button type="button" data-azione="inizio" aria-pressed="false">${ICONE.indietro}<span>Aggiungi all'inizio</span><b class="stato-voce" aria-hidden="true"></b></button>
         <button type="button" data-azione="importa">${ICONE.carica}<span>Importa file (GPX, KML, zip)</span></button>
         <button type="button" data-azione="esporta">${ICONE.scarica}<span>Esporta GPX</span></button>
         <button type="button" data-azione="ricomincia">${ICONE.cestino}<span>Ricomincia</span></button>
@@ -200,9 +200,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       const c = { p: [Number(v.punto[0].toFixed(6)), Number(v.punto[1].toFixed(6))], ...(pos != null ? { pos } : {}) };
       punti = tagliaPunti(punti, v.k, c, b.dataset.fai === 'tieni-prima' ? 'prima' : 'dopo');
       tagliaPendente = null;
-      forbici = false;
-      strumenti.querySelector('[data-azione=forbici]')?.classList.remove('attiva');
-      strumenti.querySelector('[data-azione=forbici]')?.setAttribute('aria-pressed', 'false');
+      spegniForbici();
       return aggiorna();
     }
     const i = Number(b.dataset.punto);
@@ -423,6 +421,23 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
   // --- comandi ---
   const strumenti = app.querySelector('.disegno-sopra');
   const menu = app.querySelector('.disegno-menu');
+  // lo stato di Forbici, Mano libera e «Aggiungi all'inizio»: sul pulsante o nel menu (e un segno sul ⋯ se qualcosa è acceso)
+  function aggiornaStatoVoci() {
+    const stati = { forbici, libera: manoLibera, inizio: aggiungiInizio };
+    for (const [azione, acceso] of Object.entries(stati)) {
+      for (const b of strumenti.querySelectorAll(`[data-azione="${azione}"]`)) {
+        b.setAttribute('aria-pressed', String(acceso));
+        b.classList.toggle('attiva', acceso);
+        const voce = b.querySelector('.stato-voce');
+        if (voce) voce.textContent = acceso ? 'attivo' : '';
+      }
+    }
+    strumenti.querySelector('[data-azione="menu"]').classList.toggle('con-stato', manoLibera || aggiungiInizio);
+  }
+  function spegniForbici() {
+    forbici = false;
+    aggiornaStatoVoci();
+  }
   strumenti.addEventListener('click', (e) => {
     const b = e.target.closest('[data-azione]');
     const azione = b?.dataset.azione;
@@ -442,25 +457,18 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       aggiorna();
     } else if (azione === 'forbici') {
       forbici = !forbici;
-      b.setAttribute('aria-pressed', String(forbici));
-      b.classList.toggle('attiva', forbici);
       if (forbici) aggiungiInizio = false;
+      aggiornaStatoVoci();
       if (forbici) scriviSuggerimento('Forbici: tocca sulla traccia, nel punto dove tagliare');
       else suggerimentoBase();
     } else if (azione === 'inizio') {
       aggiungiInizio = !aggiungiInizio;
-      if (aggiungiInizio) {
-        forbici = false;
-        strumenti.querySelector('[data-azione=forbici]')?.classList.remove('attiva');
-        strumenti.querySelector('[data-azione=forbici]')?.setAttribute('aria-pressed', 'false');
-      }
-      b.setAttribute('aria-pressed', String(aggiungiInizio));
-      b.classList.toggle('attiva', aggiungiInizio);
+      if (aggiungiInizio) spegniForbici();
+      aggiornaStatoVoci();
       suggerimentoBase();
     } else if (azione === 'libera') {
       manoLibera = !manoLibera;
-      b.setAttribute('aria-pressed', String(manoLibera));
-      b.classList.toggle('attiva', manoLibera);
+      aggiornaStatoVoci();
       suggerimentoBase();
     } else if (azione === 'menu') {
       menu.hidden = !menu.hidden;

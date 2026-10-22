@@ -1761,8 +1761,8 @@ body.disegno main { padding: 0; }
 .disegno-sopra { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
 .disegno-sopra > * { pointer-events: auto; }
 .disegno-strumenti { display: flex; gap: 6px; }
-.disegno-strumenti .pill-mappa.tondo { width: 42px; min-height: 42px; }
-.disegno-sopra > .pill-mappa.tondo { width: 42px; min-height: 42px; }
+.disegno-strumenti .pill-mappa.tondo { width: 44px; min-height: 44px; }
+.disegno-sopra > .pill-mappa.tondo { width: 44px; min-height: 44px; }
 .pill-mappa.attiva { background: var(--verde); color: #fff; border-color: transparent; }
 .disegno-menu { position: absolute; top: 50px; right: 0; display: grid; padding: 6px; border-radius: 16px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); }
 .disegno-menu[hidden] { display: none; }
@@ -2263,10 +2263,9 @@ a.modifica-carta {
 .voce-percorso > a.modifica-carta { top: 52px; right: 10px; }
 .lista > li:not(.voce-percorso) > a.modifica-carta { top: 8px; right: 8px; }
 .modifica-traccia-via { margin-top: 8px; }
-/* disegno: con sette comandi, sui telefoni stretti si rimpiccioliscono per starci tutti */
-@media (max-width: 430px) {
-  .disegno-sopra { left: 6px; right: 6px; gap: 4px; }
-  .disegno-strumenti { gap: 4px; }
-  .disegno-strumenti .pill-mappa.tondo, .disegno-sopra > .pill-mappa.tondo { width: 35px; min-height: 40px; }
-  .disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 8px; font-size: 0.78rem; min-height: 40px; }
-}
+
+/* disegno: i comandi in alto sono sempre almeno 44×44 px; il resto sta nel menu ⋯ con lo stato acceso indicato */
+.disegno-menu button { min-height: 44px; }
+.disegno-menu .stato-voce { margin-left: auto; font-size: 0.78rem; font-weight: 700; color: var(--verde); }
+.disegno-menu button.attiva { background: rgba(15, 110, 86, 0.14); }
+.disegno-strumenti .pill-mappa.con-stato { box-shadow: inset 0 0 0 2px var(--accento); }
