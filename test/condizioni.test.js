@@ -69,6 +69,21 @@ describe('previsioni: punti e richieste', () => {
     expect(u.searchParams.get('past_days')).toBe('3');
   });
 
+  it('mai coordinate non valide nella richiesta (Open-Meteo risponderebbe 400 per tutti)', () => {
+    const r = urlPrevisioni([{ lon: 13.8, lat: 41.8 }, { lon: NaN, lat: NaN }, { lon: 14, lat: undefined }, { lon: 14.1, lat: 41.9 }]);
+    expect(r[0].punti).toHaveLength(2);
+    expect(r[0].url).not.toContain('NaN');
+    expect(urlPrevisioni([{ lon: NaN, lat: 1 }])).toEqual([]);
+  });
+
+  it('una partenza senza coordinate: si usa il primo punto della traccia o la partenza del sentiero', () => {
+    const traccia = { geojson: { coordinates: [[[13.85, 41.78], [13.86, 41.79]]] } };
+    const d = datiPerMeteo({ sentiero: { id: 'x' }, traccia, misure: { durataMin: 100 } }, 'trekking', { partenza: { lon: NaN, lat: NaN, quota: 1000 }, max: 1500, min: 1000 });
+    expect(d.basso.chiave).toBe('41.8,13.9');
+    const senza = datiPerMeteo({ sentiero: { id: 'y', partenza: { lat: NaN, lon: NaN } }, traccia: null, misure: {} }, 'trekking');
+    expect(senza).toBeNull();
+  });
+
   it('porta le temperature alla quota del percorso', () => {
     const g = { ...giorniDaRisposta({ ...risposta(), elevation: 1000 })['2026-10-10'] };
     expect(g.quota).toBe(1000);
