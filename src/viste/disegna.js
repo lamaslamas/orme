@@ -29,6 +29,8 @@ import { ICONE } from './icone.js';
 import { trattiARischio, testiAvvisi, intervalliLiberi } from '../lib/avvisiParco.js';
 import { preparaAvvisi } from './avvisiParco.js';
 import { apriCondividi } from './condividi.js';
+import { nomeProposto } from './nomeAutomatico.js';
+import { nomeDaSostituire } from '../lib/nomePercorso.js';
 
 const COLORE = '#0f6e56'; // verde: diverso dal viola dei percorsi dell'archivio
 const ATTESA_PUNTI_MS = 1200; // rifugi e acqua si cercano quando il disegno si ferma un attimo
@@ -500,6 +502,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
   }
 
   const finestraSalva = app.querySelector('.foglio-salva');
+  app.querySelector('#nomePercorso').addEventListener('input', (e) => (e.target.dataset.digitato = '1'));
   finestraTrascinabile(finestraSalva); // si chiude anche trascinandola in giù
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('[data-azione]');
@@ -513,6 +516,13 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
       const m = risultato.misure;
       app.querySelector('#riepilogoSalva').textContent = `${km1(m.km)} km${m.salita != null ? ` · +${m.salita} m` : ''}${m.durataMin != null ? ` · ${durata(m.durataMin)}` : ''}${eAnello(punti) ? ' · anello' : ''}`;
       finestraSalva.showModal();
+      // senza nome (o con la data come nome): «Anello da Opi · 7 km», che si può cambiare
+      const campo = app.querySelector('#nomePercorso');
+      if (!campo.dataset.digitato && nomeDaSostituire(campo.value)) {
+        nomeProposto(risultato.pezziQuote ?? [risultato.linea]).then((nome) => {
+          if (nome && !campo.dataset.digitato && nomeDaSostituire(campo.value)) campo.value = nome;
+        });
+      }
     }
   });
   finestraSalva.addEventListener('click', async (e) => {

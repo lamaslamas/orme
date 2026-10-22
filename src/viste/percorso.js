@@ -6,11 +6,7 @@ import { giornoOraIniziali } from '../lib/quandoAndare.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { inizializzaGiorno } from './giornoScelto.js';
 import { ritmoScelto, testoRitmo } from '../lib/ritmo.js';
-import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
-import { profiloPezzi } from '../lib/disegno.js';
-import { creaPuntoProfilo } from './puntoProfilo.js';
 import { ICONE } from './icone.js';
-import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
@@ -31,7 +27,9 @@ import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { quoteMeteoDaiPezzi } from '../lib/quandoAndare.js';
 import L from 'leaflet';
 import { ripristinaOriginale, nuovoIdPercorso } from '../lib/percorso.js';
-import { apriCondividi } from './condividi.js';
+import { apriCondividi, condividiLink, copiaLink } from './condividi.js';
+import { nomeProposto } from './nomeAutomatico.js';
+import { nomeDaSostituire } from '../lib/nomePercorso.js';
 
 // numeri in alto: lo stesso calcolo del blocco Andata e ritorno, secondo la scelta
 function htmlNumeri(misure, fonte, ar = null, modo = modoScelto(), scarico = false) {
@@ -91,49 +89,69 @@ export async function vistaPercorso(app, id, virtuale = null) {
   inizializzaGiorno(inizialiOrari.giorno);
   const scaricoQuote = serveScaricoQuote(p, originali, quoteProvate);
 
+  const pulsanti = `
+        ${virtuale ? '<button type="button" class="bottone primario" data-salva-condiviso>Salva nei miei percorsi</button>' : ''}
+        <button type="button" class="bottone ${virtuale ? '' : 'primario'}" data-condividi>${ICONE.condividi ?? ''}<span>Condividi</span></button>
+        <button type="button" class="bottone" data-copia-link>Copia link</button>
+        ${virtuale ? '' : `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>`}
+        <button type="button" class="bottone testo piccolo" data-altro aria-haspopup="dialog">Altro</button>`;
   app.innerHTML = `
     <a class="indietro" href="${virtuale ? '#/' : '#/pianifica'}">‹ ${virtuale ? 'Mappa' : 'Pianifica'}</a>
-    <article class="scheda">
-      ${virtuale ? '<div class="anteprima-mappa"><div id="miniMappa"></div></div>' : `<a class="anteprima-mappa" href="#/percorso/${idUrl}/mappa" aria-label="Apri la mappa grande del percorso"><div id="miniMappa"></div></a>`}
-      <div class="testata-percorso">
-        <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
-        <div class="azioni-testata">
-          ${virtuale ? '<button type="button" class="bottone primario" data-salva-condiviso>Salva nei miei percorsi</button>' : '<button type="button" class="bottone primario" data-esporta>Esporta GPX</button>'}
-          ${virtuale ? '<button type="button" class="bottone" data-esporta>Esporta GPX</button>' : `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>`}
-          <button type="button" class="bottone" data-condividi>${ICONE.condividi ?? ''}<span>Condividi</span></button>
+    <article class="scheda scheda-percorso">
+      <div class="percorso-mappa">
+        ${virtuale ? '<div class="anteprima-mappa"><div id="miniMappa"></div></div>' : `<a class="anteprima-mappa" href="#/percorso/${idUrl}/mappa" aria-label="Apri la mappa grande del percorso"><div id="miniMappa"></div></a>`}
+      </div>
+      <div class="percorso-testa">
+        <div class="testata-percorso">
+          <h1>${escapeHtml(p.nome || 'Percorso senza nome')}</h1>
+          <div class="azioni-testata">${pulsanti}
+          </div>
         </div>
+        <p class="zona">${virtuale ? 'Percorso condiviso con te: in sola lettura' : ''}${virtuale ? '' : p.origine === 'condiviso' ? 'Condiviso con me' : ''}${virtuale || p.origine === 'condiviso' ? '' : p.originale ? `Da file ${p.originale.origine === 'kml' ? 'KML' : 'GPX'}, modificato` : p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
       </div>
-      <p class="zona">${virtuale ? 'Percorso condiviso con te: in sola lettura' : ''}${virtuale ? '' : p.origine === 'condiviso' ? 'Condiviso con me' : ''}${virtuale || p.origine === 'condiviso' ? '' : p.originale ? `Da file ${p.originale.origine === 'kml' ? 'KML' : 'GPX'}, modificato` : p.origine === 'disegnato' ? 'Disegnato sulla mappa (BRouter)' : p.origine === 'esteso' ? 'Esteso da sentieri collegati' : p.origine === 'kml' ? 'Da file KML' : 'Da file GPX'}</p>
-      <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar, modoScelto(), scaricoQuote)}</div>
-      <div id="profiloPercorso" class="profilo-scheda"></div>
-      ${pezzi.length && !virtuale ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
-      ${ar ? htmlAndataRitorno(ar, modoScelto(), inizialiOrari) : ''}
-      ${htmlQuandoAndare()}
-      ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
-      <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
-      ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
-      ${pezzi.length ? `<div id="contenitoreGiorni" ${serveGiorni(modoScelto()) ? '' : 'hidden'}>${htmlPiuGiorni()}</div>` : ''}
-      ${pezzi.length ? htmlNaturaPercorso() : ''}
-      ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
-      ${virtuale ? (virtuale.note ? `<section class="riquadro"><h2>Note</h2><p>${escapeHtml(virtuale.note)}</p></section>` : '') : `<section class="riquadro">
-        <h2>Note</h2>
-        <form class="modulo" id="moduloPercorso">
-          <label class="campo"><span>Nome</span><input name="nome" value="${escapeHtml(p.nome)}" /></label>
-          <label class="campo"><span>Note</span><textarea name="note" rows="3">${escapeHtml(p.note)}</textarea></label>
-          <button type="submit" class="bottone">Salva</button> <span class="salvato" id="salvato" hidden>Salvato</span>
-        </form>
-      </section>`}
-      <div class="barra-azioni barra-azioni-percorso">
-        ${virtuale ? '<button type="button" class="bottone primario" data-salva-condiviso>Salva nei miei percorsi</button>' : '<button type="button" class="bottone primario" data-esporta>Esporta GPX</button>'}
-        ${virtuale ? '<button type="button" class="bottone" data-condividi>Condividi</button>' : `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a><button type="button" class="bottone" data-condividi>Condividi</button>`}
+      <div class="percorso-colonna-a">
+        <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar, modoScelto(), scaricoQuote)}</div>
+        ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
+        ${pezzi.length && !virtuale ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
+        ${ar ? htmlAndataRitorno(ar, modoScelto(), inizialiOrari) : ''}
+        ${htmlQuandoAndare()}
       </div>
-      ${!virtuale && p.originale ? `<section class="riquadro"><h2>Traccia originale</h2><p class="tenue piccolo">Hai modificato la traccia del file importato: l'originale è conservato.</p><button type="button" class="bottone pieno" id="ripristina">Ripristina la traccia originale</button></section>` : ''}
-      ${virtuale ? '' : '<button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>'}
+      <div class="percorso-colonna-b">
+        <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
+        ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
+        ${pezzi.length ? `<div id="contenitoreGiorni" ${serveGiorni(modoScelto()) ? '' : 'hidden'}>${htmlPiuGiorni()}</div>` : ''}
+        ${pezzi.length ? htmlNaturaPercorso() : ''}
+        ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
+        ${virtuale ? (virtuale.note ? `<section class="riquadro"><h2>Note</h2><p>${escapeHtml(virtuale.note)}</p></section>` : '') : `<section class="riquadro">
+          <h2>Note</h2>
+          <form class="modulo" id="moduloPercorso">
+            <label class="campo"><span>Nome</span><input name="nome" value="${escapeHtml(p.nome)}" /></label>
+            <label class="campo"><span>Note</span><textarea name="note" rows="3">${escapeHtml(p.note)}</textarea></label>
+            <button type="submit" class="bottone">Salva</button> <span class="salvato" id="salvato" hidden>Salvato</span>
+          </form>
+        </section>`}
+      </div>
+      <div class="percorso-fondo">
+        ${!virtuale && p.originale ? `<section class="riquadro"><h2>Traccia originale</h2><p class="tenue piccolo">Hai modificato la traccia del file importato: l'originale è conservato.</p><button type="button" class="bottone pieno" id="ripristina">Ripristina la traccia originale</button></section>` : ''}
+        ${virtuale ? '' : '<button type="button" class="bottone pericolo pieno" id="elimina">Elimina percorso</button>'}
+      </div>
     </article>
   `;
 
   // terreno: cambio attributo e lettura da OSM per i GPX
   let attuale = p;
+  // il nome automatico al posto della data (o di un nome vuoto): «Anello da Opi · 7 km», modificabile dal modulo Note
+  if (!virtuale && pezzi.length && nomeDaSostituire(p.nome)) {
+    nomeProposto(originali).then(async (nome) => {
+      if (!nome || !app.isConnected || !suPagina()) return;
+      const campo = app.querySelector('#moduloPercorso [name=nome]');
+      if (campo && campo.value !== p.nome) return; // nel frattempo l'ha cambiato lui
+      attuale = await salvaPercorso({ ...attuale, nome });
+      const titolo = app.querySelector('h1');
+      if (titolo) titolo.textContent = nome;
+      if (campo) campo.value = nome;
+    });
+  }
   const contenitoreTerreno = app.querySelector('#contenitoreTerreno');
   contenitoreTerreno.addEventListener('click', async (ev) => {
     const attributo = ev.target.closest('[data-attributo]')?.dataset.attributo;
@@ -161,28 +179,12 @@ export async function vistaPercorso(app, id, virtuale = null) {
     app.querySelector('#salvato').hidden = false;
   });
 
-  for (const b of app.querySelectorAll('[data-esporta]')) b.addEventListener('click', async () => {
-    const file = new File([creaGpx({ nome: p.nome || 'Percorso', note: attuale.note ?? p.note ?? '', linee: quote?.pezzi ?? pezzi })], nomeFileGpx(p.nome), { type: 'application/gpx+xml' });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: p.nome });
-        return;
-      } catch (err) {
-        if (err.name === 'AbortError') return;
-      }
-    }
-    const url = URL.createObjectURL(file);
-    const a = Object.assign(document.createElement('a'), { href: url, download: file.name });
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  });
-
-  // condividere: GPX, link (senza server) o immagine; da un link ricevuto, salvarlo nei miei percorsi
-  for (const b of app.querySelectorAll('[data-condividi]')) {
-    b.addEventListener('click', () => apriCondividi({ nome: attuale.nome || p.nome, note: attuale.note ?? p.note ?? '', pezzi: quote?.pezzi ?? pezzi, originali, verso: invertito }));
-  }
+  // condividere: «Condividi» apre subito il menu di condivisione col link, «Copia link» lo copia, «Altro» ha GPX e immagine;
+  // da un link ricevuto, salvarlo nei miei percorsi
+  const infoCondivisione = () => ({ nome: attuale.nome || p.nome, note: attuale.note ?? p.note ?? '', pezzi: quote?.pezzi ?? pezzi, originali, verso: invertito });
+  for (const b of app.querySelectorAll('[data-condividi]')) b.addEventListener('click', () => condividiLink(infoCondivisione()));
+  for (const b of app.querySelectorAll('[data-copia-link]')) b.addEventListener('click', () => copiaLink(infoCondivisione()));
+  for (const b of app.querySelectorAll('[data-altro]')) b.addEventListener('click', () => apriCondividi({ ...infoCondivisione(), soloAltro: true }));
   for (const b of app.querySelectorAll('[data-salva-condiviso]')) {
     b.addEventListener('click', async () => {
       const idNuovo = nuovoIdPercorso();
@@ -209,13 +211,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
     vistaPercorso(app, id, virtuale);
   });
   // il profilo altimetrico, se ci sono le quote
-  const serieProfilo = quote?.pezzi ? profiloPezzi(quote.pezzi) : [];
-  const puntoSuMappa = creaPuntoProfilo();
-  if (serieProfilo.length > 1) {
-    const boxProfilo = app.querySelector('#profiloPercorso');
-    boxProfilo.innerHTML = htmlProfiloMini(serieProfilo, quote.fonte && quote.fonte !== 'traccia' ? testoFonteQuote(quote.fonte) : 'Quote della traccia');
-    collegaProfiloMini(boxProfilo, () => serieProfilo, (x) => puntoSuMappa.mostra(x.p));
-  }
   // senza quote (percorso disegnato o importato senza altitudini): si scaricano da sole, si salvano e la pagina si ricalcola
   if (scaricoQuote) {
     quoteProvate.add(chiaveQuote(p, originali));
@@ -284,7 +279,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
     },
   });
   const mini = creaMappa(contenitore, { anteprima: true });
-  puntoSuMappa.collega(mini);
   const puntiNatura = L.layerGroup().addTo(mini);
   collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {
     puntiNatura.clearLayers();

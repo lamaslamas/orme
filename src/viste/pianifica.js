@@ -1,5 +1,5 @@
 // Sezione "Pianifica": i miei percorsi, caricati da GPX o disegnati seguendo i sentieri.
-import { tuttiIPercorsi } from '../db.js';
+import { tuttiIPercorsi, leggiPercorso, salvaPercorso } from '../db.js';
 import { avviaImportazione } from './importaFile.js';
 import { lunghezzaKm } from '../lib/geo.js';
 import { dislivello, lineeConQuote } from '../lib/quote.js';
@@ -10,6 +10,8 @@ import { percorsoSentiero } from '../lib/tracce.js';
 import { sagomaSvg } from '../lib/sagoma.js';
 import { escapeHtml, migliaia } from '../lib/formato.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
+import { nomeProposto } from './nomeAutomatico.js';
+import { nomeDaSostituire } from '../lib/nomePercorso.js';
 
 export function numeriPercorso(p) {
   const pezzi = percorsoSentiero(p.geojson).pezzi;
@@ -59,6 +61,20 @@ export async function vistaPianifica(app) {
       app.querySelector('.qd-riquadro summary').textContent = `Quota e dislivello${qdAttivo(filtro) ? ' · filtro attivo' : ''}`;
       app.querySelector('.lista').innerHTML = htmlVoci();
     });
+
+  // i percorsi che hanno ancora la data per nome ricevono il nome automatico («Anello da Opi · 7 km»), uno alla volta
+  (async () => {
+    for (const p of percorsi.filter((x) => nomeDaSostituire(x.nome)).slice(0, 8)) {
+      const pezzi = percorsoSentiero(p.geojson).pezzi;
+      const nome = pezzi.length ? await nomeProposto(pezzi).catch(() => null) : null;
+      if (!nome || !app.isConnected) continue;
+      const attuale = (await leggiPercorso(p.id)) ?? p;
+      if (!nomeDaSostituire(attuale.nome)) continue; // l'ha già cambiato lui
+      await salvaPercorso({ ...attuale, nome });
+      const voce = [...app.querySelectorAll('.lista a.carta-sentiero')].find((a) => a.getAttribute('href') === `#/percorso/${encodeURIComponent(p.id)}`);
+      if (voce) voce.querySelector('.nome').textContent = nome;
+    }
+  })();
 
   app.querySelector('#caricaGpx').addEventListener('click', () => avviaImportazione());
 }

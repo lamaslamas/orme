@@ -8,6 +8,82 @@ import { escapeHtml } from '../lib/formato.js';
 import { quoteDeiPezzi } from './quote.js';
 import { creaImmagine } from './immagineCondivisione.js';
 import { finestraTrascinabile } from './tendina.js';
+import { nomeProposto } from './nomeAutomatico.js';
+import { nomeDaSostituire } from '../lib/nomePercorso.js';
+
+// un avviso breve in basso («Link copiato»)
+export function mostraAvviso(testo, ms = 3200) {
+  document.querySelector('.avviso-condividi')?.remove();
+  const el = document.createElement('div');
+  el.className = 'avviso-condividi';
+  el.setAttribute('role', 'status');
+  el.textContent = testo;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), ms);
+}
+
+// il nome da usare nel link: se è ancora una data, quello automatico (ma senza far aspettare: il menu di condivisione
+// vuole partire subito dal tocco)
+async function nomeBuono({ nome, pezzi }) {
+  if (!nomeDaSostituire(nome)) return nome;
+  const automatico = await Promise.race([nomeProposto(pezzi).catch(() => null), new Promise((r) => setTimeout(() => r(null), 1500))]);
+  return automatico || nome || 'Percorso Orme';
+}
+
+const baseLink = () => `${location.origin}${location.pathname}`;
+const costruisci = (info, nome) => costruisciLink({ nome, note: info.note, verso: info.verso, pezzi: info.originali ?? info.pezzi, base: baseLink() });
+const AVVISO_SEMPLIFICATA = 'Traccia semplificata per il link.';
+
+// «Condividi»: subito il menu di condivisione del sistema con il link (titolo = nome del percorso).
+// Senza menu di condivisione il link si copia, e lo dice.
+export async function condividiLink(info) {
+  const nome = await nomeBuono(info);
+  const r = costruisci(info, nome);
+  if (!r.url) return mostraAvviso('Il percorso è troppo lungo per un link: usa Altro e il GPX.');
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: nome, url: r.url });
+      if (r.semplificata) mostraAvviso(AVVISO_SEMPLIFICATA);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+  const copiato = await copiaTesto(r.url);
+  mostraAvviso(copiato ? `Link copiato (il browser non ha il menu di condivisione).${r.semplificata ? ` ${AVVISO_SEMPLIFICATA}` : ''}` : 'Non riesco a copiarlo da solo.');
+  if (!copiato) mostraLinkADito(r.url);
+}
+
+// «Copia link»: direttamente negli appunti
+export async function copiaLink(info) {
+  const nome = await nomeBuono(info);
+  const r = costruisci(info, nome);
+  if (!r.url) return mostraAvviso('Il percorso è troppo lungo per un link: usa Altro e il GPX.');
+  if (await copiaTesto(r.url)) mostraAvviso(`Link copiato${r.semplificata ? `. ${AVVISO_SEMPLIFICATA}` : ''}`);
+  else {
+    mostraAvviso('Non riesco a copiarlo da solo: ecco il link.');
+    mostraLinkADito(r.url);
+  }
+}
+
+async function copiaTesto(testo) {
+  try {
+    await navigator.clipboard.writeText(testo);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function mostraLinkADito(url) {
+  const f = document.createElement('dialog');
+  f.className = 'foglio foglio-condividi';
+  f.innerHTML = `<h2 class="foglio-titolo">Il link</h2><textarea readonly rows="5" class="condividi-link">${escapeHtml(url)}</textarea><button type="button" class="bottone pieno-largo">Chiudi</button>`;
+  document.body.appendChild(f);
+  f.querySelector('button').addEventListener('click', () => f.close());
+  f.addEventListener('close', () => f.remove());
+  f.showModal();
+  f.querySelector('textarea').select();
+}
 
 const haQuote = (pezzi) => pezzi.flat().length > 1 && pezzi.flat().every((p) => Number.isFinite(p[2]));
 
@@ -45,16 +121,17 @@ export async function condividiFile(file, titolo) {
   return 'scaricato';
 }
 
-export function apriCondividi({ nome, note = '', pezzi, originali = pezzi, verso = false }) {
+// soloAltro: senza «Copia link» (c'è già accanto a «Condividi»): restano GPX e immagine
+export function apriCondividi({ nome, note = '', pezzi, originali = pezzi, verso = false, soloAltro = false }) {
   const finestra = document.createElement('dialog');
   finestra.className = 'foglio foglio-condividi';
   finestra.innerHTML = `
     <div class="foglio-maniglia" aria-hidden="true"></div>
-    <h2 class="foglio-titolo">Condividi</h2>
+    <h2 class="foglio-titolo">${soloAltro ? 'GPX e immagine' : 'Condividi'}</h2>
     <p class="tenue piccolo">${escapeHtml(nome || 'Percorso')}. Nel link e nel file vanno solo traccia, nome, note e verso.</p>
     <div class="condividi-azioni">
       <button type="button" class="bottone pieno-largo" data-fai="gpx">Condividi GPX</button>
-      <button type="button" class="bottone pieno-largo" data-fai="link">Copia link</button>
+      ${soloAltro ? '' : '<button type="button" class="bottone pieno-largo" data-fai="link">Copia link</button>'}
       <fieldset class="condividi-tema"><legend class="tenue piccolo">Immagine</legend>
         <label><input type="radio" name="tema" value="chiaro" checked /> Chiaro</label>
         <label><input type="radio" name="tema" value="scuro" /> Scuro</label>

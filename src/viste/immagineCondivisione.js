@@ -1,21 +1,55 @@
 // L'immagine verticale (1080×1350) del percorso: mappa con la traccia, km, dislivello, tempo, profilo, nome e «Orme».
-// La mappa è fatta con le tessere di OpenStreetMap (se non arrivano, resta uno sfondo semplice con la traccia).
+// La mappa è la stessa base dell'app (OpenFreeMap, dati OpenStreetMap), disegnata da MapLibre fuori schermo; se non
+// arriva (offline, niente WebGL) resta uno sfondo semplice con la traccia.
 import { LARGHEZZA, ALTEZZA, TEMI, riquadroLinee, vista, suImmagine, serieProfilo } from '../lib/immagine.js';
 import { durata } from '../lib/formato.js';
 
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const MAPPA = { x: 60, y: 210, w: 960, h: 720 };
-const URL_TESSERA = (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+const STILI = { chiaro: 'https://tiles.openfreemap.org/styles/liberty', scuro: 'https://tiles.openfreemap.org/styles/dark' };
+export const CREDITO = '© OpenFreeMap © OpenStreetMap';
 
-function caricaTessera(url, attesaMs = 8000) {
-  return new Promise((risolvi, rifiuta) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    const t = setTimeout(() => rifiuta(new Error('tessera lenta')), attesaMs);
-    img.onload = () => (clearTimeout(t), risolvi(img));
-    img.onerror = () => (clearTimeout(t), rifiuta(new Error('tessera non arrivata')));
-    img.src = url;
-  });
+// La mappa di base di OpenFreeMap in un contenitore nascosto, inquadrata sul riquadro [minLon, minLat, maxLon, maxLat].
+// → { canvas, proietta([lon, lat]) → [x, y], rimuovi() }; lancia un errore se non si riesce entro attesaMs
+export async function mappaOpenFreeMap({ riquadro, larghezza, altezza, tema = 'chiaro', attesaMs = 15000 }) {
+  const modulo = await import('maplibre-gl');
+  const ML = modulo.default ?? modulo;
+  const contenitore = document.createElement('div');
+  contenitore.style.cssText = `position:fixed;left:-10000px;top:0;width:${larghezza}px;height:${altezza}px;pointer-events:none`;
+  document.body.appendChild(contenitore);
+  let mappa = null;
+  const rimuovi = () => {
+    mappa?.remove();
+    contenitore.remove();
+  };
+  try {
+    mappa = new ML.Map({
+      container: contenitore,
+      style: STILI[tema] ?? STILI.chiaro,
+      bounds: [[riquadro[0], riquadro[1]], [riquadro[2], riquadro[3]]],
+      fitBoundsOptions: { padding: 80, maxZoom: 16, animate: false },
+      interactive: false,
+      attributionControl: false,
+      preserveDrawingBuffer: true,
+      pixelRatio: 1,
+      fadeDuration: 0,
+    });
+    await new Promise((risolvi, rifiuta) => {
+      const t = setTimeout(() => rifiuta(new Error('mappa lenta')), attesaMs);
+      mappa.once('idle', () => (clearTimeout(t), risolvi()));
+    });
+    return {
+      canvas: mappa.getCanvas(),
+      proietta: (p) => {
+        const q = mappa.project(p);
+        return [q.x, q.y];
+      },
+      rimuovi,
+    };
+  } catch (e) {
+    rimuovi();
+    throw e;
+  }
 }
 
 function rettangoloTondo(ctx, x, y, w, h, r) {
@@ -45,7 +79,7 @@ function scrivi(ctx, testo, x, y, larghezza, altezzaRiga, righe) {
 }
 
 // misure: { km, salita, discesa, durataMin }; pezzi: [[lon, lat, quota?]…]; → Promise<Blob PNG>
-export async function creaImmagine({ nome, pezzi, misure, tema = 'chiaro', tessera = caricaTessera }) {
+export async function creaImmagine({ nome, pezzi, misure, tema = 'chiaro', mappaDiBase = mappaOpenFreeMap }) {
   const T = TEMI[tema] ?? TEMI.chiaro;
   const canvas = document.createElement('canvas');
   canvas.width = LARGHEZZA;
@@ -61,30 +95,28 @@ export async function creaImmagine({ nome, pezzi, misure, tema = 'chiaro', tesse
   scrivi(ctx, nome || 'Percorso', 60, 110, 960, 70, 2);
 
   // mappa
-  const v = vista(riquadroLinee(pezzi), MAPPA.w, MAPPA.h, 80);
+  const riquadro = riquadroLinee(pezzi);
+  let base = null;
+  try {
+    base = await mappaDiBase({ riquadro, larghezza: MAPPA.w, altezza: MAPPA.h, tema });
+  } catch (e) {
+    console.warn('Mappa di base non disponibile', e);
+  }
+  const v = base ? null : vista(riquadro, MAPPA.w, MAPPA.h, 80);
+  const proietta = (p) => (base ? base.proietta(p) : suImmagine(p, v));
   ctx.save();
   rettangoloTondo(ctx, MAPPA.x, MAPPA.y, MAPPA.w, MAPPA.h, 28);
   ctx.clip();
   ctx.fillStyle = T.riquadro;
   ctx.fillRect(MAPPA.x, MAPPA.y, MAPPA.w, MAPPA.h);
-  const caricate = await Promise.allSettled(v.tessere.map((t) => tessera(URL_TESSERA(v.z, t.x, t.y)).then((img) => ({ img, t }))));
-  const conTessere = caricate.some((c) => c.status === 'fulfilled');
-  for (const c of caricate) {
-    if (c.status !== 'fulfilled') continue;
-    const { img, t } = c.value;
-    if (T.scuraMappa && 'filter' in ctx) ctx.filter = 'invert(1) hue-rotate(180deg) brightness(0.92) saturate(0.7)';
-    ctx.drawImage(img, MAPPA.x + t.px, MAPPA.y + t.py);
-    ctx.filter = 'none';
-  }
-  if (conTessere && T.scuraMappa && !('filter' in ctx)) {
-    ctx.fillStyle = 'rgba(8, 16, 14, 0.55)';
-    ctx.fillRect(MAPPA.x, MAPPA.y, MAPPA.w, MAPPA.h);
+  if (base) {
+    ctx.drawImage(base.canvas, MAPPA.x, MAPPA.y, MAPPA.w, MAPPA.h);
   }
   // traccia
   const tracciato = (l) => {
     ctx.beginPath();
     l.forEach((p, i) => {
-      const [x, y] = suImmagine(p, v);
+      const [x, y] = proietta(p);
       if (i) ctx.lineTo(MAPPA.x + x, MAPPA.y + y);
       else ctx.moveTo(MAPPA.x + x, MAPPA.y + y);
     });
@@ -100,7 +132,7 @@ export async function creaImmagine({ nome, pezzi, misure, tema = 'chiaro', tesse
   // partenza e arrivo
   const estremi = [[pezzi[0][0], '#2f8f3a'], [pezzi.at(-1).at(-1), '#c2410c']];
   for (const [p, colore] of estremi) {
-    const [x, y] = suImmagine(p, v);
+    const [x, y] = proietta(p);
     ctx.beginPath();
     ctx.arc(MAPPA.x + x, MAPPA.y + y, 16, 0, Math.PI * 2);
     ctx.fillStyle = colore;
@@ -110,9 +142,9 @@ export async function creaImmagine({ nome, pezzi, misure, tema = 'chiaro', tesse
     ctx.stroke();
   }
   // credito obbligatorio delle tessere
-  if (conTessere) {
+  if (base) {
     ctx.font = `500 20px ${FONT}`;
-    const testo = '© OpenStreetMap';
+    const testo = CREDITO;
     const w = ctx.measureText(testo).width + 20;
     ctx.fillStyle = 'rgba(255,255,255,0.82)';
     ctx.fillRect(MAPPA.x + MAPPA.w - w, MAPPA.y + MAPPA.h - 32, w, 32);
@@ -170,5 +202,6 @@ export async function creaImmagine({ nome, pezzi, misure, tema = 'chiaro', tesse
   ctx.font = `600 26px ${FONT}`;
   ctx.fillText('Orme', 60, 1332);
 
+  base?.rimuovi();
   return new Promise((risolvi, rifiuta) => canvas.toBlob((b) => (b ? risolvi(b) : rifiuta(new Error('immagine non creata'))), 'image/png'));
 }
