@@ -63,10 +63,18 @@ describe('Suggeriscimi: regole', () => {
     expect(ordinaProposte([v('a', 120, 'sconsigliato'), v('b', 90, 'ok'), v('c', 100, 'attenzione')]).map((x) => x.id)).toEqual(['b', 'c', 'a']);
   });
   it('la riga del perché', () => {
-    const c = base({ anello: true, bosco: 70, fauna: { livello: 'frequenti', specie: ['cervo', 'camoscio'] }, acqua: 2, misure: { km: 9, salita: 580, durataMin: 250 } });
+    const c = base({ anello: true, bosco: 70, fauna: { livello: 'frequenti', specie: ['lupo', 'orso'] }, specieLungo: ['cervo', 'camoscio'], acqua: 2, misure: { km: 9, salita: 580, durataMin: 250 } });
     // le durate restano su una riga (spazi non separabili)
     expect(testoPerche(c)).toBe('Anello nel bosco, ricco di fauna (cervo, camoscio), 2 punti acqua, +580\u00a0m · max\u00a01.300\u00a0m · 4\u00a0h\u00a010');
     expect(testoPerche(base({ rifugioNotte: 'Rifugio Acquanera' }), { modo: 'ar' })).toBe('Andata e ritorno, Rifugio Acquanera a fine primo giorno, +450\u00a0m · max\u00a01.300\u00a0m · 3\u00a0h\u00a020');
+  });
+  it('la fauna è quella lungo il percorso, non quella del parco; le specie comuni a tutti si dicono in cima', () => {
+    const c = base({ fauna: { livello: 'frequenti', specie: ['lupo', 'orso'] }, specieLungo: ['nibbio_reale', 'cervo', 'camoscio'] });
+    expect(testoPerche(c)).toContain('ricco di fauna (nibbio reale, cervo, camoscio)');
+    expect(testoPerche(c)).not.toContain('lupo');
+    expect(testoPerche(c, { specieComuni: ['nibbio_reale'] })).toContain('ricco di fauna (cervo, camoscio)');
+    expect(testoPerche(c, { specieComuni: ['nibbio_reale', 'cervo', 'camoscio'] })).toContain('ricco di fauna,');
+    expect(testoPerche(base({ fauna: { livello: 'frequenti', specie: ['lupo'] } }))).toContain('ricco di fauna,');
   });
   it('altitudine massima: con il punto per le migliaia se c\'è, niente se manca', () => {
     const c = base({ anello: true, bosco: 70, acqua: 3, quotaMax: 1240, misure: { km: 4, salita: 127, durataMin: 62 } });

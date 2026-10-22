@@ -111,15 +111,19 @@ export function ordinaProposteNotte(voci, confronta) {
 }
 
 // "Anello nel bosco, ricco di fauna (cervo, camoscio), 2 fontanelle, +580 m · 4 h 10"
-export function testoPerche(c, { trovati = [], modo = 'ar' } = {}) {
-  const nomi = (xs) => xs.map((a) => (ANIMALI[a] ?? a).toLowerCase()).join(', ');
+// specieComuni: le specie che stanno in tutti i risultati: si dicono una volta in cima e non in ogni card.
+// Le specie sono quelle lungo il percorso (la traccia e il suo tratto con più fauna), non quelle del parco.
+export function testoPerche(c, { trovati = [], modo = 'ar', specieComuni = [] } = {}) {
+  const nomi = (xs) => xs.map((a) => (ANIMALI[a] ?? String(a).replace(/_/g, ' ')).toLowerCase()).join(', ');
+  const proprie = (c.specieLungo ?? []).filter((a) => !specieComuni.includes(a)).slice(0, 3);
+  const elencoFauna = proprie.length ? ` (${nomi(proprie)})` : '';
   const parti = [c.anello ? 'Anello' : modo === 'ar' ? 'Andata e ritorno' : 'Solo andata'];
   if ((c.bosco ?? 0) >= 50) parti[0] += ' nel bosco';
   if (c.specie) {
     const z = c.specie.dove === 'percorso' ? '' : ', dato di zona';
     parti.push(`${(c.specie.nomeSpecie ?? ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}`);
-  } else if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
-  else if (c.fauna?.livello === 'possibili' && trovati.includes('fauna')) parti.push(`fauna possibile${c.fauna.specie?.length ? ` (${nomi(c.fauna.specie)})` : ''}`);
+  } else if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${elencoFauna}`);
+  else if (c.fauna?.livello === 'possibili' && trovati.includes('fauna')) parti.push(`fauna possibile${elencoFauna}`);
   if ((c.panorama ?? 0) >= 60) parti.push(`panoramico (${c.panorama}/100)`);
   if (trovati.includes('cresta')) parti.push('tratti in cresta');
   if (c.acqua) parti.push(c.acqua === 1 ? '1 punto acqua' : `${c.acqua} punti acqua`);
