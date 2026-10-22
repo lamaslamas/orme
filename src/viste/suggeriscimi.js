@@ -11,6 +11,7 @@ import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tracce.js';
 import { versoDi } from '../lib/verso.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
+import { zonaDaScelte } from '../lib/zonaSpecie.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
@@ -42,6 +43,8 @@ import {
   stimaAuto,
   testoAuto,
   testoConteggio,
+  PERIODI,
+  RAGGIO_PERIODO,
   valuta,
   ordinaProposte,
   ordinaProposteNotte,
@@ -175,8 +178,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   let classifica = [];
   let mostrate = 0;
   let richiesta = 0;
-  // allargamenti chiesti quando non resta nessun percorso (tornano normali a ogni nuova scelta)
-  let raggioMesi = 1;
+  // il periodo per la fauna (scelta «Periodo»): il mese, i mesi vicini (di base) o tutto l'anno
+  const raggioMesi = () => RAGGIO_PERIODO[scelte.periodo] ?? 1;
+  const mesePeriodo = (m) => (scelte.periodo === 'anno' ? null : m);
+  // l'area si allarga se non resta nessun percorso (torna normale a ogni nuova scelta)
   let scalaArea = 1;
   // le specie più segnalate nella zona inquadrata (GBIF) per "Quale animale"
   let zonaSpecie = { chiave: null, stato: '', osservazioni: [] };
@@ -191,33 +196,59 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     if (box) box.innerHTML = htmlScelte();
     aggiornaBottone();
   }
+  // La zona di «Più segnalate qui»: nella tendina sulla mappa è quella inquadrata; a pagina intera (niente mappa) è quella di
+  // «Quanto lontano»: il parco scelto o l'area raggiungibile da me nel tempo scelto
+  const zonaDaScelta = () => zonaDaScelte(scelte, { parcoScelto: parcoDa(scelte.parco), centro: posizione() ?? centroMappa(), daMe: Boolean(posizione()) });
+  const chiaveVista = () => `${centroMappa().map((x) => x.toFixed(2))}|${mappa.getZoom()}`;
+  const etichettaZona = () => (modoPagina ? zonaDaScelta()?.etichetta : null) ?? 'nella zona inquadrata';
+  const testoPeriodo = () => (scelte.periodo === 'anno' ? "tutto l'anno" : scelte.periodo === 'mese' ? nomeMese() : `${nomeMese()} e mesi vicini`);
+  // nella tendina sulla mappa «Aggiorna per la zona inquadrata» c'è solo se la mappa si è spostata dopo l'ultimo aggiornamento
+  if (!modoPagina) mappa.on('moveend', () => foglio.querySelectorAll('.zona-aggiorna').forEach((b) => (b.hidden = zonaSpecie.vista === chiaveVista())));
   async function caricaZona({ forza = false } = {}) {
-    const b = mappa.getBounds();
-    if (mappa.getZoom() < 9) {
-      zonaSpecie = { chiave: null, stato: 'lontano', osservazioni: [] };
-      return aggiornaScelte();
+    let riquadro;
+    let chiave;
+    let raggio = 0;
+    let etichetta = 'nella zona inquadrata';
+    if (modoPagina) {
+      const z = zonaDaScelta();
+      if (!z) {
+        zonaSpecie = { chiave: null, stato: 'lontano', osservazioni: [] };
+        return aggiornaScelte();
+      }
+      raggio = z.tipo === 'tempo' ? Math.min(50, z.raggioKm * scalaArea) : 0;
+      riquadro = z.tipo === 'parco' ? z.riquadro : riquadroIntorno(z.centro, raggio);
+      chiave = `${z.chiave}|${scalaArea}`;
+      etichetta = z.etichetta;
+    } else {
+      const b = mappa.getBounds();
+      if (mappa.getZoom() < 9) {
+        zonaSpecie = { chiave: null, stato: 'lontano', osservazioni: [] };
+        return aggiornaScelte();
+      }
+      const { centro, km } = zonaInquadrata([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]);
+      raggio = Math.min(50, km * scalaArea);
+      riquadro = riquadroIntorno(centro, raggio);
+      chiave = `${centro.map((x) => x.toFixed(2))}|${raggio}`;
     }
-    const { centro, km } = zonaInquadrata([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]);
-    const raggio = Math.min(50, km * scalaArea);
-    const chiave = `${centro.map((x) => x.toFixed(2))}|${raggio}`;
     if (!forza && zonaSpecie.chiave === chiave && zonaSpecie.stato === 'ok') return;
-    zonaSpecie = { chiave, stato: 'carico', osservazioni: [] };
+    const vista = modoPagina ? null : chiaveVista();
+    zonaSpecie = { chiave, stato: 'carico', osservazioni: [], etichetta, vista };
     aggiornaScelte();
     try {
       const osservazioni = [];
       for (let pagina = 0; pagina < (scalaArea > 1 ? 8 : 5); pagina++) {
-        const r = await fetch(urlOsservazioniGbif(riquadroIntorno(centro, raggio), { specie: 'notevoli', gruppi: ['rapaci', 'acqua', 'mammiferi'] }, { limite: 300, scarto: pagina * 300 }));
+        const r = await fetch(urlOsservazioniGbif(riquadro, { specie: 'notevoli', gruppi: ['rapaci', 'acqua', 'mammiferi'] }, { limite: 300, scarto: pagina * 300 }));
         if (!r.ok) throw new Error(`GBIF ${r.status}`);
         const json = await r.json();
         // solo i campi che servono ai conti: l'osservatore è un codice anonimo
-        for (const x of interpretaGbif(json)) osservazioni.push({ nomeScientifico: x.nomeScientifico, specie: x.specie, animale: x.animale, data: x.data, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore });
+        for (const x of interpretaGbif(json)) osservazioni.push({ nomeScientifico: x.nomeScientifico, specie: x.specie, animale: x.animale, classe: x.classe, ordine: x.ordine, data: x.data, lat: x.lat, lon: x.lon, sfumata: x.sfumata, osservatore: x.osservatore });
         if (json.endOfRecords || !json.results?.length) break;
       }
       if (zonaSpecie.chiave !== chiave) return;
-      zonaSpecie = { chiave, stato: 'ok', osservazioni };
+      zonaSpecie = { chiave, stato: 'ok', osservazioni, etichetta, vista };
       aggiornaScelte();
       // i nomi italiani delle prime (iNaturalist), poi si ridisegna
-      const prime = specieDellaZonaPerOsservatori(osservazioni, meseDelQuando(), { raggioMesi }).filter((x) => !x.animale && nomiIt[x.chiave] === undefined);
+      const prime = specieDellaZonaPerOsservatori(osservazioni, mesePeriodo(meseDelQuando()), { raggioMesi: raggioMesi(), gruppo: gruppoScelto() }).filter((x) => !x.animale && nomiIt[x.chiave] === undefined);
       if (prime.length) {
         await Promise.all(
           prime.map(async (x) => {
@@ -234,21 +265,27 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       }
     } catch {
       if (zonaSpecie.chiave === chiave) {
-        zonaSpecie = { chiave, stato: 'errore', osservazioni: [] };
+        zonaSpecie = { chiave, stato: 'errore', osservazioni: [], etichetta, vista };
         aggiornaScelte();
       }
     }
   }
-  // "Più segnalate nella zona inquadrata": pillole oltre all'elenco fisso
+  // «Più segnalate qui»: segue il gruppo scelto in «Quale animale» (Mammiferi solo mammiferi, Rapaci solo rapaci)
+  const gruppoScelto = () => (GRUPPI_SPECIE[scelte.specie] ? scelte.specie : null);
+  // «Più segnalate nel Parco dell'Appennino Lucano» / «entro 1 h da te» / «nella zona inquadrata»: la zona si dice sempre
   function htmlSpecieZona() {
     const { stato } = zonaSpecie;
-    if (stato === 'lontano') return '<p class="tenue piccolo">Avvicina la mappa (zoom 9 o più) per vedere le specie più segnalate nella zona.</p>';
-    if (stato === 'carico') return '<p class="tenue piccolo">Cerco le specie più segnalate nella zona inquadrata…</p>';
+    const zona = modoPagina ? etichettaZona() : 'nella zona inquadrata';
+    if (stato === 'lontano') return modoPagina ? '' : '<p class="tenue piccolo">Avvicina la mappa (zoom 9 o più) per vedere le specie più segnalate nella zona.</p>';
+    if (stato === 'carico') return `<p class="tenue piccolo">Cerco le specie più segnalate ${escapeHtml(zona)}…</p>`;
     if (stato === 'errore') return '<p class="tenue piccolo">Non riesco a leggere le specie della zona (sei offline?). <button type="button" class="bottone testo" data-azione="zona-riprova">Riprova</button></p>';
     if (stato !== 'ok') return '';
-    const lista = specieDellaZonaPerOsservatori(zonaSpecie.osservazioni, meseDelQuando(), { raggioMesi });
-    if (!lista.length) return `<h3>Più segnalate qui</h3><p class="tenue piccolo">Poche segnalazioni nella zona inquadrata in ${nomeMese()}. <button type="button" class="bottone testo" data-azione="zona-riprova">Aggiorna</button></p>`;
-    return `<h3>Più segnalate qui <span class="tenue piccolo">· ${nomeMese()}, per persone diverse</span></h3>
+    const lista = specieDellaZonaPerOsservatori(zonaSpecie.osservazioni, mesePeriodo(meseDelQuando()), { raggioMesi: raggioMesi(), gruppo: gruppoScelto() });
+    const titolo = `Più segnalate ${escapeHtml(zonaSpecie.etichetta ?? zona)}`;
+    // «Aggiorna per la zona inquadrata» solo nella tendina sulla mappa e solo se la mappa si è spostata dall'ultimo aggiornamento
+    const aggiorna = modoPagina ? '' : ` <button type="button" class="bottone testo zona-aggiorna" data-azione="zona-riprova" ${zonaSpecie.vista === chiaveVista() ? 'hidden' : ''}>Aggiorna per la zona inquadrata</button>`;
+    if (!lista.length) return `<h3>${titolo}</h3><p class="tenue piccolo">Poche segnalazioni ${modoPagina ? 'qui' : 'nella zona inquadrata'} (${escapeHtml(testoPeriodo())}).${modoPagina ? '' : ' Prova con «Tutto l\'anno» o avvicina la mappa.'}${aggiorna}</p>`;
+    return `<h3>${titolo} <span class="tenue piccolo">· ${escapeHtml(testoPeriodo())}, per persone diverse</span></h3>
       <div class="gruppo-scelte" role="radiogroup" aria-label="Specie più segnalate nella zona">${lista
         .map((x) => {
           const valore = x.animale ?? `${PREFISSO_ZONA}${x.chiave}`;
@@ -256,7 +293,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           return `<button type="button" class="chip-scorciatoia ${scelte.specie === valore ? 'attiva' : ''}" role="radio" aria-checked="${scelte.specie === valore}" data-scelta="specie" data-valore="${escapeHtml(valore)}" data-nome="${escapeHtml(nome)}">${escapeHtml(nome)} · ${x.persone}</button>`;
         })
         .join('')}</div>
-      <p class="tenue piccolo">Il numero sono le persone diverse che l'hanno segnalato. <button type="button" class="bottone testo" data-azione="zona-riprova">Aggiorna per la zona inquadrata</button></p>`;
+      <p class="tenue piccolo">Il numero sono le persone diverse che l'hanno segnalato.${aggiorna}</p>`;
   }
 
   function htmlScelte() {
@@ -287,7 +324,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       ${
         scelte.cerco.includes('fauna')
           ? `<h3>Quale animale</h3>${htmlSpecie()}
-      <p class="tenue piccolo">In ordine di persone diverse che l\'hanno segnalato nel mese scelto: non è la probabilità di vederlo. ${linkCodice}</p>${htmlSpecieZona()}`
+      <p class="tenue piccolo">In ordine di persone diverse che l\'hanno segnalato nel periodo scelto: non è la probabilità di vederlo. ${linkCodice}</p>${htmlSpecieZona()}
+      <h3>Periodo</h3>${htmlGruppo('periodo', PERIODI, scelte.periodo)}`
           : ''
       }
       <h3>Fatica${AIUTO}</h3>${htmlGruppo('fatica', FATICHE, scelte.fatica)}
@@ -452,12 +490,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           misure: inBici() ? { ...misure, durataMin: durataInBici(misure.km, misure.salita, 'mtb') ?? misure.durataMin } : misure,
           anello,
           difficolta: s.difficolta,
-          fauna: possibilitaFauna(s, mese, { stagione: true }),
+          fauna: possibilitaFauna(s, mese, { stagione: scelte.periodo !== 'anno', raggioMesi: raggioMesi() }),
           specie: !scelte.cerco.includes('fauna') || !scelte.specie
             ? null
             : specieDinamica()
-              ? puntiSpecieZona(zonaSpecie.osservazioni, p.traccia.geojson, scelte.specie.slice(PREFISSO_ZONA.length), mese, { raggioMesi, nome: scelte.specieNome })
-              : puntiSpecie(s, scelte.specie, mese, raggioMesi),
+              ? puntiSpecieZona(zonaSpecie.osservazioni, p.traccia.geojson, scelte.specie.slice(PREFISSO_ZONA.length), mesePeriodo(mese), { raggioMesi: raggioMesi(), nome: scelte.specieNome })
+              : puntiSpecie(s, scelte.specie, mesePeriodo(mese), raggioMesi()),
           panorama: s.panorama?.punteggio ?? null,
           bosco: s.panorama?.boscoPercento ?? null,
           apertura: s.panorama?.criteri?.apertura ?? null,
@@ -792,10 +830,11 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       classifica = [];
       disegnate.clearLayers();
       if (senzaSpecie > 0) {
-        // la specie scelta è il motivo: si propone di allargare mesi o area
+        // la specie scelta è il motivo: si propone «Tutto l'anno» o un'area più grande; il messaggio dice la zona
         const areaMassima = scelte.distanza === '120' && (scalaArea === 2 || !specieDinamica());
-        risultati.innerHTML = `<p class="vuoto">Nessun percorso con segnalazioni di ${escapeHtml(etichettaSpecie().toLowerCase())} in ${escapeHtml(nomeMese())}${raggioMesi > 1 ? ' e nei mesi vicini' : ''} in questa zona.</p>
-          <div class="azioni-vuoto">${raggioMesi < 3 ? '<button type="button" class="bottone" data-azione="allarga-mesi">Allarga ai mesi vicini</button>' : ''}${areaMassima ? '' : '<button type="button" class="bottone" data-azione="area-grande">Cerca in un\'area più grande</button>'}</div>`;
+        const quando = scelte.periodo === 'anno' ? "in nessun mese dell'anno" : scelte.periodo === 'mese' ? `in ${nomeMese()}` : `in ${nomeMese()} e nei mesi vicini`;
+        risultati.innerHTML = `<p class="vuoto">Nessun percorso con segnalazioni di ${escapeHtml(etichettaSpecie().toLowerCase())} ${escapeHtml(quando)} ${escapeHtml(etichettaZona())}.</p>
+          <div class="azioni-vuoto">${scelte.periodo !== 'anno' ? '<button type="button" class="bottone" data-azione="periodo-anno">Tutto l\'anno</button>' : ''}${areaMassima ? '' : '<button type="button" class="bottone" data-azione="area-grande">Cerca in un\'area più grande</button>'}</div>`;
         return;
       }
       mostraNessunRisultato(risultati, data);
@@ -882,7 +921,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       ${modoPagina ? '' : `<button type="button" class="proposta-mappa" data-proposta="${i}" aria-label="Mostra sulla mappa"><span class="numero-proposta" style="background:${COLORI_PROPOSTE[i % 3]}">${i + 1}</span></button>`}
       <div class="proposta-corpo">
         <div class="proposta-testa">${icona}<a class="nome" href="#/sentiero/${encodeURIComponent(s.id)}" data-apri-sentiero="${escapeHtml(s.id)}">${t.badge ? `<span class="codice">${escapeHtml(t.badge)}</span> ` : ''}${escapeHtml(t.titolo)}</a></div>
-        <span class="perche">${escapeHtml(testoPerche(v, { trovati: v.valutazione.trovati, modo: modoScelto(), specieComuni: contestoCard.specieComuni }))}</span>
+        <span class="perche">${escapeHtml(testoPerche(v, { trovati: v.valutazione.trovati, modo: modoScelto(), specieComuni: contestoCard.specieComuni, periodoAnno: scelte.periodo === 'anno' }))}</span>
         ${v.notte?.giorno2?.dallAlba ? '<span class="chip chip-alba">All\'alba nel tratto con più fauna</span>' : ''}
         ${v.notte ? `<span class="tenue piccolo giornate-notte">${escapeHtml(testoGiornate(v.notte))}</span>` : ''}
         ${meteo}
@@ -1438,7 +1477,6 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         stato.imposta({ attivita: valore });
       } else Object.assign(scelte, applicaScelta(scelte, scelta, valore));
       if (scelta === 'specie') scelte.specieNome = b.dataset.nome ?? '';
-      raggioMesi = 1;
       scalaArea = 1;
       ricorda(scelte);
       segnaCambio();
@@ -1449,6 +1487,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       disegnaPartenza();
       // "Fauna" appena scelta: le specie della zona inquadrata
       if (scelta === 'cerco' && scelte.cerco.includes('fauna') && zonaSpecie.stato === '') caricaZona();
+      // a pagina intera la zona è quella di «Quanto lontano»: cambiandola «Più segnalate» e il suo titolo si aggiornano da soli
+      if (modoPagina && scelta === 'distanza' && scelte.cerco.includes('fauna')) caricaZona();
       return;
     }
     const aperto = e.target.closest('[data-apri-sentiero]');
@@ -1503,8 +1543,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       aggiornaScelte();
     }
     else if (azione === 'zona-riprova') caricaZona({ forza: true });
-    else if (azione === 'allarga-mesi') {
-      raggioMesi = 3;
+    else if (azione === 'periodo-anno') {
+      scelte.periodo = 'anno';
+      ricorda(scelte);
+      aggiornaScelte();
       suggerisci();
     } else if (azione === 'area-grande') {
       const ordine = ['30', '60', '120'];
@@ -1566,6 +1608,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     scelte.parco = e.target.value;
     ricorda(scelte);
     segnaCambio();
+    if (modoPagina && scelte.cerco.includes('fauna')) caricaZona();
   });
 
   function apri() {

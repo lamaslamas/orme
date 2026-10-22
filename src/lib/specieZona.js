@@ -3,7 +3,7 @@
 // vengono da GBIF (src/lib/gbif.js); qui solo conti, nessun nome di persona.
 import { distanzaDallaTracciaM } from './geo.js';
 import { eDomestico } from './domestici.js';
-import { mesiVicini, affidabilita, MINIMO_OSSERVAZIONI, MINIMO_PERSONE, RAGGIO_PERCORSO_M, RAGGIO_ZONA_M } from './faunaPercorso.js';
+import { mesiVicini, affidabilita, GRUPPI_SPECIE, MINIMO_OSSERVAZIONI, MINIMO_PERSONE, RAGGIO_PERCORSO_M, RAGGIO_ZONA_M } from './faunaPercorso.js';
 import { mesiMigliori } from './inaturalistTraccia.js';
 import { ANIMALI } from './costanti.js';
 import { API_INATURALIST } from './inaturalist.js';
@@ -11,16 +11,30 @@ import { API_INATURALIST } from './inaturalist.js';
 export const PREFISSO_ZONA = 'zona:'; // valore di una specie scelta tra quelle della zona: "zona:Egretta garzetta"
 export const SPECIE_DELLA_ZONA_MAX = 8;
 const annoDi = (d) => Number(String(d ?? '').slice(0, 4)) || 0;
+// I rapaci diurni e notturni (per le specie che GBIF dà senza una chiave di Orme)
+const ORDINI_RAPACI = new Set(['Accipitriformes', 'Falconiformes', 'Strigiformes']);
+// Un'osservazione ({ animale, classe, ordine }) è del gruppo scelto? Mammiferi: i mammiferi; rapaci: i rapaci
+export function inGruppo(o, gruppo) {
+  const membri = GRUPPI_SPECIE[gruppo]?.specie;
+  if (!membri) return true; // non è un gruppo: nessun filtro
+  if (o.animale) return membri.includes(o.animale);
+  if (gruppo === 'mammiferi') return o.classe === 'Mammalia';
+  if (gruppo === 'rapaci') return o.classe === 'Aves' && ORDINI_RAPACI.has(o.ordine);
+  return false;
+}
+
 const mese = (d) => Number(String(d ?? '').slice(5, 7)) || 0;
 
 // Le specie con più osservatori diversi nel mese scelto (e in quelli accanto), almeno 3 osservazioni di 2 persone.
 // osservazioni: [{ nomeScientifico, specie, animale, data, osservatore }]
-export function specieDellaZonaPerOsservatori(osservazioni, meseScelto = null, { max = SPECIE_DELLA_ZONA_MAX, raggioMesi = 1 } = {}) {
+// gruppo: la scelta di «Quale animale» se è un gruppo («mammiferi», «rapaci»): solo le specie di quel gruppo
+export function specieDellaZonaPerOsservatori(osservazioni, meseScelto = null, { max = SPECIE_DELLA_ZONA_MAX, raggioMesi = 1, gruppo = null } = {}) {
   const mesi = meseScelto ? mesiVicini(meseScelto, raggioMesi) : null;
   const perSpecie = new Map();
   for (const o of osservazioni ?? []) {
     const chiave = o.nomeScientifico;
     if (!chiave || eDomestico({ scientifico: chiave, nome: o.specie })) continue;
+    if (gruppo && !inGruppo(o, gruppo)) continue;
     const s = perSpecie.get(chiave) ?? { chiave, nome: o.animale ? ANIMALI[o.animale] : o.specie, animale: o.animale ?? null, n: 0, persone: new Set(), nPeriodo: 0, personePeriodo: new Set(), ultimoAnno: 0 };
     s.n++;
     if (o.osservatore != null) s.persone.add(o.osservatore);

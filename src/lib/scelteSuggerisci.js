@@ -1,6 +1,6 @@
 // Le scelte di Suggerisci (e di «Dove vado domani?»): una funzione sola le rimette in forma ogni volta che si leggono
 // o cambiano, così un valore in un formato vecchio o rovinato (cerco stringa, vuoto, mancante) non rompe mai niente.
-import { SCELTE_PREDEFINITE, MODI_SUGGERISCI, QUANDO, TEMPI, COSE, FATICHE, DISTANZE, SCELTE_FACOLTATIVE } from './suggerimenti.js';
+import { SCELTE_PREDEFINITE, MODI_SUGGERISCI, QUANDO, TEMPI, COSE, FATICHE, DISTANZE, SCELTE_FACOLTATIVE, PERIODI } from './suggerimenti.js';
 import { LUNGHEZZE } from './anello.js';
 
 export const CHIAVE_SCELTE = 'orme.suggerisci';
@@ -28,6 +28,7 @@ export function normalizzaScelte(grezze) {
   s.fatica = fatica in FATICHE ? fatica : SCELTE_PREDEFINITE.fatica;
   const distanza = come(g.distanza, SCELTE_PREDEFINITE.distanza);
   s.distanza = distanza === '' || distanza in DISTANZE ? distanza : SCELTE_PREDEFINITE.distanza;
+  s.periodo = come(g.periodo, '') in PERIODI ? g.periodo : SCELTE_PREDEFINITE.periodo;
   const lunghezza = come(g.lunghezza, SCELTE_PREDEFINITE.lunghezza);
   s.lunghezza = lunghezza in LUNGHEZZE ? lunghezza : SCELTE_PREDEFINITE.lunghezza;
   if ('dormire' in s && !DOVE.includes(s.dormire)) delete s.dormire;

@@ -173,12 +173,13 @@ export function periodoMigliore(specie) {
 
 // km: lunghezza del percorso (di base quella salvata con la fauna o nel sentiero)
 // stagione: il giudizio conta solo le osservazioni del mese e di quelli accanto
-export function possibilitaFauna(s, mese = null, { km = null, stagione = false } = {}) {
+// raggioMesi: con «stagione», quanti mesi accanto (0 = solo il mese; di base 1)
+export function possibilitaFauna(s, mese = null, { km = null, stagione = false, raggioMesi = 1 } = {}) {
   const tutte = s?.faunaInat?.specie ?? [];
   const associazioni = s?.animali ?? [];
   if (!tutte.length && !associazioni.length) return null;
   const periodo = periodoMigliore(tutte);
-  const mesi = stagione && mese ? mesiVicini(mese) : null;
+  const mesi = stagione && mese ? mesiVicini(mese, raggioMesi) : null;
   const inat = mesi ? tutte.map((x) => ({ ...x, osservazioni: nelPeriodo(x, mesi) })).filter((x) => x.osservazioni > 0) : tutte;
   if (!inat.length && !associazioni.length) return null;
   const lungo = inat.filter((x) => x.livello === 'percorso');

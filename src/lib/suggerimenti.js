@@ -6,7 +6,10 @@ import { passaQuotaDislivello, passaLunghezza } from './quotaDislivello.js';
 import { ANIMALI } from './costanti.js';
 import { durata, migliaia, suUnaRiga } from './formato.js';
 
-export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '', lunghezzaKm: '', biciDaVerificare: '' };
+export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '', lunghezzaKm: '', biciDaVerificare: '', periodo: 'vicini' };
+// Il periodo per la fauna: il mese, i mesi vicini (±1, di base) o tutto l'anno. raggio: mesi accanto al mese (null = tutto l'anno)
+export const PERIODI = { mese: 'Questo mese', vicini: 'Mesi vicini (±1)', anno: "Tutto l'anno" };
+export const RAGGIO_PERIODO = { mese: 0, vicini: 1, anno: null };
 export const MODI_SUGGERISCI = { percorsi: 'Tra i percorsi', anello: 'Crea un anello' };
 export const QUANDO = { oggi: 'Oggi', domani: 'Domani', sabato: 'Sabato', domenica: 'Domenica' };
 export const TEMPI = { mezza: 'Mezza giornata', giornata: 'Giornata', due: '2 giorni con notte' };
@@ -115,7 +118,7 @@ export function ordinaProposteNotte(voci, confronta) {
 // "Anello nel bosco, ricco di fauna (cervo, camoscio), 2 fontanelle, +580 m · 4 h 10"
 // specieComuni: le specie che stanno in tutti i risultati: si dicono una volta in cima e non in ogni card.
 // Le specie sono quelle lungo il percorso (la traccia e il suo tratto con più fauna), non quelle del parco.
-export function testoPerche(c, { trovati = [], modo = 'ar', specieComuni = [] } = {}) {
+export function testoPerche(c, { trovati = [], modo = 'ar', specieComuni = [], periodoAnno = false } = {}) {
   const nomi = (xs) => xs.map((a) => (ANIMALI[a] ?? String(a).replace(/_/g, ' ')).toLowerCase()).join(', ');
   const proprie = (c.specieLungo ?? []).filter((a) => !specieComuni.includes(a)).slice(0, 3);
   const elencoFauna = proprie.length ? ` (${nomi(proprie)})` : '';
@@ -123,7 +126,9 @@ export function testoPerche(c, { trovati = [], modo = 'ar', specieComuni = [] } 
   if ((c.bosco ?? 0) >= 50) parti[0] += ' nel bosco';
   if (c.specie) {
     const z = c.specie.dove === 'percorso' ? '' : ', dato di zona';
-    parti.push(`${(c.specie.nomeSpecie ?? ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}`);
+    // con «Tutto l'anno» si dice quando: «segnalato in giu–set»
+    const quando = periodoAnno && c.specie.mesi ? `, segnalato in ${c.specie.mesi}` : '';
+    parti.push(`${(c.specie.nomeSpecie ?? ANIMALI[c.specie.animale] ?? c.specie.animale).toLowerCase()} ${c.specie.nome}${c.specie.persone ? ` (${c.specie.testo}${z})` : ' (uscita di un\'associazione)'}${quando}`);
   } else if (c.fauna?.livello === 'frequenti') parti.push(`ricco di fauna${elencoFauna}`);
   else if (c.fauna?.livello === 'possibili' && trovati.includes('fauna')) parti.push(`fauna possibile${elencoFauna}`);
   if ((c.panorama ?? 0) >= 60) parti.push(`panoramico (${c.panorama}/100)`);
