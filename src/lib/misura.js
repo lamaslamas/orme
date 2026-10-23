@@ -39,6 +39,13 @@ export function cronometra(nome, fn, attivo = MISURA_ATTIVA) {
   };
 }
 
+// numeri che una vista segnala per il riepilogo (es. i percorsi disegnati sulla mappa), solo con il misuratore acceso
+const contatori = new Map();
+export function impostaContatore(nome, n, attivo = MISURA_ATTIVA) {
+  if (attivo) contatori.set(nome, n);
+}
+export const contatoriRegistrati = () => new Map(contatori);
+
 export const tempiRegistrati = () => new Map(tempi);
 export const azzeraTempi = () => tempi.clear();
 

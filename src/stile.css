@@ -2245,6 +2245,7 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .qd-senza { display: flex; gap: 8px; align-items: center; font-size: 0.9rem; }
 .qd-senza input { width: 20px; height: 20px; accent-color: var(--verde); }
 .quota-max { white-space: nowrap; }
+.numero .quota-max { display: block; }
 .qd-riquadro { margin: 10px 0; padding: 8px 12px; border-radius: 12px; background: var(--scheda); }
 .qd-riquadro summary { font-weight: 700; cursor: pointer; }
 .qd-riquadro .sezione-filtro h3 { display: none; }

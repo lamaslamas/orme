@@ -4,7 +4,7 @@
 import { distanzaKm } from './geo.js';
 import { passaQuotaDislivello, passaLunghezza } from './quotaDislivello.js';
 import { ANIMALI } from './costanti.js';
-import { durata, migliaia, suUnaRiga } from './formato.js';
+import { durata, migliaia, suUnaRiga, testoSalitaMax } from './formato.js';
 
 export const SCELTE_PREDEFINITE = { modo: 'percorsi', quando: 'oggi', tempo: 'mezza', cerco: [], specie: '', specieNome: '', fatica: 'qualsiasi', distanza: '60', parco: '', lunghezza: '12', quota: '', salita: '', senzaQuote: '', lunghezzaKm: '', biciDaVerificare: '', periodo: 'vicini' };
 // Il periodo per la fauna: il mese, i mesi vicini (±1, di base) o tutto l'anno. raggio: mesi accanto al mese (null = tutto l'anno)
@@ -138,7 +138,7 @@ export function testoPerche(c, { trovati = [], modo = 'ar', specieComuni = [], p
   if (c.uscite?.length) parti.push(`lo usa ${c.uscite.length === 1 ? `l'uscita «${c.uscite[0]}»` : `${c.uscite.length} uscite delle associazioni`}`);
   const m = c.misure;
   // salita, altitudine massima (solo se c'è) e durata; ogni dato resta su una riga
-  const numeri = [m.salita != null ? `+${m.salita} m` : '', Number.isFinite(c.quotaMax) ? `max ${migliaia(c.quotaMax)} m` : '', m.durataMin != null ? durata(m.durataMin) : '']
+  const numeri = [testoSalitaMax(m.salita, null), testoSalitaMax(null, c.quotaMax), m.durataMin != null ? durata(m.durataMin) : '']
     .filter(Boolean)
     .map(suUnaRiga)
     .join(' · ');

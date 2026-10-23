@@ -5,6 +5,7 @@ import { stato } from '../stato.js';
 import {
   azzeraTempi,
   tempiRegistrati,
+  contatoriRegistrati,
   mappeGlRegistrate,
   mappaRegistrata,
   statisticheFotogrammi,
@@ -78,7 +79,8 @@ function conteggi() {
   const segnaposto = document.querySelectorAll('.leaflet-marker-icon').length;
   const tele = document.querySelectorAll('.leaflet-pane canvas, .leaflet-overlay-pane canvas').length;
   const webgl = document.querySelectorAll('canvas.maplibregl-canvas').length;
-  return `segnaposto HTML ${segnaposto} · tele canvas Leaflet ${tele} · mappe WebGL ${webgl}${mappeGlRegistrate().length ? ` (${mappeGlRegistrate().join(', ')})` : ''}`;
+  const altri = [...contatoriRegistrati()].map(([nome, n]) => ` · ${nome} ${n}`).join('');
+  return `segnaposto HTML ${segnaposto} · tele canvas Leaflet ${tele} · mappe WebGL ${webgl}${mappeGlRegistrate().length ? ` (${mappeGlRegistrate().join(', ')})` : ''}${altri}`;
 }
 
 // origine di uno script di un fotogramma lungo: file (senza l'impronta della build) e tipo di chiamata

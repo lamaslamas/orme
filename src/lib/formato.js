@@ -45,6 +45,11 @@ export function creaId(codiciLista, nome) {
 
 // "1.240" (il punto separa le migliaia, anche con quattro cifre)
 export const migliaia = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+// Salita e quota massima, uguali in tutte le anteprime: "+343 m · max 1.642 m". Senza il dato non scrive niente.
+export function testoSalitaMax(salita, quotaMax) {
+  return [Number.isFinite(salita) ? `+${Math.round(salita)} m` : '', Number.isFinite(quotaMax) ? `max ${migliaia(quotaMax)} m` : ''].filter(Boolean).join(' · ');
+}
 // spazi non separabili: "1 h 02" resta su una riga
 export const suUnaRiga = (t) => String(t ?? '').replace(/ /g, ' ');
 

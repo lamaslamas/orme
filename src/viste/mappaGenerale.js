@@ -9,7 +9,7 @@ import { senzaTracciaNellaZona, testoRiassunto } from '../lib/elencoZona.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
 import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
-import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
+import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiMisura } from './misura.js';
@@ -29,6 +29,7 @@ import { linkModificaTraccia } from './modificaTraccia.js';
 import { miniatura } from './lista.js';
 import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
+import { cronometra, impostaContatore } from '../lib/misura.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
@@ -52,6 +53,19 @@ function chiediPosizione() {
   });
 }
 import { scaricaZona, completaZona } from './zona.js';
+
+// Percorsi sulla mappa solo quando cerco: quelli toccati da un elenco restano finché non si tocca la mappa a vuoto, e
+// «Cerca percorsi qui» li mostra finché non si chiude l'elenco, si apre Suggerisci o si tocca la mappa a vuoto
+let selezionati = new Set();
+let zonaCercata = false;
+
+// Riquadro di una traccia (GeoJSON), senza disegnarla
+function riquadroGeojson(geojson) {
+  const b = L.latLngBounds([]);
+  const aggiungi = (c) => (typeof c[0] === 'number' ? b.extend([c[1], c[0]]) : c.forEach(aggiungi));
+  aggiungi(geojson?.coordinates ?? []);
+  return b;
+}
 
 // Lavoro sulla zona (scaricamento e calcoli) fuori dalla schermata: continua se si apre una scheda
 // e torna; a fine lavoro la mappa, se è aperta, si ridisegna con i percorsi nuovi.
@@ -271,19 +285,24 @@ export async function vistaMappaGenerale(app, idParco = null) {
     </div>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsiSempre', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
   const confini = L.layerGroup();
   // confini di tutti i parchi (dal telefono o dal file dell'app, senza aspettare Overpass)
   for (const parco of PARCHI) ottieniConfine(parco).then((c) => disegnaConfine(c).addTo(confini)).catch(() => {});
   mappa.suLivello('confini', (acceso) => (acceso ? confini.addTo(mappa) : confini.remove()));
-  const livello = L.layerGroup();
-  mappa.suLivello('percorsi', (acceso) => (acceso ? livello.addTo(mappa) : livello.remove()));
+  // i percorsi si disegnano solo quando si cerca (vedi aggiornaPercorsi); «Percorsi sempre visibili» li lascia sempre
+  const livello = L.layerGroup().addTo(mappa);
   // sentieri già collegati alle uscite delle associazioni
   const uscite = creaLivelloUscite(mappa, { coloreBordo });
   uscite.aggiorna(tutti, tracce);
   mappa.suLivello('uscite', (acceso) => (acceso ? uscite.gruppo.addTo(mappa) : uscite.gruppo.remove()));
-  // area toccabile di ogni traccia: l'elenco dei risultati la "tocca" per evidenziarla
+  // percorsi con traccia (con i filtri): riquadro di ognuno (per l'elenco), e solo di quelli disegnati il gruppo e l'area
+  // toccabile (un tocco la evidenzia)
+  const limiti = new Map();
+  const perId = new Map();
+  const gruppi = new Map();
   const aree = new Map();
+  let ricercaOra = false;
   // confine del parco scelto: sempre visibile e più marcato (si scarica se manca)
   const confineScelto = L.layerGroup().addTo(mappa);
   let parcoMostrato = null;
@@ -372,10 +391,13 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // l'elenco si scrive solo con il foglio aperto (il numero sul pulsante sempre): chiuso, si rifà
   // quando si apre
   let elencoVecchio = false;
+  let quiOra = new Set(); // i percorsi dell'elenco: nella zona inquadrata, con i filtri
   function elencoInVista() {
     if (!app.isConnected || !mappa._loaded || !mappa._mapPane) return; // schermata già chiusa
     const vista = mappa.getBounds();
-    let qui = inMappa.filter(({ sentiero }) => aree.get(sentiero.id)?.getBounds().intersects(vista));
+    let qui = inMappa.filter(({ sentiero }) => limiti.get(sentiero.id)?.intersects(vista));
+    quiOra = new Set(qui.map(({ sentiero }) => sentiero.id));
+    aggiornaPercorsi();
     // partenza più vicina a me (se la posizione c'è): distanza dall'inizio (o dalla fine) della traccia
     const vicini = ordineElenco === 'vicini' && miaPosizione;
     if (vicini) {
@@ -411,8 +433,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
           const foto = copertina(s, traccia);
           const dati = [
             m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
-            m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
-            m.quotaMax != null ? `<span class="quota-max">max ${migliaia(m.quotaMax)} m</span>` : '',
+            testoSalitaMax(m.salita, m.quotaMax) ? `<span>${ICONE.salita}${testoSalitaMax(m.salita, m.quotaMax)}</span>` : '',
             m.durataMin != null ? `<span>${ICONE.orologio}${durata(m.durataMin)}</span>` : '',
           ].join('');
           return `<li class="voce-risultato"><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">
@@ -476,30 +497,24 @@ export async function vistaMappaGenerale(app, idParco = null) {
     visibili = conTraccia.map((x) => x.traccia);
 
     livello.clearLayers();
+    gruppi.clear();
     aree.clear();
+    limiti.clear();
+    perId.clear();
     toccabili.pulisci();
     mappa.closePopup();
     // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
-    const ricerca = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
-    mappa.attenuaSentieri(ricerca && conTraccia.length > 0);
-    // prima i "fatto", così i "da fare" restano sopra e ben visibili
-    for (const { sentiero, traccia: grezza } of [...conTraccia].sort((a, b) => sopra(a) - sopra(b))) {
-      // i pezzi a meno di 50 m si disegnano uniti
-      const traccia = grezza.geojson ? { ...grezza, geojson: geojsonUnito(grezza.geojson) } : grezza;
-      const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
-      // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
-      const stile = ricerca ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;
-      // bordo sotto la linea (stesso tracciato, più largo)
-      L.geoJSON(traccia.geojson, { style: { color: coloreBordo(), weight: stile.weight + 3, opacity: 0.85 }, interactive: false }).addTo(livello);
-      const { area } = toccabili.disegna(livello, sentiero, traccia, stile, colore);
-      aree.set(sentiero.id, area);
+    ricercaOra = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
+    for (const x of conTraccia) {
+      perId.set(x.sentiero.id, x);
+      limiti.set(x.sentiero.id, riquadroGeojson(x.traccia.geojson));
     }
     // i filtri non spostano mai la mappa: filtrano la zona inquadrata. La mappa si sposta solo su richiesta
     // (ricerca, "Vai al più vicino", parco scelto, tocco su un percorso) e alla prima apertura
     if (restaQui) restaQui = false;
     else if (primaVolta && !centrataSuDiMe) mappa.fitBounds(filtri.parco ? limitiParco(filtri.parco) : LIMITI_ITALIA, margini(20));
     primaVolta = false;
-    app.querySelector('#nessunRisultato').hidden = !(ricerca && conTraccia.length === 0);
+    app.querySelector('#nessunRisultato').hidden = !(ricercaOra && conTraccia.length === 0);
 
     testaParco();
 
@@ -509,6 +524,69 @@ export async function vistaMappaGenerale(app, idParco = null) {
     senzaTracciaOra = senzaTraccia;
     elencoInVista();
   }
+
+  // Quali percorsi stanno sulla mappa: di base nessuno. Con «Percorsi sempre visibili» tutti quelli con i filtri; altrimenti
+  // quelli toccati da un elenco e, con «Percorsi qui» aperto o dopo «Cerca percorsi qui», quelli dell'elenco.
+  // Con Suggerisci aperto ci sono solo le sue proposte.
+  const suggerisciAperto = () => document.body.classList.contains('suggerisci-aperto');
+  const elencoAperto = () => app.querySelector('#foglioElenco')?.hidden === false;
+  function percorsiDaMostrare() {
+    if (suggerisciAperto()) return new Set();
+    if (stato.leggi().livelli.percorsiSempre === true) return new Set(limiti.keys());
+    const voluti = new Set([...selezionati].filter((id) => limiti.has(id)));
+    if (elencoAperto() || zonaCercata) for (const id of quiOra) voluti.add(id);
+    return voluti;
+  }
+  const aggiornaPercorsi = cronometra('percorsi sulla mappa', () => {
+    if (!mappa._loaded) return;
+    const voluti = percorsiDaMostrare();
+    for (const [id, gruppo] of gruppi) {
+      if (voluti.has(id)) continue;
+      livello.removeLayer(gruppo);
+      gruppi.delete(id);
+      aree.delete(id);
+    }
+    // prima i "fatto", così i "da fare" restano sopra e ben visibili
+    for (const id of [...voluti].filter((id) => !gruppi.has(id)).sort((a, b) => sopra(perId.get(a)) - sopra(perId.get(b)))) {
+      const { sentiero, traccia: grezza } = perId.get(id);
+      // i pezzi a meno di 50 m si disegnano uniti
+      const traccia = grezza.geojson ? { ...grezza, geojson: geojsonUnito(grezza.geojson) } : grezza;
+      const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
+      // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
+      const stile = ricercaOra ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;
+      const gruppo = L.layerGroup().addTo(livello);
+      // bordo sotto la linea (stesso tracciato, più largo)
+      L.geoJSON(traccia.geojson, { style: { color: coloreBordo(), weight: stile.weight + 3, opacity: 0.85 }, interactive: false }).addTo(gruppo);
+      const { area } = toccabili.disegna(gruppo, sentiero, traccia, stile, colore, grezza);
+      gruppi.set(id, gruppo);
+      aree.set(id, area);
+    }
+    mappa.attenuaSentieri(ricercaOra && gruppi.size > 0);
+    impostaContatore('percorsi disegnati', gruppi.size);
+  });
+  // un percorso scelto da un elenco: si disegna (se non c'è già) e si tocca; resta anche chiudendo l'elenco
+  function mostraPercorso(id) {
+    selezionati = new Set([id]);
+    aggiornaPercorsi();
+    aree.get(id)?.fire('click');
+  }
+  // Suggerisci o l'elenco si aprono e si chiudono: i percorsi sulla mappa le seguono
+  const osservaPannelli = new MutationObserver(() => {
+    if (suggerisciAperto()) {
+      selezionati = new Set();
+      zonaCercata = false;
+    }
+    aggiornaPercorsi();
+  });
+  osservaPannelli.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  // un tocco sulla mappa a vuoto (non su un percorso) la ripulisce
+  mappa.on('click', (e) => {
+    if ((!selezionati.size && !zonaCercata) || elencoAperto() || mappa.percorsoVicino?.(e.latlng)) return;
+    selezionati = new Set();
+    zonaCercata = false;
+    aggiornaPercorsi();
+  });
+  mappa.suLivello('percorsiSempre', aggiornaPercorsi);
 
   // percorsi senza traccia (non sono sulla mappa): solo quelli della zona inquadrata o del parco,
   // in un riquadro chiuso
@@ -544,16 +622,16 @@ export async function vistaMappaGenerale(app, idParco = null) {
     }
     if (azione === 'importa-gpx') return avviaImportazione();
     const id = e.target.closest('[data-id]')?.dataset.id;
-    aree.get(id)?.fire('click');
+    if (id) mostraPercorso(id);
   });
   // su richiesta: la mappa va al percorso più vicino (con gli stessi filtri), intero e senza zoomare troppo
   function vaiAlPiuVicino() {
     const c = mappa.getCenter();
     const v = piuVicino([c.lng, c.lat], inMappa.map(({ sentiero, traccia }) => ({ id: sentiero.id, geojson: traccia.geojson })));
-    const area = v && aree.get(v.id);
-    if (!area) return;
+    const riquadro = v && limiti.get(v.id);
+    if (!riquadro) return;
     mappa.sbloccaInquadrature?.();
-    mappa.fitBounds(area.getBounds(), { ...margini(30), maxZoom: 14 });
+    mappa.fitBounds(riquadro, { ...margini(30), maxZoom: 14 });
   }
   function togliIFiltri() {
     controlli.azzera();
@@ -601,6 +679,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     if (si) suggerisci?.chiudi();
     const cambia = foglio.hidden === si;
     foglio.hidden = !si;
+    if (!si) zonaCercata = false; // chiudendo l'elenco la mappa torna pulita
     if (si && elencoVecchio) elencoInVista();
     if (cambia) si ? tendina.apri('meta') : tendina.chiudi();
     apri.setAttribute('aria-expanded', String(si));
@@ -675,6 +754,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
       restaQui = true;
       stato.imposta({ parco: '' });
     }
+    zonaCercata = true;
+    aggiornaPercorsi();
     avviaZona([Math.round(c.lng * 1e4) / 1e4, Math.round(c.lat * 1e4) / 1e4], raggioPerZoom(mappa.getZoom()));
   });
   if (testoZona) scriviZona(testoZona);
@@ -709,6 +790,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   });
 
   return () => {
+    osservaPannelli.disconnect();
     scollegaRicerca();
     scollegaBase();
     fauna.chiudi();

@@ -264,11 +264,12 @@ function riassuntoCompatibilita(s, traccia) {
 
 // Riga di numeri grandi: lunghezza, dislivello, durata
 export function numeriGrandi(m) {
-  const casella = (valore, etichetta, nota = '') =>
-    `<div class="numero"><b>${valore ?? '–'}</b><span>${etichetta}${nota}</span></div>`;
+  // sotto: una riga in più sotto l'etichetta (la quota massima sotto il dislivello)
+  const casella = (valore, etichetta, nota = '', sotto = '') =>
+    `<div class="numero"><b>${valore ?? '–'}</b><span>${etichetta}${nota}</span>${sotto ? `<span class="quota-max">${sotto}</span>` : ''}</div>`;
   return `<div class="numeri-grandi">
     ${casella(m.km != null ? `${m.km.toFixed(1).replace('.', ',')} km` : null, 'Lunghezza', m.kmCalcolati ? ' (traccia)' : '')}
-    ${casella(m.salita != null ? (m.discesa != null ? `+${m.salita}\u00a0/ −${m.discesa}\u00a0m` : `+${m.salita}\u00a0m`) : null, 'Dislivello')}
+    ${casella(m.salita != null ? (m.discesa != null ? `+${m.salita}\u00a0/ −${m.discesa}\u00a0m` : `+${m.salita}\u00a0m`) : null, 'Dislivello', '', Number.isFinite(m.quotaMax) ? `max ${migliaia(m.quotaMax)}\u00a0m` : '')}
     ${casella(m.durataMin != null ? durata(m.durataMin) : null, 'Durata', m.conQuote === false ? ' (stima solo sui km: con il dislivello sarà di più)' : m.durataAdattata ? ' (dalla fonte, adattato al ritmo)' : m.durataStimata ? ' (stima)' : '')}
   </div>`;
 }
@@ -373,6 +374,9 @@ export async function vistaScheda(app, id) {
   // dislivello e tempi: le quote della traccia, poi quelle del robot (TINITALY, 10 m), poi quelle scaricate
   const pezziTraccia = delleQuote && !(delleQuote.fonte !== 'traccia' && delRobot) ? delleQuote.pezzi : pezziGrezzi;
   const base = baseAndata(pezziTraccia, quoteDellaTraccia(s, traccia));
+  // il punto più alto: dal profilo del robot, oppure dalle quote dei punti della traccia (sotto il dislivello)
+  const quoteDeiPunti = pezziTraccia.flatMap((l) => l.map((p) => p[2])).filter(Number.isFinite);
+  const quotaMax = Number.isFinite(delRobot?.max) ? delRobot.max : quoteDeiPunti.length ? Math.max(...quoteDeiPunti) : null;
   const statoGiro = statoAnello(pezziTraccia, { roundtrip: Boolean(traccia?.dettagli?.roundtrip) });
   const ar = base ? { ...misureAR(base, { anello: statoGiro.anello }), roundtripAperto: statoGiro.roundtripAperto } : null;
   const numeriScelti = (modo) => {
@@ -390,7 +394,7 @@ export async function vistaScheda(app, id) {
     const diversa = tracciaDiversa(s.lunghezzaKm, ar.andata.km)
       ? `<p class="avviso-via">${ICONE.avviso}<span>La traccia (${ar.andata.km.toFixed(1).replace('.', ',')} km) non corrisponde al percorso descritto dalla fonte (${s.lunghezzaKm.toFixed(1).replace('.', ',')} km): forse comprende altri tratti. I numeri vengono dalla traccia: verifica sulla mappa.</span></p>`
       : '';
-    return `${numeriGrandi({ ...m, durataStimata: true })}<p class="tenue piccolo nota-numeri">${didascalia} · ${ritmoScelto() === 'senza' ? 'metodo CAI' : testoRitmo()}${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
+    return `${numeriGrandi({ ...m, durataStimata: true, quotaMax })}<p class="tenue piccolo nota-numeri">${didascalia} · ${ritmoScelto() === 'senza' ? 'metodo CAI' : testoRitmo()}${nota && !diversa ? ` · ${escapeHtml(nota)}` : ''}</p>${diversa}`;
   };
   // il punto per l'alba e il tramonto: la partenza della traccia o del sentiero, altrimenti il centro del parco
   const kmTraccia = lunghezzaDeiPezzi(pezziGrezzi);

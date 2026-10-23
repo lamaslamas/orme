@@ -3,7 +3,7 @@
 // difficoltà, avvertenze, rifugi e acqua, panorama. In giù (o un tocco sulla mappa) si chiude.
 import L from 'leaflet';
 import { tendinaTrascinabile } from './tendina.js';
-import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { misureSentiero, testoIncompleta } from '../lib/riassunto.js';
 import { ACCESSI } from '../lib/costanti.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
@@ -83,7 +83,7 @@ export function creaFoglioPercorso(mappa, { allaChiusura = () => {}, nota = () =
     const punto = puntoDiPartenza(s, traccia);
     const dati = [
       m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
-      m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+      testoSalitaMax(m.salita, m.quotaMax) ? `<span>${ICONE.salita}${testoSalitaMax(m.salita, m.quotaMax)}</span>` : '',
       m.durataMin != null ? `<span>${ICONE.orologio}${m.durataStimata ? '~' : ''}${durata(m.durataMin)}</span>` : '',
       nota(s) ? `<span>${escapeHtml(nota(s))}</span>` : '',
     ].join('');

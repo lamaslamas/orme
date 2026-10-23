@@ -2,7 +2,7 @@
 // la evidenzia con partenza, arrivo e verso e apre un riquadro con i dati essenziali e
 // "Apri la scheda". Sotto ogni traccia c'è una linea invisibile larga, facile da prendere col dito.
 import L from 'leaflet';
-import { escapeHtml, codici, durata } from '../lib/formato.js';
+import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { misureSentiero, testoIncompleta } from '../lib/riassunto.js';
 import { disegnaTraccia } from './mappa.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
@@ -18,7 +18,7 @@ export function riquadroSentiero(s, traccia) {
   const m = misureSentiero(s, traccia);
   const dati = [
     m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
-    m.salita != null ? `<span>${ICONE.salita}${m.salita} m</span>` : '',
+    testoSalitaMax(m.salita, m.quotaMax) ? `<span>${ICONE.salita}${testoSalitaMax(m.salita, m.quotaMax)}</span>` : '',
     m.durataMin != null ? `<span>${ICONE.orologio}${m.durataStimata ? '~' : ''}${durata(m.durataMin)}</span>` : '',
   ].join('');
   return `
@@ -68,7 +68,8 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
   return {
     // disegna la traccia nel livello indicato; restituisce { linea, area }
     // colore: quello dell'evidenziazione (se la linea è disegnata discreta, in grigio)
-    disegna(livello, sentiero, traccia, stile, colore = stile.color) {
+    // tracciaDati: la traccia com'è salvata, per i numeri del riquadro (quella disegnata può avere i pezzi uniti: i dati calcolati sull'originale non le corrispondono)
+    disegna(livello, sentiero, traccia, stile, colore = stile.color, tracciaDati = traccia) {
       const linea = disegnaTraccia(traccia.geojson, { ...stile, interactive: false }).addTo(livello);
       // bubblingMouseEvents: il tocco sulla traccia non arriva alla mappa (niente elenco della heatmap)
       const area = disegnaTraccia(traccia.geojson, { color: colore, weight: 22, opacity: 0, renderer, pane: 'toccoPercorsi', bubblingMouseEvents: false }).addTo(livello);
@@ -83,7 +84,7 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
         const evidenziata = disegnaPercorso(traccia.geojson, { colore, spessore: 6, ...(rete ? { frecce: false, estremi: false } : {}) }).addTo(selezione);
         let punto = e.latlng;
         if (suTelefono()) {
-          foglioPercorso().mostra(sentiero, traccia, e.latlng);
+          foglioPercorso().mostra(sentiero, tracciaDati, e.latlng);
           // il percorso si vede tutto, sopra il foglio
           primaDiInquadrare();
           // in basso si lascia libera solo la parte di mappa coperta dal foglio (mappe a tutto schermo)
@@ -102,7 +103,7 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
         }
         L.popup({ autoPan: !inquadra, className: 'popup-percorso' })
           .setLatLng(punto)
-          .setContent(riquadroSentiero(sentiero, traccia))
+          .setContent(riquadroSentiero(sentiero, tracciaDati))
           .on('remove', () => selezione.clearLayers())
           .openOn(mappa);
       });

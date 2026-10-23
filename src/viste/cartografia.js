@@ -65,6 +65,7 @@ export const BASI = {
 export const NOMI_LIVELLI = {
   heatmap: 'Fauna (heatmap)',
   percorsi: 'Percorsi',
+  percorsiSempre: 'Percorsi sempre visibili',
   osservazione: 'Percorsi di osservazione',
   uscite: 'Sentieri delle uscite',
   confini: 'Confini dei parchi',
