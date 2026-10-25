@@ -103,6 +103,7 @@ import { linkModificaTraccia } from './modificaTraccia.js';
 import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi, separaLuce, testoLuce } from '../lib/risultatiSuggerisci.js';
 import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
 import { conRitardo } from '../lib/ritardo.js';
+import { MISURA_ATTIVA, registra, cronometra } from '../lib/misura.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
 import { durataInBici } from '../lib/condizioni.js';
 
@@ -474,7 +475,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // --- i candidati: misure scelte (A/R), fauna nel periodo, acqua, rifugio per la notte, uscite ---
   let puntiUtili = null;
-  function candidati(data) {
+  function candidatiGrezzi(data) {
+    const t0 = MISURA_ATTIVA ? performance.now() : 0;
     const mese = Number(data.slice(5, 7));
     const modo = modoScelto();
     const da = posizione() ?? (() => {
@@ -489,12 +491,17 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     }
     // compatibili con l'attività scelta (a piedi niente itinerari MTB), come negli altri elenchi
     // in MTB, di base solo i percorribili in bici; con «Anche quelli da verificare per la bici» anche quelli con la bici da verificare
-    return filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI, soloBici: inBici() && scelte.biciDaVerificare ? 'tutti' : '' }, stato.leggi().attivita)
+    const filtrati = filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI, soloBici: inBici() && scelte.biciDaVerificare ? 'tutti' : '' }, stato.leggi().attivita);
+    if (MISURA_ATTIVA) registra('Suggerisci: candidati · uscite, preparazione e filtri', performance.now() - t0);
+    let msPercorsi = 0;
+    let msPunti = 0;
+    const risultati = filtrati
       .filter((p) => p.traccia?.geojson && !['uscita_guidata', 'rete_sentieri'].includes(p.sentiero.tipoPercorso))
       // traccia incompleta (salti oltre 500 m): si propone solo se la fonte dà i km, e con quelli
       .filter((p) => !tracciaDaNonUsare(p.sentiero, p.traccia).incompleta || p.misure.km != null)
       .filter((p) => scelte.distanza !== 'parco' || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
       .map((p) => {
+        const tp = MISURA_ATTIVA ? performance.now() : 0;
         const s = p.sentiero;
         // nel verso scelto con "Inverti senso": per due giorni il rifugio è a fine primo giorno in quel verso
         const grezzi = percorsoSentiero(p.traccia.geojson);
@@ -511,8 +518,10 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
               return { km: p.misure.km * k, salita: p.misure.salita != null ? p.misure.salita * k : null, durataMin: p.misure.durataMin != null ? p.misure.durataMin * k : null };
             })();
         const partenza = puntoDiPartenza(s, p.traccia);
+        const tv = MISURA_ATTIVA ? performance.now() : 0;
         const vicini = puntiUtili ? puntiLungoIlPercorso(puntiUtili, p.traccia.geojson) : [];
-        return {
+        if (MISURA_ATTIVA) msPunti += performance.now() - tv;
+        const voce = {
           ...p,
           pezzi,
           quote,
@@ -537,8 +546,16 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
           auto: partenza ? stimaAuto(da, [partenza.lon, partenza.lat]) : null,
           rifugioNotte: null,
         };
+        if (MISURA_ATTIVA) msPercorsi += performance.now() - tp;
+        return voce;
       });
+    if (MISURA_ATTIVA) {
+      registra('Suggerisci: candidati · misure, fauna e quote per percorso', msPercorsi - msPunti);
+      registra('Suggerisci: candidati · acqua e rifugi lungo il percorso', msPunti);
+    }
+    return risultati;
   }
+  const candidati = cronometra('Suggerisci: candidati (totale)', candidatiGrezzi);
 
   // "2 giorni con notte": come "Su più giorni", la prima giornata finisce a metà del cammino e lì
   // (entro 1 km dalla traccia) ci deve essere un rifugio o un bivacco

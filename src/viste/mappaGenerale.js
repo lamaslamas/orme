@@ -29,7 +29,7 @@ import { linkModificaTraccia } from './modificaTraccia.js';
 import { miniatura } from './lista.js';
 import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
-import { cronometra, impostaContatore } from '../lib/misura.js';
+import { cronometra, impostaContatore, segna, intervallo } from '../lib/misura.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
@@ -226,7 +226,7 @@ const sopra = (x) => (x.sentiero.stato === 'fatto' ? 0 : 1);
 // In alto la ricerca (luoghi e parchi); in basso "Percorsi qui" (elenco con i filtri, in un foglio)
 // e la matita per disegnare. idParco (#/?parco=…): la mappa sul parco, con il suo confine.
 export async function vistaMappaGenerale(app, idParco = null) {
-  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const [tutti, tracce] = await intervallo('mappa: lettura di sentieri e tracce', () => Promise.all([tuttiISentieri(), tutteLeTracce()]));
   // i percorsi dei parchi e quelli della zona cercata fuori dai parchi (ex "Intorno a me")
   const sentieri = tutti;
   if (idParco && parcoDa(idParco) && !parcoDa(idParco).zona) {
@@ -286,6 +286,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
   `;
 
   const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsiSempre', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
+  segna('mappa: creata');
+  mappa.whenReady(() => segna('mappa: pronta (Leaflet)'));
   const confini = L.layerGroup();
   // confini di tutti i parchi (dal telefono o dal file dell'app, senza aspettare Overpass)
   for (const parco of PARCHI) ottieniConfine(parco).then((c) => disegnaConfine(c).addTo(confini)).catch(() => {});
@@ -383,7 +385,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let filtratiOra = [];
   const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true, creaAnelloDaQui: (punto) => suggerisci?.apriAnelloDa(punto) });
 
-  const preparati = preparaPercorsi(sentieri, tracce);
+  const preparati = intervallo('mappa: preparazione dei percorsi', () => preparaPercorsi(sentieri, tracce));
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
   let inMappa = [];
   let senzaTracciaOra = []; // senza traccia con i filtri attivi (tutti i parchi)
@@ -489,7 +491,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
     { priorita: 1 },
   );
 
-  function disegna() {
+  const disegna = cronometra('mappa: filtri, elenco e percorsi', disegnaGrezzo);
+  function disegnaGrezzo() {
     mostraConfineScelto(filtri.parco);
     filtratiOra = filtraPercorsi(preparati, filtri, stato.leggi().attivita, modoScelto());
     const filtrati = filtratiOra.map((p) => p.sentiero);
@@ -523,6 +526,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     inMappa = conTraccia;
     senzaTracciaOra = senzaTraccia;
     elencoInVista();
+    segna('mappa: primo disegno completato');
   }
 
   // Quali percorsi stanno sulla mappa: di base nessuno. Con «Percorsi sempre visibili» tutti quelli con i filtri; altrimenti

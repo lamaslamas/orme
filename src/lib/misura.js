@@ -17,7 +17,13 @@ export const MISURA_ATTIVA = (() => {
 
 const tempi = new Map(); // nome → { volte, totale, max }
 
+// cronologia dei lavori cronometrati (istante di inizio e durata), per dire cosa c'era dentro un compito lungo
+const cronologia = [];
+export const cronologiaLavori = () => cronologia;
+export const azzeraCronologia = () => (cronologia.length = 0);
+
 export function registra(nome, ms) {
+  if (ms >= 10 && cronologia.length < 5000) cronologia.push({ nome, da: performance.now() - ms, ms });
   const t = tempi.get(nome) ?? { volte: 0, totale: 0, max: 0 };
   t.volte++;
   t.totale += ms;
@@ -57,6 +63,9 @@ export function registraMappaGl(nome, mappaGl, attivo = MISURA_ATTIVA) {
   mappeGl.set(nome, mappaGl);
   if (misurate.has(mappaGl)) return;
   misurate.add(mappaGl);
+  // primo stile caricato e prima immagine completa (la base è «usabile» quando ha finito di disegnarsi)
+  mappaGl.once?.('load', () => segna(`mappa ${nome}: stile caricato`));
+  mappaGl.once?.('idle', () => segna(`mappa ${nome}: prima immagine completa`));
   // il disegno di ogni fotogramma (metodo interno di MapLibre: solo in misura)
   const originale = mappaGl._render;
   if (typeof originale === 'function') mappaGl._render = cronometra(`disegno MapLibre: ${nome}`, originale, true);
@@ -123,3 +132,202 @@ export function registraMappa(mappa, attivo = MISURA_ATTIVA) {
   if (attivo) mappaAttiva = mappa;
 }
 export const mappaRegistrata = () => mappaAttiva;
+
+// ---------- avvio e sonde (solo con ?misura) ----------
+// Tutto parte dal caricamento della pagina, così il riepilogo dell'avvio e i compiti lunghi iniziali ci sono anche se il
+// misuratore si apre dopo. Senza ?misura queste funzioni non fanno niente.
+
+const fasi = []; // { nome, t }: istanti (ms dall'apertura della pagina), una volta sola per nome
+export function segna(nome, attivo = MISURA_ATTIVA) {
+  if (!attivo || fasi.some((f) => f.nome === nome)) return;
+  fasi.push({ nome, t: performance.now() });
+}
+export const fasiRegistrate = () => [...fasi];
+
+const intervalli = []; // { nome, da, a }: lavori asincroni (lettura, scarico, scrittura)
+// il lavoro `fn` (anche asincrono), cronometrato per intero; spento, è fn()
+export function intervallo(nome, fn, attivo = MISURA_ATTIVA) {
+  if (!attivo) return fn();
+  const da = performance.now();
+  const fine = () => intervalli.push({ nome, da, a: performance.now() });
+  try {
+    const r = fn();
+    if (r && typeof r.then === 'function') return r.finally(fine);
+    fine();
+    return r;
+  } catch (e) {
+    fine();
+    throw e;
+  }
+}
+export const intervalliRegistrati = () => [...intervalli];
+
+// letture e scritture sul telefono: IndexedDB (per archivio) e localStorage/sessionStorage
+const sonde = { letture: [], transazioni: [], archivioWeb: { localStorage: { n: 0, byte: 0 }, sessionStorage: { n: 0, byte: 0 } } };
+export const sondeRegistrate = () => sonde;
+
+function installaSonde() {
+  try {
+    performance.setResourceTimingBufferSize?.(3000); // di base 250: le tessere della mappa riempiono subito il registro
+  } catch {
+    // pazienza
+  }
+  try {
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) {
+      const o = this === globalThis.localStorage ? 'localStorage' : 'sessionStorage';
+      sonde.archivioWeb[o].n++;
+      sonde.archivioWeb[o].byte += String(k).length + String(v).length;
+      return setItem.call(this, k, v);
+    };
+  } catch {
+    // niente conteggio dell'archiviazione web
+  }
+  try {
+    // ogni lettura di un intero archivio (getAll) con il tempo fino al risultato e quanti record
+    for (const metodo of ['getAll', 'getAllKeys']) {
+      const originale = IDBObjectStore.prototype[metodo];
+      IDBObjectStore.prototype[metodo] = function (...a) {
+        const richiesta = originale.apply(this, a);
+        const inizio = performance.now();
+        const store = this.name;
+        richiesta.addEventListener('success', () => sonde.letture.push({ store, metodo, record: richiesta.result?.length ?? 0, da: inizio, ms: performance.now() - inizio }));
+        return richiesta;
+      };
+    }
+    // ogni transazione: archivi, modo, record scritti, durata fino a «complete»
+    const transaction = IDBDatabase.prototype.transaction;
+    IDBDatabase.prototype.transaction = function (archivi, modo, ...resto) {
+      const tx = transaction.call(this, archivi, modo, ...resto);
+      const voce = { archivi: [].concat(archivi).join('+'), modo: modo ?? 'readonly', scritti: 0, da: performance.now(), ms: null };
+      const put = tx.objectStore.bind(tx);
+      tx.objectStore = (nome) => {
+        const st = put(nome);
+        if (!st.__misurato) {
+          st.__misurato = true;
+          for (const m of ['put', 'add']) {
+            const f = st[m].bind(st);
+            st[m] = (...a) => {
+              voce.scritti++;
+              return f(...a);
+            };
+          }
+        }
+        return st;
+      };
+      tx.addEventListener('complete', () => {
+        voce.ms = performance.now() - voce.da;
+        if (voce.modo === 'readwrite') sonde.transazioni.push(voce);
+      });
+      return tx;
+    };
+  } catch {
+    // niente sonde di IndexedDB
+  }
+}
+if (MISURA_ATTIVA) installaSonde();
+
+// ---------- riepilogo dell'avvio (calcoli puri, con i test) ----------
+
+const kb = (byte) => (byte >= 1024 * 1024 ? `${(byte / 1024 / 1024).toFixed(1).replace('.', ',')} MB` : `${Math.round(byte / 1024)} KB`);
+const nomeFile = (url, origineApp) => {
+  try {
+    const u = new URL(url);
+    return u.origin === origineApp ? u.pathname.split('/').pop() || u.pathname : `${u.host}${u.pathname.length > 24 ? `${u.pathname.slice(0, 24)}…` : u.pathname}`;
+  } catch {
+    return String(url).slice(0, 40);
+  }
+};
+
+// gruppo di una risorsa: file dell'app, dati dell'app (json), mappa e servizi esterni
+export function gruppoRisorsa(url, origineApp) {
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    return 'altro';
+  }
+  if (u.origin !== origineApp) return /tile|maplibre|openfree|opentopo|arcgis|waymarked|\.pbf|\.png|\.jpg|\.webp|sprite|glyphs/i.test(u.href) ? 'mappa (tessere, stili, caratteri)' : 'servizi esterni';
+  if (/\/dati\//.test(u.pathname)) return 'dati dell\'app (json)';
+  if (/\.(woff2?|ttf)$/.test(u.pathname)) return 'caratteri';
+  return 'file dell\'app (html, js, css, icone)';
+}
+
+// risorse: [{ nome, inizio, fine, trasferiti, compressi, decompressi }]; fineMappa: istante della «mappa usabile»
+export function righeRisorse(risorse, origineApp, fineMappa = Infinity) {
+  const gruppi = new Map();
+  const somma = (g, r, prima) => {
+    const x = gruppi.get(g) ?? { n: 0, trasferiti: 0, compressi: 0, decompressi: 0, primaN: 0, primaTrasferiti: 0 };
+    x.n++;
+    x.trasferiti += r.trasferiti;
+    x.compressi += r.compressi;
+    x.decompressi += r.decompressi;
+    if (prima) {
+      x.primaN++;
+      x.primaTrasferiti += r.trasferiti;
+    }
+    gruppi.set(g, x);
+  };
+  for (const r of risorse) somma(gruppoRisorsa(r.nome, origineApp), r, r.fine <= fineMappa);
+  const righe = [...gruppi]
+    .sort((a, b) => b[1].trasferiti - a[1].trasferiti)
+    .map(([g, x]) => `  ${g}: ${x.n} file · ${kb(x.trasferiti)} dalla rete (${kb(x.compressi)} compressi, ${kb(x.decompressi)} aperti) · fino alla mappa usabile ${x.primaN} file, ${kb(x.primaTrasferiti)}`);
+  const grandi = [...risorse]
+    .sort((a, b) => b.decompressi - a.decompressi)
+    .slice(0, 8)
+    .map((r) => `  ${nomeFile(r.nome, origineApp)}: ${kb(r.compressi)} compressi, ${kb(r.decompressi)} aperti · ${r.trasferiti === 0 && r.compressi > 0 ? 'da cache' : `${kb(r.trasferiti)} dalla rete`} · scaricato in ${Math.round(r.fine - r.inizio)} ms, finito a ${Math.round(r.fine)} ms`);
+  return { gruppi: righe, grandi };
+}
+
+// cronologia: fasi (istanti) e intervalli (da–a), in ordine di inizio
+export function righeCronologia(fasi, intervalliLavori) {
+  const voci = [
+    ...fasi.map((f) => ({ t: f.t, testo: `${String(Math.round(f.t)).padStart(5)} ms  ${f.nome}` })),
+    ...intervalliLavori.map((i) => ({ t: i.da, testo: `${String(Math.round(i.da)).padStart(5)} ms  ${i.nome}: ${durata(i.a - i.da)} (finito a ${Math.round(i.a)} ms)` })),
+  ];
+  return voci.sort((a, b) => a.t - b.t).map((v) => `  ${v.testo}`);
+}
+
+// quando la mappa è usabile: la pagina mostrata e la mappa di base disegnata (la più tarda delle due)
+export function istanteMappaUsabile(fasi) {
+  const t = (nome) => fasi.find((f) => f.nome === nome)?.t;
+  const pagina = t('pagina mostrata');
+  const base = t('mappa base: prima immagine completa');
+  const disegno = t('mappa: primo disegno completato');
+  const valori = [pagina, base, disegno].filter(Number.isFinite);
+  return valori.length ? Math.max(...valori) : null;
+}
+
+// letture e scritture di IndexedDB e dell'archiviazione web
+export function righeSonde(sonde) {
+  const righe = [];
+  const letture = sonde.letture.filter((l) => l.record > 0 || l.ms > 5);
+  righe.push(`  letture: ${letture.length ? letture.map((l) => `${l.store} (${l.metodo}) ${l.record} record in ${Math.round(l.ms)} ms`).join(' · ') : 'nessuna'}`);
+  const tx = sonde.transazioni.filter((t) => t.scritti > 0);
+  righe.push(`  scritture in IndexedDB: ${tx.length ? tx.map((t) => `${t.archivi}: ${t.scritti} record in ${Math.round(t.ms)} ms (a ${Math.round(t.da)} ms)`).join(' · ') : 'nessuna'}`);
+  const w = sonde.archivioWeb;
+  righe.push(`  localStorage: ${w.localStorage.n} scritture (${kb(w.localStorage.byte)}) · sessionStorage: ${w.sessionStorage.n} scritture (${kb(w.sessionStorage.byte)})`);
+  return righe;
+}
+
+// Compiti lunghi con quello che c'era dentro: [{ inizio, durata, script?: [{ origine, durata }] }] (ms dall'apertura della
+// pagina o dall'inizio della prova), lavori cronometrati ({ nome, da, ms }) ed eventi ({ t, testo }).
+// soglia: sotto non si elenca. → righe, dal più lungo
+export function attribuisciLunghi(lunghi, lavori, eventi, { soglia = 100, massimo = 12, inizio = 0 } = {}) {
+  const oltre = lunghi.filter((l) => l.durata >= soglia).sort((a, b) => b.durata - a.durata);
+  const righe = oltre.slice(0, massimo).map((l) => {
+    const fine = l.inizio + l.durata;
+    const dentro = lavori.filter((w) => w.da < fine && w.da + w.ms > l.inizio).sort((a, b) => b.ms - a.ms).slice(0, 3);
+    const prima = [...eventi].filter((e) => e.t <= fine && e.t >= l.inizio - 400).sort((a, b) => b.t - a.t).slice(0, 2);
+    const script = (l.script ?? []).filter((x) => x.durata >= 10).sort((a, b) => b.durata - a.durata).slice(0, 2);
+    const parti = [
+      prima.length ? `evento: ${prima.map((e) => `${e.testo} (${e.t < l.inizio ? '−' : '+'}${Math.abs(Math.round(e.t - l.inizio))} ms)`).join(', ')}` : 'nessun evento vicino',
+      dentro.length ? `lavori: ${dentro.map((w) => `${w.nome} ${Math.round(w.ms)} ms`).join(', ')}` : '',
+      script.length ? `script: ${script.map((x) => `${x.origine} ${Math.round(x.durata)} ms`).join(', ')}` : '',
+    ].filter(Boolean);
+    return `  a ${((l.inizio - inizio) / 1000).toFixed(1).replace('.', ',')} s · ${Math.round(l.durata)} ms · ${parti.join(' · ')}`;
+  });
+  const totale = oltre.reduce((n, l) => n + l.durata, 0);
+  const testa = oltre.length ? `${oltre.length} sopra ${soglia} ms (totale ${durata(totale)}, il più lungo ${ms(oltre[0].durata)})` : `nessuno sopra ${soglia} ms`;
+  return { testa, righe };
+}

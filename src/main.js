@@ -33,12 +33,13 @@ import { preparaTema } from './viste/tema.js';
 import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi, reindirizza } from './lib/sezioni.js';
-import { MISURA_ATTIVA } from './lib/misura.js';
+import { MISURA_ATTIVA, segna, intervallo } from './lib/misura.js';
 
 // misuratore delle prestazioni: solo con ?misura nell'indirizzo (altrimenti non si carica nemmeno)
 if (MISURA_ATTIVA) import('./viste/misuratore.js').then((m) => m.avviaMisuratore());
 
 const app = document.getElementById('app');
+segna('script principale in esecuzione');
 collegaVisore();
 preparaInstallazione();
 preparaTema();
@@ -200,12 +201,13 @@ async function aggiornaArchivio() {
   const url = `${import.meta.env.BASE_URL}dati/archivio.json`;
   try {
     // prima solo l'impronta del file (pochi byte): se è quella dell'ultima volta, niente da scaricare
-    const [info, testa] = await Promise.all([infoArchivio(), fetch(url, { method: 'HEAD', cache: 'no-store', signal: controllo.signal }).catch(() => null)]);
+    const [info, testa] = await intervallo('archivio: controllo impronta (HEAD)', () => Promise.all([infoArchivio(), fetch(url, { method: 'HEAD', cache: 'no-store', signal: controllo.signal }).catch(() => null)]));
     const firma = testa?.ok ? (testa.headers.get('etag') ?? testa.headers.get('last-modified')) : null;
     if (firma && info?.firma === firma) return false;
-    const risposta = await fetch(url, { signal: controllo.signal });
+    const risposta = await intervallo('archivio: scarico', () => fetch(url, { signal: controllo.signal }));
     if (!risposta.ok) return false;
-    const esito = await sincronizzaArchivio(await risposta.json(), { firma });
+    const json = await intervallo('archivio: lettura del JSON', () => risposta.json());
+    const esito = await intervallo('archivio: scrittura sul telefono', () => sincronizzaArchivio(json, { firma }));
     return esito.sentieri + esito.tracce > 0;
   } catch (e) {
     console.warn('Archivio non aggiornato', e);
@@ -216,8 +218,9 @@ async function aggiornaArchivio() {
 }
 
 globalThis.__ormeFase = 'avvio';
-caricaDatiIniziali()
+intervallo('dati iniziali (controllo e scrittura)', () => caricaDatiIniziali())
   .then(() => {
+    segna('dati iniziali pronti');
     globalThis.__ormeFase = 'archivio';
     const download = aggiornaArchivio();
     // archivio già sul telefono: la pagina si mostra subito e si aggiorna se arriva qualcosa di nuovo;
@@ -229,10 +232,12 @@ caricaDatiIniziali()
   })
   .then((archivio) => {
     if (archivio !== 'fatto') archivio.download.then((cambiato) => cambiato && mostra());
+    segna('archivio pronto per la pagina');
     globalThis.__ormeFase = 'dati pronti';
     return mostra();
   })
   .then(() => {
+    segna('pagina mostrata');
     globalThis.__ormeFase = 'pagina mostrata';
     // la mappa vettoriale si scarica a riposo, così le mappe non aspettano (né mostrano ripieghi)
     (globalThis.requestIdleCallback ?? setTimeout)(() => eliminaCelleDem().catch(() => {}));

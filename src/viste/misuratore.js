@@ -12,6 +12,16 @@ import {
   righeTempi,
   riassuntoLunghi,
   riassuntoFotogrammiLunghi,
+  fasiRegistrate,
+  intervalliRegistrati,
+  sondeRegistrate,
+  cronologiaLavori,
+  azzeraCronologia,
+  righeRisorse,
+  righeCronologia,
+  righeSonde,
+  istanteMappaUsabile,
+  attribuisciLunghi,
 } from '../lib/misura.js';
 import { NOMI_LIVELLI } from './cartografia.js';
 
@@ -115,7 +125,13 @@ export function avviaMisuratore() {
               <button type="button" class="bottone" data-m="vicino">Zoom 15 (10 s)</button>
               <button type="button" class="bottone" data-m="tendina">Tendina (10 s)</button>
             </div>
-            <p class="piccolo">Mappa: ${PROVE.mappa.testo}<br>Zoom 12 e 15: ${PROVE.lontano.testo}<br>Tendina: ${PROVE.tendina.testo}</p></li>
+            <p class="piccolo">Mappa: ${PROVE.mappa.testo}<br>Zoom 12 e 15: ${PROVE.lontano.testo}<br>Tendina: ${PROVE.tendina.testo}</p>
+            <div class="misuratore-prove">
+              <button type="button" class="bottone" data-m="avvio">Avvio (subito)</button>
+              <button type="button" class="bottone" data-m="uso">Uso normale (30 s)</button>
+              <button type="button" class="bottone testo" data-m="ricarica">Ricarica la pagina</button>
+            </div>
+            <p class="piccolo">Avvio: il riepilogo di come si è aperta questa pagina (tempi, file scaricati, letture e scritture sul telefono). Per un avvio a freddo chiudi la scheda e riaprila con ?misura, oppure «Ricarica la pagina» e poi «Avvio».<br>Uso normale: per 30 secondi usa l'app come sempre (sposta la mappa, zoom, apri Fauna e Percorsi qui); il riepilogo dice cosa ha bloccato lo schermo per più di 100 ms.</p></li>
           <li>Copia il riepilogo e incollalo nella chat.</li>
         </ol>
         ${ultimo ? `<pre class="misuratore-riepilogo">${ultimo.replace(/</g, '&lt;')}</pre><button type="button" class="bottone primario" data-m="copia">Copia il riepilogo</button><p class="piccolo" data-esito></p>` : ''}
@@ -206,6 +222,171 @@ export function avviaMisuratore() {
     iniziale();
   }
 
+  async function testaRiepilogo(nome) {
+    const m = mappaRegistrata();
+    const c = m?._loaded ? m.getCenter() : null;
+    return [
+      `Orme · misura «${nome}» · ${new Date().toLocaleString('it-IT')}`,
+      `Versione: ${VERSIONE}`,
+      `Dispositivo: ${await dispositivo()}`,
+      `Schermo: ${innerWidth}×${innerHeight} CSS · dpr ${devicePixelRatio} · ${navigator.hardwareConcurrency ?? '?'} core${navigator.deviceMemory ? ` · ${navigator.deviceMemory} GB` : ''}`,
+      `Mappa: ${c ? `zoom ${m.getZoom().toFixed(1)} · centro ${c.lat.toFixed(3)}, ${c.lng.toFixed(3)}` : 'non aperta'} · pagina ${location.hash || '#/'}`,
+      `Livelli: ${livelliAccesi()}`,
+    ];
+  }
+
+  // osserva (da subito, anche per quello che è già successo) un tipo di voci del browser
+  function leggiVoci(tipo, attesaMs = 250) {
+    return new Promise((fine) => {
+      const voci = [];
+      try {
+        const o = new PerformanceObserver((l) => voci.push(...l.getEntries()));
+        o.observe({ type: tipo, buffered: true });
+        setTimeout(() => {
+          o.disconnect();
+          fine(voci);
+        }, attesaMs);
+      } catch {
+        fine(null); // tipo non disponibile su questo browser
+      }
+    });
+  }
+  const comeLunghi = (voci, loaf) =>
+    (voci ?? []).map((e) => ({
+      inizio: e.startTime,
+      durata: e.duration,
+      script: loaf ? (e.scripts ?? []).map((sc) => ({ origine: origine(sc), durata: sc.duration })) : [],
+    }));
+
+  // Avvio: come si è aperta la pagina (dall'apertura fino a ora)
+  async function provaAvvio() {
+    pannello.classList.add('in-corso');
+    pannello.innerHTML = '<div class="misuratore-testa"><b>Leggo i dati dell\'avvio…</b></div>';
+    const nav = performance.getEntriesByType('navigation')[0];
+    const fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime;
+    const lcpVoci = await leggiVoci('largest-contentful-paint');
+    const lcp = lcpVoci?.at(-1)?.startTime;
+    const fasi = fasiRegistrate();
+    const usabile = istanteMappaUsabile(fasi);
+    const origineApp = location.origin;
+    const risorse = performance.getEntriesByType('resource').map((r) => ({
+      nome: r.name,
+      inizio: r.startTime,
+      fine: r.responseEnd,
+      trasferiti: r.transferSize,
+      compressi: r.encodedBodySize,
+      decompressi: r.decodedBodySize,
+    }));
+    const { gruppi, grandi } = righeRisorse(risorse, origineApp, usabile ?? Infinity);
+    const lunghi = comeLunghi(await leggiVoci('longtask'));
+    const lunghiLoaf = comeLunghi(await leggiVoci('long-animation-frame'), true);
+    const base = lunghiLoaf.length ? lunghiLoaf : lunghi;
+    const attribuiti = attribuisciLunghi(base, cronologiaLavori(), fasi.map((f) => ({ t: f.t, testo: f.nome })), { soglia: 100, massimo: 8 });
+    const ms = (x) => (Number.isFinite(x) ? `${Math.round(x)} ms` : 'non disponibile');
+    ultimo = [
+      ...(await testaRiepilogo('avvio')),
+      `Pagina aperta con: ${nav?.type ?? '?'} · service worker che controlla la pagina: ${navigator.serviceWorker?.controller ? 'sì' : 'no'} · rete: ${navigator.connection?.effectiveType ?? '?'}`,
+      `Tempi dall'apertura: risposta HTML ${ms(nav?.responseStart)} · DOM interattivo ${ms(nav?.domInteractive)} · pagina caricata ${ms(nav?.loadEventEnd)} · primo contenuto ${ms(fcp)} · contenuto più grande ${ms(lcp)}`,
+      `MAPPA USABILE (pagina mostrata, base disegnata, primo disegno): ${ms(usabile)}`,
+      'Cronologia:',
+      ...righeCronologia(fasi, intervalliRegistrati()),
+      `File ricevuti dalla rete (${risorse.length} richieste):`,
+      ...gruppi,
+      'I più grandi:',
+      ...grandi,
+      'Letture e scritture sul telefono:',
+      ...righeSonde(sondeRegistrate()),
+      `Compiti lunghi dall'apertura (${lunghiLoaf.length ? 'fotogrammi lunghi' : 'long task'}): ${attribuiti.testa}`,
+      ...attribuiti.righe,
+      `Elementi: ${conteggi()}`,
+    ].join('\n');
+    iniziale();
+  }
+
+  // descrizione breve di dove si è toccato
+  function descrivi(el) {
+    const e = el?.closest?.('button,a,label,input,select,[data-azione],[data-scelta],[role=radio],.leaflet-container') ?? el;
+    if (!e?.tagName) return 'tocco';
+    const id = e.id ? `#${e.id}` : e.dataset?.azione ? `[${e.dataset.azione}]` : e.dataset?.scelta ? `[${e.dataset.scelta}=${e.dataset.valore ?? ''}]` : `${e.tagName.toLowerCase()}${e.classList?.[0] ? `.${e.classList[0]}` : ''}`;
+    const testo = (e.innerText ?? '').trim().replace(/\s+/g, ' ').slice(0, 18);
+    return `tocco su ${id}${testo ? ` «${testo}»` : ''}`;
+  }
+
+  // Uso normale: 30 secondi di uso libero; compiti lunghi sopra 100 ms con evento e lavori che li accompagnano
+  async function provaUso() {
+    azzeraTempi();
+    azzeraCronologia();
+    const eventi = [];
+    const aggiungi = (testo) => eventi.push({ t: performance.now(), testo });
+    const sulTocco = (e) => aggiungi(descrivi(e.target));
+    document.addEventListener('pointerdown', sulTocco, true);
+    const m = mappaRegistrata();
+    const suMappa = ['movestart', 'zoomstart', 'moveend', 'zoomend'];
+    const registraMoto = (e) => aggiungi(`mappa: ${{ movestart: 'inizio spostamento', zoomstart: 'inizio zoom', moveend: 'fine spostamento', zoomend: 'fine zoom' }[e.type]} (zoom ${m.getZoom().toFixed(1)})`);
+    if (m) for (const t of suMappa) m.on(t, registraMoto);
+    let prima = stato.leggi();
+    const scollega = stato.ascolta((nuovo) => {
+      const cambiati = Object.keys(nuovo.livelli ?? {}).filter((k) => nuovo.livelli[k] !== prima.livelli?.[k]);
+      if (cambiati.length) aggiungi(`livello: ${cambiati.map((k) => `${NOMI_LIVELLI[k] ?? k} ${nuovo.livelli[k] ? 'acceso' : 'spento'}`).join(', ')}`);
+      if (nuovo.specie !== prima.specie) aggiungi(`animale: ${nuovo.specie || 'nessuno'}`);
+      prima = nuovo;
+    });
+    const lunghi = [];
+    const lunghiLoaf = [];
+    const osservatori = [];
+    for (const [tipo, dove] of [['longtask', lunghi], ['long-animation-frame', lunghiLoaf]]) {
+      try {
+        const o = new PerformanceObserver((l) => dove.push(...l.getEntries()));
+        o.observe({ type: tipo });
+        osservatori.push(o);
+      } catch {
+        // tipo non disponibile
+      }
+    }
+    const inizio = performance.now();
+    pannello.classList.add('in-corso');
+    pannello.innerHTML = `<div class="misuratore-testa"><b>Usa l'app come sempre</b> <span data-conto>30</span> s</div><p class="piccolo">Sposta la mappa, fai zoom, apri Fauna e Percorsi qui, sceglili… senza fermarti.</p>`;
+    await new Promise((fine) => {
+      const passo = () => {
+        const resto = 30 - (performance.now() - inizio) / 1000;
+        const conto = pannello.querySelector('[data-conto]');
+        if (conto) conto.textContent = String(Math.max(0, Math.ceil(resto)));
+        if (resto > 0) setTimeout(passo, 250);
+        else fine();
+      };
+      passo();
+    });
+    await new Promise((r) => setTimeout(r, 300)); // gli ultimi compiti arrivano un attimo dopo
+    document.removeEventListener('pointerdown', sulTocco, true);
+    if (m) for (const t of suMappa) m.off(t, registraMoto);
+    scollega();
+    osservatori.forEach((o) => o.disconnect());
+    const base = lunghiLoaf.length ? comeLunghi(lunghiLoaf, true) : comeLunghi(lunghi);
+    const attribuiti = attribuisciLunghi(base, cronologiaLavori(), eventi, { soglia: 100, inizio });
+    const lunghi50 = comeLunghi(lunghi).map((x) => x.durata);
+    const fotogrammi = lunghiLoaf.map((e) => ({
+      script: (e.scripts ?? []).reduce((n, sc) => n + sc.duration, 0),
+      stile: e.styleAndLayoutStart ? Math.max(0, e.startTime + e.duration - e.styleAndLayoutStart) : 0,
+      altro: 0,
+      origini: (e.scripts ?? []).map((sc) => ({ origine: origine(sc), durata: sc.duration })),
+    }));
+    const tocchi = eventi.filter((e) => e.testo.startsWith('tocco')).length;
+    const mosse = eventi.filter((e) => e.testo.startsWith('mappa: fine')).length;
+    ultimo = [
+      ...(await testaRiepilogo('uso normale (30 s)')),
+      `Cosa è successo: ${tocchi} tocchi, ${mosse} spostamenti o zoom della mappa, ${eventi.length - tocchi - mosse} altri eventi`,
+      `Compiti lunghi: ${attribuiti.testa}`,
+      ...attribuiti.righe,
+      `Compiti lunghi sopra 50 ms (tutti): ${riassuntoLunghi(lunghi50)}`,
+      'Fotogrammi lunghi (script, stile, altro):',
+      ...(fotogrammi.length ? riassuntoFotogrammiLunghi(fotogrammi) : ['  nessuno (o non misurabili su questo browser)']),
+      'Lavori misurati:',
+      ...(righeTempi(tempiRegistrati()).length ? righeTempi(tempiRegistrati()) : ['  nessuno']),
+      `Elementi: ${conteggi()}`,
+    ].join('\n');
+    iniziale();
+  }
+
   // "Aggiorna l'app": chiede al service worker se c'è una versione nuova; se sì, la pagina si
   // ricarica da sola quando è pronta (main.js, controllerchange)
   async function aggiorna() {
@@ -229,6 +410,9 @@ export function avviaMisuratore() {
     if (azione === 'riduci') pannello.classList.toggle('ridotto');
     else if (azione === 'chiudi') pannello.remove(); // torna con ?misura alla prossima apertura
     else if (azione === 'aggiorna') aggiorna();
+    else if (azione === 'avvio') provaAvvio();
+    else if (azione === 'uso') provaUso();
+    else if (azione === 'ricarica') location.reload();
     else if (PROVE[azione]) prova(azione);
     else if (azione === 'copia') {
       const esito = pannello.querySelector('[data-esito]');
