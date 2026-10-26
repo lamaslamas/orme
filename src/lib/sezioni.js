@@ -1,10 +1,9 @@
-// Sezione della barra in basso (Mappa, I miei percorsi, Associazioni, Altro) a cui appartiene un percorso
+// Sezione della barra in basso (Mappa, I miei percorsi, Altro) a cui appartiene un percorso
 export function sezioneDi(percorso) {
   // i miei percorsi: salvati, disegnati o importati
   if (/^\/(miei|pianifica|salvati|percorso)(\/|-|\?|$)/.test(percorso)) return 'miei';
-  if (/^\/associazioni(\/|\?|$)/.test(percorso)) return 'associazioni';
-  // elenco dei parchi, backup e il resto
-  if (/^\/(altro|backup|parchi|parco|nuovo)(\/|\?|$)/.test(percorso)) return 'altro';
+  // elenco dei parchi, associazioni, backup e il resto
+  if (/^\/(altro|backup|parchi|parco|nuovo|associazioni)(\/|\?|$)/.test(percorso)) return 'altro';
   // la mappa e le schede dei sentieri che si aprono da lì
   return 'mappa';
 }

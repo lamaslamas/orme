@@ -32,6 +32,9 @@ export function normalizzaScelte(grezze) {
   const lunghezza = come(g.lunghezza, SCELTE_PREDEFINITE.lunghezza);
   s.lunghezza = lunghezza in LUNGHEZZE ? lunghezza : SCELTE_PREDEFINITE.lunghezza;
   if ('dormire' in s && !DOVE.includes(s.dormire)) delete s.dormire;
+  // il cursore del dislivello e «Includi anche quelli senza dati di quota» non ci sono più: un valore salvato prima non deve restare nascosto
+  s.salita = '';
+  s.senzaQuote = '';
   return s;
 }
 

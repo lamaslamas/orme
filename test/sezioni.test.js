@@ -9,7 +9,8 @@ describe('barra in basso', () => {
     expect(sezioneDi('/miei?scheda=percorsi')).toBe('miei');
     expect(sezioneDi('/percorso/p1')).toBe('miei');
     expect(sezioneDi('/percorso-nuovo')).toBe('miei');
-    expect(sezioneDi('/associazioni')).toBe('associazioni');
+    expect(sezioneDi('/associazioni')).toBe('altro');
+    expect(sezioneDi('/associazioni/nuova')).toBe('altro');
     expect(sezioneDi('/parchi')).toBe('altro');
     expect(sezioneDi('/parco/pnalm')).toBe('altro');
     expect(sezioneDi('/suggerisci')).toBe('mappa');

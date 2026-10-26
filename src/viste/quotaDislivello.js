@@ -27,10 +27,11 @@ function htmlSlider(chiave, c) {
 }
 
 // sezione completa: titolo, i due slider e la scelta per i percorsi senza quote
-export const htmlQuotaDislivello = (c) => `<section class="sezione-filtro quota-dislivello"><h3>Quota e dislivello</h3>
+// solo quota: in Suggerisci c'è la sola quota massima (niente dislivello né «senza dati di quota»)
+export const htmlQuotaDislivello = (c, { soloQuota = false } = {}) => `<section class="sezione-filtro quota-dislivello"><h3>${soloQuota ? 'Quota massima' : 'Quota e dislivello'}</h3>
     ${htmlSlider('quota', c)}
-    ${htmlSlider('salita', c)}
-    <label class="qd-senza"><input type="checkbox" data-qd-senza ${c.senzaQuote ? 'checked' : ''} /> Includi anche quelli senza dati di quota</label>
+    ${soloQuota ? '' : `${htmlSlider('salita', c)}
+    <label class="qd-senza"><input type="checkbox" data-qd-senza ${c.senzaQuote ? 'checked' : ''} /> Includi anche quelli senza dati di quota</label>`}
   </section>`;
 
 // «Lunghezza»: i km da percorrere davvero (un anello, o andata e ritorno; «Solo andata» conta l'andata)

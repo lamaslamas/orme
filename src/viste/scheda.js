@@ -2,7 +2,6 @@ import { leggiSentiero, salvaSentiero, leggiTraccia, salvaTraccia } from '../db.
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA } from '../lib/costanti.js';
 import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
 import { giornoOraIniziali } from '../lib/quandoAndare.js';
-import { inizializzaGiorno } from './giornoScelto.js';
 import { ritmoScelto, testoRitmo } from '../lib/ritmo.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { oraPartenzaTesto } from './andataRitorno.js';
@@ -27,8 +26,8 @@ import { descriviSuggerimento, valoriSuggeriti, haInformazioniBici } from '../li
 import { bollinoBici, bollinoDifficolta } from './lista.js';
 import { misureSentiero, quoteDellaTraccia } from '../lib/riassunto.js';
 import { baseAndata, misureAR, misureScelte, statoAnello, notaFonte, tracciaDiversa } from '../lib/andataRitorno.js';
-import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
-import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
+import { modoScelto } from './andataRitorno.js';
+import { htmlQuando, collegaQuando } from './quando.js';
 import { percorsoSentiero, statoTraccia, sceltaAutomatica, tracciaDaNonUsare, invertiPercorso, invertiGeojson } from '../lib/tracce.js';
 import { versoDi, versoDallArchivio, impostaVerso, specchiaTratto, probabilmenteInvertito } from '../lib/verso.js';
 import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
@@ -235,7 +234,6 @@ import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
-import { htmlFotografia, collegaFotografia, riassuntoLuce } from './fotografia.js';
 import { htmlGiornoNotte, collegaGiornoNotte } from './giornoNotte.js';
 import { linkCodice } from './codice.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
@@ -417,7 +415,6 @@ export async function vistaScheda(app, id) {
     const m0 = ar ? misureScelte(ar, modoScelto()) : null;
     return giornoOraIniziali({ oggi: oggiIt, domani, adessoMin: adesso.getHours() * 60 + adesso.getMinutes(), oraSolita: oraPartenzaTesto(), durataMin: m0?.durataMin ?? null, tramontoOggiMin: tramonto, daSuggerisci: consumaOrarioDaSuggerisci(s.id) });
   })();
-  inizializzaGiorno(inizialiOrari.giorno); // un solo giorno in «Percorrenza» e «Quando andare»
   const misure = misureSentiero(s, traccia);
   const idUrl = encodeURIComponent(s.id);
   const statoT = statoTraccia(s, traccia);
@@ -458,8 +455,7 @@ export async function vistaScheda(app, id) {
       <div id="numeriScheda">${numeriScelti(modoScelto())}</div>
       ${pezziOriginali.length && !statoGiro.anello ? htmlVerso() : ''}
       <div id="profiloScheda" class="profilo-scheda" aria-live="polite"></div>
-      ${ar ? htmlAndataRitorno(ar, modoScelto(), inizialiOrari) : ''}
-      ${htmlQuandoAndare()}
+      ${htmlQuando(ar, modoScelto(), inizialiOrari)}
 
       <section class="riquadro traccia-stato traccia-${statoT.tipo}">
         <h2>Traccia</h2>
@@ -489,7 +485,6 @@ export async function vistaScheda(app, id) {
       </section>
 
       ${htmlSezione('fauna', { icona: 'zampa', titolo: 'Fauna', riassunto: riassuntoFauna(s, traccia) }, htmlFauna(s, traccia))}
-      ${puntoLuce ? htmlSezione('foto', { icona: 'foto', titolo: 'Luce e fotografia', riassunto: riassuntoLuce(puntoLuce) }, htmlFotografia({ conPercorso: pezziTraccia.length > 0, tratto: trattoFauna0 })) : ''}
       ${puntoLuce && pezziTraccia.length ? htmlSezione('giornonotte', { icona: 'calendario', titolo: 'Giorno o notte?', riassunto: 'Un giorno o una notte fuori: i fatti a confronto' }, htmlGiornoNotte({ tratto: trattoFauna0 })) : ''}
 
 
@@ -659,19 +654,18 @@ export async function vistaScheda(app, id) {
         if (boxProfilo.isConnected) boxProfilo.innerHTML = '<p class="tenue piccolo">Quote non disponibili ora (sei offline?): il profilo comparirà alla prossima apertura.</p>';
       });
   }
-  // meteo dei prossimi giorni con la durata scelta (Solo andata / A/R)
-  const aggiornaMeteo = collegaQuandoAndare(app.querySelector('.quando-andare'), { sentiero: s, traccia, quote: quoteDellaTraccia(s, traccia), misure: ar ? misureScelte(ar, modoScelto()) : misure });
-  // cambiando la partenza scelta, anche «Quando andare» si rifà con quell'orario
-  app.querySelector('.andata-ritorno')?.addEventListener('input', (e) => e.target.matches('[data-ora]') && aggiornaMeteo(ar ? misureScelte(ar, modoScelto()) : misure));
-  if (ar) {
-    const inizio = pezziTraccia[0]?.[0];
-    collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
+  // «Quando»: meteo dei prossimi giorni, ora di partenza e luce, con la durata scelta (Solo andata / A/R)
+  {
+    collegaQuando(app.querySelector('.quando'), {
+      sentiero: s,
+      traccia,
+      quote: quoteDellaTraccia(s, traccia),
       ar,
-      ricarica: () => vistaScheda(app, id),
-      partenza: inizio ? [inizio[0], inizio[1]] : puntoPartenza ? [puntoPartenza.lon, puntoPartenza.lat] : null,
+      partenza: puntoLuce,
+      misureDi: (modo) => (ar ? misureScelte(ar, modo) : misure),
+      iniziali: inizialiOrari,
       alCambioModo: (modo) => {
         app.querySelector('#numeriScheda').innerHTML = numeriScelti(modo);
-        aggiornaMeteo(misureScelte(ar, modo));
       },
     });
   }
@@ -684,7 +678,6 @@ export async function vistaScheda(app, id) {
     impostaVerso(s.id, !invertito, versoDallArchivio(s));
     vistaScheda(app, id);
   });
-  collegaFotografia(app.querySelector('[data-sezione="foto"]'), { punto: puntoLuce, pezzi: pezziTraccia, tratto: trattoFauna0, linkParco });
   collegaGiornoNotte(app.querySelector('[data-sezione="giornonotte"]'), { id: s.id, pezzi: pezziTraccia, tratto: trattoFauna0, anello: statoGiro.anello, linkParco });
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());

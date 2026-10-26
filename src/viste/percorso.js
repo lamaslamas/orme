@@ -4,7 +4,6 @@ import { percorsoSentiero, estremiTraccia, invertiPercorso, invertiGeojson } fro
 import { versoDi, impostaVerso } from '../lib/verso.js';
 import { giornoOraIniziali } from '../lib/quandoAndare.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
-import { inizializzaGiorno } from './giornoScelto.js';
 import { ritmoScelto, testoRitmo } from '../lib/ritmo.js';
 import { ICONE } from './icone.js';
 import { escapeHtml } from '../lib/formato.js';
@@ -22,8 +21,8 @@ import { serveScaricoQuote, chiaveQuote } from '../lib/quoteSalvate.js';
 import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { testoFonteQuote } from './quote.js';
 import { misureAR, misureScelte, eAnelloPezzi } from '../lib/andataRitorno.js';
-import { htmlAndataRitorno, collegaAndataRitorno, modoScelto } from './andataRitorno.js';
-import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
+import { modoScelto } from './andataRitorno.js';
+import { htmlQuando, collegaQuando } from './quando.js';
 import { quoteMeteoDaiPezzi } from '../lib/quandoAndare.js';
 import L from 'leaflet';
 import { ripristinaOriginale, nuovoIdPercorso } from '../lib/percorso.js';
@@ -86,7 +85,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
     const m0 = ar ? misureScelte(ar, modoScelto()) : null;
     return giornoOraIniziali({ oggi: oggiIt, domani, adessoMin: adesso.getHours() * 60 + adesso.getMinutes(), oraSolita: oraPartenzaTesto(), durataMin: m0?.durataMin ?? null, tramontoOggiMin: tramonto });
   })();
-  inizializzaGiorno(inizialiOrari.giorno);
   const scaricoQuote = serveScaricoQuote(p, originali, quoteProvate);
 
   const pulsanti = `
@@ -113,8 +111,7 @@ export async function vistaPercorso(app, id, virtuale = null) {
         <div id="numeriPercorso">${htmlNumeri(misure, quote?.fonte, ar, modoScelto(), scaricoQuote)}</div>
         ${htmlProfiloPendenze(quote?.pezzi ?? pezzi)}
         ${pezzi.length && !virtuale ? `<div class="verso-traccia"><button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (eAnello ? 'Girato al contrario · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : eAnello ? 'Gira al contrario' : 'Inverti senso'}</span></button></div>` : ''}
-        ${ar ? htmlAndataRitorno(ar, modoScelto(), inizialiOrari) : ''}
-        ${htmlQuandoAndare()}
+        ${htmlQuando(ar, modoScelto(), inizialiOrari)}
       </div>
       <div class="percorso-colonna-b">
         <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
@@ -232,33 +229,32 @@ export async function vistaPercorso(app, id, virtuale = null) {
   });
   // meteo dei prossimi giorni, con la durata scelta (Solo andata / A/R)
   const misureMeteo = (modo = modoScelto()) => (ar ? misureScelte(ar, modo) : misure);
-  const aggiornaMeteo = collegaQuandoAndare(app.querySelector('.quando-andare'), {
-    sentiero: { panorama: null },
-    traccia: { geojson: { type: 'MultiLineString', coordinates: pezzi } },
-    quote: quoteMeteoDaiPezzi(quote?.pezzi ?? pezzi),
-    misure: misureMeteo(),
-  });
-  app.querySelector('.andata-ritorno')?.addEventListener('input', (e) => e.target.matches('[data-ora]') && aggiornaMeteo(misureMeteo()));
+  let aggiornaMeteo = () => {};
   // andata e ritorno: la scelta cambia i numeri in alto, "Su più giorni" e il meteo
-  const collegaAR = () => collegaAndataRitorno(app.querySelector('.andata-ritorno'), {
-    ar,
-    ricarica: () => vistaPercorso(app, id, virtuale),
-    partenza: e ? e.inizio : null,
-    alCambioModo: (modo) => {
-      app.querySelector('#numeriPercorso').innerHTML = htmlNumeri(misure, fonteQuote, ar, modo);
-      aggiornaMeteo(misureMeteo(modo));
-      const giorni = app.querySelector('#contenitoreGiorni');
-      if (giorni) {
-        giorni.hidden = !serveGiorni(modo);
-        // le giornate calcolate prima valevano per l'altra scelta
-        giorni.querySelector('.giorni-risultato').innerHTML = '';
-        giorni.querySelectorAll('[data-ore]').forEach((b) => {
-          b.classList.remove('attiva');
-          b.setAttribute('aria-pressed', 'false');
-        });
-      }
-    },
-  });
+  const collegaAR = () => {
+    aggiornaMeteo = collegaQuando(app.querySelector('.quando'), {
+      sentiero: { panorama: null },
+      traccia: { geojson: { type: 'MultiLineString', coordinates: pezzi } },
+      quote: quoteMeteoDaiPezzi(quote?.pezzi ?? pezzi),
+      ar,
+      partenza: e ? e.inizio : null,
+      misureDi: misureMeteo,
+      iniziali: inizialiOrari,
+      alCambioModo: (modo) => {
+        app.querySelector('#numeriPercorso').innerHTML = htmlNumeri(misure, fonteQuote, ar, modo);
+        const giorni = app.querySelector('#contenitoreGiorni');
+        if (giorni) {
+          giorni.hidden = !serveGiorni(modo);
+          // le giornate calcolate prima valevano per l'altra scelta
+          giorni.querySelector('.giorni-risultato').innerHTML = '';
+          giorni.querySelectorAll('[data-ore]').forEach((b) => {
+            b.classList.remove('attiva');
+            b.setAttribute('aria-pressed', 'false');
+          });
+        }
+      },
+    });
+  };
   collegaAR();
   // su più giorni: dove finisce ogni giornata e dove dormire
   collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso, {
@@ -270,10 +266,10 @@ export async function vistaPercorso(app, id, virtuale = null) {
       const numeri = app.querySelector('#numeriPercorso');
       if (numeri) numeri.innerHTML = htmlNumeri(misure, fonte, ar);
       aggiornaMeteo(misureMeteo(), quoteMeteoDaiPezzi(pq));
-      // anche il blocco Andata e ritorno, ora con le quote
-      const blocco = app.querySelector('.andata-ritorno');
+      // anche il blocco «Quando», ora con le quote
+      const blocco = app.querySelector('.quando');
       if (blocco && ar) {
-        blocco.outerHTML = htmlAndataRitorno(ar, modoScelto(), inizialiOrari);
+        blocco.outerHTML = htmlQuando(ar, modoScelto(), inizialiOrari);
         collegaAR();
       }
     },

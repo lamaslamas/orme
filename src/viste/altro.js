@@ -14,6 +14,7 @@ export async function vistaAltro(app) {
     <ul class="menu-altro">
       <li class="voce-installa" hidden><button type="button" class="voce-menu" data-azione="installa"><b>Installa l'app</b><span>Sulla schermata Home, funziona anche offline</span></button></li>
       <li><a href="#/parchi"><b>Parchi</b><span>L'elenco dei parchi, con fauna e sentieri di ognuno</span></a></li>
+      <li><a href="#/associazioni"><b>Associazioni</b><span>Le uscite guidate di associazioni ed enti parco</span></a></li>
       <li><a href="#/codice"><b>Codice di comportamento</b><span>Buone pratiche per la fotografia naturalistica</span></a></li>
       <li><a href="#/backup"><b>Backup</b><span>Esporta e importa sentieri, tracce e percorsi</span></a></li>
       <li><a href="#/nuovo"><b>Aggiungi un sentiero</b><span>Inserisci a mano un nuovo sentiero</span></a></li>

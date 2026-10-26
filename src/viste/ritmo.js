@@ -15,3 +15,6 @@ export function collegaRitmo(contenitore, alCambio) {
     alCambio();
   });
 }
+
+// Il ritmo si sceglie solo in Altro: nelle schede e in Suggerisci una riga con la scelta attuale e il modo di cambiarla
+export const htmlRigaRitmo = () => `<p class="riga-ritmo tenue piccolo">Ritmo: <b>${RITMI[ritmoScelto()].nome.toLowerCase()}</b> · <a href="#/altro">cambia</a></p>`;
