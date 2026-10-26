@@ -19,6 +19,7 @@ import { vistaUscitaAMano } from './viste/uscitaAMano.js';
 import { vistaSuggerisci } from './viste/suggerisciPagina.js';
 import { vistaPercorso } from './viste/percorso.js';
 import { vistaDisegna, vistaDisegnaSentiero, vistaDisegnaVia } from './viste/disegna.js';
+import { vistaPianificatore } from './viste/pianificatore.js';
 import { vistaMappaPercorso } from './viste/mappaPercorso.js';
 import { vistaParco } from './viste/parco.js';
 import { vistaImporta } from './viste/importa.js';
@@ -67,6 +68,7 @@ const percorsi = [
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
   [/^\/sentiero\/([^/]+)\/disegna\/?$/, vistaDisegnaSentiero],
   [/^\/via\/disegna\/?$/, vistaDisegnaVia],
+  [/^\/pianificatore\/?$/, vistaPianificatore],
   [/^\/nuovo(?:\?parco=([^&]+))?$/, (app, parco) => vistaModifica(app, null, parco)],
   [/^\/parco\/([^/]+)\/?$/, vistaParco],
   [/^\/parco\/([^/]+)\/importa\/?$/, vistaImporta],
