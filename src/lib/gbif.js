@@ -5,6 +5,7 @@
 import { TAXON_GBIF, ANIMALI, SPECIE_SOLO_INTORNO, CLASSI_FAUNA } from './costanti.js';
 import { taxaDeiGruppi } from './gruppiFauna.js';
 import { STAGIONI, SPECIE_RARE } from './inaturalist.js';
+import { eRaraGbif } from './filtroFauna.js';
 
 export const API_GBIF = 'https://api.gbif.org/v1';
 // specie minacciate (Lista Rossa IUCN) tra mammiferi e uccelli: in "Intorno a me" si aggiungono a parte
@@ -106,6 +107,8 @@ export function interpretaGbif(json) {
         nomeScientifico: o.species ?? o.scientificName ?? '',
         // per l'icona delle specie fuori dalla lista: uccello o mammifero
         classe: o.class ?? null,
+        // specie rara (stesso criterio per tutte le fonti: src/lib/filtroFauna.js)
+        rara: eRaraGbif(o),
         ordine: o.order ?? null,
         famiglia: o.family ?? null,
         data: o.eventDate ? String(o.eventDate).slice(0, 10) : null,

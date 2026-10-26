@@ -2,6 +2,7 @@
 // Per le specie protette iNaturalist sfuma la posizione in un quadrato di circa 20 km.
 import { TAXON_INATURALIST, ANIMALI, CLASSI_FAUNA, CATEGORIE_RARE, ESCLUSI_DALLE_RARE } from './costanti.js';
 import { taxaDeiGruppi } from './gruppiFauna.js';
+import { eRaraInat } from './filtroFauna.js';
 
 export const API_INATURALIST = 'https://api.inaturalist.org/v1';
 
@@ -51,6 +52,7 @@ export function parametriInat(filtri, oggi = new Date()) {
     // ricerca per gruppo (lungo i percorsi): nessun filtro di specie
     if (GRUPPI[filtri.gruppo]?.taxa) p.set('iconic_taxa', GRUPPI[filtri.gruppo].taxa);
   } else if (filtri.taxon?.inat) p.set('taxon_id', String(filtri.taxon.inat)); // una specie scelta in "Cosa vedere qui"
+  else if (filtri.taxon?.scientifico) p.set('taxon_name', filtri.taxon.scientifico); // scelta tra le osservazioni di altre fonti: senza il suo codice, per nome
   else if (filtri.specie === 'minacciate') p.set('threatened', 'true');
   // "Intorno a me": i gruppi scelti (rapaci, uccelli d'acqua, mammiferi); con solo "rare", le
   // specie minacciate tra mammiferi e uccelli
@@ -134,10 +136,12 @@ export function interpretaOsservazioni(json) {
     const nomeIt = antenati.map((id) => NOMI_IT.get(id)).find(Boolean);
     return {
       id: o.id,
+      taxonId: t.id ?? null,
       animale: antenati.map((id) => CHIAVI.get(id)).find(Boolean) ?? null,
       // per le icone e il filtro delle mappe (come le osservazioni GBIF)
       icona: iconaDaAntenati(t),
       classe: t.iconic_taxon_name ?? null,
+      rara: eRaraInat(t),
       fonte: 'iNaturalist',
       specie: nomeIt ?? t.preferred_common_name ?? t.name ?? 'Specie non indicata',
       nomeScientifico: t.name ?? '',

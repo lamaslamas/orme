@@ -3,7 +3,7 @@
 // elenco delle osservazioni toccando una zona. La correzione per lo sforzo usa la griglia di iNaturalist.
 // Non usa mai i miei avvistamenti personali.
 import L from 'leaflet';
-import { ANIMALI, TAXON_GBIF, ESCLUSI_DALLE_RARE } from '../lib/costanti.js';
+import { ANIMALI, TAXON_GBIF } from '../lib/costanti.js';
 import { urlOsservazioniGbif, interpretaGbif, iconaPerOsservazione } from '../lib/gbif.js';
 import { conMinacciate, taxaDeiGruppi, leggiGruppiSalvati, leggiSoloRare, salvaSoloRare, testoGruppi } from '../lib/gruppiFauna.js';
 import { stato } from '../stato.js';
@@ -11,6 +11,7 @@ import { urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
 import { htmlVoceOsservazione } from './vociOsservazioni.js';
 import { htmlNascondi } from './nascondiSpecie.js';
 import { nascoste } from '../lib/specieNascoste.js';
+import { filtraOsservazioni } from '../lib/filtroFauna.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
   STAGIONI,
@@ -59,11 +60,10 @@ export function filtriHeatmap(st = stato.leggi()) {
   };
 }
 
-const CLASSI = new Set(['Mammalia', 'Aves', 'Reptilia', 'Amphibia']);
 
 // Nome italiano delle specie fuori dalla lista (da iNaturalist, una volta sola per specie)
 // (la stessa memoria di Suggerisci: orme.nomiSpecie)
-const NOMI_IT = new Map(Object.entries(leggiNomiSalvati()));
+export const NOMI_IT = new Map(Object.entries(leggiNomiSalvati()));
 function leggiNomiSalvati() {
   try {
     return JSON.parse(localStorage.getItem('orme.nomiSpecie') ?? '{}');
@@ -81,7 +81,7 @@ function salvaNomi() {
 function nomeGruppo(g) {
   return g.animale ? ANIMALI[g.animale] : NOMI_IT.get(g.scientifico) || (g.nome !== g.scientifico ? g.nome : '') || g.scientifico;
 }
-async function cercaNomeItaliano(scientifico) {
+export async function cercaNomeItaliano(scientifico) {
   if (!scientifico || NOMI_IT.has(scientifico)) return NOMI_IT.get(scientifico);
   NOMI_IT.set(scientifico, '');
   try {
@@ -243,6 +243,12 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     const v = mappa.getBounds();
     return ultimeOss.filter((o) => v.contains([o.lat, o.lon])).length;
   };
+  // le osservazioni ammesse che stanno nell'area che si vede (le stesse delle icone e del conteggio), null se le icone non ci sono
+  const osservazioniVisibili = () => {
+    if (contoIcone == null) return null;
+    const v = mappa.getBounds();
+    return ultimeOss.filter((o) => v.contains([o.lat, o.lon]));
+  };
   function raggruppa(oss) {
     const gruppi = new Map();
     for (const o of oss) {
@@ -365,18 +371,16 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     const osservazioni = [
       ...rInat.flatMap((j) => interpretaOsservazioni(j)).map((o) => ({ ...o, id: `inat-${o.id}` })),
       // da GBIF le altre fonti (eBird, Observation.org…): quelle di iNaturalist ci sono già
-      // (passeriformi e piccioni non sono in nessun gruppo: vengono solo dalle "rare" e restano fuori)
-      ...rGbif.flatMap((j) => interpretaGbif(j)).filter((o) => !intorno || (o.fonte !== 'iNaturalist' && !ESCLUSI_DALLE_RARE.ordini.includes(o.ordine))),
+      ...rGbif.flatMap((j) => interpretaGbif(j)).filter((o) => !intorno || o.fonte !== 'iNaturalist'),
     ]
-      .filter((o) => o.lat != null && !nascoste.esclude({ animale: o.animale, nomeScientifico: o.nomeScientifico }) && !viste.has(o.id) && viste.add(o.id))
+      .filter((o) => o.lat != null && !viste.has(o.id) && viste.add(o.id))
       .sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    // lo stesso filtro per icone, conteggio ed elenco, da tutte le fonti (src/lib/filtroFauna.js)
+    const ammesse = filtraOsservazioni(osservazioni, filtri);
     // il totale: in Intorno a me quelle di iNaturalist (dal suo conteggio) più quelle delle altre fonti
     // arrivate da GBIF; altrove il conteggio di GBIF. Non si contano due volte le stesse osservazioni.
-    const altreFonti = osservazioni.filter((o) => o.fonte !== 'iNaturalist').length;
-    const totale = intorno
-      ? Math.max(osservazioni.length, rInat.reduce((n, j) => n + (j.total_results ?? 0), 0) + altreFonti)
-      : Math.max(osservazioni.length, ...rGbif.map((j) => j.count ?? 0));
-    return { totale, osservazioni };
+    // il totale è quello delle osservazioni ammesse: i conteggi delle fonti includerebbero anche quelle escluse
+    return { totale: ammesse.length, osservazioni: ammesse };
   }
 
   async function aggiornaIcone() {
@@ -407,7 +411,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     try {
       // con "animali imperdibili" anche le specie fuori dalla lista di Orme
       const { osservazioni } = await cercaOsservazioni([b.getSouth(), b.getWest(), b.getNorth(), b.getEast()], 300, controlloIcone.signal);
-      const oss = osservazioni.filter((o) => o.animale || filtri.taxon || (filtri.specie === 'notevoli' && CLASSI.has(o.classe)));
+      const oss = osservazioni;
       if (rimossa || mia !== richiestaIcone) return;
       icone.clearLayers();
       // una sola icona per animale in ogni zona di circa 60 px, con il numero di osservazioni;
@@ -444,6 +448,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
   }
   // in breve nella barra della Fauna: cosa si vede qui (sempre visibile, anche con la barra chiusa)
   function scriviConto() {
+    // chi mostra l'elenco delle specie (pannello Fauna) lo rifà sulle stesse osservazioni
+    setTimeout(() => window.dispatchEvent(new CustomEvent('orme-oss-aggiornate')), 0);
     const el = pannello.querySelector('.heat-conto');
     if (!el) return;
     el.textContent = !attiva || filtri.correggiSforzo
@@ -491,6 +497,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
   }
 
   // cosa mostra la heatmap, scritto sopra la scala
+  // con una specie scelta, una X accanto al nome la toglie (si torna a tutti gli animali)
+  const htmlCosa = () =>
+    `${escapeHtml(cosaSiVede())}${filtri.taxon ? ' <button type="button" class="togli-specie" data-azione="togli-specie" aria-label="Togli la specie scelta" title="Torna a tutti gli animali">×</button>' : ''}`;
   function cosaSiVede() {
     if (filtri.taxon) return filtri.taxon.nome || filtri.taxon.scientifico || 'Un animale';
     if (filtri.specie !== 'notevoli') return ANIMALI[filtri.specie] ?? filtri.specie;
@@ -527,7 +536,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
               .map((c) => `<b style="background:${COLORI_CLASSI[c]}"></b>`)
               .join('')}<span>molte</span><b class="insufficiente"></b><span>dati scarsi</span></div>
              <p class="nota-mappa" id="statoGriglia"></p>`
-          : `<div class="heat-scala"><p class="heat-cosa">${escapeHtml(cosaSiVede())}</p><div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div></div>`
+          : `<div class="heat-scala"><p class="heat-cosa">${htmlCosa()}</p><div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div></div>`
       }
       <p class="nota-mappa">Tocca una zona colorata o un'icona per vedere le osservazioni. Heatmap iNaturalist; icone ed elenchi da tutte le fonti (GBIF: iNaturalist, eBird, Observation.org…).</p>`;
     pannello.hidden = false;
@@ -572,6 +581,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       foglio.showModal();
     }
     if (azione === 'riduci') pannello.classList.toggle('ridotto');
+    if (azione === 'togli-specie') window.dispatchEvent(new CustomEvent('orme-togli-specie'));
     if (azione === 'spegni') stato.imposta({ livelli: { heatmap: false } });
   });
 
@@ -685,7 +695,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     if (attiva) {
       disegnaLivello();
       const cosa = pannello.querySelector('.heat-cosa');
-      if (cosa) cosa.textContent = cosaSiVede();
+      if (cosa) cosa.innerHTML = htmlCosa();
     }
   }
   // una specie nascosta o rimessa (anche da un altro pannello): heatmap, icone e scritta si rifanno
@@ -693,6 +703,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
 
   return {
     attiva: () => attiva,
+    osservazioniVisibili,
     // dopo un cambio dei campi di personalizza(): heatmap e icone si ridisegnano
     ricarica,
     rimuovi() {

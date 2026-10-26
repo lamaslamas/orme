@@ -2224,3 +2224,4 @@ a.modifica-carta {
 /* barra della Fauna chiusa: la scala non si schiaccia, il conto va a capo */
 .pannello-heatmap.ridotto .heat-scala { min-width: 112px; flex: 1 0 112px; }
 .pannello-heatmap.ridotto .heat-testa > .heat-conto { white-space: normal; flex: 0 1 auto; line-height: 1.15; }
+.togli-specie { border: 0; background: var(--bordo); color: var(--testo); width: 22px; height: 22px; border-radius: 50%; font-size: 15px; line-height: 1; cursor: pointer; margin-left: 4px; vertical-align: middle; padding: 0; }

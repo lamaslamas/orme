@@ -5,6 +5,9 @@
 import L from 'leaflet';
 import { leggiGruppiSalvati, leggiSoloRare, salvaSoloRare } from '../lib/gruppiFauna.js';
 import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib/intorno.js';
+import { specieDalleOsservazioni, filtraOsservazioni } from '../lib/filtroFauna.js';
+import { iconaPerOsservazione } from '../lib/gbif.js';
+import { NOMI_IT, cercaNomeItaliano } from './heatmap.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { nascoste, urlSpecieComuni, specieComuniDaRisposta } from '../lib/specieNascoste.js';
@@ -99,6 +102,18 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       proposta.hidden = true;
     }
   });
+  // la X accanto al nome nella barra (heatmap.js): si torna a tutti gli animali
+  const togliSpecie = () => {
+    scelta = null;
+    ultimoElenco = '';
+    heat?.ricarica();
+    for (const c of elenco.querySelectorAll('[data-taxon]')) {
+      c.classList.remove('scelta');
+      c.setAttribute('aria-pressed', 'false');
+    }
+    mostraSpecie(true);
+  };
+  window.addEventListener('orme-togli-specie', togliSpecie);
   const scollegaNascoste = nascoste.ascolta(() => {
     disegnaNascoste();
     mostraSpecie(true);
@@ -115,6 +130,8 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   // specie più osservate nella zona inquadrata, nei gruppi scelti
   async function mostraSpecie(forza = false) {
     if (foglio.hidden) return;
+    // con le icone sulla mappa l'elenco viene dalle loro osservazioni (dalleOsservazioni)
+    if (heat?.osservazioniVisibili?.()) return dalleOsservazioni();
     // la zona che si vede davvero: sotto la ricerca e sopra questo foglio
     const { x, y } = mappa.getSize();
     const sotto = Math.max(y * 0.3, y - foglio.offsetHeight);
@@ -145,10 +162,16 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     }
     if (mia !== richiesta || !foglio.isConnected) return;
     elenco.classList.remove('in-caricamento');
+    disegnaCarte(specie);
+  }
+
+  // le carte delle specie: dall'elenco per zona (iNaturalist) o dalle osservazioni che si vedono sulla mappa
+  function disegnaCarte(specie) {
+    elenco.classList.remove('in-caricamento');
     elenco.innerHTML = specie.length
       ? specie
           .map(
-            (x) => `<li><button type="button" class="carta-specie-zona ${scelta?.inat === x.inat ? 'scelta' : ''}" data-taxon="${x.inat}" data-nome="${escapeHtml(x.nome)}" data-scientifico="${escapeHtml(x.scientifico)}" aria-pressed="${scelta?.inat === x.inat}" aria-label="${escapeHtml(`${x.nome}, ${x.osservazioni} osservazioni${x.rara ? ', specie rara' : ''}`)}" title="${escapeHtml(x.scientifico)}">
+            (x) => `<li><button type="button" class="carta-specie-zona ${scelta && scelta.scientifico === x.scientifico ? 'scelta' : ''}" data-taxon="${x.inat ?? ''}" data-nome="${escapeHtml(x.nome)}" data-scientifico="${escapeHtml(x.scientifico)}" aria-pressed="${Boolean(scelta && scelta.scientifico === x.scientifico)}" title="Mostra solo ${escapeHtml(x.nome)} sulla mappa">
               ${x.foto ? `<img src="${escapeHtml(x.foto.url)}" alt="" loading="lazy" />` : `<span class="specie-icona">${iconaAnimale(x.icona)}</span>`}
               <b>${escapeHtml(x.nome)}</b>${x.rara ? '<span class="specie-rara">rara</span>' : ''}
               <span class="tenue">${x.osservazioni} ${x.osservazioni === 1 ? 'osservazione' : 'osservazioni'}</span>
@@ -157,6 +180,23 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
           .join('')
       : '<li class="tenue">Nessuna osservazione di questi animali nella zona.</li>';
   }
+  // con le icone sulla mappa l'elenco è fatto delle stesse osservazioni (stesse fonti, stesso filtro): icone, conteggio ed
+  // elenco coincidono. Con una specie scelta resta quella sola, con le sue osservazioni (si toglie con un tocco o con la X)
+  function dalleOsservazioni() {
+    if (foglio.hidden) return;
+    const oss = heat?.osservazioniVisibili?.();
+    if (!oss) return;
+    // nomi in italiano: quelli di iNaturalist ci sono già; per le altre fonti si chiedono una volta e l'elenco si rifà
+    const usate = scelta ? filtraOsservazioni(oss, { gruppi, taxon: scelta }) : oss;
+    const specie = specieDalleOsservazioni(usate).map((x) => ({ ...x, nome: x.animale ? x.nome : NOMI_IT.get(x.scientifico) || x.nome, icona: iconaPerOsservazione(x.esempio) }));
+    for (const x of specie) if (!x.animale && x.esempio.fonte !== 'iNaturalist' && !NOMI_IT.has(x.scientifico)) cercaNomeItaliano(x.scientifico).then((n) => n && ((ultimoElenco = ''), dalleOsservazioni()));
+    const chiave = JSON.stringify(specie.map((x) => [x.chiave, x.osservazioni]));
+    if (chiave === ultimoElenco) return;
+    ultimoElenco = chiave;
+    disegnaCarte(specie);
+  }
+  let ultimoElenco = '';
+  window.addEventListener('orme-oss-aggiornate', dalleOsservazioni);
 
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -179,12 +219,13 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       // (e nei mesi accanto); il filtro si vede e si toglie nell'elenco
       stato.imposta({ filtri: { fauna: 'frequenti', stagione: 'adesso' } });
       apriElenco();
-    } else if (b.dataset.taxon) {
-      const x = { inat: Number(b.dataset.taxon), nome: b.dataset.nome, scientifico: b.dataset.scientifico };
-      scelta = scelta?.inat === x.inat ? null : x;
+    } else if (b.dataset.scientifico) {
+      const x = { inat: Number(b.dataset.taxon) || null, nome: b.dataset.nome, scientifico: b.dataset.scientifico };
+      scelta = scelta?.scientifico === x.scientifico ? null : x;
+      ultimoElenco = '';
       heat?.ricarica();
       for (const c of elenco.querySelectorAll('[data-taxon]')) {
-        const on = Number(c.dataset.taxon) === scelta?.inat;
+        const on = c.dataset.scientifico === scelta?.scientifico;
         c.classList.toggle('scelta', on);
         c.setAttribute('aria-pressed', String(on));
       }
@@ -239,6 +280,8 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       return true;
     },
     chiudi() {
+      window.removeEventListener('orme-togli-specie', togliSpecie);
+      window.removeEventListener('orme-oss-aggiornate', dalleOsservazioni);
       scollegaNascoste();
       scollega();
       togliDallaCoda();
