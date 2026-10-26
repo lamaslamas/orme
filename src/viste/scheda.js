@@ -34,7 +34,7 @@ import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { cercaSuOsm, combinaTraccia } from '../lib/overpass.js';
 import { leggiGpx } from '../lib/gpx.js';
 import { puntoDiPartenza, linkGoogleMaps, linkGeo } from '../lib/navigazione.js';
-import { htmlPanorama, collegaPanorama } from './panorama.js';
+import { htmlRigaPanorama, collegaPanorama } from './panorama.js';
 import { htmlFotoPersonali, collegaFotoPersonali } from './fotoPersonali.js';
 import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { leggiTerrenoSalvato, salvaTerrenoSalvato } from '../db.js';
@@ -422,7 +422,6 @@ export async function vistaScheda(app, id) {
           ? `<a class="anteprima-mappa" href="#/sentiero/${idUrl}/mappa" aria-label="Apri la mappa del sentiero"><div id="miniMappa"></div></a>`
           : `<a class="anteprima-mappa vuota" href="#/sentiero/${idUrl}/mappa"><span>Nessuna traccia salvata</span><b>Recupera la traccia ›</b></a>`
       }
-      ${htmlSezione('panorama', { icona: 'sole', titolo: 'Panorama', riassunto: s.panorama ? `Indice ${s.panorama.punteggio}/100${s.panorama.belvedere?.length ? ` · ${s.panorama.belvedere.length} belvedere` : ''}` : 'Non calcolabile senza traccia' }, htmlPanorama(invertito && s.panorama?.migliore ? { ...s, panorama: { ...s.panorama, migliore: specchiaTratto(s.panorama.migliore, kmTraccia) } } : s, traccia, idUrl))}
       </aside>
       <div class="scheda-testa">
       <div class="carta-titolo intestazione">
@@ -446,6 +445,7 @@ export async function vistaScheda(app, id) {
         ${s.daVerificare ? '<span class="chip chip-verifica">Da verificare</span>' : ''}
       </div>
       <div id="numeriScheda">${numeriScelti(modoScelto())}</div>
+      ${htmlRigaPanorama(invertito && s.panorama?.migliore ? { ...s, panorama: { ...s.panorama, migliore: specchiaTratto(s.panorama.migliore, kmTraccia) } } : s, traccia, idUrl)}
       ${pezziOriginali.length && !statoGiro.anello ? htmlVerso() : ''}
       <div id="profiloScheda" class="profilo-scheda" aria-live="polite"></div>
       ${htmlQuando(ar, modoScelto(), inizialiOrari)}

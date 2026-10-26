@@ -1,8 +1,9 @@
-// Indice panoramico nell'app: riquadro della scheda e livello "Panoramicità" sulla mappa.
+// Indice panoramico nell'app: una riga nella scheda e il livello "Panoramicità" sulla mappa.
 // L'indice è calcolato in anticipo (scripts/calcola-panorama.mjs) e arriva con l'archivio.
 import L from 'leaflet';
 import { escapeHtml } from '../lib/formato.js';
-import { NOMI_CRITERI, PESI, NOTE_METODO, campionaPercorso, improntaTraccia, riassuntoPanorama, etichettaIndice } from '../lib/panorama.js';
+import { campionaPercorso, improntaTraccia } from '../lib/panorama.js';
+import { ICONE } from './icone.js';
 import { stato } from '../stato.js';
 
 export const COLORI_PANORAMA = { limitata: '#8fa39a', intermedia: '#d8b26e', panoramica: '#e0811a' };
@@ -13,72 +14,16 @@ const km = (n) => n.toFixed(1).replace('.', ',');
 // L'indice vale per la traccia su cui è stato calcolato (quella dell'archivio)
 export const panoramaPerTraccia = (s, traccia) => Boolean(s.panorama && traccia?.geojson && improntaTraccia(traccia.geojson) === s.panorama.impronta);
 
-export function htmlPanorama(s, traccia, idUrl) {
+// Una riga sola: «Panoramico · tratto migliore km 3,2–4,2». Il dettaglio (criteri, belvedere, metodo) non c'è più nella scheda.
+const ETICHETTA_RIGA = (punteggio) => (punteggio >= 75 ? 'Molto panoramico' : punteggio >= 55 ? 'Panoramico' : punteggio >= 35 ? 'Panoramicità moderata' : 'Visuale limitata');
+export function htmlRigaPanorama(s, traccia, idUrl) {
   const p = s.panorama;
-  if (!p) {
-    return traccia
-      ? ''
-      : `<section class="riquadro panorama vuoto-panorama"><h2>Indice panoramico</h2><p class="tenue">Non calcolabile: serve una traccia del percorso.</p></section>`;
-  }
-  const r = riassuntoPanorama(p);
+  if (!p) return '';
   const stessaTraccia = panoramaPerTraccia(s, traccia);
-  return `<section class="riquadro panorama">
-    <h2>Indice panoramico</h2>
-    <div class="panorama-testa">
-      <div class="panorama-punteggio" style="--valore:${p.punteggio}"><b>${p.punteggio}</b><span>/100</span></div>
-      <div>
-        <div class="panorama-etichetta">${escapeHtml(etichettaIndice(p.punteggio))}</div>
-        <div class="tenue piccolo">${p.metodo === 'viewshed' ? 'Stima con analisi di visibilità' : 'Stima preliminare'} · affidabilità <b>${escapeHtml(p.affidabilita)}</b></div>
-      </div>
-    </div>
-    <div class="panorama-numeri">
-      <div><b>${r.visuale}</b><span>Visuale</span></div>
-      <div><b>${r.belvedere}</b><span>${r.belvedere === 1 ? 'Belvedere' : 'Belvedere'}</span></div>
-      <div><b>${r.paesaggio}</b><span>Paesaggio</span></div>
-    </div>
-    ${htmlFotoBelvedere(p.belvedere)}
-    ${p.migliore ? `<p class="piccolo">Tratto più panoramico: <b>km ${km(p.migliore.daKm)}–${km(p.migliore.aKm)}</b>${stessaTraccia ? ` · <a href="#/sentiero/${idUrl}/mappa" data-azione="mostra-panorama">vedi sulla mappa</a>` : ''}</p>` : ''}
-    ${
-      !stessaTraccia && traccia && traccia.origine && traccia.origine !== 'osm'
-        ? '<p class="tenue piccolo">Hai caricato una traccia tua: indice, belvedere e tratto più panoramico sono calcolati sulla traccia dell\'archivio, quindi possono non corrispondere alla tua (ad esempio i km del tratto più panoramico).</p>'
-        : ''
-    }
-    <details class="spiegazione">
-      <summary>Come si calcola</summary>
-      <ul class="panorama-criteri">${Object.entries(PESI)
-        .map(
-          ([k, peso]) =>
-            `<li><span>${NOMI_CRITERI[k]} <span class="tenue">(${Math.round(peso * 100)}%)</span></span><span class="barra-criterio"><i style="width:${p.criteri[k]}%"></i></span><b>${p.criteri[k]}</b></li>`,
-        )
-        .join('')}</ul>
-      <p class="piccolo">${[
-        p.belvedere.length ? `Belvedere lungo il percorso: ${p.belvedere.map((b) => escapeHtml(b.nome || 'senza nome')).join(', ')}.` : '',
-        p.vetteRaggiunte?.length ? `Vette raggiunte: ${p.vetteRaggiunte.map(escapeHtml).join(', ')}.` : '',
-        p.vetteVisibili ? `Altre vette probabilmente visibili: ${p.vetteVisibili}.` : '',
-        p.laghiVisibili?.length ? `Laghi in vista: ${p.laghiVisibili.map(escapeHtml).join(', ')}.` : '',
-        `Bosco: circa ${p.boscoPercento}% del percorso.`,
-        p.visibileMedio != null ? `In media da ogni punto si vede il ${p.visibileMedio}% del territorio entro 8 km.` : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}</p>
-      <p class="tenue piccolo">${[NOTE_METODO[p.metodo] ?? '', ...p.motivi.filter((m) => !Object.values(NOTE_METODO).includes(m))].filter(Boolean).map(escapeHtml).join('. ')}. È una stima algoritmica, non un giudizio sulla bellezza: quota alta e assenza di bosco da sole non garantiscono un bel panorama.</p>
-      ${p.metodo === 'viewshed' ? '<p class="tenue piccolo">Metodo: da un punto ogni 100 m si tracciano 72 direzioni fino a 8 km e si controlla quali zone del terreno si vedono davvero (curvatura terrestre inclusa); il bosco entro 1 km copre la vista come una chioma di 15 m. La visuale combina quanto territorio si vede e quanto è basso l\'orizzonte.</p>' : ''}
-      <p class="tenue piccolo">Dati: quote Terrain Tiles (AWS Open Data), bosco © ESA WorldCover 2021 (CC BY 4.0), belvedere, vette e laghi © OpenStreetMap (ODbL). Calcolato il ${escapeHtml(new Date(p.calcolato).toLocaleDateString('it-IT'))}.</p>
-    </details>
-  </section>`;
-}
-
-// Foto dei belvedere lungo il percorso (Wikimedia Commons): crediti nella foto a schermo pieno
-function htmlFotoBelvedere(belvedere = []) {
-  const conFoto = belvedere.filter((b) => b.foto?.url);
-  if (!conFoto.length) return '';
-  return `<ul class="foto-belvedere">${conFoto
-    .map(
-      (b) => `<li><button type="button" class="foto-apri" data-foto="${escapeHtml(JSON.stringify({ url: b.foto.url, autore: b.foto.autore, licenza: b.foto.licenza, pagina: b.foto.pagina, titolo: b.nome || 'Belvedere' }))}">
-        <img src="${escapeHtml(b.foto.url)}" alt="Vista vicino al belvedere ${escapeHtml(b.nome || '')}" loading="lazy" decoding="async" />
-        <span class="foto-belvedere-nome">${escapeHtml(b.nome || 'Belvedere')}</span></button></li>`,
-    )
-    .join('')}</ul>`;
+  const parti = [ETICHETTA_RIGA(p.punteggio)];
+  if (p.migliore) parti.push(`tratto migliore km ${km(p.migliore.daKm)}–${km(p.migliore.aKm)}`);
+  const vedi = stessaTraccia && p.migliore ? ` · <a href="#/sentiero/${idUrl}/mappa" data-azione="mostra-panorama">vedi sulla mappa</a>` : '';
+  return `<p class="riga-panorama">${ICONE.sole ?? ''}<span>${escapeHtml(parti.join(' · '))}${vedi}</span></p>`;
 }
 
 // Il collegamento "vedi sulla mappa" accende il livello
