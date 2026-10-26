@@ -115,8 +115,6 @@ export async function vistaHome(app) {
 
     <div class="scorciatoie">
       <a class="pillola" href="#/miei?scheda=salvati">Salvati</a>
-      <a class="pillola" href="#/giri">I miei giri</a>
-      <a class="pillola" href="#/avvistamenti">I miei avvistamenti</a>
     </div>
     <a class="fab" href="#/nuovo" aria-label="Aggiungi sentiero">+</a>
   `;

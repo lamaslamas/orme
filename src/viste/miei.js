@@ -1,13 +1,11 @@
 // "I miei percorsi": in un posto solo i sentieri salvati, i percorsi disegnati o importati (GPX)
-// e i giri combinati. Ogni scheda riusa la sua schermata di prima.
+// (i giri di prima sono diventati percorsi). Ogni scheda riusa la sua schermata di prima.
 import { vistaSalvati } from './salvati.js';
 import { vistaPianifica } from './pianifica.js';
-import { vistaGiri } from './giri.js';
 
 const SCHEDE = [
   ['salvati', 'Salvati', vistaSalvati],
   ['percorsi', 'Disegnati', vistaPianifica],
-  ['giri', 'Giri', vistaGiri],
 ];
 
 export async function vistaMiei(app, scelta) {

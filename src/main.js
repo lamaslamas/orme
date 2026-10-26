@@ -8,10 +8,6 @@ import { vistaModifica } from './viste/modifica.js';
 import { vistaMappa } from './viste/mappa.js';
 import { vistaBackup } from './viste/backup.js';
 import { vistaMappaGenerale } from './viste/mappaGenerale.js';
-import { vistaGiro } from './viste/giri.js';
-import { vistaModificaGiro } from './viste/modificaGiro.js';
-import { vistaMappaGiro } from './viste/mappaGiro.js';
-import { vistaEstendi } from './viste/estendi.js';
 import { vistaCondiviso } from './viste/condiviso.js';
 import { vistaAltro } from './viste/altro.js';
 import { vistaCodice } from './viste/codice.js';
@@ -24,7 +20,7 @@ import { vistaDisegna, vistaDisegnaSentiero, vistaDisegnaVia } from './viste/dis
 import { vistaMappaPercorso } from './viste/mappaPercorso.js';
 import { vistaParco } from './viste/parco.js';
 import { vistaImporta } from './viste/importa.js';
-import { vistaElencoAvvistamenti, vistaModificaAvvistamento } from './viste/avvistamenti.js';
+import { avviaMigrazione } from './viste/migrazione.js';
 import { impostaBanner } from './viste/banner.js';
 import { preparaLibreria } from './viste/mappaVettoriale.js';
 import { collegaVisore } from './viste/visore.js';
@@ -80,14 +76,7 @@ const percorsi = [
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
   [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],
   [/^\/percorso\/([^/]+)\/mappa\/?$/, vistaMappaPercorso],
-  [/^\/avvistamenti\/?$/, vistaElencoAvvistamenti],
-  [/^\/avvistamento\/([^/]+)\/?$/, vistaModificaAvvistamento],
-  [/^\/giro-nuovo\/?$/, (app) => vistaModificaGiro(app, null)],
-  [/^\/giro\/([^/]+)\/?$/, vistaGiro],
-  [/^\/giro\/([^/]+)\/modifica\/?$/, vistaModificaGiro],
-  [/^\/giro\/([^/]+)\/mappa\/?$/, vistaMappaGiro],
   [/^\/condiviso\?(.+)$/, vistaCondiviso],
-  [/^\/estendi\/(sentiero|percorso)\/([^/]+)\/?$/, vistaEstendi],
 ];
 
 let pulisciVistaPrecedente = null;
@@ -243,6 +232,8 @@ intervallo('dati iniziali (controllo e scrittura)', () => caricaDatiIniziali())
     globalThis.__ormeFase = 'pagina mostrata';
     // la mappa vettoriale si scarica a riposo, così le mappe non aspettano (né mostrano ripieghi)
     (globalThis.requestIdleCallback ?? setTimeout)(() => eliminaCelleDem().catch(() => {}));
+    // giri e avvistamenti di prima: i giri diventano percorsi, gli avvistamenti si scaricano prima di eliminarli
+    (globalThis.requestIdleCallback ?? setTimeout)(() => avviaMigrazione().catch((e) => console.warn('Migrazione', e)));
     const base = stato.leggi().base;
     if (base === 'chiara' || base === 'scura') (globalThis.requestIdleCallback ?? setTimeout)(() => preparaLibreria(base === 'scura' ? 'scuro' : 'chiaro').catch(() => {}));
   })

@@ -13,8 +13,7 @@ import { respira, aspettaQuiete } from './lib/lavoro.js';
 import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI, VERSIONE_TRACCE_INIZIALI, AGGIORNAMENTI } from './datiIniziali.js';
 import { applicaAggiornamento, tracciaDaAggiornare } from './lib/aggiornamenti.js';
 import { completaSentiero } from './lib/sentiero.js';
-import { completaGiro } from './lib/giro.js';
-import { completaAvvistamento } from './lib/avvistamenti.js';
+import { giriDaConvertire } from './lib/migrazione.js';
 import { completaPercorso } from './lib/percorso.js';
 import { pianoSincronizzazione, controllaArchivio } from './lib/archivio.js';
 import { inBase64, daBase64, fotoValida } from './lib/foto.js';
@@ -215,45 +214,33 @@ export async function sentieriConTraccia() {
   return new Set(chiavi);
 }
 
-// --- Giri ---
+// --- Giri e avvistamenti di prima ---
+// Nell'app non ci sono più. I giri diventano percorsi miei (una volta, da soli); gli avvistamenti (dati personali, solo su
+// questo telefono) restano finché non si scarica il backup completo e si decide di eliminarli (src/viste/migrazione.js).
 
-export const tuttiIGiri = async () => (await tuttiDa('giri')).map(completaGiro);
+export const giriVecchi = () => tuttiDa('giri');
+export const avvistamentiVecchi = () => tuttiDa('avvistamenti');
 
-export async function leggiGiro(id) {
-  const g = await leggiDa('giri', id);
-  return g && completaGiro(g);
-}
-
-export function salvaGiro(giro) {
-  const adesso = new Date().toISOString();
-  return scriviIn('giri', completaGiro({ ...giro, creato: giro.creato ?? adesso, modificato: adesso }));
-}
-
-export async function eliminaGiro(id) {
+// I giri salvati che non sono ancora percorsi: ognuno diventa un percorso mio. → quanti ne ha creati
+export async function convertiGiriInPercorsi() {
+  const giri = await tuttiDa('giri');
+  if (!giri.length) return 0;
+  const [sentieri, tracce, percorsi] = await Promise.all([tuttiISentieri(), tutteLeTracce(), tuttiDa('percorsi')]);
+  const nuovi = giriDaConvertire(giri, new Map(sentieri.map((s) => [s.id, s])), tracce, new Set(percorsi.map((p) => p.id)));
+  if (!nuovi.length) return 0;
   const db = await apriDb();
-  const tx = db.transaction('giri', 'readwrite');
-  tx.objectStore('giri').delete(id);
+  const tx = db.transaction('percorsi', 'readwrite');
+  for (const p of nuovi) tx.objectStore('percorsi').put(completaPercorso(p));
   await fine(tx);
+  return nuovi.length;
 }
 
-// --- Avvistamenti (solo sul dispositivo) ---
-
-export const tuttiGliAvvistamenti = async () => (await tuttiDa('avvistamenti')).map(completaAvvistamento);
-
-export async function leggiAvvistamento(id) {
-  const a = await leggiDa('avvistamenti', id);
-  return a && completaAvvistamento(a);
-}
-
-export function salvaAvvistamento(a) {
-  const adesso = new Date().toISOString();
-  return scriviIn('avvistamenti', completaAvvistamento({ ...a, creato: a.creato ?? adesso, modificato: adesso }));
-}
-
-export async function eliminaAvvistamento(id) {
+// Elimina dal telefono i giri e gli avvistamenti di prima (dopo il backup)
+export async function eliminaDatiVecchi() {
   const db = await apriDb();
-  const tx = db.transaction('avvistamenti', 'readwrite');
-  tx.objectStore('avvistamenti').delete(id);
+  const tx = db.transaction(['giri', 'avvistamenti'], 'readwrite');
+  tx.objectStore('giri').clear();
+  tx.objectStore('avvistamenti').clear();
   await fine(tx);
 }
 
@@ -453,9 +440,9 @@ export async function caricaDatiIniziali() {
 
 // --- Backup ---
 
-// Per i file da condividere gli avvistamenti si escludono (è la scelta predefinita)
-// Le foto si includono solo se richiesto (file molto più grande)
-export async function esporta({ escludiAvvistamenti = true, includiFoto = false } = {}) {
+// Le foto si includono solo se richiesto (file molto più grande). conDatiVecchi: anche i giri e gli avvistamenti
+// personali di prima (il backup completo che si scarica prima di eliminarli); di base non ci sono mai
+export async function esporta({ includiFoto = false, conDatiVecchi = false } = {}) {
   const meta = await leggiDa('meta', 'datiIniziali');
   return {
     app: 'orme',
@@ -464,9 +451,8 @@ export async function esporta({ escludiAvvistamenti = true, includiFoto = false 
     versioneDatiIniziali: meta?.versione ?? 1,
     sentieri: await tuttiISentieri(),
     tracce: await tuttiDa('tracce'),
-    giri: await tuttiIGiri(),
     percorsi: await tuttiIPercorsi(),
-    ...(escludiAvvistamenti ? { avvistamentiEsclusi: true } : { avvistamenti: await tuttiGliAvvistamenti() }),
+    ...(conDatiVecchi ? { giri: await giriVecchi(), avvistamenti: await avvistamentiVecchi() } : {}),
     ...(includiFoto
       ? {
           foto: (await tutteLeFoto()).map(({ immagine, miniatura, ...f }) => ({
@@ -517,30 +503,25 @@ export function controllaBackup(dati) {
 export async function importa(dati, modo = 'unisci') {
   controllaBackup(dati);
   const db = await apriDb();
-  const tx = db.transaction(['sentieri', 'tracce', 'giri', 'avvistamenti', 'percorsi', 'meta', 'foto'], 'readwrite');
+  const tx = db.transaction(['sentieri', 'tracce', 'percorsi', 'meta', 'foto'], 'readwrite');
   const percorsi = tx.objectStore('percorsi');
   const sentieri = tx.objectStore('sentieri');
   const tracce = tx.objectStore('tracce');
-  const giri = tx.objectStore('giri');
-  const avvistamenti = tx.objectStore('avvistamenti');
-  const conAvvistamenti = Array.isArray(dati.avvistamenti);
   if (modo === 'sostituisci') {
     sentieri.clear();
     tracce.clear();
-    giri.clear();
     if (Array.isArray(dati.percorsi)) percorsi.clear();
-    // un backup senza avvistamenti non cancella quelli che ho sul telefono
-    if (conAvvistamenti) avvistamenti.clear();
   }
   // le foto si aggiungono e basta: un backup senza foto non cancella quelle del telefono
   for (const f of dati.foto ?? []) {
     tx.objectStore('foto').put({ ...f, immagine: daBase64(f.immagine), miniatura: f.miniatura ? daBase64(f.miniatura) : null });
   }
-  for (const a of dati.avvistamenti ?? []) avvistamenti.put(completaAvvistamento(a));
   for (const p of dati.percorsi ?? []) percorsi.put(completaPercorso(p));
   for (const s of dati.sentieri) sentieri.put(completaSentiero(s));
   for (const t of dati.tracce) tracce.put(t);
-  for (const g of dati.giri ?? []) giri.put(completaGiro(g));
+  // i giri di un vecchio backup diventano percorsi miei (con le tracce del backup); gli avvistamenti non si importano più
+  const giriNuovi = giriDaConvertire(dati.giri ?? [], new Map(dati.sentieri.map((x) => [x.id, x])), new Map(dati.tracce.map((t) => [t.sentieroId, t])));
+  for (const p of giriNuovi) percorsi.put(completaPercorso(p));
   // dopo un import i dati iniziali del backup non vanno ricaricati
   tx.objectStore('meta').put({
     chiave: 'datiIniziali',
@@ -551,9 +532,9 @@ export async function importa(dati, modo = 'unisci') {
   return {
     sentieri: dati.sentieri.length,
     tracce: dati.tracce.length,
-    giri: dati.giri?.length ?? 0,
-    avvistamenti: dati.avvistamenti?.length ?? 0,
-    percorsi: dati.percorsi?.length ?? 0,
+    giri: giriNuovi.length,
+    avvistamentiIgnorati: dati.avvistamenti?.length ?? 0,
+    percorsi: (dati.percorsi?.length ?? 0) + giriNuovi.length,
     foto: dati.foto?.length ?? 0,
   };
 }

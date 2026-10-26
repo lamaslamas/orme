@@ -340,23 +340,16 @@ body.con-mappa main { max-width: none; padding: 0; }
 /* --- Giri --- */
 .tappe { margin: 0; padding-left: 22px; }
 .tappe li { padding: 4px 0; }
-.legenda-tappe { list-style: none; padding: 0; margin-bottom: 12px; }
-.legenda-tappe li { counter-increment: tappa; }
-.legenda-tappe li::before { content: counter(tappa) '. '; font-weight: 700; }
+
 .segno { display: inline-block; width: 18px; height: 5px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
-.editor-tappe { margin: 0; padding-left: 22px; }
-.editor-tappe li { padding: 8px 0; border-bottom: 1px solid #f0ece4; }
-.etichetta-tappa { display: block; font-weight: 600; }
-.comandi-tappa { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.comandi-tappa .scelta { margin-right: auto; min-height: 36px; font-size: 0.9rem; }
+
 .mini {
   min-width: 40px; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px;
   background: var(--scheda-piena); font-size: 1rem; cursor: pointer;
 }
 .mini.pericolo { color: #a12a1a; }
 .mini:disabled { opacity: 0.35; }
-.aggiungi-tappa { display: flex; gap: 8px; margin-top: 10px; }
-.aggiungi-tappa select { flex: 1; min-width: 0; }
+
 .avvisi { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: #fff4ed; border: 1px solid #f3c2a5; }
 .avvisi ul { margin: 4px 0 0; padding-left: 18px; }
 .spiegazione { margin-top: 8px; font-size: 0.9rem; }
@@ -364,11 +357,6 @@ body.con-mappa main { max-width: none; padding: 0; }
 .spiegazione p { margin-top: 6px; color: var(--testo-tenue); }
 .elenco-link { margin: 0; padding-left: 18px; }
 .elenco-link li { padding: 3px 0; }
-.numero-tappa span {
-  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
-  color: #fff; font-weight: 700; font-size: 0.8rem; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4);
-}
-.etichetta-salto { font-size: 0.75rem; }
 
 /* --- Misure --- */
 
@@ -562,10 +550,9 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 #contenuto .ricerca { margin: 12px 0 0; }
 
 /* --- Avvistamenti --- */
-.avv-bottone { display: grid !important; place-items: center; color: var(--testo); }
-.avv-bottone.attivo { background: #ede9fe !important; color: #5b21b6; }
+
 .pallino { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--bordo); }
-.segno-avv span { display: block; width: 22px; height: 22px; border-radius: 50%; background: #7c3aed; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.4); }
+
 #mappaAvv { position: absolute; inset: 0; }
 .backup-opzione { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; }
 .backup-opzione input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--verde); }
@@ -2217,18 +2204,7 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .qd-riquadro .sezione-filtro h3 { display: none; }
 
 /* Estendi: sentiero e collegati */
-.estendi-titolo { margin: 0 0 4px; font-size: 1.1rem; }
-.estendi-numeri { margin: 4px 0 0; font-size: 1.05rem; }
-.estendi-parti { margin: 8px 0; padding-left: 20px; display: grid; gap: 4px; font-size: 0.92rem; }
-.estendi-scelte { margin: 10px 0; display: grid; gap: 6px; }
-.estendi-scelte h3 { margin: 0; font-size: 0.95rem; }
-.opzione-estendi { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--bordo); background: var(--scheda-piena); color: inherit; font: inherit; cursor: pointer; }
-.opzione-estendi .segno { flex: none; width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; }
-.estendi-azioni { display: flex; gap: 8px; margin: 8px 0; }
-.estendi-salva { margin-top: 10px; }
-@media (max-width: 1023px) {
-  body.estendi-aperto .mappa { height: 40dvh; min-height: 230px; }
-}
+
 .menu-taglio { display: grid; gap: 4px; }
 .disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 10px; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
 /* «Modifica traccia» a icona, nelle card e nelle liste */
@@ -2305,3 +2281,8 @@ a.modifica-carta {
 .riassunto-zona .riga-luce { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
 .riassunto-zona .riga-luce svg { flex: none; width: 18px; height: 18px; color: #c98a1b; }
 .riassunto-zona .riga-luce > span { flex: 1 1 220px; min-width: 0; }
+
+/* Avviso di migrazione (giri e avvistamenti di prima): sopra la barra in basso, finché non si scarica il backup */
+.avviso-migrazione { position: fixed; z-index: 3500; left: 10px; right: 10px; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 12px); max-width: 520px; margin: 0 auto; padding: 14px 16px; border-radius: 16px; background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra-alta); display: grid; gap: 6px; font-size: 0.9rem; }
+.avviso-migrazione p { margin: 0; }
+.azioni-migrazione { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }

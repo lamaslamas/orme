@@ -16,10 +16,8 @@ export async function vistaAltro(app) {
       <li><a href="#/parchi"><b>Parchi</b><span>L'elenco dei parchi, con fauna e sentieri di ognuno</span></a></li>
       <li><a href="#/codice"><b>Codice di comportamento</b><span>Buone pratiche per la fotografia naturalistica</span></a></li>
       <li><a href="#/domani"><b>Dove vado domani?</b><span>I percorsi migliori secondo il meteo</span></a></li>
-      <li><a href="#/avvistamenti"><b>I miei avvistamenti</b><span>Solo su questo telefono</span></a></li>
-      <li><a href="#/backup"><b>Backup</b><span>Esporta e importa sentieri, tracce e giri</span></a></li>
+      <li><a href="#/backup"><b>Backup</b><span>Esporta e importa sentieri, tracce e percorsi</span></a></li>
       <li><a href="#/nuovo"><b>Aggiungi un sentiero</b><span>Inserisci a mano un nuovo sentiero</span></a></li>
-      <li><a href="#/giro-nuovo"><b>Nuovo giro</b><span>Combina più sentieri in un unico percorso</span></a></li>
     </ul>
 
     <section class="riquadro aspetto">
@@ -47,7 +45,6 @@ export async function vistaAltro(app) {
     <section class="riquadro">
       <h2>Regole del Parco</h2>
       <p>Nel Parco è vietato uscire dai sentieri. Alcuni sentieri hanno accesso solo con guida, a numero chiuso o con chiusure periodiche, che cambiano ogni anno: verifica sempre sul sito del Parco prima di partire.</p>
-      <p>I tuoi avvistamenti restano solo su questo telefono: non sono mai nel codice dell'app e sono esclusi dai backup da condividere.</p>
       <a href="https://www.parcoabruzzo.it/" target="_blank" rel="noopener">Sito del Parco ↗</a>
     </section>
 

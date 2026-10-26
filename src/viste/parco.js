@@ -8,7 +8,6 @@ import { percorsiToccabili } from './toccaPercorso.js';
 import { ottieniConfine, disegnaConfine } from './confine.js';
 import { montaElenco } from './lista.js';
 import { impostaBanner } from './banner.js';
-import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { aggiungiDistribuzione } from './distribuzione.js';
 import { aggiungiGps } from './gps.js';
@@ -140,11 +139,10 @@ export async function vistaParco(app, id) {
   );
   mappa.attenuaSentieri(true);
   const fermaGps = aggiungiGps(mappa, () => null);
-  const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => a.parco === parco.id });
   aggiungiDistribuzione(mappa);
-  const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
+  const heat = aggiungiHeatmap(mappa);
   const percorsi = L.layerGroup();
-  const toccabili = percorsiToccabili(mappa, { occupata: () => avv.attiva() });
+  const toccabili = percorsiToccabili(mappa);
   disegnaPercorsi = () => {
     percorsi.clearLayers();
     for (const { sentiero: s, traccia } of ultimoRisultato ?? conTraccia.map((x) => ({ sentiero: x, traccia: tracce.get(x.id) }))) {

@@ -14,11 +14,11 @@ import { puntiLungoIlPercorso, riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from
 import { avviaImportazione } from './importaFile.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { distanzaKm } from '../lib/geo.js';
-import { percorsoSentiero } from '../lib/tracce.js';
+import { percorsoSentiero, invertiPercorso } from '../lib/tracce.js';
 import { creaBase, puntiIniziali, segnapostoVisibile, spostaEstremoBase, vicinoAllaLinea, posSulTratto, tagliaPunti, prolunga, fetta } from '../lib/modificaTraccia.js';
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { escapeHtml, durata, codici } from '../lib/formato.js';
-import { pezziNelVerso } from '../lib/estendi.js';
+import { versoDi } from '../lib/verso.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiHeatmap } from './heatmap.js';
@@ -586,7 +586,8 @@ export async function vistaDisegnaSentiero(app, idCodificato) {
     return;
   }
   return vistaDisegna(app, null, {
-    pezzi: pezziNelVerso(traccia.geojson, id, sentiero),
+    // la traccia nel verso scelto («Inverti senso», o quello dell'archivio)
+    pezzi: (versoDi(sentiero ?? { id }) ? invertiPercorso(percorsoSentiero(traccia.geojson)) : percorsoSentiero(traccia.geojson)).pezzi,
     nomeProposto: `${sentiero.codici?.length ? codici(sentiero) : sentiero.nome} (modificato)`,
     note: `Modificato da ${[sentiero.codici?.length ? codici(sentiero) : '', sentiero.nome].filter(Boolean).join(' ')}.`,
     indietro: `#/sentiero/${encodeURIComponent(id)}`,

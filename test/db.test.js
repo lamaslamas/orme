@@ -108,66 +108,67 @@ describe('aggiornamento dalla versione 1', () => {
   });
 });
 
-describe('giri', () => {
-  it('salva, legge ed elimina un giro', async () => {
-    await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [{ sentieroId: 'a' }, { sentieroId: 'b', alContrario: true }] });
-    const g = await db.leggiGiro('g1');
-    expect(g.tappe[1].alContrario).toBe(true);
-    expect(g.stato).toBe('da_fare');
-    expect(await db.tuttiIGiri()).toHaveLength(1);
-    await db.eliminaGiro('g1');
-    expect(await db.leggiGiro('g1')).toBeUndefined();
+// i giri e gli avvistamenti di prima: non ci sono più nell'app; si scrivono direttamente nell'archivio come li aveva salvati
+// la versione vecchia (i dati dei test sono inventati: mai dati reali nel codice)
+async function scriviVecchio(archivio, valore) {
+  const d = await db.apriDb();
+  const tx = d.transaction(archivio, 'readwrite');
+  tx.objectStore(archivio).put(valore);
+  await new Promise((ok, no) => {
+    tx.oncomplete = ok;
+    tx.onerror = () => no(tx.error);
   });
+}
 
-  it('eliminare un sentiero non elimina i giri che lo contengono', async () => {
+describe('giri di prima', () => {
+  const traccia = (id, da, a) => ({ sentieroId: id, origine: 'gpx', geojson: { type: 'MultiLineString', coordinates: [[[13.8 + da, 41.7], [13.8 + a, 41.7]]] } });
+
+  it('diventano percorsi miei, una volta sola, e restano nell\'archivio finché non si eliminano', async () => {
     await db.salvaSentiero({ id: 'a', nome: 'A' });
-    await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [{ sentieroId: 'a' }, { sentieroId: 'b' }] });
-    await db.eliminaSentiero('a');
-    expect((await db.leggiGiro('g1')).tappe).toHaveLength(2);
+    await db.salvaSentiero({ id: 'b', nome: 'B' });
+    await db.salvaTraccia(traccia('a', 0, 0.01));
+    await db.salvaTraccia(traccia('b', 0.01, 0.02));
+    await scriviVecchio('giri', { id: 'g1', nome: 'Anello', notePersonali: 'bello', tappe: [{ sentieroId: 'a' }, { sentieroId: 'b', alContrario: false }] });
+    expect(await db.convertiGiriInPercorsi()).toBe(1);
+    const p = await db.leggiPercorso('percorso-giro-g1');
+    expect(p.nome).toBe('Anello');
+    expect(p.note).toContain('bello');
+    expect(p.geojson.coordinates.length).toBeGreaterThan(0);
+    expect(await db.convertiGiriInPercorsi()).toBe(0); // non si converte due volte
+    expect(await db.giriVecchi()).toHaveLength(1);
   });
 
-  it('il backup include i giri e accetta backup vecchi senza giri', async () => {
-    await db.salvaGiro({ id: 'g1', nome: 'Anello', tappe: [] });
-    const backup = JSON.parse(JSON.stringify(await db.esporta()));
-    expect(backup.versione).toBe(5);
-    expect(backup.giri).toHaveLength(1);
-
-    await db.importa({ app: 'orme', versione: 1, sentieri: [], tracce: [] }, 'sostituisci');
-    expect(await db.tuttiIGiri()).toHaveLength(0);
-    const n = await db.importa(backup, 'unisci');
-    expect(n.giri).toBe(1);
-    expect(await db.leggiGiro('g1')).toBeTruthy();
-    await expect(db.importa({ ...backup, giri: [{ nome: 'senza id' }] })).rejects.toThrow('giro non valido');
-  });
-});
-
-describe('avvistamenti nel backup', () => {
-  // punti inventati per i test: mai dati reali nel codice
-  const avv = { id: 'a1', animale: 'cervo', dataOra: '2026-01-01T10:00', punto: { lat: 1, lon: 1 } };
-
-  it('per impostazione predefinita il backup esclude gli avvistamenti', async () => {
-    await db.salvaAvvistamento(avv);
-    const b = await db.esporta();
-    expect(b.avvistamenti).toBeUndefined();
-    expect(b.avvistamentiEsclusi).toBe(true);
-    const completo = await db.esporta({ escludiAvvistamenti: false });
+  it('il backup normale non ha più giri né avvistamenti; quello completo li ha, per scaricarli prima di eliminarli', async () => {
+    await scriviVecchio('giri', { id: 'g1', nome: 'Anello', tappe: [] });
+    await scriviVecchio('avvistamenti', { id: 'a1', animale: 'cervo', dataOra: '2026-01-01T10:00', punto: { lat: 1, lon: 1 } });
+    const normale = JSON.parse(JSON.stringify(await db.esporta()));
+    expect(normale.versione).toBe(5);
+    expect(normale.giri).toBeUndefined();
+    expect(normale.avvistamenti).toBeUndefined();
+    const completo = JSON.parse(JSON.stringify(await db.esporta({ conDatiVecchi: true })));
+    expect(completo.giri).toHaveLength(1);
     expect(completo.avvistamenti).toHaveLength(1);
   });
 
-  it('"sostituisci" con un backup senza avvistamenti non cancella i miei', async () => {
-    await db.salvaAvvistamento(avv);
-    const senza = JSON.parse(JSON.stringify(await db.esporta()));
-    await db.importa(senza, 'sostituisci');
-    expect(await db.tuttiGliAvvistamenti()).toHaveLength(1);
+  it('eliminare i dati vecchi svuota giri e avvistamenti', async () => {
+    await scriviVecchio('giri', { id: 'g1', nome: 'Anello', tappe: [] });
+    await scriviVecchio('avvistamenti', { id: 'a1', animale: 'cervo', punto: { lat: 1, lon: 1 } });
+    await db.eliminaDatiVecchi();
+    expect(await db.giriVecchi()).toHaveLength(0);
+    expect(await db.avvistamentiVecchi()).toHaveLength(0);
   });
 
-  it('un backup completo li ripristina', async () => {
-    await db.salvaAvvistamento(avv);
-    const completo = JSON.parse(JSON.stringify(await db.esporta({ escludiAvvistamenti: false })));
-    await db.eliminaAvvistamento('a1');
-    const n = await db.importa(completo, 'sostituisci');
-    expect(n.avvistamenti).toBe(1);
-    expect((await db.leggiAvvistamento('a1')).animale).toBe('cervo');
+  it('importando un backup vecchio i giri diventano percorsi e gli avvistamenti non si importano', async () => {
+    const backup = {
+      app: 'orme', versione: 4, sentieri: [{ id: 'a', nome: 'A' }, { id: 'b', nome: 'B' }], tracce: [traccia('a', 0, 0.01), traccia('b', 0.01, 0.02)],
+      giri: [{ id: 'g9', nome: 'Vecchio giro', tappe: [{ sentieroId: 'a' }, { sentieroId: 'b' }] }],
+      avvistamenti: [{ id: 'x', animale: 'lupo', punto: { lat: 1, lon: 1 } }],
+    };
+    const n = await db.importa(backup, 'sostituisci');
+    expect(n).toMatchObject({ giri: 1, avvistamentiIgnorati: 1 });
+    expect((await db.leggiPercorso('percorso-giro-g9')).nome).toBe('Vecchio giro');
+    expect(await db.avvistamentiVecchi()).toHaveLength(0);
+    await expect(db.importa({ ...backup, giri: [{ nome: 'senza id' }] })).rejects.toThrow('giro non valido');
   });
 });
 

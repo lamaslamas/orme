@@ -1,5 +1,4 @@
-import { leggiSentiero, salvaSentiero, leggiTraccia, salvaTraccia, tuttiIGiri } from '../db.js';
-import { giriConSentiero } from '../lib/giro.js';
+import { leggiSentiero, salvaSentiero, leggiTraccia, salvaTraccia } from '../db.js';
 import { ANIMALI, ACCESSI, LINK_PARCO, BICI_CONSENTITA, PEDALABILITA, DIFFICOLTA } from '../lib/costanti.js';
 import { escapeHtml, codici, durata, migliaia } from '../lib/formato.js';
 import { giornoOraIniziali } from '../lib/quandoAndare.js';
@@ -344,7 +343,7 @@ function htmlInfoTecniche(traccia) {
 }
 
 export async function vistaScheda(app, id) {
-  const [s, traccia, giri] = await Promise.all([leggiSentiero(id), leggiTraccia(id), tuttiIGiri()]);
+  const [s, traccia] = await Promise.all([leggiSentiero(id), leggiTraccia(id)]);
   if (!s) {
     app.innerHTML = '<p class="vuoto">Sentiero non trovato. <a href="#/">Torna alla lista</a></p>';
     return;
@@ -540,18 +539,6 @@ export async function vistaScheda(app, id) {
       }
 
       ${htmlSezione('fonti', { icona: 'libro', titolo: 'Fonti e verifica', riassunto: escapeHtml(STATI_VERIFICA[s.verifica?.stato] ?? `${(s.fonti ?? []).length} fonti`) }, htmlFontiVerifica(s))}
-
-      ${(() => {
-        const suoi = giriConSentiero(giri, s.id);
-        return suoi.length
-          ? `<section class="riquadro">
-              <h2>Fa parte di ${suoi.length === 1 ? 'un giro' : `${suoi.length} giri`}</h2>
-              <ul class="elenco-link">${suoi
-                .map((g) => `<li><a href="#/giro/${encodeURIComponent(g.id)}">${escapeHtml(g.nome)}</a>${g.stato === 'fatto' ? ' <span class="chip chip-fatto">Fatto</span>' : ''}</li>`)
-                .join('')}</ul>
-            </section>`
-          : '';
-      })()}
 
       ${htmlSezione('mieFoto', { icona: 'foto', titolo: 'Le mie foto', riassunto: 'Solo su questo telefono' }, htmlFotoPersonali())}
 

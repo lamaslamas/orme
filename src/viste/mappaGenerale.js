@@ -12,7 +12,6 @@ import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
-import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { aggiungiDistribuzione } from './distribuzione.js';
 import { percorsiToccabili } from './toccaPercorso.js';
@@ -339,10 +338,9 @@ export async function vistaMappaGenerale(app, idParco = null) {
 
 
   const fermaGps = aggiungiGps(mappa, () => (visibili.length ? { geojson: unisciGeometrie(visibili) } : null));
-  const avv = aggiungiAvvistamenti(mappa, { filtro: (a) => !filtri.parco || a.parco === filtri.parco });
   // tocco su una traccia: evidenziata, inquadrata (senza cambiare l'elenco) e con il suo riquadro
   const toccabili = percorsiToccabili(mappa, {
-    occupata: () => avv.attiva() || Boolean(mappa.strumento),
+    occupata: () => Boolean(mappa.strumento),
     inquadra: true,
     primaDiInquadrare: () => (saltaSpostamento = true),
     dopoInquadrare: () => (saltaSpostamento = false),
@@ -364,7 +362,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // "Suggeriscimi": una tendina sua; aprendola si chiudono le altre
   let suggerisci = null;
   const heat = aggiungiHeatmap(mappa, {
-    occupata: () => avv.attiva() || Boolean(mappa.strumento),
+    occupata: () => Boolean(mappa.strumento),
     intorno: true,
     personalizza: fauna.personalizza,
     pannelloIn: fauna.pannello,
@@ -375,7 +373,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // hanno la precedenza (il loro foglio, con i nostri dati); con la fauna accesa i tocchi sono suoi
   const foglioVia = creaFoglioVia(mappa);
   mappa.on('click', (e) => {
-    if (avv.attiva() || mappa.strumento) return;
+    if (mappa.strumento) return;
     if (mappa.percorsoVicino?.(e.latlng) || heat.attiva()) return foglioVia.chiudi();
     const dalleTile = mappa.sentieroVicino?.(e.latlng);
     if (dalleTile) foglioVia.apri(e.latlng, dalleTile);
