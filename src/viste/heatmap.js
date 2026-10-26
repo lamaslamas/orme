@@ -10,6 +10,8 @@ import { GRUPPI_FAUNA } from '../lib/costanti.js';
 import { stato } from '../stato.js';
 import { urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
 import { htmlVoceOsservazione } from './vociOsservazioni.js';
+import { htmlNascondi } from './nascondiSpecie.js';
+import { nascoste } from '../lib/specieNascoste.js';
 import { escapeHtml } from '../lib/formato.js';
 import {
   STAGIONI,
@@ -102,7 +104,8 @@ export const ZOOM_HEATMAP_GRUPPI = 10;
 // riapriPannello(): Fauna accesa con il pannello chiuso: il tocco su "Fauna" lo riapre invece di spegnere
 export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = () => ({}), pannelloIn = null, riapriPannello = () => false } = {}) {
   const intorno = true; // stesse icone, fonti e regole ovunque (prima solo nella home)
-  const calcolaFiltri = (st) => ({ ...filtriHeatmap(st), gruppi: leggiGruppiSalvati(), ...personalizza() });
+  // le specie nascoste: i taxon per la heatmap di iNaturalist e la firma che rifà icone e tessere quando cambiano
+  const calcolaFiltri = (st) => ({ ...filtriHeatmap(st), gruppi: leggiGruppiSalvati(), escludiInat: nascoste.idInat(), escludi: nascoste.firma(), ...personalizza() });
   // nessun gruppo scelto (e nessun animale): niente heatmap, non una heatmap piena
   const senzaGruppi = (f) => f.specie === 'notevoli' && !f.taxon && !f.gruppi?.length;
   let filtri = calcolaFiltri(stato.leggi());
@@ -337,7 +340,8 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     return `<div class="popup-oss"><b>${escapeHtml(nomeGruppo(g))}</b>${g.animale || nomeGruppo(g) === g.scientifico ? '' : ` <i class="tenue">${escapeHtml(g.scientifico)}</i>`} · ${g.oss.length} ${g.oss.length === 1 ? 'osservazione' : 'osservazioni'}
       ${g.sfumata ? '<p class="tenue piccolo">Posizione approssimata dalla fonte: qui è solo la zona.</p>' : ''}
       ${evidenza}
-      ${righe ? `<ul>${righe}</ul>` : ''}${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}</div>`;
+      ${righe ? `<ul>${righe}</ul>` : ''}${g.oss.length > 5 ? `<p class="tenue piccolo">e altre ${g.oss.length - 5}</p>` : ''}
+      <p>${htmlNascondi({ animale: g.animale ?? null, scientifico: g.scientifico ?? null, nome: nomeGruppo(g) })}</p></div>`;
   }
 
 
@@ -365,7 +369,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       // (passeriformi e piccioni non sono in nessun gruppo: vengono solo dalle "rare" e restano fuori)
       ...rGbif.flatMap((j) => interpretaGbif(j)).filter((o) => !intorno || (o.fonte !== 'iNaturalist' && !ESCLUSI_DALLE_RARE.ordini.includes(o.ordine))),
     ]
-      .filter((o) => o.lat != null && !viste.has(o.id) && viste.add(o.id))
+      .filter((o) => o.lat != null && !nascoste.esclude({ animale: o.animale, nomeScientifico: o.nomeScientifico }) && !viste.has(o.id) && viste.add(o.id))
       .sort((a, b) => String(b.data).localeCompare(String(a.data)));
     // il totale: in Intorno a me quelle di iNaturalist (dal suo conteggio) più quelle delle altre fonti
     // arrivate da GBIF; altrove il conteggio di GBIF. Non si contano due volte le stesse osservazioni.
@@ -491,7 +495,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
   function cosaSiVede() {
     if (filtri.taxon) return filtri.taxon.nome || filtri.taxon.scientifico || 'Un animale';
     if (filtri.specie !== 'notevoli') return ANIMALI[filtri.specie] ?? filtri.specie;
-    return testoGruppi(filtri.gruppi);
+    return testoGruppi(filtri.gruppi, nascoste.conta());
   }
   // nelle mappe senza il foglio della Fauna i gruppi si scelgono qui (stessa scelta della home)
   const htmlGruppi = () =>
@@ -677,21 +681,26 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
   // se la heatmap era accesa nella schermata precedente, resta accesa
   if (stato.leggi().livelli.heatmap) accendi();
 
+  function ricarica() {
+    if (rimossa) return;
+    filtri = calcolaFiltri(stato.leggi());
+    richiestaZona++;
+    if (attiva) {
+      disegnaLivello();
+      const cosa = pannello.querySelector('.heat-cosa');
+      if (cosa) cosa.textContent = cosaSiVede();
+    }
+  }
+  // una specie nascosta o rimessa (anche da un altro pannello): heatmap, icone e scritta si rifanno
+  const scollegaNascoste = nascoste.ascolta(ricarica);
+
   return {
     attiva: () => attiva,
     // dopo un cambio dei campi di personalizza(): heatmap e icone si ridisegnano
-    ricarica() {
-      if (rimossa) return;
-      filtri = calcolaFiltri(stato.leggi());
-      richiestaZona++;
-      if (attiva) {
-        disegnaLivello();
-        const cosa = pannello.querySelector('.heat-cosa');
-        if (cosa) cosa.textContent = cosaSiVede();
-      }
-    },
+    ricarica,
     rimuovi() {
       rimossa = true;
+      scollegaNascoste();
       scollega();
       foglio.remove();
     },

@@ -1900,6 +1900,8 @@ body.disegno .pannello-heatmap { display: none; }
 
 .heat-cosa { margin: 6px 0 2px; font-size: 0.85rem; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pannello-heatmap.ridotto .heat-cosa { margin: 0 0 2px; font-size: 0.72rem; }
+/* «Tutti gli animali · 5 nascoste»: va a capo invece di tagliarsi */
+.pannello-heatmap.ridotto .heat-cosa { white-space: normal; line-height: 1.15; }
 .heat-gruppi { margin: 4px 0 6px; }
 
 /* profilo altimetrico sotto i numeri della scheda (stesso del disegno) */
@@ -2197,3 +2199,16 @@ a.modifica-carta {
 /* Panorama: una riga nella scheda */
 .riga-panorama { display: flex; align-items: center; gap: 6px; margin: 8px 0; font-weight: 600; }
 .riga-panorama .icona, .riga-panorama svg { width: 18px; height: 18px; flex: none; color: var(--accento); }
+
+/* --- Specie nascoste (Fauna) --- */
+.nascondi-specie { font-size: 0.78rem; font-weight: 600; color: var(--testo-tenue); padding: 2px 0; min-height: 0; }
+.specie-zona li { display: grid; justify-items: center; gap: 4px; align-content: start; }
+.fauna-nascoste-barra { margin: 8px 0 4px; }
+.fauna-nascoste { display: grid; gap: 8px; margin: 6px 0 4px; padding: 10px 12px; border: 1px solid var(--bordo); border-radius: 14px; background: var(--scheda); }
+.fauna-nascoste[hidden] { display: none; }
+.fauna-nascoste .titolo-nascoste { margin: 4px 0 0; font-size: 0.9rem; }
+.elenco-nascoste, .elenco-comuni { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.elenco-nascoste li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.elenco-comuni { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); font-size: 0.88rem; }
+.azioni-comuni { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.comuni-proposta[hidden] { display: none; }

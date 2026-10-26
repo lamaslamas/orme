@@ -97,6 +97,7 @@ import { reteDeiSentieri, giriDallaPartenza, lineaDelGiro, sentieriDelGiro, nodi
 import { linkModificaTraccia } from './modificaTraccia.js';
 import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi, separaLuce, testoLuce } from '../lib/risultatiSuggerisci.js';
 import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
+import { nascoste } from '../lib/specieNascoste.js';
 import { conRitardo } from '../lib/ritardo.js';
 import { cronometra } from '../lib/misura.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
@@ -187,6 +188,15 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   const nomeSpecieZona = (x) => (x.animale ? ANIMALI[x.animale] : nomiIt[x.chiave] || x.nome);
   const meseDelQuando = () => Number(dataDelQuando(scelte.quando, oggiItalia()).slice(5, 7));
   const nomeMese = () => new Date(`${dataDelQuando(scelte.quando, oggiItalia())}T12:00:00`).toLocaleDateString('it-IT', { month: 'long' });
+  // la specie scelta in «Quale animale» che nel frattempo è stata nascosta non vale più: si torna a «Qualsiasi»
+  function liberaSpecieNascosta() {
+    const v = String(scelte.specie ?? '');
+    if (!v || GRUPPI_SPECIE[v]) return;
+    const nascosta = v.startsWith(PREFISSO_ZONA) ? nascoste.esclude({ scientifico: v.slice(PREFISSO_ZONA.length) }) : nascoste.esclude({ animale: v });
+    if (!nascosta) return;
+    scelte = { ...scelte, specie: '', specieNome: '' };
+    ricorda(scelte);
+  }
   const specieDinamica = () => scelte.cerco.includes('fauna') && String(scelte.specie ?? '').startsWith(PREFISSO_ZONA);
   const etichettaSpecie = () => scelte.specieNome || VOCI_SPECIE[scelte.specie] || scelte.specie;
   function aggiornaScelte() {
@@ -373,7 +383,9 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   let specieTutte = false; // «Quale animale»: i primi 6 o tutti
   // «Quale animale»: i primi 6 (più quello scelto, se è oltre) e «Mostra tutti»
   function htmlSpecie() {
-    const voci = Object.entries(VOCI_SPECIE);
+    liberaSpecieNascosta();
+    // le specie nascoste non sono tra quelle da scegliere (i gruppi e «Qualsiasi» restano)
+    const voci = Object.entries(VOCI_SPECIE).filter(([k]) => !k || GRUPPI_SPECIE[k] || !nascoste.esclude({ animale: k }));
     const mostrate = specieTutte ? voci : voci.filter(([k], i) => i < 6 || k === scelte.specie);
     const resto = voci.length - mostrate.length;
     return `${htmlGruppo('specie', Object.fromEntries(mostrate), scelte.specie ?? '')}${
@@ -594,7 +606,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   const chiaveCandidati = (data) => {
     const c = posizione() ?? mappa.getCenter();
     const da = Array.isArray(c) ? c : [c.lng, c.lat];
-    return JSON.stringify([data, modoScelto(), da.map((x) => Math.round(x * 1000)), stato.leggi().attivita, scelte.biciDaVerificare, scelte.distanza, scelte.parco, scelte.periodo, scelte.cerco, scelte.specie, scelte.specieNome, zonaSpecie.chiave, zonaSpecie.stato, Boolean(puntiUtili), sentieri.map((x) => x.verso ?? '').join('')]);
+    return JSON.stringify([nascoste.firma(), data, modoScelto(), da.map((x) => Math.round(x * 1000)), stato.leggi().attivita, scelte.biciDaVerificare, scelte.distanza, scelte.parco, scelte.periodo, scelte.cerco, scelte.specie, scelte.specieNome, zonaSpecie.chiave, zonaSpecie.stato, Boolean(puntiUtili), sentieri.map((x) => x.verso ?? '').join('')]);
   };
   const copie = (elenco) => elenco.map((c) => ({ ...c }));
   function candidatiGrezzi(data) {
@@ -792,6 +804,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
   async function cercaPercorsi() {
     const mia = ++richiesta;
+    liberaSpecieNascosta();
     const risultati = foglio.querySelector('.suggerisci-risultati');
     mostraRisultatiInCima();
     notaDistanza = '';

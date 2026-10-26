@@ -11,6 +11,7 @@ import { preparaPercorsiInPezzi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
+import { nascoste } from '../lib/specieNascoste.js';
 import { assicuraParco, assicuraParcoSulPunto } from './archivioParchi.js';
 import { ZOOM_MINIMO_SCARICO } from '../lib/parchiArchivio.js';
 import { aggiungiGps } from './gps.js';
@@ -235,6 +236,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
     history.replaceState(null, '', '#/');
   }
   const filtri = leggiFiltri();
+  // con «Nascondi le più comuni» acceso l'elenco si rifà sui percorsi che ci sono ora
+  nascoste.ricalcolaComuni(tutti);
 
   document.body.classList.add('con-mappa', 'home-mappa');
   app.innerHTML = `

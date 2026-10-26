@@ -129,6 +129,15 @@ export function creaNascoste(memoria = globalThis.localStorage) {
       ascoltatori.add(f);
       return () => ascoltatori.delete(f);
     },
+    // con le «più comuni» accese, l'elenco si rifà sui percorsi che ci sono ora (solo se cambia e se i dati ci sono)
+    ricalcolaComuni(sentieri) {
+      if (!dati.comuni.attive) return false;
+      const nuove = specieComuni(sentieri);
+      const k = (l) => l.map((v) => v.chiave).sort().join('|');
+      if (!nuove.length || k(nuove) === k(dati.comuni.specie)) return false;
+      cambia({ ...dati, comuni: { attive: true, specie: nuove.map((e) => voceSpecie(e)).filter(Boolean) } });
+      return true;
+    },
     // un backup che arriva: sostituisce le scelte
     ripristina: (grezzo) => cambia(grezzo),
   };

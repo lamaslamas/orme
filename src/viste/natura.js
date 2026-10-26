@@ -15,6 +15,8 @@ import { leggiGruppiSalvati, testoGruppi } from '../lib/gruppiFauna.js';
 import { GRUPPI_FAUNA } from '../lib/costanti.js';
 import { raggruppaPerSpecie, dataBreve } from '../lib/osservazioniPerSpecie.js';
 import { htmlVoceOsservazione } from './vociOsservazioni.js';
+import { htmlNascondi } from './nascondiSpecie.js';
+import { nascoste, chiaveSpecie } from '../lib/specieNascoste.js';
 import { iconaAnimale } from './icone.js';
 import { iconaPerOsservazione } from '../lib/gbif.js';
 
@@ -89,12 +91,14 @@ export function collegaNaturaVicina(contenitore, pezzi, mostraPunti = () => {}) 
       esito.querySelector('[data-riprova]')?.addEventListener('click', cerca);
       return;
     }
-    const ordinate = r.dentro.sort((a, b) => String(b.data).localeCompare(String(a.data)));
+    // le specie nascoste non si mostrano (la lista si accorcia: si dice quante)
+    const ordinate = r.dentro.filter((o) => !nascoste.esclude({ animale: o.animale, nomeScientifico: o.nomeScientifico })).sort((a, b) => String(b.data).localeCompare(String(a.data)));
     mostraPunti(ordinate);
     const specie = raggruppaPerSpecie(ordinate);
-    const riga = (g) => `<li><details>
+    const riga = (g) => `<li data-specie-chiave="${escapeHtml(chiaveSpecie({ animale: g.oss[0]?.animale, scientifico: g.scientifico }) ?? '')}"><details>
         <summary><span class="sp-icona">${iconaAnimale(g.icona ?? iconaPerOsservazione(g.oss[0]))}</span><b>${escapeHtml(g.nome)}</b> <i class="tenue">${escapeHtml(g.scientifico)}</i> · ${g.n} ${g.n === 1 ? 'osservazione' : 'osservazioni'} · ultima ${escapeHtml(dataBreve(g.ultima))}</summary>
         <ul class="elenco-oss">${g.oss.map((o) => htmlVoceOsservazione(o, { extra: `a ${Math.round(o.distanzaM)} m dalla traccia`, conNome: false })).join('')}</ul>
+        ${htmlNascondi({ animale: g.oss[0]?.animale ?? null, scientifico: g.scientifico || null, nome: g.nome })}
       </details></li>`;
     esito.innerHTML = `
       <p><b>${ordinate.length}</b> ${ordinate.length === 1 ? 'osservazione' : 'osservazioni'} di <b>${specie.length}</b> ${specie.length === 1 ? 'specie' : 'specie'} entro ${FASCIA_M} m dalla traccia.</p>

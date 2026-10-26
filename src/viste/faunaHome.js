@@ -8,6 +8,9 @@ import { leggiGruppiSalvati, salvaGruppiSalvati } from '../lib/gruppiFauna.js';
 import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib/intorno.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
+import { nascoste, specieComuni } from '../lib/specieNascoste.js';
+import { htmlNascondi } from './nascondiSpecie.js';
+import { tuttiISentieri } from '../db.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { tendinaTrascinabile } from './tendina.js';
 
@@ -44,12 +47,64 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
         .map(([k, g]) => `<button type="button" class="chip-scorciatoia" data-gruppo="${k}">${escapeHtml(g.nome)}</button>`)
         .join('')}</div>
       <ul class="specie-zona"></ul>
+      <div class="fauna-nascoste-barra"><button type="button" class="chip-scorciatoia" data-azione="nascoste" aria-expanded="false" aria-controls="faunaNascoste"></button></div>
+      <section class="fauna-nascoste" id="faunaNascoste" hidden aria-label="Specie nascoste">
+        <label class="interruttore"><input type="checkbox" data-azione="comuni" /> Nascondi le più comuni</label>
+        <p class="tenue piccolo comuni-nota"></p>
+        <div class="comuni-proposta" hidden></div>
+        <h4 class="titolo-nascoste">Nascoste da te</h4>
+        <ul class="elenco-nascoste"></ul>
+      </section>
     </div>`;
   contenitore.appendChild(foglio);
   // la stessa tendina di "Percorsi qui": chiuderla (X, Esc, trascinandola in giù, o aprendone un'altra) nasconde
   // il pannello ma la Fauna resta accesa; un tocco su "Fauna" lo riapre. Si spegne dall'interruttore nel pannello
   const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', allaChiusura: () => mostra(false) });
   const elenco = foglio.querySelector('.specie-zona');
+
+  // «Nascoste (N)»: le specie nascoste a mano, l'interruttore delle più comuni (con l'elenco da vedere prima)
+  const barraNascoste = foglio.querySelector('[data-azione="nascoste"]');
+  const pannelloNascoste = foglio.querySelector('.fauna-nascoste');
+  const interruttoreComuni = foglio.querySelector('[data-azione="comuni"]');
+  const proposta = foglio.querySelector('.comuni-proposta');
+  function disegnaNascoste() {
+    barraNascoste.textContent = `Nascoste (${nascoste.conta()})`;
+    const comuni = nascoste.comuni();
+    interruttoreComuni.checked = comuni.attive;
+    foglio.querySelector('.comuni-nota').textContent = comuni.attive
+      ? `Nascondo: ${comuni.specie.map((v) => v.nome).join(', ')}. Le più segnalate sui percorsi, calcolate dai dati.`
+      : 'Le specie segnalate sul maggior numero di percorsi, calcolate dai dati: te le faccio vedere prima.';
+    const mie = nascoste.nascoste();
+    foglio.querySelector('.titolo-nascoste').hidden = !mie.length;
+    foglio.querySelector('.elenco-nascoste').innerHTML =
+      mie.map((v) => `<li><span>${escapeHtml(v.nome)}</span><button type="button" class="link" data-rimetti="${escapeHtml(v.chiave)}">Rimetti</button></li>`).join('') +
+      (mie.length > 1 ? '<li><button type="button" class="link" data-azione="rimetti-tutte">Rimetti tutte</button></li>' : '');
+  }
+  // acceso: prima l'elenco di quelle che si nascondono, poi la conferma
+  async function proponiComuni() {
+    const elenco = specieComuni(await tuttiISentieri().catch(() => []));
+    interruttoreComuni.checked = false;
+    proposta.hidden = false;
+    if (!elenco.length) {
+      proposta.innerHTML = '<p class="tenue piccolo">Non ci sono ancora abbastanza percorsi con dati di fauna per calcolarle.</p>';
+      return;
+    }
+    proposta.innerHTML = `<p><b>Nasconderei ${elenco.length} specie</b>, quelle segnalate sul maggior numero di percorsi:</p>
+      <ul class="elenco-comuni">${elenco.map((x) => `<li>${escapeHtml(x.nome)} <span class="tenue">· ${Math.round(x.quota * 100)}% dei percorsi</span></li>`).join('')}</ul>
+      <div class="azioni-comuni"><button type="button" class="bottone primario" data-azione="conferma-comuni">Nascondi queste</button><button type="button" class="bottone" data-azione="annulla-comuni">Annulla</button></div>`;
+    proposta.dataset.elenco = JSON.stringify(elenco.map((x) => ({ animale: x.animale, nome: x.nome })));
+  }
+  interruttoreComuni.addEventListener('change', () => {
+    if (interruttoreComuni.checked) proponiComuni();
+    else {
+      nascoste.impostaComuni(false);
+      proposta.hidden = true;
+    }
+  });
+  const scollegaNascoste = nascoste.ascolta(() => {
+    disegnaNascoste();
+    mostraSpecie(true);
+  });
 
   function disegnaScelte() {
     for (const b of foglio.querySelectorAll('[data-gruppo]')) {
@@ -71,7 +126,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     const sotto = Math.max(y * 0.3, y - foglio.offsetHeight);
     const visibile = L.latLngBounds(mappa.containerPointToLatLng([0, Math.min(60, sotto / 2)]), mappa.containerPointToLatLng([x, sotto]));
     const { centro, km } = zonaInquadrata([visibile.getSouth(), visibile.getWest(), visibile.getNorth(), visibile.getEast()]);
-    const chiave = JSON.stringify([centro, km, gruppi]);
+    const chiave = JSON.stringify([centro, km, gruppi, nascoste.firma()]);
     if (!forza && chiave === ultimaZona) return;
     ultimaZona = chiave;
     const ricerche = ricercheSpecieDellaZona(centro, km, gruppi);
@@ -103,7 +158,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
               ${x.foto ? `<img src="${escapeHtml(x.foto.url)}" alt="" loading="lazy" />` : `<span class="specie-icona">${iconaAnimale(x.icona)}</span>`}
               <b>${escapeHtml(x.nome)}</b>${x.rara ? '<span class="specie-rara">rara</span>' : ''}
               <span class="tenue">${x.osservazioni} ${x.osservazioni === 1 ? 'osservazione' : 'osservazioni'}</span>
-            </button></li>`,
+            </button>${htmlNascondi({ animale: x.animale ?? null, scientifico: x.scientifico, nome: x.nome, inat: x.inat })}</li>`,
           )
           .join('')
       : '<li class="tenue">Nessuna osservazione di questi animali nella zona.</li>';
@@ -112,7 +167,20 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   foglio.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.dataset.azione === 'spegni') {
+    if (b.dataset.azione === 'nascoste') {
+      pannelloNascoste.hidden = !pannelloNascoste.hidden;
+      b.setAttribute('aria-expanded', String(!pannelloNascoste.hidden));
+      disegnaNascoste();
+    } else if (b.dataset.rimetti) {
+      nascoste.rimetti(b.dataset.rimetti);
+    } else if (b.dataset.azione === 'rimetti-tutte') {
+      nascoste.rimettiTutte();
+    } else if (b.dataset.azione === 'conferma-comuni') {
+      nascoste.impostaComuni(true, JSON.parse(proposta.dataset.elenco ?? '[]'));
+      proposta.hidden = true;
+    } else if (b.dataset.azione === 'annulla-comuni') {
+      proposta.hidden = true;
+    } else if (b.dataset.azione === 'spegni') {
       stato.imposta({ livelli: { heatmap: false } });
     } else if (b.dataset.azione === 'elenco') {
       apriElenco();
@@ -148,6 +216,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     if (si) {
       allApertura();
       disegnaScelte();
+      disegnaNascoste();
       mostraSpecie();
     }
   }
@@ -178,6 +247,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       return true;
     },
     chiudi() {
+      scollegaNascoste();
       scollega();
       togliDallaCoda();
       document.body.classList.remove('fauna-aperta');

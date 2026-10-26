@@ -17,6 +17,7 @@ import { giriDaConvertire } from './lib/migrazione.js';
 import { completaPercorso } from './lib/percorso.js';
 import { pianoSincronizzazione, controllaArchivio } from './lib/archivio.js';
 import { sentieriDaTogliere } from './lib/parchiArchivio.js';
+import { nascoste, leggiNascosteSalvate } from './lib/specieNascoste.js';
 import { inBase64, daBase64, fotoValida } from './lib/foto.js';
 import { haDatiMiei } from './lib/intorno.js';
 import { ID_INTORNO } from './datiParchi.js';
@@ -502,6 +503,8 @@ export async function esporta({ includiFoto = false, conDatiVecchi = false } = {
     sentieri: await tuttiISentieri(),
     tracce: await tuttiDa('tracce'),
     percorsi: await tuttiIPercorsi(),
+    // le scelte del telefono che si vogliono ritrovare: le specie nascoste
+    impostazioni: { specieNascoste: leggiNascosteSalvate() },
     ...(conDatiVecchi ? { giri: await giriVecchi(), avvistamenti: await avvistamentiVecchi() } : {}),
     ...(includiFoto
       ? {
@@ -572,6 +575,11 @@ export async function importa(dati, modo = 'unisci') {
   // i giri di un vecchio backup diventano percorsi miei (con le tracce del backup); gli avvistamenti non si importano più
   const giriNuovi = giriDaConvertire(dati.giri ?? [], new Map(dati.sentieri.map((x) => [x.id, x])), new Map(dati.tracce.map((t) => [t.sentieroId, t])));
   for (const p of giriNuovi) percorsi.put(completaPercorso(p));
+  // le specie nascoste: «sostituisci» le sostituisce, «unisci» aggiunge quelle del backup
+  if (dati.impostazioni?.specieNascoste) {
+    if (modo === 'sostituisci') nascoste.ripristina(dati.impostazioni.specieNascoste);
+    else for (const v of dati.impostazioni.specieNascoste.specie ?? []) nascoste.nascondi({ animale: v.animale, scientifico: v.chiave, nome: v.nome, inat: v.inat });
+  }
   // dopo un import i dati iniziali del backup non vanno ricaricati
   tx.objectStore('meta').put({
     chiave: 'datiIniziali',

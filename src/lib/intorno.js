@@ -309,6 +309,7 @@ export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [],
     if (esclude({ animale, scientifico: t.name })) continue; // nascosta (anche se la risposta è di prima)
     perId.set(t.id, {
       inat: t.id,
+      animale: animale ?? null,
       nome: animale ? ANIMALI[animale] : maiuscola(t.preferred_common_name) || t.name,
       scientifico: t.name,
       osservazioni: r.count ?? 0,
