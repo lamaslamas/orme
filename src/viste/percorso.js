@@ -15,7 +15,7 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
-import { htmlPiuGiorni, collegaPiuGiorni, ORE_AL_GIORNO, quoteDisponibili, pezziConQuote } from './piuGiorni.js';
+import { htmlPiuGiorni, collegaPiuGiorni, MINUTI_PER_DUE_GIORNI, quoteDisponibili, pezziConQuote } from './piuGiorni.js';
 import { oraPartenzaTesto } from './andataRitorno.js';
 import { serveScaricoQuote, chiaveQuote } from '../lib/quoteSalvate.js';
 import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
@@ -70,7 +70,7 @@ export async function vistaPercorso(app, id, virtuale = null) {
   let ar = arDa(misure);
   let fonteQuote = quote?.fonte;
   // "Su più giorni" se la camminata scelta supera la giornata più corta
-  const serveGiorni = (modo) => ar && misureScelte(ar, modo).durataMin > ORE_AL_GIORNO[0] * 60;
+  const serveGiorni = (modo) => ar && misureScelte(ar, modo).durataMin > MINUTI_PER_DUE_GIORNI;
   const e = estremiTraccia(invertito ? invertiGeojson(p.geojson) : p.geojson);
   const idUrl = encodeURIComponent(p.id);
   const suPagina = () => (virtuale ? location.hash.startsWith('#/condiviso') : location.hash === `#/percorso/${idUrl}`);
@@ -247,10 +247,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
           giorni.hidden = !serveGiorni(modo);
           // le giornate calcolate prima valevano per l'altra scelta
           giorni.querySelector('.giorni-risultato').innerHTML = '';
-          giorni.querySelectorAll('[data-ore]').forEach((b) => {
-            b.classList.remove('attiva');
-            b.setAttribute('aria-pressed', 'false');
-          });
         }
       },
     });
@@ -259,6 +255,7 @@ export async function vistaPercorso(app, id, virtuale = null) {
   // su più giorni: dove finisce ogni giornata e dove dormire
   collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso, {
     modo: modoScelto,
+    anello: () => Boolean(ar?.anello),
     conQuote: (pq, fonte) => {
       misure = misureDeiPezzi(pq);
       ar = arDa(misure);

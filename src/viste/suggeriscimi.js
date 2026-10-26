@@ -25,7 +25,8 @@ import { profiloTempi, profiloTempiBici, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, R
 import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti } from '../lib/andataRitorno.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';
 import { htmlRigaRitmo } from './ritmo.js';
-import { pianoDueGiorni, confrontaNotte } from '../lib/dueGiorni.js';
+import { confrontaNotte } from '../lib/dueGiorni.js';
+import { pianoNotte, testoGiornate } from '../lib/pianoNotte.js';
 import { quoteDeiPunti } from './quote.js';
 import { parcoNazionaleIn, testoAvvisoPernotto } from './piuGiorni.js';
 import { specchiaTratto } from '../lib/verso.js';
@@ -618,68 +619,32 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     c.giorni = null;
     c.notte = null;
     if (!puntiUtili) return null;
-    const inizio = c.pezzi[0]?.[0];
-    if (!inizio) return null;
-    const modo = modoScelto();
-    const camminata = pezziScelti(c.pezzi, modo, c.anello);
-    // in MTB i tempi sono da bici (fine del primo giorno, luce, deviazione per dormire)
-    const serie = inBici() ? profiloTempiBici(camminata) : profiloTempi(camminata);
-    // senza le quote sui pezzi il tempo del cammino sarebbe solo in piano: si riporta al tempo mostrato nei risultati
-    // (con il dislivello), tenendo le proporzioni lungo il percorso
-    const mostrata = c.misure?.durataMin;
-    if (!serie.conQuote && Number.isFinite(mostrata) && serie.min.at(-1) > 0) {
-      const k = mostrata / serie.min.at(-1);
-      serie.min = serie.min.map((m) => m * k);
-    }
-    const data2 = new Date(new Date(`${data}T12:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10);
-    const sole = (d) => {
-      const x = albaTramonto(d, [inizio[0], inizio[1]]);
-      return { alba: minutiItaliani(x.alba), tramonto: minutiItaliani(x.tramonto) };
-    };
-    const comune = {
-      serie,
-      lunghezzaKm: lunghezzaDeiPezzi(c.pezzi),
-      conRitorno: camminata.length > c.pezzi.length,
+    const r = pianoNotte({
+      pezzi: c.pezzi,
+      anello: c.anello,
       attivita: stato.leggi().attivita,
+      modo: modoScelto(),
+      data,
       partenzaMin: partenzaForzata ?? oraPartenzaScelta() ?? 540,
-      sole1: sole(data),
-      sole2: sole(data2),
+      dormire: scelte.dormire ?? doveDormire(),
+      punti: puntiUtili,
+      geojson: c.traccia?.geojson,
+      misure: c.misure,
       // il tratto con più fauna, nel verso scelto (se il percorso è invertito si guarda dall'altro capo)
       tratto: (() => {
         const t = trattoDelPercorso(c.sentiero, c.traccia);
         return t && versoDi(c.sentiero) ? specchiaTratto(t, lunghezzaDeiPezzi(c.pezzi)) : t;
       })(),
       dislivelloDeviazione: (p) => devAffinata.get(p.id) ?? null,
-    };
-    // prima la sola durata (veloce): troppo breve o troppo lungo per due giornate di luce, senza cercare i posti
-    const prima = pianoDueGiorni({ ...comune, posti: [] });
-    if (prima.motivo === 'breve' || prima.motivo === 'troppo-lungo') {
-      c.notteMotivo = prima.motivo;
+    });
+    if (r.motivo) {
+      c.notteMotivo = r.motivo;
+      c.notteSenzaLuce = r.motivo === 'luce';
       return null;
     }
-    const dove = perLaNotteScelta(scelte.dormire ?? doveDormire());
-    const geo = c.traccia?.geojson;
-    const posti = geo
-      ? puntiLungoIlPercorso(puntiUtili, geo, RAGGIO_STRUTTURE_M)
-          .filter(dove)
-          .filter((p) => p.distanzaM <= (TIPI_PUNTO[p.tipo].gruppo === 'strutture' ? RAGGIO_STRUTTURE_M : RAGGIO_PERNOTTO_M))
-          .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], c.pezzi) }))
-          .filter((p) => p.km != null)
-      : [];
-    const piano = pianoDueGiorni({ ...comune, posti });
-    if (!piano.ok) {
-      c.notteMotivo = piano.motivo;
-      c.notteSenzaLuce = piano.motivo === 'luce';
-      return null;
-    }
-    // senza quote sui pezzi il dislivello di ogni giornata si ripartisce secondo il tempo di cammino
-    const totaleGiornate = (piano.giorno1?.durataMin ?? 0) + piano.giorno2.durataMin;
-    const stima = (g) => (g && g.salita == null && Number.isFinite(c.misure?.salita) ? { ...g, salita: Math.round((c.misure.salita * g.durataMin) / totaleGiornate) } : g);
-    piano.giorno1 = stima(piano.giorno1);
-    piano.giorno2 = stima(piano.giorno2);
-    c.giorni = [piano.giorno1, piano.giorno2].filter(Boolean);
-    c.notte = piano;
-    return etichettaPernotto(piano.posto); // nome, tipo e distanza dalla traccia (con «notte vicino alla partenza» il testo lo dice a parte)
+    c.giorni = r.giorni;
+    c.notte = r.piano;
+    return r.etichetta;
   }
 
   // meteo del giorno scelto per un gruppo di proposte (giudizio come in "Dove vado domani")
@@ -943,23 +908,6 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   const NOMI_GIORNO = { ok: 'Meteo favorevole', attenzione: 'Attenzione', sconsigliato: 'Sconsigliato' };
   const ora = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`;
-  const sal = (g) => (g.salita != null ? ` · +${g.salita} m` : '');
-  // «Giorno 1: 15:00–16:12 (1 h 12 · km 3,5 · +58 m, con +26 min per l'ostello a 1,7 km) · notte: … · Giorno 2: …» oppure
-  // «Notte vicino alla partenza: …; il giorno dopo tutto il percorso: 08:00–…»
-  const CON_ARTICOLO = { campeggio: 'il campeggio', agriturismo: "l'agriturismo", bb: 'il B&B', ostello: "l'ostello", albergo: "l'albergo", alloggio: "l'alloggio", rifugio: 'il rifugio', bivacco: 'il bivacco', ricovero: 'il ricovero' };
-  const DA_ARTICOLO = { campeggio: 'dal campeggio', agriturismo: "dall'agriturismo", bb: 'dal B&B', ostello: "dall'ostello", albergo: "dall'albergo", alloggio: "dall'alloggio", rifugio: 'dal rifugio', bivacco: 'dal bivacco', ricovero: 'dal ricovero' };
-  // «, con +26 min per raggiungere l'ostello (1,7 km dalla traccia)» (non si dice per deviazioni di pochi metri)
-  const dev = (g, p, verso) =>
-    g?.deviazioneMin && p.distanzaM >= 100
-      ? `, con +${g.deviazioneMin} min ${verso === 'arrivare' ? `per raggiungere ${CON_ARTICOLO[p.tipo] ?? 'il posto'}` : `per tornare in traccia ${DA_ARTICOLO[p.tipo] ?? 'dal posto'}`} (${(p.distanzaM / 1000).toFixed(1).replace('.', ',')} km dalla traccia)`
-      : '';
-  const testoGiornate = (n) => {
-    const g2 = n.giorno2;
-    const alba = g2.dallAlba ? " (all'alba, nel tratto con più fauna)" : '';
-    if (n.tipo === 'notte-vicina') return `Notte vicino alla partenza: ${etichettaPernotto(n.posto)} · il giorno dopo tutto il percorso: ${ora(g2.daMin)}${alba}–${ora(g2.aMin)} (${durata(g2.durataMin)} · km ${km1(g2.km)}${sal(g2)}${g2.deviazioneMin ? `, con +${g2.deviazioneMin} min di deviazione` : ''})`;
-    const g1 = n.giorno1;
-    return `Giorno 1: ${ora(g1.daMin)}–${ora(g1.aMin)} (${durata(g1.durataMin)} · km ${km1(g1.km)}${sal(g1)}${dev(g1, n.posto, 'arrivare')}) · notte: ${etichettaPernotto(n.posto)} · Giorno 2: ${ora(g2.daMin)}${alba}–${ora(g2.aMin)} (${durata(g2.durataMin)} · km ${km1(g2.km)}${sal(g2)}${dev(g2, n.posto, 'tornare')})`;
-  };
   // Cosa vale per tutti i risultati si dice una volta in cima; nelle card restano le differenze
   let contestoCard = { specieComuni: [], luceComune: null, motiviComuni: [], motiviDi: new Map() };
   function calcolaContesto() {

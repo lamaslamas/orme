@@ -19,6 +19,15 @@ const ICONA_TEMPO = { temporale: 'temporale', neve: 'neve', pioggia: 'pioggia', 
 const oggiItalia = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' });
 const ora = (min) => (min == null ? '–' : oraDaMinuti(min));
 
+// Il giorno scelto e la partenza, per chi li usa (le giornate di «Su più giorni»); a ogni cambio un evento
+let giornoOra = { giorno: null };
+export const statoQuando = () => giornoOra;
+export function ascoltaQuando(f) {
+  window.addEventListener('orme:quando', f);
+  return () => window.removeEventListener('orme:quando', f);
+}
+const avvisaQuando = () => window.dispatchEvent(new CustomEvent('orme:quando'));
+
 // ar: misureAR(...) o null; iniziali: { giorno, ora } con cui si apre
 export function htmlQuando(ar, modo = modoScelto(), iniziali = null) {
   const conAR = ar && !ar.anello && ar.totale;
@@ -61,6 +70,7 @@ export function collegaQuando(sezione, { sentiero, traccia, quote: quoteIniziali
   const oggi = oggiItalia();
   const date = dateDaOggi(oggi, GIORNI_STRISCIA);
   let scelto = date.includes(iniziali?.giorno) ? iniziali.giorno : date[0];
+  giornoOra = { giorno: scelto };
   let giorni = [];
   let pronta = false;
   let modo = modoScelto();
@@ -136,14 +146,17 @@ export function collegaQuando(sezione, { sentiero, traccia, quote: quoteIniziali
     calcola();
     disegnaStriscia();
     disegnaOrari();
+    avvisaQuando();
   }
 
   striscia.addEventListener('click', (e) => {
     const d = e.target.closest('[data-giorno]')?.dataset.giorno;
     if (!d || d === scelto) return;
     scelto = d;
+    giornoOra = { giorno: scelto };
     disegnaStriscia();
     disegnaOrari();
+    avvisaQuando();
   });
   sezione.addEventListener('input', (e) => {
     if (!e.target.matches('[data-ora]') || !e.target.value) return;
@@ -162,7 +175,10 @@ export function collegaQuando(sezione, { sentiero, traccia, quote: quoteIniziali
     });
     m = datiPerMeteo({ sentiero, traccia, misure: misureDi(modo) }, attivita, quote) ?? m;
     if (pronta) tutto();
-    else disegnaOrari();
+    else {
+      disegnaOrari();
+      avvisaQuando();
+    }
     alCambioModo(modo);
   });
 
@@ -172,6 +188,7 @@ export function collegaQuando(sezione, { sentiero, traccia, quote: quoteIniziali
         calcola();
         // si parte dal giorno voluto (se c'è la previsione), altrimenti dal primo con una previsione
         scelto = giorni[date.indexOf(scelto)] ? scelto : date.find((d, i) => giorni[i]) ?? date[0];
+        giornoOra = { giorno: scelto };
         pronta = true;
         disegnaStriscia();
         disegnaOrari();
