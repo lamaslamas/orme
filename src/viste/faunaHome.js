@@ -8,9 +8,8 @@ import { leggiGruppiSalvati, salvaGruppiSalvati } from '../lib/gruppiFauna.js';
 import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib/intorno.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
-import { nascoste, specieComuni } from '../lib/specieNascoste.js';
+import { nascoste, urlSpecieComuni, specieComuniDaRisposta } from '../lib/specieNascoste.js';
 import { htmlNascondi } from './nascondiSpecie.js';
-import { tuttiISentieri } from '../db.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { tendinaTrascinabile } from './tendina.js';
 
@@ -72,8 +71,8 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     const comuni = nascoste.comuni();
     interruttoreComuni.checked = comuni.attive;
     foglio.querySelector('.comuni-nota').textContent = comuni.attive
-      ? `Nascondo: ${comuni.specie.map((v) => v.nome).join(', ')}. Le più segnalate sui percorsi, calcolate dai dati.`
-      : 'Le specie segnalate sul maggior numero di percorsi, calcolate dai dati: te le faccio vedere prima.';
+      ? `Nascondo: ${comuni.specie.map((v) => v.nome).join(', ')}. Le più osservate in Italia.`
+      : 'Le 30 specie di animali selvatici più osservate in Italia (iNaturalist), senza quelle di «Quale animale»: te le faccio vedere prima.';
     const mie = nascoste.nascoste();
     foglio.querySelector('.titolo-nascoste').hidden = !mie.length;
     foglio.querySelector('.elenco-nascoste').innerHTML =
@@ -82,17 +81,20 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   }
   // acceso: prima l'elenco di quelle che si nascondono, poi la conferma
   async function proponiComuni() {
-    const elenco = specieComuni(await tuttiISentieri().catch(() => []));
     interruttoreComuni.checked = false;
     proposta.hidden = false;
-    if (!elenco.length) {
-      proposta.innerHTML = '<p class="tenue piccolo">Non ci sono ancora abbastanza percorsi con dati di fauna per calcolarle.</p>';
+    proposta.innerHTML = '<p class="tenue piccolo">Cerco gli animali più osservati in Italia…</p>';
+    let elenco = [];
+    try {
+      elenco = specieComuniDaRisposta(await (await fetch(urlSpecieComuni())).json());
+    } catch {
+      proposta.innerHTML = '<p class="tenue piccolo">Non riesco a calcolarle ora (sei offline?). Riprova tra poco.</p>';
       return;
     }
-    proposta.innerHTML = `<p><b>Nasconderei ${elenco.length} specie</b>, quelle segnalate sul maggior numero di percorsi:</p>
-      <ul class="elenco-comuni">${elenco.map((x) => `<li>${escapeHtml(x.nome)} <span class="tenue">· ${Math.round(x.quota * 100)}% dei percorsi</span></li>`).join('')}</ul>
+    proposta.innerHTML = `<p><b>Nasconderei ${elenco.length} specie</b>, le più osservate in Italia (non quelle di «Quale animale»):</p>
+      <ul class="elenco-comuni">${elenco.map((x) => `<li>${escapeHtml(x.nome)} <span class="tenue">· ${x.osservazioni.toLocaleString('it-IT')}</span></li>`).join('')}</ul>
       <div class="azioni-comuni"><button type="button" class="bottone primario" data-azione="conferma-comuni">Nascondi queste</button><button type="button" class="bottone" data-azione="annulla-comuni">Annulla</button></div>`;
-    proposta.dataset.elenco = JSON.stringify(elenco.map((x) => ({ animale: x.animale, nome: x.nome })));
+    proposta.dataset.elenco = JSON.stringify(elenco.map((x) => ({ scientifico: x.scientifico, nome: x.nome, inat: x.inat })));
   }
   interruttoreComuni.addEventListener('change', () => {
     if (interruttoreComuni.checked) proponiComuni();

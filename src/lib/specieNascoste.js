@@ -2,6 +2,7 @@
 // backup, valida in tutta la Fauna (heatmap, segnaposto, «Cosa vedere qui», «Ricco di fauna», Suggerisci…).
 // Una specie si riconosce dal nome scientifico (due parole); gli animali della lista di Orme anche dalla loro chiave.
 import { TAXON_INATURALIST, ANIMALI } from './costanti.js';
+import { eDomestico } from './domestici.js';
 
 export const CHIAVE_NASCOSTE = 'orme.specieNascoste';
 
@@ -58,26 +59,45 @@ export function salvaNascosteSalvate(valore, memoria = globalThis.localStorage) 
   }
 }
 
-// Le specie più comuni, calcolate dai percorsi: quelle segnalate (lungo il percorso o nella zona) sul maggior numero di
-// percorsi che hanno dati di fauna. Entrano quelle sopra la soglia (di base un quarto dei percorsi), al massimo
-// `massimo`, e almeno su `minimo` percorsi. → [{ animale, chiave, nome, percorsi, quota }] dalla più diffusa
-export function specieComuni(sentieri, { soglia = 0.25, massimo = 30, minimo = 3 } = {}) {
-  const conDati = sentieri.filter((s) => Array.isArray(s.faunaInat?.specie));
-  if (!conDati.length) return [];
-  const conti = new Map();
-  for (const s of conDati) for (const animale of new Set(s.faunaInat.specie.map((x) => x.animale))) conti.set(animale, (conti.get(animale) ?? 0) + 1);
-  return [...conti]
-    .map(([animale, percorsi]) => ({ animale, chiave: chiaveSpecie({ animale }), nome: ANIMALI[animale] ?? animale, percorsi, quota: percorsi / conDati.length }))
-    .filter((x) => x.chiave && x.percorsi >= minimo && x.quota >= soglia)
-    .sort((a, b) => b.percorsi - a.percorsi || a.nome.localeCompare(b.nome))
-    .slice(0, massimo);
+// Le specie di «Quale animale» (Suggerisci): sono quelle che cerco, quindi le «più comuni» non le toccano mai;
+// si nascondono solo a mano
+export const SEMPRE_VISIBILI = ['cervo', 'camoscio', 'lupo', 'orso', 'capriolo', 'cinghiale', 'volpe', 'daino', 'aquila_reale', 'nibbio_reale', 'cicogna_nera'];
+const CHIAVI_SEMPRE_VISIBILI = new Set(SEMPRE_VISIBILI.map((a) => SCIENTIFICO_DI[a]));
+
+// Le specie più comuni: le più osservate in tutta Italia tra gli animali selvatici (mammiferi, uccelli, rettili, anfibi;
+// iNaturalist, osservazioni verificate, niente cattività), senza quelle sempre visibili e senza gli animali domestici
+export const ITALIA_INAT = 6774;
+export const CLASSI_COMUNI_INAT = [40151, 3, 26036, 20978]; // mammiferi, uccelli, rettili, anfibi
+// Soggetti fotografici: non entrano mai tra le più comuni (rapaci, cicogne, aironi, cormorani, fenicotteri)
+export const SOGGETTI_FOTOGRAFICI_INAT = [71261, 67570, 4730, 4929, 4262, 4255]; // Accipitriformes, Falconiformes, Ciconiidae, Ardeidae, Phalacrocoracidae, Phoenicopteridae
+// Entrano sempre, se ci sono nei dati: cornacchia grigia, lucertola muraiola, lucertola campestre
+const SEMPRE_INCLUSE = ['corvus cornix', 'podarcis muralis', 'podarcis siculus'];
+export function urlSpecieComuni() {
+  const p = new URLSearchParams({ place_id: String(ITALIA_INAT), taxon_id: CLASSI_COMUNI_INAT.join(','), without_taxon_id: SOGGETTI_FOTOGRAFICI_INAT.join(','), quality_grade: 'research', captive: 'false', locale: 'it', per_page: '100' });
+  return `https://api.inaturalist.org/v1/observations/species_counts?${p}`;
+}
+// risposta di species_counts → le `massimo` con più osservazioni: [{ chiave, nome, scientifico, inat, osservazioni }]
+export function specieComuniDaRisposta(json, { massimo = 30 } = {}) {
+  const viste = new Set();
+  const voci = [];
+  for (const r of json?.results ?? []) {
+    const t = r.taxon ?? {};
+    const chiave = chiaveSpecie({ scientifico: t.name });
+    if (!t.id || !chiave || viste.has(chiave) || CHIAVI_SEMPRE_VISIBILI.has(chiave) || [t.id, ...(t.ancestor_ids ?? [])].some((id) => SOGGETTI_FOTOGRAFICI_INAT.includes(id)) || eDomestico({ scientifico: t.name, nome: t.preferred_common_name })) continue;
+    viste.add(chiave);
+    voci.push({ chiave, nome: t.preferred_common_name ? t.preferred_common_name.replace(/^./, (c) => c.toUpperCase()) : t.name, scientifico: t.name, inat: t.id, osservazioni: r.count ?? 0 });
+  }
+  const ordinate = voci.sort((a, b) => b.osservazioni - a.osservazioni);
+  const incluse = ordinate.filter((v) => SEMPRE_INCLUSE.includes(v.chiave));
+  return [...ordinate.filter((v) => !incluse.includes(v)).slice(0, Math.max(0, massimo - incluse.length)), ...incluse].sort((a, b) => b.osservazioni - a.osservazioni);
 }
 
 // Le specie nascoste e il loro uso: memoria = localStorage (o un finto, nei test)
 export function creaNascoste(memoria = globalThis.localStorage) {
   let dati = leggiNascosteSalvate(memoria);
   const ascoltatori = new Set();
-  const chiavi = () => new Set([...dati.specie, ...(dati.comuni.attive ? dati.comuni.specie : [])].map((v) => v.chiave));
+  const comuniAttive = () => (dati.comuni.attive ? dati.comuni.specie.filter((v) => !CHIAVI_SEMPRE_VISIBILI.has(v.chiave)) : []);
+  const chiavi = () => new Set([...dati.specie, ...comuniAttive()].map((v) => v.chiave));
   const cambia = (nuovo) => {
     dati = normalizzaNascoste(nuovo);
     salvaNascosteSalvate(dati, memoria);
@@ -115,28 +135,19 @@ export function creaNascoste(memoria = globalThis.localStorage) {
     rimetti: (chiave) => cambia({ ...dati, specie: dati.specie.filter((x) => x.chiave !== chiave) }),
     rimettiTutte: () => cambia({ ...dati, specie: [], comuni: { ...dati.comuni, attive: false } }),
     // elenco: le specie comuni calcolate in questo momento (si ricordano, così non cambiano da sole)
-    impostaComuni: (attive, elenco = dati.comuni.specie) => cambia({ ...dati, comuni: { attive: Boolean(attive), specie: attive ? elenco.map((e) => voceSpecie(e)).filter(Boolean) : dati.comuni.specie } }),
+    impostaComuni: (attive, elenco = dati.comuni.specie) => cambia({ ...dati, comuni: { attive: Boolean(attive), specie: attive ? elenco.map((e) => voceSpecie(e)).filter((v) => v && !CHIAVI_SEMPRE_VISIBILI.has(v.chiave)) : dati.comuni.specie } }),
     // quante specie sono escluse in tutto (senza contare due volte una nascosta e anche comune)
     conta: () => chiavi().size,
     // le voci escluse, per le liste «Nascoste» (le comuni a parte)
     nascoste: () => dati.specie,
     comuni: () => dati.comuni,
     // taxon iNaturalist da escludere dalla heatmap (without_taxon_id)
-    idInat: () => [...new Set([...dati.specie, ...(dati.comuni.attive ? dati.comuni.specie : [])].map((v) => v.inat).filter(Boolean))].sort((a, b) => a - b),
+    idInat: () => [...new Set([...dati.specie, ...comuniAttive()].map((v) => v.inat).filter(Boolean))].sort((a, b) => a - b),
     // cambia quando cambia l'esclusione: per rifare ciò che ne dipende
     firma: () => [...chiavi()].sort().join('|'),
     ascolta(f) {
       ascoltatori.add(f);
       return () => ascoltatori.delete(f);
-    },
-    // con le «più comuni» accese, l'elenco si rifà sui percorsi che ci sono ora (solo se cambia e se i dati ci sono)
-    ricalcolaComuni(sentieri) {
-      if (!dati.comuni.attive) return false;
-      const nuove = specieComuni(sentieri);
-      const k = (l) => l.map((v) => v.chiave).sort().join('|');
-      if (!nuove.length || k(nuove) === k(dati.comuni.specie)) return false;
-      cambia({ ...dati, comuni: { attive: true, specie: nuove.map((e) => voceSpecie(e)).filter(Boolean) } });
-      return true;
     },
     // un backup che arriva: sostituisce le scelte
     ripristina: (grezzo) => cambia(grezzo),

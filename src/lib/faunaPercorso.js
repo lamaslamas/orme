@@ -8,7 +8,7 @@ import { TAXON_INATURALIST } from './costanti.js';
 import { distanzaDallaTracciaM } from './geo.js';
 import { mesiMigliori } from './inaturalistTraccia.js';
 import { puntoNelPoligono } from './confini.js';
-import { nascoste } from './specieNascoste.js';
+import { nascoste, SEMPRE_VISIBILI } from './specieNascoste.js';
 
 export const RAGGIO_PERCORSO_M = 500;
 export const RAGGIO_ZONA_M = 5000;
@@ -220,7 +220,7 @@ export const GRUPPI_SPECIE = {
   mammiferi: { nome: 'Mammiferi', specie: ['cervo', 'camoscio', 'capriolo', 'daino', 'cinghiale', 'volpe', 'lupo', 'orso', 'lontra', 'gatto_selvatico', 'muflone'] },
   rapaci: { nome: 'Rapaci', specie: ['aquila_reale', 'nibbio_reale', 'gufo_reale', 'falco_grillaio'] },
 };
-export const SPECIE_SCEGLIBILI = ['cervo', 'camoscio', 'lupo', 'orso', 'capriolo', 'cinghiale', 'volpe', 'daino', 'aquila_reale', 'nibbio_reale', 'cicogna_nera'];
+export const SPECIE_SCEGLIBILI = SEMPRE_VISIBILI;
 export const animaliDellaScelta = (valore) => (GRUPPI_SPECIE[valore] ? GRUPPI_SPECIE[valore].specie : valore ? [valore] : []);
 
 // Quanto un percorso è adatto a una specie (o gruppo) nel mese scelto e in quelli accanto.
