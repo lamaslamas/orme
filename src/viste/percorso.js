@@ -27,7 +27,7 @@ import { htmlQuandoAndare, collegaQuandoAndare } from './quandoAndare.js';
 import { quoteMeteoDaiPezzi } from '../lib/quandoAndare.js';
 import L from 'leaflet';
 import { ripristinaOriginale, nuovoIdPercorso } from '../lib/percorso.js';
-import { apriCondividi, condividiLink, copiaLink } from './condividi.js';
+import { condividiGpx, condividiLink, copiaLink } from './condividi.js';
 import { nomeProposto } from './nomeAutomatico.js';
 import { nomeDaSostituire } from '../lib/nomePercorso.js';
 
@@ -94,7 +94,7 @@ export async function vistaPercorso(app, id, virtuale = null) {
         <button type="button" class="bottone ${virtuale ? '' : 'primario'}" data-condividi>${ICONE.condividi ?? ''}<span>Condividi</span></button>
         <button type="button" class="bottone" data-copia-link>Copia link</button>
         ${virtuale ? '' : `<a class="bottone" href="#/percorso/${idUrl}/disegna">Modifica traccia</a>`}
-        <button type="button" class="bottone testo piccolo" data-altro aria-haspopup="dialog">Altro</button>`;
+        <button type="button" class="bottone" data-gpx>GPX</button>`;
   app.innerHTML = `
     <a class="indietro" href="${virtuale ? '#/' : '#/pianifica'}">‹ ${virtuale ? 'Mappa' : 'Pianifica'}</a>
     <article class="scheda scheda-percorso">
@@ -184,7 +184,7 @@ export async function vistaPercorso(app, id, virtuale = null) {
   const infoCondivisione = () => ({ nome: attuale.nome || p.nome, note: attuale.note ?? p.note ?? '', pezzi: quote?.pezzi ?? pezzi, originali, verso: invertito });
   for (const b of app.querySelectorAll('[data-condividi]')) b.addEventListener('click', () => condividiLink(infoCondivisione()));
   for (const b of app.querySelectorAll('[data-copia-link]')) b.addEventListener('click', () => copiaLink(infoCondivisione()));
-  for (const b of app.querySelectorAll('[data-altro]')) b.addEventListener('click', () => apriCondividi({ ...infoCondivisione(), soloAltro: true }));
+  for (const b of app.querySelectorAll('[data-gpx]')) b.addEventListener('click', () => condividiGpx(infoCondivisione()));
   for (const b of app.querySelectorAll('[data-salva-condiviso]')) {
     b.addEventListener('click', async () => {
       const idNuovo = nuovoIdPercorso();

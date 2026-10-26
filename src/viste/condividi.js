@@ -1,12 +1,10 @@
-// «Condividi» un mio percorso: GPX (nome, note, traccia con quote), link senza server (traccia semplificata, nome,
-// note e verso nell'indirizzo) o immagine verticale. Nel link e nel file solo traccia, nome, note e verso: niente
-// osservazioni, posizioni GPS mie o altri dati del telefono.
+// «Condividi» un mio percorso: link senza server (traccia semplificata, nome, note e verso nell'indirizzo) o GPX (nome,
+// note, traccia con quote). Nel link e nel file solo traccia, nome, note e verso: niente osservazioni, posizioni GPS mie
+// o altri dati del telefono.
 import { creaGpx, nomeFileGpx } from '../lib/gpxScrittura.js';
 import { costruisciLink } from '../lib/condividi.js';
-import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { escapeHtml } from '../lib/formato.js';
 import { quoteDeiPezzi } from './quote.js';
-import { creaImmagine } from './immagineCondivisione.js';
 import { finestraTrascinabile } from './tendina.js';
 import { nomeProposto } from './nomeAutomatico.js';
 import { nomeDaSostituire } from '../lib/nomePercorso.js';
@@ -121,22 +119,27 @@ export async function condividiFile(file, titolo) {
   return 'scaricato';
 }
 
-// soloAltro: senza «Copia link» (c'è già accanto a «Condividi»): restano GPX e immagine
+// «GPX»: il file con le quote (dalle Terrain Tiles se mancano), al menu di condivisione del telefono o scaricato
+export async function condividiGpx({ nome, note = '', pezzi }) {
+  mostraAvviso('Preparo il GPX…', 1500);
+  const linee = await conQuote(pezzi);
+  const file = new File([creaGpx({ nome, note, linee })], nomeFileGpx(nome), { type: 'application/gpx+xml' });
+  const esito = await condividiFile(file, nome);
+  if (esito === 'scaricato') mostraAvviso('GPX scaricato.');
+}
+
+// Il foglio «Condividi» (disegno): GPX e link
+// soloAltro: senza «Copia link» (c'è già accanto a «Condividi»): resta il GPX
 export function apriCondividi({ nome, note = '', pezzi, originali = pezzi, verso = false, soloAltro = false }) {
   const finestra = document.createElement('dialog');
   finestra.className = 'foglio foglio-condividi';
   finestra.innerHTML = `
     <div class="foglio-maniglia" aria-hidden="true"></div>
-    <h2 class="foglio-titolo">${soloAltro ? 'GPX e immagine' : 'Condividi'}</h2>
+    <h2 class="foglio-titolo">${soloAltro ? 'GPX' : 'Condividi'}</h2>
     <p class="tenue piccolo">${escapeHtml(nome || 'Percorso')}. Nel link e nel file vanno solo traccia, nome, note e verso.</p>
     <div class="condividi-azioni">
       <button type="button" class="bottone pieno-largo" data-fai="gpx">Condividi GPX</button>
       ${soloAltro ? '' : '<button type="button" class="bottone pieno-largo" data-fai="link">Copia link</button>'}
-      <fieldset class="condividi-tema"><legend class="tenue piccolo">Immagine</legend>
-        <label><input type="radio" name="tema" value="chiaro" checked /> Chiaro</label>
-        <label><input type="radio" name="tema" value="scuro" /> Scuro</label>
-      </fieldset>
-      <button type="button" class="bottone pieno-largo" data-fai="immagine">Crea l'immagine</button>
     </div>
     <p class="condividi-stato tenue" role="status" aria-live="polite"></p>
     <div class="condividi-anteprima" hidden></div>
@@ -193,22 +196,6 @@ export function apriCondividi({ nome, note = '', pezzi, originali = pezzi, verso
           }
           stato.textContent = [fatto === 'annullato' ? '' : fatto, avviso].filter(Boolean).join(' ');
         }
-      } else if (cosa === 'immagine') {
-        stato.textContent = 'Creo l\'immagine…';
-        const linee = await conQuote(pezzi);
-        const m = misureDeiPezzi(linee);
-        const tema = finestra.querySelector('[name=tema]:checked')?.value ?? 'chiaro';
-        const blob = await creaImmagine({ nome, pezzi: linee, misure: m, tema });
-        const file = new File([blob], `${nomeFileGpx(nome).replace(/\.gpx$/, '')}.png`, { type: 'image/png' });
-        if (urlAnteprima) URL.revokeObjectURL(urlAnteprima);
-        urlAnteprima = URL.createObjectURL(blob);
-        anteprima.hidden = false;
-        anteprima.innerHTML = `<img src="${urlAnteprima}" alt="Immagine del percorso" /><button type="button" class="bottone primario pieno-largo" data-fai="manda-immagine">Condividi o scarica</button>`;
-        anteprima.querySelector('[data-fai=manda-immagine]').addEventListener('click', async () => {
-          const esito = await condividiFile(file, nome);
-          stato.textContent = esito === 'scaricato' ? 'Immagine scaricata.' : esito === 'condiviso' ? 'Immagine condivisa.' : '';
-        });
-        stato.textContent = 'Immagine pronta.';
       }
     } catch (err) {
       console.warn('Condividi', err);
@@ -222,7 +209,7 @@ export function apriCondividi({ nome, note = '', pezzi, originali = pezzi, verso
   finestra.addEventListener('click', (e) => {
     const cosa = e.target.closest('[data-fai]')?.dataset.fai;
     if (cosa === 'chiudi') chiudi();
-    else if (['gpx', 'link', 'immagine'].includes(cosa)) fai(cosa);
+    else if (['gpx', 'link'].includes(cosa)) fai(cosa);
   });
   finestra.showModal();
 }
