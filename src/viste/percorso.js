@@ -151,8 +151,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
   }
   const contenitoreTerreno = app.querySelector('#contenitoreTerreno');
   contenitoreTerreno.addEventListener('click', async (ev) => {
-    const attributo = ev.target.closest('[data-attributo]')?.dataset.attributo;
-    if (attributo) contenitoreTerreno.innerHTML = htmlTerreno(attuale, pezzi, attributo);
     if (ev.target.closest('[data-azione="leggi-terreno"]')) {
       const stato = contenitoreTerreno.querySelector('#statoTerreno');
       ev.target.disabled = true;

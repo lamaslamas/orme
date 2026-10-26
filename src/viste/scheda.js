@@ -124,8 +124,7 @@ function htmlFauna(s, traccia) {
   </section>`;
 }
 
-// Terreno lungo la traccia (tag OSM), visibile in tutte le modalità; in MTB
-// la valutazione per la bici è già aperta. Dato dall'archivio o letto qui da OSM.
+// Terreno lungo la traccia (tag OSM): una barra del tipo di fondo. Dato dall'archivio o letto qui da OSM.
 async function collegaTerreno(app, s, traccia) {
   const box = app.querySelector('#contenitoreTerreno');
   if (!box) return;
@@ -136,16 +135,10 @@ async function collegaTerreno(app, s, traccia) {
     const locale = await leggiTerrenoSalvato(s.id);
     if (locale?.impronta === geometria) tratti = locale.tratti;
   }
-  let attributo = 'highway';
   const disegna = () => {
-    box.innerHTML = htmlTerreno({ terreno: tratti ?? [] }, pezzi, attributo, { aperto: statoApp.leggi().attivita !== 'trekking' });
+    box.innerHTML = htmlTerreno({ terreno: tratti ?? [] });
   };
   box.addEventListener('click', async (e) => {
-    const a = e.target.closest('[data-attributo]')?.dataset.attributo;
-    if (a) {
-      attributo = a;
-      disegna();
-    }
     if (e.target.closest('[data-azione="leggi-terreno"]')) {
       const stato = box.querySelector('#statoTerreno');
       e.target.disabled = true;

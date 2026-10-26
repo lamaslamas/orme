@@ -3,45 +3,29 @@
 // la via più vicina a ogni punto (può sbagliare vicino agli incroci).
 import { distanzaKm } from './geo.js';
 import { puntoSullaLinea } from './misure.js';
-import { difficoltaDaOsm, testoDifficolta } from './difficolta.js';
 
 export const PASSO_TERRENO_M = 25;
 export const DISTANZA_MAX_M = 20;
 
-export const ATTRIBUTI = {
-  highway: {
-    nome: 'Tipo di via',
-    categoria: (v) =>
-      ({ path: 'Sentiero', footway: 'Sentiero', bridleway: 'Mulattiera', steps: 'Gradini', track: 'Carrareccia', cycleway: 'Ciclabile' })[v] ??
-      (['residential', 'unclassified', 'tertiary', 'secondary', 'primary', 'service', 'living_street', 'pedestrian'].includes(v) ? 'Strada' : null),
-    ordine: ['Sentiero', 'Mulattiera', 'Gradini', 'Carrareccia', 'Ciclabile', 'Strada'],
-  },
-  surface: {
-    nome: 'Fondo',
-    categoria: (v) => {
-      if (!v) return null;
-      if (['asphalt', 'paved', 'concrete', 'paving_stones', 'sett', 'cobblestone'].includes(v)) return 'Asfalto o lastricato';
-      if (['compacted', 'fine_gravel', 'gravel', 'pebblestone', 'unpaved'].includes(v)) return 'Sterrato o ghiaia';
-      if (['ground', 'dirt', 'earth', 'grass', 'mud', 'sand', 'wood', 'woodchips'].includes(v)) return 'Terra o prato';
-      if (['rock', 'stone', 'scree', 'bare_rock'].includes(v)) return 'Roccia o pietraia';
-      return 'Altro';
-    },
-    ordine: ['Asfalto o lastricato', 'Sterrato o ghiaia', 'Terra o prato', 'Roccia o pietraia', 'Altro'],
-  },
-  sac_scale: {
-    // scala CAI, con la SAC di OpenStreetMap tra parentesi
-    nome: 'Difficoltà (scala CAI)',
-    categoria: (v) => testoDifficolta(difficoltaDaOsm({ sac_scale: v })) || null,
-    ordine: ['T · turistico (SAC T1)', 'E · escursionistico (SAC T2)', 'EE · per esperti (SAC T3)', 'EE · per esperti (SAC T4, alpinistico)', 'EE · per esperti (SAC T5, alpinistico)', 'EE · per esperti (SAC T6, alpinistico)'],
-  },
-  trail_visibility: {
-    nome: 'Visibilità della traccia',
-    categoria: (v) => ({ excellent: 'Ottima', good: 'Buona', intermediate: 'Discreta', bad: 'Scarsa', horrible: 'Pessima', no: 'Assente' })[v] ?? null,
-    ordine: ['Ottima', 'Buona', 'Discreta', 'Scarsa', 'Pessima', 'Assente'],
-  },
+// Il fondo di un tratto, in quattro classi: sentiero, sterrato, asfalto, sconosciuto (dai tag OSM highway e surface)
+export const FONDI = {
+  sentiero: { nome: 'Sentiero', colore: '#15803d' },
+  sterrato: { nome: 'Sterrato', colore: '#ca8a04' },
+  asfalto: { nome: 'Asfalto', colore: '#64748b' },
+  sconosciuto: { nome: 'Sconosciuto', colore: '#d1d5db' },
 };
-
-export const NON_INDICATO = 'Non indicato';
+const FONDO_ASFALTO = ['asphalt', 'paved', 'concrete', 'paving_stones', 'sett', 'cobblestone'];
+const FONDO_STERRATO = ['compacted', 'fine_gravel', 'gravel', 'pebblestone', 'unpaved'];
+const VIE_STRADA = ['residential', 'unclassified', 'tertiary', 'secondary', 'primary', 'service', 'living_street', 'pedestrian', 'cycleway'];
+const VIE_SENTIERO = ['path', 'footway', 'bridleway', 'steps'];
+export function tipoFondo(tag = {}) {
+  const { highway, surface } = tag;
+  if (FONDO_ASFALTO.includes(surface)) return 'asfalto';
+  if (VIE_STRADA.includes(highway)) return FONDO_STERRATO.includes(surface) || ['ground', 'dirt', 'earth', 'grass', 'mud', 'sand'].includes(surface) ? 'sterrato' : 'asfalto';
+  if (highway === 'track') return 'sterrato';
+  if (VIE_SENTIERO.includes(highway)) return FONDO_STERRATO.includes(surface) ? 'sterrato' : 'sentiero';
+  return 'sconosciuto';
+}
 
 // Query Overpass delle vie vicine a punti campionati del percorso
 export function queryVieVicine(punti, raggioM = DISTANZA_MAX_M) {
@@ -108,14 +92,12 @@ export function abbinaTerreno(punti, vie, distanzaMaxM = DISTANZA_MAX_M) {
   return tratti.map((t) => ({ ...t, daM: Math.round(t.daM), aM: Math.round(t.aM) }));
 }
 
-// Km per categoria di un attributo, con "Non indicato" dove manca il tag
-export function riepilogoTerreno(tratti, attributo) {
-  const def = ATTRIBUTI[attributo];
-  const km = new Map();
-  for (const t of tratti) {
-    const c = def.categoria(t.tag?.[attributo]) ?? NON_INDICATO;
-    km.set(c, (km.get(c) ?? 0) + (t.aM - t.daM) / 1000);
-  }
-  const ordine = [...def.ordine, NON_INDICATO];
-  return [...km].sort((a, b) => ordine.indexOf(a[0]) - ordine.indexOf(b[0])).map(([categoria, k]) => ({ categoria, km: k }));
+// Km e percentuale per tipo di fondo, nell'ordine sentiero, sterrato, asfalto, sconosciuto (solo quelli presenti)
+export function riepilogoFondo(tratti) {
+  const km = Object.fromEntries(Object.keys(FONDI).map((k) => [k, 0]));
+  for (const t of tratti) km[tipoFondo(t.tag)] += (t.aM - t.daM) / 1000;
+  const totale = Object.values(km).reduce((a, b) => a + b, 0) || 1;
+  return Object.keys(FONDI)
+    .filter((k) => km[k] > 0)
+    .map((k) => ({ tipo: k, nome: FONDI[k].nome, km: km[k], percentuale: Math.round((km[k] / totale) * 100) }));
 }
