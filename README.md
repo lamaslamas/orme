@@ -65,8 +65,12 @@ Ogni push su `main` viene pubblicato automaticamente su GitHub Pages
 
 ## Archivio automatico dei percorsi
 
-`public/dati/archivio.json` è l'archivio pubblico dei percorsi: l'app lo scarica e lo
-unisce ai dati del telefono senza toccare note, stato e GPX personali.
+`public/dati/archivio.json` è l'archivio pubblico dei percorsi (il file di lavoro dei robot). Dopo i robot,
+`scripts/dividi-archivio.mjs` lo divide in un file per parco (`public/dati/archivio/<parco>.json`) più un indice
+(`indice.json`: nome, numero di sentieri, riquadro e confine semplificato di ogni parco). L'app all'avvio legge solo
+l'indice e i file dei parchi già sul telefono; gli altri si scaricano quando si aprono, si scelgono in Suggerisci,
+si cercano o la mappa inquadra la loro zona. I dati si uniscono a quelli del telefono senza toccare note, stato e GPX
+personali.
 Ogni giorno `.github/workflows/archivio.yml` esegue `scripts/importa-archivio.mjs`, che legge:
 
 - **Ecotur** (escursioni di un giorno nel PNALM), rispettando il `Crawl-delay` di robots.txt;

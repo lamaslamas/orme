@@ -11,6 +11,8 @@ import { preparaPercorsiInPezzi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
+import { assicuraParco, assicuraParcoSulPunto } from './archivioParchi.js';
+import { ZOOM_MINIMO_SCARICO } from '../lib/parchiArchivio.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { percorsiToccabili } from './toccaPercorso.js';
@@ -796,6 +798,18 @@ export async function vistaMappaGenerale(app, idParco = null) {
   };
   mappa.dopoIlMovimento('pulsante «Cerca percorsi qui»', aggiornaBottoneZona, { priorita: 2 });
 
+  // i sentieri di un parco si scaricano quando servono: il parco scelto, o quello che la mappa inquadra da abbastanza vicino
+  if (filtri.parco) assicuraParco(filtri.parco);
+  mappa.dopoIlMovimento(
+    'scarico dei sentieri del parco inquadrato',
+    () => {
+      if (!app.isConnected || !mappa._loaded || mappa.getZoom() < ZOOM_MINIMO_SCARICO) return;
+      const c = mappa.getCenter();
+      assicuraParcoSulPunto([c.lng, c.lat]);
+    },
+    { priorita: 8 },
+  );
+
   // la matita e «Disegna un percorso»: il disegno si apre con la vista di questa mappa
   app.addEventListener('click', (e) => {
     if (e.target.closest('a[href="#/percorso-nuovo"]')) impostaAperturaDisegno(aperturaDaMappa(mappa));
@@ -854,6 +868,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     // i filtri seguono lo stato condiviso: elenco, confine e inquadratura si aggiornano da soli
     // (prima si apre il foglio, così il parco si inquadra nella parte di mappa che resta visibile)
     mostraFoglio(true);
+    assicuraParco(parco.id); // il parco cercato: i suoi sentieri si scaricano (se non sono già sul telefono)
     stato.imposta({ parco: parco.id });
     mappa.sbloccaInquadrature?.();
     mappa.fitBounds(limitiParco(parco.id), margini(20));

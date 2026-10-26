@@ -16,6 +16,7 @@ import { completaSentiero } from './lib/sentiero.js';
 import { giriDaConvertire } from './lib/migrazione.js';
 import { completaPercorso } from './lib/percorso.js';
 import { pianoSincronizzazione, controllaArchivio } from './lib/archivio.js';
+import { sentieriDaTogliere } from './lib/parchiArchivio.js';
 import { inBase64, daBase64, fotoValida } from './lib/foto.js';
 import { haDatiMiei } from './lib/intorno.js';
 import { ID_INTORNO } from './datiParchi.js';
@@ -367,9 +368,10 @@ export const salvaPuntiIntorno = (punti) => scriviIn('meta', { chiave: 'puntiInt
 
 // --- Archivio pubblico ---
 
-// Unisce l'archivio scaricato con i miei dati: solo i campi che non ho modificato
-// firma: ETag (o data) del file scaricato, per non riscaricarlo quando non è cambiato
-export async function sincronizzaArchivio(archivio, { firma = null } = {}) {
+// Unisce l'archivio scaricato (tutto, o il file di un parco) con i miei dati: solo i campi che non ho modificato
+// firma: ETag (o impronta) del file scaricato, per non riscaricarlo quando non è cambiato
+// parco: se è il file di un parco, la sua impronta si ricorda a parte (meta «archivio:<parco>»)
+export async function sincronizzaArchivio(archivio, { firma = null, parco = null } = {}) {
   controllaArchivio(archivio);
   const [miei, basi, tracce] = await Promise.all([tuttiDa('sentieri'), tuttiDa('archivio'), tuttiDa('tracce')]);
   const piano = pianoSincronizzazione(archivio, {
@@ -383,12 +385,60 @@ export async function sincronizzaArchivio(archivio, { firma = null } = {}) {
   for (const s of piano.sentieri) tx.objectStore('sentieri').put(completaSentiero({ ...s, creato: s.creato ?? adesso, modificato: adesso }));
   for (const t of piano.tracce) tx.objectStore('tracce').put({ ...t, salvata: adesso });
   for (const b of piano.basi) tx.objectStore('archivio').put(b);
-  tx.objectStore('meta').put({ chiave: 'archivio', aggiornato: archivio.aggiornato, sincronizzato: adesso, firma });
+  if (parco) tx.objectStore('meta').put({ chiave: `archivio:${parco}`, parco, firma, sincronizzato: adesso, sentieri: archivio.percorsi.length });
+  else tx.objectStore('meta').put({ chiave: 'archivio', aggiornato: archivio.aggiornato, sincronizzato: adesso, firma });
   await fine(tx);
   return { sentieri: piano.sentieri.length, tracce: piano.tracce.length };
 }
 
 export const infoArchivio = () => leggiDa('meta', 'archivio');
+
+// --- Archivio a parchi: l'indice e i parchi già scaricati ---
+
+export const leggiIndiceParchi = async () => (await leggiDa('meta', 'indiceParchi'))?.indice ?? null;
+// (anche «archivio»: la data dell'ultimo archivio ricevuto, che si legge in Altro)
+export async function salvaIndiceParchi(indice) {
+  const db = await apriDb();
+  const tx = db.transaction('meta', 'readwrite');
+  const adesso = new Date().toISOString();
+  tx.objectStore('meta').put({ chiave: 'indiceParchi', indice, aggiornato: adesso });
+  tx.objectStore('meta').put({ chiave: 'archivio', aggiornato: indice.aggiornato, sincronizzato: adesso, firma: null });
+  await fine(tx);
+}
+// Map(id → { firma, sincronizzato, sentieri }) dei parchi sul telefono
+export async function parchiScaricati() {
+  const meta = await tuttiDa('meta');
+  return new Map(meta.filter((m) => m.chiave.startsWith('archivio:')).map((m) => [m.parco, m]));
+}
+// Chi aveva già tutto l'archivio sul telefono: i suoi parchi risultano scaricati, con l'impronta da rifare
+// (il primo controllo li riscarica una volta sola)
+export async function parchiDaArchivioIntero(idParchi) {
+  if (!(await leggiDa('meta', 'archivio')) || (await leggiDa('meta', 'archivioPerParchi'))) return [];
+  const basi = await tuttiDa('archivio');
+  const presenti = new Set(basi.map((b) => b.parco).filter((p) => idParchi.includes(p)));
+  const db = await apriDb();
+  const tx = db.transaction('meta', 'readwrite');
+  for (const parco of presenti) tx.objectStore('meta').put({ chiave: `archivio:${parco}`, parco, firma: null, sincronizzato: null });
+  tx.objectStore('meta').put({ chiave: 'archivioPerParchi', fatto: new Date().toISOString() });
+  await fine(tx);
+  return [...presenti];
+}
+// «Togli dal telefono»: i sentieri del parco venuti dall'archivio e senza niente di mio (vedi sentieriDaTogliere);
+// quelli con note, «fatto», salvati o una traccia mia restano
+export async function togliParco(parco) {
+  const [sentieri, basi, tracce] = await Promise.all([tuttiDa('sentieri'), tuttiDa('archivio'), tuttiDa('tracce')]);
+  const { daTogliere, tenuti } = sentieriDaTogliere(sentieri, parco, { basi: new Map(basi.map((b) => [b.id, b])), tracce: new Map(tracce.map((t) => [t.sentieroId, t])) });
+  const db = await apriDb();
+  const tx = db.transaction(['sentieri', 'tracce', 'archivio', 'meta'], 'readwrite');
+  for (const id of daTogliere) {
+    tx.objectStore('sentieri').delete(id);
+    tx.objectStore('tracce').delete(id);
+    tx.objectStore('archivio').delete(id);
+  }
+  tx.objectStore('meta').delete(`archivio:${parco}`);
+  await fine(tx);
+  return { tolti: daTogliere.length, tenuti: tenuti.length };
+}
 
 // --- Confini dei parchi ---
 

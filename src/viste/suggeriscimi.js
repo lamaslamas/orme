@@ -12,7 +12,9 @@ import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tracce.js';
 import { versoDi } from '../lib/verso.js';
 import { possibilitaFauna, puntiSpecie, GRUPPI_SPECIE, SPECIE_SCEGLIBILI } from '../lib/faunaPercorso.js';
-import { zonaDaScelte } from '../lib/zonaSpecie.js';
+import { zonaDaScelte, raggioDaMinuti } from '../lib/zonaSpecie.js';
+import { tuttiISentieri, tutteLeTracce } from '../db.js';
+import { assicuraParco, assicuraParchiNelRaggio } from './archivioParchi.js';
 import { leggiLuoghiZona, salvaLuogoZona, chiaveZona } from '../lib/luoghiZona.js';
 import { urlLuogoVicino, luogoVicinoDallaRisposta } from '../lib/cercaLuogo.js';
 import { ANIMALI } from '../lib/costanti.js';
@@ -770,6 +772,24 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       }
     }
   }
+  // i sentieri dei parchi non ancora sul telefono: si scaricano quelli che toccano l'area cercata (o il parco scelto)
+  async function scaricaParchiDellArea() {
+    const opzioni = { segnala: false };
+    let nuovi = false;
+    if (scelte.distanza === 'parco') nuovi = scelte.parco ? await assicuraParco(scelte.parco, opzioni) : false;
+    else {
+      const c = posizione() ?? mappa.getCenter();
+      const minuti = Number(scelte.distanza);
+      nuovi = await assicuraParchiNelRaggio(Array.isArray(c) ? c : [c.lng, c.lat], minuti > 0 ? raggioDaMinuti(minuti) : null, opzioni);
+    }
+    if (nuovi) await ricaricaSentieri();
+  }
+  // dopo uno scarico: sentieri e tracce nuovi, e i calcoli fatti sui vecchi si rifanno
+  async function ricaricaSentieri() {
+    [sentieri, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+    candidatiPronti = null;
+    usciteCache = null;
+  }
   async function cercaPercorsi() {
     const mia = ++richiesta;
     const risultati = foglio.querySelector('.suggerisci-risultati');
@@ -782,6 +802,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     } else risultati.innerHTML = '<p class="tenue">Cerco tra i percorsi…</p>';
     // i punti (rifugi, acqua) non devono bloccare la ricerca: dopo 8 secondi si va avanti senza
     puntiUtili ??= await Promise.race([caricaPunti(), new Promise((r) => setTimeout(() => r(null), 8000))]);
+    if (mia !== richiesta) return;
+    await scaricaParchiDellArea();
     if (mia !== richiesta) return;
     await scaldaCandidati();
     if (mia !== richiesta) return;
@@ -1141,6 +1163,9 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
       risultati.innerHTML = '<p class="vuoto">Scegli prima un punto di partenza valido.</p>';
       return;
     }
+    // il parco della partenza: i suoi sentieri si scaricano se mancano
+    if (await assicuraParchiNelRaggio(voluta, volutaKm / 2 + 3, { segnala: false })) await ricaricaSentieri();
+    if (mia !== richiesta) return;
     // acqua: i punti dei parchi più i quadrati del robot della zona (file già pronti, niente Overpass)
     const raggio = volutaKm / 2 + 1;
     const [avvisi, parchi, robot] = await Promise.all([preparaAvvisi(), caricaPunti(), puntiDelRobot(riquadroDeiPezzi([[puntoA(voluta, raggio * 1.42, 225), puntoA(voluta, raggio * 1.42, 45)]], 0), { max: 9 })]);

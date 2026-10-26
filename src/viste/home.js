@@ -14,6 +14,9 @@ import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { htmlRicerca } from './filtri.js';
+import { statoParchi, assicuraParco, togliDalTelefono } from './archivioParchi.js';
+import { statoParco } from '../lib/parchiArchivio.js';
+import { mostraAvviso } from './condividi.js';
 import { montaElenco, schedaInLista } from './lista.js';
 
 const PER_PARCO = 4;
@@ -32,7 +35,7 @@ function htmlCredito(chiave, titolo) {
 }
 
 // attivita: { trekking, mtb } = quanti percorsi del parco sono adatti a ciascuna
-function htmlParco(p, n, evidenziato, attivita) {
+function htmlParco(p, n, evidenziato, attivita, telefono) {
   const specie = p.animali.slice(0, 3).map((a) => ANIMALI[a]).join(', ');
   return `<li class="carta-foto ${evidenziato ? 'evidenziata' : ''}">
     <a class="carta-foto-link" href="#/?parco=${encodeURIComponent(p.id)}">
@@ -48,7 +51,21 @@ function htmlParco(p, n, evidenziato, attivita) {
       </span>
     </a>
     ${htmlCredito(p.id, p.nomeBreve)}
+    ${htmlTelefono(p, telefono)}
   </li>`;
+}
+
+// «sul telefono» / «da scaricare» e, se i sentieri sono sul telefono, «Togli dal telefono»
+function htmlTelefono(p, telefono) {
+  if (!telefono) return '';
+  const voce = telefono.indice?.parchi.find((x) => x.id === p.id);
+  const esito = statoParco(voce, telefono.scaricati);
+  if (esito === 'vuoto') return '';
+  return `<div class="parco-telefono">${
+    esito === 'sul-telefono'
+      ? `<span class="tenue piccolo">sul telefono</span><button type="button" class="link" data-togli-parco="${escapeHtml(p.id)}">Togli dal telefono</button>`
+      : `<span class="tenue piccolo">da scaricare · ${voce.sentieri} sentieri</span><button type="button" class="link" data-scarica-parco="${escapeHtml(p.id)}">Scarica</button>`
+  }</div>`;
 }
 
 function htmlSpecie(r, scelta, evidenziata) {
@@ -67,7 +84,7 @@ function htmlSpecie(r, scelta, evidenziata) {
 }
 
 export async function vistaHome(app) {
-  const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
+  const [tutti, tracce, telefono] = await Promise.all([tuttiISentieri(), tutteLeTracce(), statoParchi().catch(() => null)]);
   const sentieri = tutti.filter(diUnParco);
   const preparati = preparaPercorsi(sentieri, tracce);
   const st = stato.leggi();
@@ -137,7 +154,7 @@ export async function vistaHome(app) {
     // ciò che corrisponde alla ricerca viene prima
     const parchi = [...PARCHI].sort((a, b) => cercati.parchi.includes(b.id) - cercati.parchi.includes(a.id));
     listaParchi.innerHTML = parchi
-      .map((p) => htmlParco(p, visibili.filter((x) => (x.parchi ?? [x.parco]).includes(p.id)).length, cercati.parchi.includes(p.id), perAttivita.get(p.id)))
+      .map((p) => htmlParco(p, visibili.filter((x) => (x.parchi ?? [x.parco]).includes(p.id)).length, cercati.parchi.includes(p.id), perAttivita.get(p.id), telefono))
       .join('');
 
     const specie = riepilogoSpecie(visibili).sort(
@@ -181,7 +198,22 @@ export async function vistaHome(app) {
   app.addEventListener('click', (e) => {
     if (e.target.closest('[data-azione="tutte-le-specie"]')) stato.imposta({ specie: '' });
   });
-  ricerca.addEventListener('input', () => stato.imposta({ filtri: { testo: ricerca.value } }));
+  ricerca.addEventListener('input', () => {
+    stato.imposta({ filtri: { testo: ricerca.value } });
+    // un parco cercato per nome: i suoi sentieri si scaricano (se non sono già sul telefono)
+    if (ricerca.value.trim().length >= 3) {
+      const { parchi } = cercaParchiESpecie(ricerca.value);
+      if (parchi.length <= 2) for (const id of parchi) assicuraParco(id);
+    }
+  });
+  listaParchi.addEventListener('click', async (e) => {
+    const togli = e.target.closest('[data-togli-parco]')?.dataset.togliParco;
+    const scarica = e.target.closest('[data-scarica-parco]')?.dataset.scaricaParco;
+    if (scarica) assicuraParco(scarica);
+    if (!togli) return;
+    const { tolti, tenuti } = await togliDalTelefono(togli);
+    mostraAvviso(`${tolti} sentieri tolti dal telefono${tenuti ? `; ${tenuti} restano (hanno note, «fatto», salvati o una traccia tua)` : ''}.`, 5000);
+  });
 
   const elenco = montaElenco(app.querySelector('#elenco'), sentieri, tracce, { ricerca: false, serveUnFiltro: true });
   const scollegaAttivita = collegaSelettoreAttivita(app);

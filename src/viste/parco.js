@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { assicuraParco } from './archivioParchi.js';
 import { tuttiISentieri, tutteLeTracce } from '../db.js';
 import { parcoDa } from '../datiParchi.js';
 import { escapeHtml } from '../lib/formato.js';
@@ -26,6 +27,8 @@ export async function vistaParco(app, id) {
     return;
   }
   impostaBanner(parco.id);
+  // i sentieri del parco si scaricano quando lo apro (poi la pagina si ridisegna da sola)
+  assicuraParco(parco.id);
   const [tutti, tracce] = await Promise.all([tuttiISentieri(), tutteLeTracce()]);
   const sentieri = tutti.filter((s) => (s.parchi ?? [s.parco]).includes(parco.id));
   const conTraccia = sentieri.filter((s) => tracce.has(s.id));

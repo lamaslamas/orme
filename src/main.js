@@ -1,7 +1,8 @@
 import '@fontsource-variable/manrope';
 import '@fontsource-variable/inter';
 import './stile.css';
-import { caricaDatiIniziali, sincronizzaArchivio, infoArchivio, eliminaCelleDem } from './db.js';
+import { caricaDatiIniziali, infoArchivio, eliminaCelleDem } from './db.js';
+import { aggiornaArchivioParchi, EVENTO_ARCHIVIO } from './viste/archivioParchi.js';
 import { vistaHome } from './viste/home.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
@@ -183,30 +184,19 @@ window.addEventListener('orme-aggiornata-altrove', () => {
   </section>`;
 });
 
-// Archivio pubblico: si scarica all'avvio (se non c'è rete si usa la copia salvata).
-// Se arriva tardi, la schermata viene ridisegnata con i dati aggiornati.
+// Archivio pubblico, diviso per parco: all'avvio solo l'indice dei parchi (pochi KB) e i file dei parchi già sul telefono
+// che sono cambiati; gli altri si scaricano quando servono (vedi viste/archivioParchi.js). Se arriva tardi, la
+// schermata viene ridisegnata con i dati aggiornati.
 async function aggiornaArchivio() {
-  const controllo = new AbortController();
-  // l'archivio si scarica in background: anche su reti lente si aspetta fino a 30 secondi
-  const limite = setTimeout(() => controllo.abort(), 30000);
-  const url = `${import.meta.env.BASE_URL}dati/archivio.json`;
   try {
-    // prima solo l'impronta del file (pochi byte): se è quella dell'ultima volta, niente da scaricare
-    const [info, testa] = await intervallo('archivio: controllo impronta (HEAD)', () => Promise.all([infoArchivio(), fetch(url, { method: 'HEAD', cache: 'no-store', signal: controllo.signal }).catch(() => null)]));
-    const firma = testa?.ok ? (testa.headers.get('etag') ?? testa.headers.get('last-modified')) : null;
-    if (firma && info?.firma === firma) return false;
-    const risposta = await intervallo('archivio: scarico', () => fetch(url, { signal: controllo.signal }));
-    if (!risposta.ok) return false;
-    const json = await intervallo('archivio: lettura del JSON', () => risposta.json());
-    const esito = await intervallo('archivio: scrittura sul telefono', () => sincronizzaArchivio(json, { firma }));
-    return esito.sentieri + esito.tracce > 0;
+    return await intervallo('archivio: indice e parchi cambiati', () => aggiornaArchivioParchi());
   } catch (e) {
     console.warn('Archivio non aggiornato', e);
     return false;
-  } finally {
-    clearTimeout(limite);
   }
 }
+// un parco scaricato (o tolto) mentre si guarda una schermata: si ridisegna con i sentieri nuovi
+window.addEventListener(EVENTO_ARCHIVIO, () => mostra());
 
 globalThis.__ormeFase = 'avvio';
 intervallo('dati iniziali (controllo e scrittura)', () => caricaDatiIniziali())

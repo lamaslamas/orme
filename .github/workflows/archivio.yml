@@ -60,6 +60,9 @@ jobs:
         run: node scripts/scarica-punti-italia.mjs --max 20
         continue-on-error: true
         timeout-minutes: 40
+      # l'archivio diviso per parco (un file per parco + indice): l'app scarica solo l'indice e i parchi che usa
+      - name: Dividi l'archivio per parco
+        run: node scripts/dividi-archivio.mjs
       - name: Salva l'archivio se è cambiato
         id: salva
         run: |
