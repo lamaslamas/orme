@@ -23,7 +23,6 @@ import { stato } from '../stato.js';
 import { parcoDa, PARCHI } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
-import { aggiungiDaQui } from './daQui.js';
 import { ICONE } from './icone.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
 import { miniatura } from './lista.js';
@@ -384,9 +383,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     if (dalleTile) foglioVia.apri(e.latlng, dalleTile);
     else foglioVia.chiudi();
   });
-  // "Percorsi da qui": tra i percorsi con i filtri e la modalità scelti
   let filtratiOra = [];
-  const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true, creaAnelloDaQui: (punto) => suggerisci?.apriAnelloDa(punto) });
 
   const preparati = await intervallo('mappa: preparazione dei percorsi (a pezzi)', () => preparaPercorsiInPezzi(sentieri, tracce));
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
@@ -872,7 +869,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
     document.body.classList.remove('home-mappa', 'elenco-aperto');
     fermaGps();
     heat.rimuovi();
-    daQui.chiudi();
     controlli.scollega();
     scollegaAttivita();
     mappa.remove();

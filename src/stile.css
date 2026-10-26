@@ -1180,8 +1180,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .popup-oss p { margin: 4px 0 0; }
 /* con il pulsante Fauna in alto a destra, il pannello dei livelli si apre sotto di esso */
 .leaflet-container:has(.heat-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
-.leaflet-container:has(.daqui-bottone) .pannello-livelli { top: 104px; max-height: calc(100% - 118px); }
-.leaflet-container:has(.heat-bottone):has(.daqui-bottone) .pannello-livelli { top: 150px; max-height: calc(100% - 164px); }
 
 /* --- sezioni richiudibili della scheda del sentiero --- */
 .sezione { background: var(--scheda); border: var(--bordo-vetro); border-radius: 16px; box-shadow: var(--ombra); margin: 0 0 10px; overflow: hidden; }
@@ -1213,31 +1211,10 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .luoghi-vicini { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: 0.92rem; }
 
 /* --- Percorsi da qui --- */
-.daqui-bottone {
-  display: flex !important; align-items: center; gap: 5px; width: auto !important; padding: 0 10px 0 7px;
-  color: #c2410c; font-weight: 800; font-size: 0.8rem; text-decoration: none;
-}
-.daqui-bottone.attivo { background: #e8590c !important; color: #fff !important; }
+
 /* spillo arancio sul punto scelto */
-.spillo-daqui { background: none; border: none; }
-.spillo-daqui span {
-  position: absolute; left: 2px; top: 2px; width: 22px; height: 22px; background: #e8590c; border: 3px solid #fff;
-  border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 2px 6px rgba(37, 50, 56, 0.45);
-}
+
 .scegli-punto, .scegli-punto .leaflet-interactive { cursor: crosshair !important; }
-.con-daqui .leaflet-overlay-pane { opacity: 0.3; }
-.con-elenco-daqui .legenda { display: none; }
-.barra-daqui { max-height: 46%; overflow: auto; z-index: 860; }
-.daqui-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.daqui-raggi { margin: 4px 0 2px; padding: 4px 0; }
-.daqui-raggi .pillola { min-height: 30px; font-size: 0.8rem; }
-.daqui-elenco { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
-.daqui-elenco a { display: grid; gap: 1px; padding: 6px 4px; border-radius: 8px; color: inherit; text-decoration: none; }
-.daqui-elenco a:hover { background: rgba(123, 45, 155, 0.06); }
-.daqui-elenco .nome { font-weight: 700; }
-.daqui-elenco .dati { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; }
-.daqui-elenco .fauna-breve { margin: 0; font-size: 0.8rem; }
-.chip-daqui { background: #fde7d9; color: #9a3412; }
 
 /* --- crediti delle foto: solo a schermo pieno; nelle anteprime un piccolo "©" --- */
 .carta-foto, .carta-specie { position: relative; }
@@ -2005,11 +1982,12 @@ body.suggerisci-aperto .home-sotto { display: none; }
   body.home-mappa .cornice-tendina { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); }
 }
 /* strumenti attivi (righello, percorsi da qui): sopra i pulsanti in basso; con un pannello aperto si riducono a una riga */
-.mappa-home .misura-barra, .mappa-home .barra-daqui { bottom: calc(var(--altezza-pills) + 6px); }
-body.strumento-misura.pannello-aperto, body.strumento-daqui.pannello-aperto { --altezza-strumento: 66px; }
-body.pannello-aperto .misura-barra .misura-modi, body.pannello-aperto .misura-barra .misura-comandi, body.pannello-aperto .misura-barra .misura-nota,
-body.pannello-aperto .barra-daqui .daqui-raggi, body.pannello-aperto .barra-daqui .daqui-elenco { display: none; }
-body.pannello-aperto .misura-barra, body.pannello-aperto .barra-daqui { z-index: 1060; }
+.mappa-home .misura-barra { bottom: calc(var(--altezza-pills) + 6px); }
+body.strumento-misura.pannello-aperto { --altezza-strumento: 66px; }
+body.pannello-aperto .misura-barra .misura-modi,
+body.pannello-aperto .misura-barra .misura-comandi,
+body.pannello-aperto .misura-barra .misura-nota { display: none; }
+body.pannello-aperto .misura-barra { z-index: 1060; }
 
 /* --- Disegno: comandi sopra il pannello (mai sotto), niente barra Fauna e comandi inutili --- */
 body.disegno .mappa-disegno .leaflet-bottom.leaflet-left, body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: calc(var(--altezza-foglio, 190px) + 8px); }
@@ -2023,7 +2001,7 @@ body.disegno .pannello-heatmap { display: none; }
   body.disegno .gps-stato { bottom: 16px; left: calc(50% + 210px); }
 }
 .misura-barra .x-pannello { top: -18px; right: 6px; }
-.barra-daqui .x-pannello { top: 4px; }
+
 .ordina-elenco[hidden] { display: none; }
 .azioni-vuota .bottone { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; flex: 0 1 auto; }
 .azioni-vuota .bottone svg { width: 18px; height: 18px; }
@@ -2268,12 +2246,16 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .menu-taglio { display: grid; gap: 4px; }
 .disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 10px; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
 /* «Modifica traccia» a icona, nelle card e nelle liste */
-.lista > li, .voce-risultato, .voce-meteo, .daqui-elenco > li { position: relative; }
+.lista > li,
+.voce-risultato,
+.voce-meteo { position: relative; }
 a.modifica-carta {
   position: absolute; right: 10px; top: 52px; z-index: 2; width: 34px; height: 34px; padding: 0; border-radius: 50%;
   display: grid; place-items: center; background: rgba(var(--chiaro-rgb), 0.92); color: var(--teal); box-shadow: 0 1px 4px rgba(37, 50, 56, 0.2);
 }
-.voce-risultato > a.modifica-carta, .voce-meteo > a.modifica-carta, .daqui-elenco > li > a.modifica-carta, .lista > li > a.modifica-carta:not(.voce-percorso a) { top: 8px; right: 8px; }
+.voce-risultato > a.modifica-carta,
+.voce-meteo > a.modifica-carta,
+.lista > li > a.modifica-carta:not(.voce-percorso a) { top: 8px; right: 8px; }
 .voce-percorso > a.modifica-carta { top: 52px; right: 10px; }
 .lista > li:not(.voce-percorso) > a.modifica-carta { top: 8px; right: 8px; }
 .modifica-traccia-via { margin-top: 8px; }
