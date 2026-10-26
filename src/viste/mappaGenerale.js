@@ -30,6 +30,8 @@ import { miniatura } from './lista.js';
 import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { cronometra, impostaContatore, segna, intervallo } from '../lib/misura.js';
+import { creaIndice } from '../lib/indiceSpaziale.js';
+import { inPezzi } from '../lib/lavoro.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
@@ -301,6 +303,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // percorsi con traccia (con i filtri): riquadro di ognuno (per l'elenco), e solo di quelli disegnati il gruppo e l'area
   // toccabile (un tocco la evidenzia)
   const limiti = new Map();
+  const misurePer = new Map(); // id → misure già calcolate con i filtri (le schede non le rifanno)
   const perId = new Map();
   const gruppi = new Map();
   const aree = new Map();
@@ -394,31 +397,53 @@ export async function vistaMappaGenerale(app, idParco = null) {
   // quando si apre
   let elencoVecchio = false;
   let quiOra = new Set(); // i percorsi dell'elenco: nella zona inquadrata, con i filtri
+  // Con l'elenco chiuso si calcola solo il numero per «Percorsi qui», con l'indice spaziale (nessuno scorrimento di tutti i
+  // percorsi). L'elenco completo si scrive solo con il foglio aperto, a pezzi e senza rifare le schede già pronte.
+  const indice = creaIndice(0.1);
+  const schede = new Map(); // id + distanza → html della scheda (si svuota quando cambiano filtri o foto)
+  const distanzeNote = new Map(); // id → distanza dalla mia posizione (per «Partenza più vicina»)
+  let posizioneDistanze = null;
+  let giroElenco = 0;
   function elencoInVista() {
     if (!app.isConnected || !mappa._loaded || !mappa._mapPane) return; // schermata già chiusa
     const vista = mappa.getBounds();
-    let qui = inMappa.filter(({ sentiero }) => limiti.get(sentiero.id)?.intersects(vista));
-    quiOra = new Set(qui.map(({ sentiero }) => sentiero.id));
+    quiOra = indice.nelRiquadro([vista.getSouth(), vista.getWest(), vista.getNorth(), vista.getEast()]);
     aggiornaPercorsi();
-    // partenza più vicina a me (se la posizione c'è): distanza dall'inizio (o dalla fine) della traccia
     const vicini = ordineElenco === 'vicini' && miaPosizione;
-    if (vicini) {
-      qui = qui
-        .map((p) => ({ ...p, distanza: distanzaDiPartenza(p.sentiero, p.traccia, miaPosizione, Infinity) }))
-        .sort((a, b) => a.distanza.metri - b.distanza.metri);
-    }
     for (const b of app.querySelectorAll('[data-ordine]')) {
       const on = b.dataset.ordine === (vicini ? 'vicini' : 'consigliato');
       b.classList.toggle('attivo', on);
       b.setAttribute('aria-checked', String(on));
     }
     const conta = app.querySelector('#contaQui');
-    if (conta) conta.textContent = qui.length ? String(qui.length) : '';
+    if (conta) conta.textContent = quiOra.size ? String(quiOra.size) : '';
     if (app.querySelector('#foglioElenco')?.hidden) {
       elencoVecchio = true;
+      giroElenco++; // un elenco in costruzione non serve più
       return;
     }
     elencoVecchio = false;
+    scriviElenco(vicini);
+  }
+  // distanza della partenza dalla mia posizione, ricordata per percorso (il calcolo ricostruisce la traccia)
+  function distanzaNota(p) {
+    if (posizioneDistanze !== miaPosizione) {
+      distanzeNote.clear();
+      posizioneDistanze = miaPosizione;
+    }
+    let d = distanzeNote.get(p.sentiero.id);
+    if (!d) distanzeNote.set(p.sentiero.id, (d = distanzaDiPartenza(p.sentiero, p.traccia, miaPosizione, Infinity)));
+    return d;
+  }
+  async function scriviElenco(vicini) {
+    const mio = ++giroElenco;
+    let qui = inMappa.filter(({ sentiero }) => quiOra.has(sentiero.id));
+    // partenza più vicina a me (se la posizione c'è): distanza dall'inizio (o dalla fine) della traccia
+    if (vicini) {
+      qui = await inPezzi(qui, (p) => ({ ...p, distanza: distanzaNota(p) }));
+      if (mio !== giroElenco) return;
+      qui.sort((a, b) => a.distanza.metri - b.distanza.metri);
+    }
     senzaTracciaInVista();
     // zona vuota: niente titolo né ordine, subito cosa fare (htmlZonaVuota)
     app.querySelector('#titoloRisultati').textContent = inMappa.length && qui.length
@@ -426,33 +451,40 @@ export async function vistaMappaGenerale(app, idParco = null) {
       : '';
     app.querySelector('.ordina-elenco').hidden = !qui.length;
     const tipoQui = tipoZonaOra(qui.length);
+    // le schede (foto o miniatura, tre numeri, fauna) a pezzi sotto i 30 ms: lo schermo non si ferma e, spostando la mappa,
+    // l'elenco in costruzione si lascia da parte. Le schede già fatte si riusano.
+    const pezzi = await inPezzi(qui.slice(0, 60), (voce) => schedaMappa(voce), { budgetMs: 25 });
+    if (mio !== giroElenco) return;
     app.querySelector('#risultatiMappa').innerHTML =
-      qui
-        .slice(0, 60)
-        .map(({ sentiero: s, traccia, distanza }) => {
-          // stessa scheda degli elenchi, compatta: foto (o disegno della traccia), nome, tre numeri, fauna
-          const m = misureSentiero(s, traccia);
-          const foto = copertina(s, traccia);
-          const dati = [
-            m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
-            testoSalitaMax(m.salita, m.quotaMax) ? `<span>${ICONE.salita}${testoSalitaMax(m.salita, m.quotaMax)}</span>` : '',
-            m.durataMin != null ? `<span>${ICONE.orologio}${durata(m.durataMin)}</span>` : '',
-          ].join('');
-          return `<li class="voce-risultato"><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">
-            <span class="ris-foto">${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}</span>
-            <span class="ris-corpo">
-              <span class="nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</span>
-              ${distanza && Number.isFinite(distanza.metri) ? `<span class="nota-partenza">${escapeHtml(testoPartenza(distanza))}</span>` : ''}
-              ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
-              ${htmlFaunaBreve(s, { compatta: true })}
-            </span>
-          </button>${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}</li>`;
-        })
-        .join('') +
+      pezzi.join('') +
       (qui.length > 60 ? `<li class="tenue piccolo">e altri ${qui.length - 60}: avvicinati sulla mappa o usa i filtri</li>` : '') +
       (tipoQui === 'pochi' ? `<li>${htmlZonaVuota(qui.length, tipoQui)}</li>` : '');
     // zona vuota: il perché e cosa fare stanno in cima alla tendina, ben visibili anche a metà
     app.querySelector('#zonaVuota').innerHTML = tipoQui === 'vuota' || tipoQui === 'filtri' ? htmlZonaVuota(qui.length, tipoQui) : '';
+  }
+  // stessa scheda degli elenchi, compatta: foto (o disegno della traccia), nome, tre numeri, fauna
+  function schedaMappa({ sentiero: s, traccia, distanza }) {
+    const chiave = `${s.id}|${distanza && Number.isFinite(distanza.metri) ? testoPartenza(distanza) : ''}`;
+    const nota = schede.get(chiave);
+    if (nota) return nota;
+    const m = misurePer.get(s.id) ?? misureSentiero(s, traccia); // già calcolate con i filtri
+    const foto = copertina(s, traccia);
+    const dati = [
+      m.km != null ? `<span>${ICONE.percorso}${m.km.toFixed(1).replace('.', ',')} km</span>` : '',
+      testoSalitaMax(m.salita, m.quotaMax) ? `<span>${ICONE.salita}${testoSalitaMax(m.salita, m.quotaMax)}</span>` : '',
+      m.durataMin != null ? `<span>${ICONE.orologio}${durata(m.durataMin)}</span>` : '',
+    ].join('');
+    const html = `<li class="voce-risultato"><button type="button" class="risultato-carta" data-id="${escapeHtml(s.id)}">
+        <span class="ris-foto">${foto ? `<img src="${escapeHtml(foto.url)}" alt="" loading="lazy" decoding="async" />` : miniatura(traccia, s.stato)}</span>
+        <span class="ris-corpo">
+          <span class="nome">${s.codici?.length ? `<span class="codice">${escapeHtml(codici(s))}</span> ` : ''}${escapeHtml(s.nome)}</span>
+          ${distanza && Number.isFinite(distanza.metri) ? `<span class="nota-partenza">${escapeHtml(testoPartenza(distanza))}</span>` : ''}
+          ${dati ? `<span class="dati-icone">${dati}</span>` : ''}
+          ${htmlFaunaBreve(s, { compatta: true })}
+        </span>
+      </button>${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}</li>`;
+    schede.set(chiave, html);
+    return html;
   }
   const tipoZonaOra = (quanti) => tipoZona({ qui: quanti, altre: inMappa.length - quanti, filtri: filtriAttivi(filtri) > 0 || Boolean(filtri.parco) || stato.leggi().attivita !== 'trekking' });
   // zona senza risultati: dice perché e propone cosa fare (src/lib/zonaVuota.js)
@@ -478,7 +510,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     </div>`;
   }
   // le foto di copertina arrivano dopo: quando ci sono, l'elenco si ridisegna
-  if (!copertineCaricate()) caricaDaVedere().then((d) => d && app.isConnected && elencoInVista());
+  if (!copertineCaricate()) caricaDaVedere().then((d) => d && app.isConnected && (schede.clear(), elencoInVista()));
   mappa.dopoIlMovimento(
     'elenco della zona',
     () => {
@@ -504,14 +536,20 @@ export async function vistaMappaGenerale(app, idParco = null) {
     aree.clear();
     limiti.clear();
     perId.clear();
+    indice.svuota();
+    schede.clear();
+    misurePer.clear();
     toccabili.pulisci();
     mappa.closePopup();
     // senza ricerca né filtri le tracce restano discrete; con una ricerca si evidenziano i risultati
     ricercaOra = filtriAttivi(filtri) > 0 || stato.leggi().attivita !== 'trekking';
     for (const x of conTraccia) {
       perId.set(x.sentiero.id, x);
-      limiti.set(x.sentiero.id, riquadroGeojson(x.traccia.geojson));
+      const b = riquadroGeojson(x.traccia.geojson);
+      limiti.set(x.sentiero.id, b);
+      indice.aggiungi(x.sentiero.id, [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()]);
     }
+    for (const p of filtratiOra) misurePer.set(p.sentiero.id, p.misure);
     // i filtri non spostano mai la mappa: filtrano la zona inquadrata. La mappa si sposta solo su richiesta
     // (ricerca, "Vai al più vicino", parco scelto, tocco su un percorso) e alla prima apertura
     if (restaQui) restaQui = false;
@@ -541,8 +579,31 @@ export async function vistaMappaGenerale(app, idParco = null) {
     if (elencoAperto() || zonaCercata) for (const id of quiOra) voluti.add(id);
     return voluti;
   }
+  // un percorso sulla mappa: bordo, linea e area toccabile
+  function disegnaUno(id) {
+    const { sentiero, traccia: grezza } = perId.get(id);
+    // i pezzi a meno di 50 m si disegnano uniti
+    const traccia = grezza.geojson ? { ...grezza, geojson: geojsonUnito(grezza.geojson) } : grezza;
+    const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
+    // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
+    const stile = ricercaOra ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;
+    const gruppo = L.layerGroup().addTo(livello);
+    // bordo sotto la linea (stesso tracciato, più largo)
+    L.geoJSON(traccia.geojson, { style: { color: coloreBordo(), weight: stile.weight + 3, opacity: 0.85 }, interactive: false }).addTo(gruppo);
+    const { area } = toccabili.disegna(gruppo, sentiero, traccia, stile, colore, grezza);
+    gruppi.set(id, gruppo);
+    aree.set(id, area);
+  }
+  const finePercorsi = () => {
+    mappa.attenuaSentieri(ricercaOra && gruppi.size > 0);
+    impostaContatore('percorsi disegnati', gruppi.size);
+  };
+  // i percorsi da aggiungere si disegnano a pezzi (una decina alla volta, sotto i 30 ms): con tanti percorsi in vista
+  // (Fauna accesa, elenco aperto) disegnarli tutti insieme bloccava lo schermo
+  let giroDisegno = 0;
   const aggiornaPercorsi = cronometra('percorsi sulla mappa', () => {
     if (!mappa._loaded) return;
+    const mio = ++giroDisegno;
     const voluti = percorsiDaMostrare();
     for (const [id, gruppo] of gruppi) {
       if (voluti.has(id)) continue;
@@ -551,27 +612,19 @@ export async function vistaMappaGenerale(app, idParco = null) {
       aree.delete(id);
     }
     // prima i "fatto", così i "da fare" restano sopra e ben visibili
-    for (const id of [...voluti].filter((id) => !gruppi.has(id)).sort((a, b) => sopra(perId.get(a)) - sopra(perId.get(b)))) {
-      const { sentiero, traccia: grezza } = perId.get(id);
-      // i pezzi a meno di 50 m si disegnano uniti
-      const traccia = grezza.geojson ? { ...grezza, geojson: geojsonUnito(grezza.geojson) } : grezza;
-      const colore = COLORI_STATO[sentiero.stato] ?? COLORI_STATO.da_fare;
-      // con la traccia anche un'area larga e invisibile: un tocco la evidenzia e apre il riquadro
-      const stile = ricercaOra ? { color: colore, weight: 3.5, opacity: 0.9 } : STILE_PERCORSI;
-      const gruppo = L.layerGroup().addTo(livello);
-      // bordo sotto la linea (stesso tracciato, più largo)
-      L.geoJSON(traccia.geojson, { style: { color: coloreBordo(), weight: stile.weight + 3, opacity: 0.85 }, interactive: false }).addTo(gruppo);
-      const { area } = toccabili.disegna(gruppo, sentiero, traccia, stile, colore, grezza);
-      gruppi.set(id, gruppo);
-      aree.set(id, area);
+    const mancanti = [...voluti].filter((id) => !gruppi.has(id) && perId.has(id)).sort((a, b) => sopra(perId.get(a)) - sopra(perId.get(b)));
+    if (mancanti.length <= 3) {
+      for (const id of mancanti) disegnaUno(id);
+      return finePercorsi();
     }
-    mappa.attenuaSentieri(ricercaOra && gruppi.size > 0);
-    impostaContatore('percorsi disegnati', gruppi.size);
+    finePercorsi();
+    inPezzi(mancanti, (id) => mio === giroDisegno && !gruppi.has(id) && disegnaUno(id), { budgetMs: 25 }).then(() => mio === giroDisegno && finePercorsi());
   });
   // un percorso scelto da un elenco: si disegna (se non c'è già) e si tocca; resta anche chiudendo l'elenco
   function mostraPercorso(id) {
     selezionati = new Set([id]);
     aggiornaPercorsi();
+    if (!gruppi.has(id) && perId.has(id)) disegnaUno(id); // il disegno a pezzi può non esserci ancora arrivato
     aree.get(id)?.fire('click');
   }
   // Suggerisci o l'elenco si aprono e si chiudono: i percorsi sulla mappa le seguono

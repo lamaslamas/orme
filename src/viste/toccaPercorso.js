@@ -53,9 +53,14 @@ export function percorsiToccabili(mappa, { occupata = () => false, inquadra = fa
   const aree = new Set();
   mappa.percorsoVicino = (latlng) => {
     const p = mappa.latLngToLayerPoint(latlng);
+    // prima si scartano le tracce il cui riquadro (allargato della tolleranza) non contiene il tocco: la distanza esatta
+    // (che scorre tutti i punti della traccia) si calcola solo per quelle vicine al dito
+    const zona = L.latLngBounds(mappa.layerPointToLatLng(p.subtract([TOLLERANZA_PX, -TOLLERANZA_PX])), mappa.layerPointToLatLng(p.add([TOLLERANZA_PX, -TOLLERANZA_PX])));
     let migliore = null;
     for (const area of aree) {
       if (!mappa.hasLayer(area)) continue;
+      const b = area.getBounds?.();
+      if (b && !b.intersects(zona)) continue;
       const d = area.closestLayerPoint(p)?.distance ?? Infinity;
       if (d <= TOLLERANZA_PX && (!migliore || d < migliore.d)) migliore = { area, d };
     }

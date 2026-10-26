@@ -1,6 +1,8 @@
 // Livelli "Rifugi e bivacchi" e "Acqua" (da OpenStreetMap, file dati/punti.json scaricato dal robot).
 // Due interruttori separati; le icone compaiono solo da vicino per non affollare la mappa.
 import L from 'leaflet';
+import { creaIndice } from '../lib/indiceSpaziale.js';
+import { inPezzi } from '../lib/lavoro.js';
 import { leggiPuntiIntorno, leggiCellaPunti, salvaCellaPunti } from '../db.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { percorsoCoperto } from '../lib/lungoIlPercorso.js';
@@ -124,6 +126,7 @@ export function aggiungiPuntiUtili(mappa) {
   const vicino = () => mappa.getZoom() >= ZOOM_PUNTI;
   // misuratore (?misura): disegno di rifugi e acqua
   const aggiorna = cronometra('rifugi e acqua: disegno', () => aggiornaPunti());
+  let stileUsato = '';
   function aggiornaPunti() {
     const z = mappa.getZoom();
     // pallini piccoli da lontano, più grandi avvicinandosi
@@ -137,36 +140,80 @@ export function aggiungiPuntiUtili(mappa) {
         if (mostra && !mappa.hasLayer(gruppo)) gruppo.addTo(mappa);
         if (!mostra && mappa.hasLayer(gruppo)) gruppo.remove();
       }
-      pallini[g].eachLayer((c) => c.setRadius(raggio).setStyle({ weight: bordo }));
     }
+    // i pallini cambiano misura solo quando cambia lo scaglione di zoom (prima si rifaceva a ogni zoom, per tutti)
+    const stile = `${raggio}|${bordo}`;
+    if (stile !== stileUsato) {
+      stileUsato = stile;
+      for (const v of vivi.values()) v.pallino?.setRadius(raggio).setStyle({ weight: bordo });
+    }
+    sincronizza();
     mappa.aggiornaLegenda?.();
   }
 
-  // un punto si disegna una volta sola, anche se arriva da più fonti (parchi, zona, celle)
-  const disegnati = new Set();
+  // Tutti i punti stanno in un indice; sulla mappa (Leaflet) ci sono solo quelli dentro la zona inquadrata più un margine
+  // (la metà della vista in ogni direzione). Spostando la mappa entrano e escono pochi punti: niente centinaia di
+  // livelli sempre vivi da proiettare e ridisegnare a ogni fine movimento.
+  const tutti = new Map(); // id → punto
+  const indicePunti = creaIndice(0.1);
+  const vivi = new Map(); // id → { segno, pallino, gruppo }
   const aggiungi = cronometra('rifugi e acqua: segnaposto nuovi', (punti) => aggiungiPunti(punti));
   function aggiungiPunti(punti) {
     for (const p of punti) {
-      if (disegnati.has(p.id) || !sulMappa(p)) continue;
-      disegnati.add(p.id);
-      const t = TIPI_PUNTO[p.tipo];
+      if (tutti.has(p.id) || !sulMappa(p)) continue;
+      tutti.set(p.id, p);
+      indicePunti.aggiungi(p.id, [p.lat, p.lon, p.lat, p.lon]);
+    }
+    sincronizza();
+  }
+  function creaViva(p) {
+    const t = TIPI_PUNTO[p.tipo];
+    const g = t.gruppo;
+    const v = { gruppo: g, segno: null, pallino: null };
+    if (vicino()) {
       // sulla tela, non come segnaposto HTML (con centinaia di punti il telefono rallentava)
-      new SegnoSuTela([p.lat, p.lon], { renderer: telaSegni(mappa), radius: 12, disegno: disegnoPunto(p.tipo, p.chiuso) })
-        .bindPopup(popup(p))
-        .addTo(livelli[t.gruppo]);
-      L.circleMarker([p.lat, p.lon], {
+      v.segno = new SegnoSuTela([p.lat, p.lon], { renderer: telaSegni(mappa), radius: 12, disegno: disegnoPunto(p.tipo, p.chiuso) }).bindPopup(popup(p)).addTo(livelli[g]);
+    } else {
+      const z = mappa.getZoom();
+      v.pallino = L.circleMarker([p.lat, p.lon], {
         renderer: tela,
         pane: 'puntiLontani',
-        radius: 3,
-        weight: 1,
+        radius: z >= 11 ? 4.5 : z >= 10 ? 3.5 : 2.5,
+        weight: z >= 10 ? 1.25 : 0.75,
         color: '#fff',
-        fillColor: p.chiuso ? '#8a8f8c' : COLORE_GRUPPO[t.gruppo],
+        fillColor: p.chiuso ? '#8a8f8c' : COLORE_GRUPPO[g],
         fillOpacity: 0.95,
       })
         .bindPopup(() => popup(p))
-        .addTo(pallini[t.gruppo]);
+        .addTo(pallini[g]);
     }
+    vivi.set(p.id, v);
   }
+  const togliViva = (id) => {
+    const v = vivi.get(id);
+    if (!v) return;
+    if (v.segno) livelli[v.gruppo].removeLayer(v.segno);
+    if (v.pallino) pallini[v.gruppo].removeLayer(v.pallino);
+    vivi.delete(id);
+  };
+  let giroPunti = 0;
+  function sincronizza() {
+    if (rimossa || !mappa._loaded || !tutti.size) return;
+    const mio = ++giroPunti;
+    const z = mappa.getZoom();
+    const daMostrare = z >= ZOOM_PALLINI;
+    const zona = mappa.getBounds().pad(0.5);
+    const volute = daMostrare ? indicePunti.nelRiquadro([zona.getSouth(), zona.getWest(), zona.getNorth(), zona.getEast()]) : new Set();
+    const vicinoOra = vicino();
+    // fuori dalla finestra, di un gruppo spento o del tipo sbagliato per questo zoom (segno da vicino, pallino da lontano)
+    for (const [id, v] of [...vivi]) if (!volute.has(id) || !accesi[v.gruppo] || (vicinoOra ? !v.segno : !v.pallino)) togliViva(id);
+    const nuovi = [...volute].filter((id) => !vivi.has(id) && accesi[TIPI_PUNTO[tutti.get(id).tipo].gruppo]);
+    if (!nuovi.length) return;
+    // i nuovi a pezzi sotto i 25 ms (all'inizio, o con un grande salto, possono essere centinaia)
+    inPezzi(nuovi, (id) => mio === giroPunti && !vivi.has(id) && creaViva(tutti.get(id)), { budgetMs: 25 });
+  }
+  // dopo un movimento la finestra si aggiorna (nella coda dei lavori di fine movimento)
+  mappa.dopoIlMovimento('rifugi e acqua: finestra', sincronizza, { priorita: 2 });
 
   caricaPunti().then((punti) => {
     if (rimossa) return;

@@ -129,7 +129,11 @@ export function riassuntoFotogrammiLunghi(voci) {
 // l'ultima mappa Leaflet aperta (per il punto di prova e lo zoom nel riepilogo)
 let mappaAttiva = null;
 export function registraMappa(mappa, attivo = MISURA_ATTIVA) {
-  if (attivo) mappaAttiva = mappa;
+  if (attivo) {
+    mappaAttiva = mappa;
+    globalThis.__ormeMappa = mappa; // per ispezionare la mappa dalla console con ?misura
+    cronometraEventiMappa(mappa);
+  }
 }
 export const mappaRegistrata = () => mappaAttiva;
 
@@ -422,4 +426,42 @@ export function attribuisciLunghi(lunghi, lavori, eventi, { soglia = 100, massim
 export function dividiPerBlocco(voci) {
   const bloccanti = voci.filter((v) => v.bloccante == null || v.bloccante >= 50);
   return { bloccanti, lenti: voci.length - bloccanti.length };
+}
+
+// Ogni evento della mappa (movestart, moveend, zoomend, dragend…) con il tempo di ciascun ascoltatore: chi risponde a un
+// fine movimento (livelli, tele, segnaposto, i nostri lavori) è dentro «touchend» o «pointerup» di Leaflet, e senza questo
+// il riepilogo non dice chi è. L'etichetta è la classe di chi ascolta e l'inizio della sua funzione.
+const EVENTI_MAPPA = new Set(['movestart', 'move', 'moveend', 'zoomstart', 'zoom', 'zoomend', 'dragstart', 'dragend', 'viewreset', 'resize', 'viewprereset']);
+function cronometraEventiMappa(mappa) {
+  const Evented = Object.getPrototypeOf(Object.getPrototypeOf(mappa));
+  if (!Evented?.fire || Evented.__misurato) return;
+  Evented.__misurato = true;
+  const fire = Evented.fire;
+  const nomeAscoltatore = (l) => `${l.ctx?.constructor?.name ?? '-'} · ${String(l.fn?.name || l.fn).replace(/\s+/g, ' ').slice(0, 60)}`;
+  Evented.fire = function (tipo, ...resto) {
+    const ascoltatori = EVENTI_MAPPA.has(tipo) ? this._events?.[tipo] : null;
+    if (!ascoltatori?.length) return fire.call(this, tipo, ...resto);
+    // si sostituisce la funzione di ogni ascoltatore con una cronometrata e dopo la si rimette (se nel frattempo non è stata
+    // tolta: Leaflet la sostituisce con una funzione vuota)
+    const coppie = [...ascoltatori].map((l) => {
+      const f = l.fn;
+      const nome = `evento ${tipo}: ${nomeAscoltatore(l)}`;
+      const avvolta = function (...a) {
+        const inizio = performance.now();
+        try {
+          return f.apply(this, a);
+        } finally {
+          const ms = performance.now() - inizio;
+          if (ms >= 4) registra(nome, ms);
+        }
+      };
+      l.fn = avvolta;
+      return { l, f, avvolta };
+    });
+    try {
+      return fire.call(this, tipo, ...resto);
+    } finally {
+      for (const { l, f, avvolta } of coppie) if (l.fn === avvolta) l.fn = f;
+    }
+  };
 }
