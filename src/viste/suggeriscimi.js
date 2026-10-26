@@ -271,7 +271,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     try {
       const osservazioni = [];
       for (let pagina = 0; pagina < (scalaArea > 1 ? 8 : 5); pagina++) {
-        const r = await fetch(urlOsservazioniGbif(riquadro, { specie: 'notevoli', gruppi: ['rapaci', 'acqua', 'mammiferi'] }, { limite: 300, scarto: pagina * 300 }), { signal: fermo.signal });
+        const r = await fetch(urlOsservazioniGbif(riquadro, { specie: 'notevoli', gruppi: ['selvatici'] }, { limite: 300, scarto: pagina * 300 }), { signal: fermo.signal });
         if (!r.ok) throw new Error(`GBIF ${r.status}`);
         const json = await r.json();
         // solo i campi che servono ai conti: l'osservatore è un codice anonimo

@@ -3,7 +3,7 @@ import '@fontsource-variable/inter';
 import './stile.css';
 import { caricaDatiIniziali, infoArchivio, eliminaCelleDem } from './db.js';
 import { aggiornaArchivioParchi, EVENTO_ARCHIVIO } from './viste/archivioParchi.js';
-import { collegaNascondiSpecie } from './viste/nascondiSpecie.js';
+import { collegaNascondiSpecie, assicuraComuni } from './viste/nascondiSpecie.js';
 import { vistaHome } from './viste/home.js';
 import { vistaScheda } from './viste/scheda.js';
 import { vistaModifica } from './viste/modifica.js';
@@ -200,6 +200,7 @@ async function aggiornaArchivio() {
 window.addEventListener(EVENTO_ARCHIVIO, () => mostra());
 // «Nascondi questa specie» (fumetti, liste, Cosa vedere qui)
 collegaNascondiSpecie();
+(globalThis.requestIdleCallback ?? setTimeout)(() => assicuraComuni());
 
 globalThis.__ormeFase = 'avvio';
 intervallo('dati iniziali (controllo e scrittura)', () => caricaDatiIniziali())

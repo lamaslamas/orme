@@ -97,9 +97,9 @@ describe('Fauna di Intorno a me: gruppi scelti', async () => {
   const { parametriGbif, interpretaGbif, iconaPerOsservazione } = await import('../src/lib/gbif.js');
   const { parametriInat, iconaDaAntenati } = await import('../src/lib/inaturalist.js');
   it('cerca solo i gruppi scelti; con solo "Rare" le minacciate tra mammiferi e uccelli', () => {
-    const rapaci = parametriGbif({ specie: 'notevoli', gruppi: ['rapaci'] }).getAll('taxonKey');
-    expect(rapaci).toEqual(['7191147', '7191407', '1450']);
-    expect(parametriInat({ specie: 'notevoli', gruppi: ['rapaci', 'acqua'] }).get('taxon_id')).toBe('71261,67570,19350,4929,4730,23,4255,71361,3727');
+    const tutti = parametriGbif({ specie: 'notevoli', gruppi: ['selvatici'] }).getAll('taxonKey');
+    expect(tutti).toEqual(['359', '212', '358', '131']); // mammiferi, uccelli, rettili, anfibi
+    expect(parametriInat({ specie: 'notevoli', gruppi: ['selvatici'] }).get('taxon_id')).toBe('40151,3,26036,20978');
     const rare = parametriGbif({ specie: 'notevoli', gruppi: ['rare'] });
     expect(rare.getAll('taxonKey')).toEqual(['359', '212']);
     expect(rare.getAll('iucnRedListCategory')).toEqual(['VU', 'EN', 'CR']);

@@ -1,6 +1,6 @@
 // «Nascondi questa specie»: un solo gestore per tutti i pulsanti (anche dentro i fumetti della mappa, i fogli e le
 // liste delle osservazioni). Il pulsante porta la specie in data-nascondi-specie (JSON: animale, scientifico, nome).
-import { nascoste, chiaveSpecie } from '../lib/specieNascoste.js';
+import { nascoste, chiaveSpecie, urlSpecieComuni, specieComuniDaRisposta } from '../lib/specieNascoste.js';
 import { urlNomeItaliano } from '../lib/specieZona.js';
 import { mostraAvviso } from './condividi.js';
 
@@ -19,6 +19,25 @@ async function trovaTaxon(chiave, scientifico) {
   } catch {
     // senza taxon la specie resta nascosta da liste e icone; la heatmap la mostra finché non si riprova
   }
+}
+
+// «Nascondi le più comuni» è accesa di base: l'elenco si calcola la prima volta (e ogni mese) dalle osservazioni d'Italia
+let calcolando = null;
+export function assicuraComuni() {
+  if (!nascoste.comuniDaCalcolare()) return Promise.resolve(false);
+  calcolando ??= (async () => {
+    try {
+      const elenco = specieComuniDaRisposta(await (await fetch(urlSpecieComuni())).json());
+      if (!elenco.length) return false;
+      nascoste.impostaComuni(true, elenco);
+      return true;
+    } catch {
+      return false; // senza rete si riprova alla prossima apertura
+    } finally {
+      calcolando = null;
+    }
+  })();
+  return calcolando;
 }
 
 export function nascondi(specie) {

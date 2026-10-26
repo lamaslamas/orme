@@ -3,19 +3,17 @@
 // percorsi, i gruppi di animali che interessano e "Cosa vedere qui" per la zona inquadrata.
 // Toccando un animale la heatmap mostra solo quello; ritoccandolo si torna ai gruppi.
 import L from 'leaflet';
-import { GRUPPI_FAUNA } from '../lib/costanti.js';
-import { leggiGruppiSalvati, salvaGruppiSalvati } from '../lib/gruppiFauna.js';
+import { leggiGruppiSalvati, leggiSoloRare, salvaSoloRare } from '../lib/gruppiFauna.js';
 import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib/intorno.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { nascoste, urlSpecieComuni, specieComuniDaRisposta } from '../lib/specieNascoste.js';
-import { htmlNascondi } from './nascondiSpecie.js';
+import { htmlNascondi, assicuraComuni } from './nascondiSpecie.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { tendinaTrascinabile } from './tendina.js';
 
 // i gruppi scelti sono una preferenza del telefono, la stessa in tutte le mappe (src/lib/gruppiFauna.js)
 const leggiGruppi = leggiGruppiSalvati;
-const salvaGruppi = salvaGruppiSalvati;
 
 const riccoOra = (f) => f.fauna === 'frequenti' && f.stagione === 'adesso';
 
@@ -37,14 +35,10 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     <div class="fauna-heat"></div>
     <div class="fauna-corpo">
       <div class="fauna-azioni">
-        <button type="button" class="chip-scorciatoia attiva" data-azione="spegni" aria-pressed="true" title="Spegni la heatmap della fauna">${ICONE.zampa}<span>Fauna accesa</span></button>
-        <button type="button" class="chip-scorciatoia" data-azione="ricco">${ICONE.zampa}<span>Ricco di fauna · periodo attuale</span></button>
-        <button type="button" class="chip-scorciatoia" data-azione="elenco">${ICONE.percorso}<span>Percorsi qui</span></button>
+        <button type="button" class="chip-scorciatoia" data-azione="ricco">${ICONE.zampa}<span>Percorsi ricchi di fauna qui</span></button>
+        <label class="interruttore solo-rare"><input type="checkbox" data-azione="solo-rare" /> Solo rare</label>
       </div>
       <h3 class="titolo-sezione">Cosa vedere qui</h3>
-      <div class="gruppi-fauna" role="group" aria-label="Animali che ti interessano">${Object.entries(GRUPPI_FAUNA)
-        .map(([k, g]) => `<button type="button" class="chip-scorciatoia" data-gruppo="${k}">${escapeHtml(g.nome)}</button>`)
-        .join('')}</div>
       <ul class="specie-zona"></ul>
       <div class="fauna-nascoste-barra"><button type="button" class="chip-scorciatoia" data-azione="nascoste" aria-expanded="false" aria-controls="faunaNascoste"></button></div>
       <section class="fauna-nascoste" id="faunaNascoste" hidden aria-label="Specie nascoste">
@@ -70,7 +64,9 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     barraNascoste.textContent = `Nascoste (${nascoste.conta()})`;
     const comuni = nascoste.comuni();
     interruttoreComuni.checked = comuni.attive;
-    foglio.querySelector('.comuni-nota').textContent = comuni.attive
+    foglio.querySelector('.comuni-nota').textContent = comuni.attive && !comuni.specie.length
+      ? 'Calcolo le specie più osservate in Italia…'
+      : comuni.attive
       ? `Nascondo: ${comuni.specie.map((v) => v.nome).join(', ')}. Le più osservate in Italia.`
       : 'Le 30 specie di animali selvatici più osservate in Italia (iNaturalist), senza quelle di «Quale animale»: te le faccio vedere prima.';
     const mie = nascoste.nascoste();
@@ -109,11 +105,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   });
 
   function disegnaScelte() {
-    for (const b of foglio.querySelectorAll('[data-gruppo]')) {
-      const on = gruppi.includes(b.dataset.gruppo);
-      b.classList.toggle('attiva', on);
-      b.setAttribute('aria-pressed', String(on));
-    }
+    foglio.querySelector('[data-azione="solo-rare"]').checked = leggiSoloRare();
     const ricco = foglio.querySelector('[data-azione="ricco"]');
     const on = riccoOra(stato.leggi().filtri);
     ricco.classList.toggle('attiva', on);
@@ -182,22 +174,11 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       proposta.hidden = true;
     } else if (b.dataset.azione === 'annulla-comuni') {
       proposta.hidden = true;
-    } else if (b.dataset.azione === 'spegni') {
-      stato.imposta({ livelli: { heatmap: false } });
-    } else if (b.dataset.azione === 'elenco') {
-      apriElenco();
     } else if (b.dataset.azione === 'ricco') {
-      // per i percorsi in elenco: avvistamenti frequenti nel mese corrente e in quelli accanto
-      const on = riccoOra(stato.leggi().filtri);
-      stato.imposta({ filtri: on ? { fauna: '', stagione: '' } : { fauna: 'frequenti', stagione: 'adesso' } });
-    } else if (b.dataset.gruppo) {
-      const g = b.dataset.gruppo;
-      gruppi = gruppi.includes(g) ? gruppi.filter((x) => x !== g) : [...gruppi, g];
-      salvaGruppi(gruppi);
-      scelta = null;
-      heat?.ricarica();
-      disegnaScelte();
-      mostraSpecie(true);
+      // l'elenco «Percorsi qui» della zona inquadrata, già filtrato per «Ricco di fauna» nel periodo attuale
+      // (e nei mesi accanto); il filtro si vede e si toglie nell'elenco
+      stato.imposta({ filtri: { fauna: 'frequenti', stagione: 'adesso' } });
+      apriElenco();
     } else if (b.dataset.taxon) {
       const x = { inat: Number(b.dataset.taxon), nome: b.dataset.nome, scientifico: b.dataset.scientifico };
       scelta = scelta?.inat === x.inat ? null : x;
@@ -210,6 +191,14 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     }
   });
 
+  foglio.querySelector('[data-azione="solo-rare"]').addEventListener('change', (e) => {
+    salvaSoloRare(e.target.checked);
+    gruppi = leggiGruppiSalvati();
+    scelta = null;
+    heat?.ricarica();
+    mostraSpecie(true);
+  });
+
   function mostra(si) {
     const cambia = foglio.hidden === si;
     foglio.hidden = !si;
@@ -219,6 +208,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
       allApertura();
       disegnaScelte();
       disegnaNascoste();
+      assicuraComuni();
       mostraSpecie();
     }
   }

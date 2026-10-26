@@ -30,7 +30,8 @@ export function voceSpecie({ animale = null, scientifico = null, nomeScientifico
   return { chiave, nome: nome || (animale ? ANIMALI[animale] : null) || scientifico || nomeScientifico || chiave, ...(animale ? { animale } : {}), ...(idInat ? { inat: idInat } : {}) };
 }
 
-const VUOTO = () => ({ versione: 1, specie: [], comuni: { attive: false, specie: [] } });
+// «Nascondi le più comuni» è accesa di base (l'elenco si calcola alla prima apertura); chi l'ha spenta la ritrova spenta
+const VUOTO = () => ({ versione: 1, specie: [], comuni: { attive: true, specie: [] } });
 
 // Qualunque cosa sia stata salvata → { specie: [voce], comuni: { attive, specie: [voce] } }
 export function normalizzaNascoste(grezzo) {
@@ -41,12 +42,13 @@ export function normalizzaNascoste(grezzo) {
       .map((v) => (v && typeof v === 'object' && typeof v.chiave === 'string' && v.chiave ? { chiave: v.chiave, nome: String(v.nome ?? v.chiave), ...(typeof v.animale === 'string' ? { animale: v.animale } : {}), ...(Number(v.inat) ? { inat: Number(v.inat) } : {}) } : null))
       .filter((v) => v && !viste.has(v.chiave) && viste.add(v.chiave));
   };
-  return { versione: 1, specie: voci(g.specie), comuni: { attive: g.comuni?.attive === true, specie: voci(g.comuni?.specie) } };
+  const attive = g.comuni && typeof g.comuni === 'object' ? g.comuni.attive === true : true;
+  return { versione: 1, specie: voci(g.specie), comuni: { attive, specie: voci(g.comuni?.specie), ...(typeof g.comuni?.calcolato === 'string' ? { calcolato: g.comuni.calcolato } : {}) } };
 }
 
 export function leggiNascosteSalvate(memoria = globalThis.localStorage) {
   try {
-    return normalizzaNascoste(JSON.parse(memoria?.getItem(CHIAVE_NASCOSTE) ?? 'null'));
+    return normalizzaNascoste(JSON.parse(memoria?.getItem(CHIAVE_NASCOSTE) ?? '{}'));
   } catch {
     return VUOTO();
   }
@@ -108,13 +110,13 @@ export function creaNascoste(memoria = globalThis.localStorage) {
     leggi: () => dati,
     // vero se la specie (un animale di Orme, un'osservazione, un taxon…) è tra quelle nascoste
     esclude: (x) => {
-      if (!dati.specie.length && !dati.comuni.attive) return false;
+      if (!dati.specie.length && !comuniAttive().length) return false;
       const k = chiaveSpecie(x ?? {});
       return k != null && chiavi().has(k);
     },
     // la lista senza le specie nascoste; comeSpecie: come trovare la specie di un elemento
     senza(lista, comeSpecie = (x) => x) {
-      if (!dati.specie.length && !dati.comuni.attive) return lista;
+      if (!dati.specie.length && !comuniAttive().length) return lista;
       const k = chiavi();
       return lista.filter((x) => {
         const c = chiaveSpecie(comeSpecie(x) ?? {});
@@ -136,12 +138,14 @@ export function creaNascoste(memoria = globalThis.localStorage) {
     rimetti: (chiave) => cambia({ ...dati, specie: dati.specie.filter((x) => x.chiave !== chiave) }),
     rimettiTutte: () => cambia({ ...dati, specie: [], comuni: { ...dati.comuni, attive: false } }),
     // elenco: le specie comuni calcolate in questo momento (si ricordano, così non cambiano da sole)
-    impostaComuni: (attive, elenco = dati.comuni.specie) => cambia({ ...dati, comuni: { attive: Boolean(attive), specie: attive ? elenco.map((e) => voceSpecie(e)).filter((v) => v && !CHIAVI_SEMPRE_VISIBILI.has(v.chiave)) : dati.comuni.specie } }),
+    impostaComuni: (attive, elenco = dati.comuni.specie) => cambia({ ...dati, comuni: { attive: Boolean(attive), specie: attive ? elenco.map((e) => voceSpecie(e)).filter((v) => v && !CHIAVI_SEMPRE_VISIBILI.has(v.chiave)) : dati.comuni.specie, ...(attive ? { calcolato: new Date().toISOString().slice(0, 10) } : {}) } }),
     // quante specie sono escluse in tutto (senza contare due volte una nascosta e anche comune)
     conta: () => chiavi().size,
     // le voci escluse, per le liste «Nascoste» (le comuni a parte)
     nascoste: () => dati.specie,
     comuni: () => dati.comuni,
+    // acceso ma l'elenco manca o è vecchio (più di 30 giorni): va rifatto
+    comuniDaCalcolare: (oggi = new Date()) => dati.comuni.attive && (!dati.comuni.specie.length || !dati.comuni.calcolato || (oggi - new Date(dati.comuni.calcolato)) / 86_400_000 > 30),
     // taxon iNaturalist da escludere dalla heatmap (without_taxon_id)
     idInat: () => [...new Set([...dati.specie, ...comuniAttive()].map((v) => v.inat).filter(Boolean))].sort((a, b) => a - b),
     // cambia quando cambia l'esclusione: per rifare ciò che ne dipende

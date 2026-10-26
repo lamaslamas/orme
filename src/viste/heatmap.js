@@ -5,8 +5,7 @@
 import L from 'leaflet';
 import { ANIMALI, TAXON_GBIF, ESCLUSI_DALLE_RARE } from '../lib/costanti.js';
 import { urlOsservazioniGbif, interpretaGbif, iconaPerOsservazione } from '../lib/gbif.js';
-import { conMinacciate, taxaDeiGruppi, leggiGruppiSalvati, salvaGruppiSalvati, testoGruppi } from '../lib/gruppiFauna.js';
-import { GRUPPI_FAUNA } from '../lib/costanti.js';
+import { conMinacciate, taxaDeiGruppi, leggiGruppiSalvati, leggiSoloRare, salvaSoloRare, testoGruppi } from '../lib/gruppiFauna.js';
 import { stato } from '../stato.js';
 import { urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
 import { htmlVoceOsservazione } from './vociOsservazioni.js';
@@ -60,7 +59,7 @@ export function filtriHeatmap(st = stato.leggi()) {
   };
 }
 
-const CLASSI = new Set(['Mammalia', 'Aves']);
+const CLASSI = new Set(['Mammalia', 'Aves', 'Reptilia', 'Amphibia']);
 
 // Nome italiano delle specie fuori dalla lista (da iNaturalist, una volta sola per specie)
 // (la stessa memoria di Suggerisci: orme.nomiSpecie)
@@ -497,15 +496,13 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
     if (filtri.specie !== 'notevoli') return ANIMALI[filtri.specie] ?? filtri.specie;
     return testoGruppi(filtri.gruppi, nascoste.conta());
   }
-  // nelle mappe senza il foglio della Fauna i gruppi si scelgono qui (stessa scelta della home)
+  // nelle mappe senza il foglio della Fauna «Solo rare» si sceglie qui (stessa scelta della home)
   const htmlGruppi = () =>
-    `<div class="gruppi-fauna heat-gruppi" role="group" aria-label="Animali che ti interessano">${Object.entries(GRUPPI_FAUNA)
-      .map(([k, g]) => `<button type="button" class="chip-scorciatoia ${filtri.gruppi?.includes(k) ? 'attiva' : ''}" data-gruppo="${k}" aria-pressed="${Boolean(filtri.gruppi?.includes(k))}">${escapeHtml(g.nome)}</button>`)
-      .join('')}</div>`;
+    `<label class="scelta intera-riga"><input type="checkbox" data-solo-rare ${leggiSoloRare() ? 'checked' : ''}/> Solo rare (specie minacciate o protette)</label>`;
 
   function disegnaPannello() {
     pannello.innerHTML = `
-      <div class="heat-testa"><b>Fauna</b><span class="heat-conto" aria-live="polite"></span>
+      <div class="heat-testa"><b>Fauna</b><label class="fauna-switch" title="Spegni la heatmap della fauna"><input type="checkbox" role="switch" data-azione="spegni" checked aria-label="Fauna accesa" /></label><span class="heat-conto" aria-live="polite"></span>
         <span><button type="button" class="info-heatmap" data-azione="info" aria-label="Come leggerla" title="Come leggerla">?</button>
         <button type="button" class="chiudi-pannello" data-azione="riduci" aria-label="Mostra o nascondi i filtri">Filtri</button></span></div>
       <div class="heat-filtri">
@@ -560,10 +557,9 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
 
   pannello.addEventListener('click', (e) => {
     e.stopPropagation();
-    const gruppo = e.target.closest('[data-gruppo]')?.dataset.gruppo;
-    if (gruppo) {
-      const g = leggiGruppiSalvati();
-      salvaGruppiSalvati(g.includes(gruppo) ? g.filter((x) => x !== gruppo) : [...g, gruppo]);
+    const soloRare = e.target.closest('[data-solo-rare]');
+    if (soloRare) {
+      salvaSoloRare(soloRare.checked);
       filtri = calcolaFiltri(stato.leggi());
       richiestaZona++;
       disegnaPannello();
@@ -576,6 +572,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
       foglio.showModal();
     }
     if (azione === 'riduci') pannello.classList.toggle('ridotto');
+    if (azione === 'spegni') stato.imposta({ livelli: { heatmap: false } });
   });
 
   function accendi() {

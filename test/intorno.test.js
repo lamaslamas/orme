@@ -224,9 +224,10 @@ describe('Intorno a me: una sola richiesta', () => {
 describe('Intorno a me: cosa vedere qui', async () => {
   const { ricercheSpecieDellaZona, specieDellaZona } = await import('../src/lib/intorno.js');
   it('una ricerca per i gruppi e una per le minacciate', () => {
-    const r = ricercheSpecieDellaZona(COPERTINO, 25, ['rapaci', 'rare']);
+    const r = ricercheSpecieDellaZona(COPERTINO, 25, ['selvatici', 'rare']);
     expect(r).toHaveLength(2);
-    expect(new URL(r[0]).searchParams.get('taxon_id')).toBe('71261,67570,19350');
+    expect(new URL(r[0]).searchParams.get('taxon_id')).toBe('40151,3,26036,20978');
+    expect(ricercheSpecieDellaZona(COPERTINO, 25, ['rare'])).toHaveLength(1); // «Solo rare»: solo le minacciate
     expect(new URL(r[1]).searchParams.get('csi')).toBe('VU,EN,CR');
     expect(ricercheSpecieDellaZona(COPERTINO, 25, [])).toEqual([]);
   });

@@ -7,7 +7,6 @@ import { parametriInat } from '../src/lib/inaturalist.js';
 import { urlSpecieDellaZona, specieDellaZona, ricercheSpecieDellaZona } from '../src/lib/intorno.js';
 import { specieDellaZonaPerOsservatori } from '../src/lib/specieZona.js';
 import { testoGruppi } from '../src/lib/gruppiFauna.js';
-import { GRUPPI_FAUNA } from '../src/lib/costanti.js';
 
 afterEach(() => nascoste.rimettiTutte());
 
@@ -87,15 +86,15 @@ describe('specie nascoste: heatmap e «Cosa vedere qui»', () => {
     expect(parametriInat({ specie: 'notevoli' }).has('without_taxon_id')).toBe(false);
   });
   it('«Cosa vedere qui»: la ricerca chiede senza i nascosti e la lista non li ha, nemmeno da una risposta di prima', () => {
-    expect(urlSpecieDellaZona([13, 41], 10, ['mammiferi'], { escludiInat: [42048] })).toContain('without_taxon_id=42048');
+    expect(urlSpecieDellaZona([13, 41], 10, ['selvatici'], { escludiInat: [42048] })).toContain('without_taxon_id=42048');
     nascoste.nascondi({ animale: 'lupo' });
-    expect(ricercheSpecieDellaZona([13, 41], 10, ['mammiferi'])[0]).toContain('without_taxon_id=42048');
+    expect(ricercheSpecieDellaZona([13, 41], 10, ['selvatici'])[0]).toContain('without_taxon_id=42048');
     const risposta = { results: [{ count: 9, taxon: { id: 42048, name: 'Canis lupus', preferred_common_name: 'lupo' } }, { count: 3, taxon: { id: 42069, name: 'Vulpes vulpes', preferred_common_name: 'volpe' } }] };
     expect(specieDellaZona([risposta]).map((x) => x.scientifico)).toEqual(['Vulpes vulpes']);
   });
   it('la barra della Fauna dice quante sono nascoste', () => {
-    expect(testoGruppi(Object.keys(GRUPPI_FAUNA), 0)).toBe('Tutti gli animali');
-    expect(testoGruppi(Object.keys(GRUPPI_FAUNA), 5)).toMatch(/ · 5 nascoste$/);
-    expect(testoGruppi([Object.keys(GRUPPI_FAUNA)[0]], 1)).toMatch(/ · 1 nascosta$/);
+    expect(testoGruppi(['selvatici'], 0)).toBe('Tutti gli animali');
+    expect(testoGruppi(['selvatici'], 5)).toBe('Tutti gli animali · 5 nascoste');
+    expect(testoGruppi(['rare'], 1)).toBe('Solo rare · 1 nascosta');
   });
 });

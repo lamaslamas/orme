@@ -70,6 +70,26 @@ describe('specie nascoste', () => {
   });
 });
 
+describe('«Nascondi le più comuni» accesa di base', () => {
+  it('senza scelte salvate è accesa e l\'elenco è da calcolare; chi l\'ha spenta la ritrova spenta', () => {
+    const n = creaNascoste(memoria());
+    expect(n.comuni().attive).toBe(true);
+    expect(n.comuniDaCalcolare()).toBe(true);
+    expect(n.conta()).toBe(0); // finché l'elenco non c'è non esclude niente
+    const m = memoria();
+    m.setItem('orme.specieNascoste', JSON.stringify({ versione: 1, specie: [], comuni: { attive: false, specie: [] } }));
+    const spenta = creaNascoste(m);
+    expect(spenta.comuni().attive).toBe(false);
+    expect(spenta.comuniDaCalcolare()).toBe(false);
+  });
+  it('calcolato: non si rifà per un mese', () => {
+    const n = creaNascoste(memoria());
+    n.impostaComuni(true, [{ scientifico: 'Turdus merula', nome: 'Merlo', inat: 12716 }]);
+    expect(n.comuniDaCalcolare()).toBe(false);
+    expect(n.comuniDaCalcolare(new Date(Date.now() + 40 * 86_400_000))).toBe(true);
+  });
+});
+
 describe('specie più comuni: le più osservate in Italia', () => {
   const r = (id, name, count, comune = null) => ({ count, taxon: { id, name, preferred_common_name: comune } });
   const json = { results: [r(13858, 'Passer domesticus', 22050, 'passera europea'), r(42048, 'Canis lupus', 20000, 'lupo'), r(6930, 'Anas platyrhynchos', 19301, 'germano reale'), r(5267, 'Milvus milvus', 10645, 'nibbio reale'), r(1, 'Canis lupus familiaris', 9000, 'cane'), r(12716, 'Turdus merula', 19214, 'merlo'), r(13858, 'Passer domesticus', 5)] };

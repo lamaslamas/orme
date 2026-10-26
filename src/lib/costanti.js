@@ -140,19 +140,13 @@ export const DIFFICOLTA = {
 
 // "Intorno a me": i gruppi di animali da mostrare (scelti da chi usa l'app), con le chiavi dei taxa
 // su GBIF e su iNaturalist. "rare" = le specie minacciate (Lista Rossa IUCN) tra mammiferi e uccelli.
+// Cosa mostra la Fauna: tutti gli animali selvatici (mammiferi, uccelli, rettili, anfibi: niente domestici né specie nascoste)
+// oppure, con «Solo rare», le specie minacciate o protette (più sotto)
 export const GRUPPI_FAUNA = {
-  rapaci: { nome: 'Rapaci', gbif: [7191147, 7191407, 1450], inat: [71261, 67570, 19350] },
-  acqua: { nome: "Uccelli d'acqua", gbif: [3685, 9289, 9313, 5269, 4287244, 5288], inat: [4929, 4730, 23, 4255, 71361, 3727] },
-  // carnivori, ungulati, lagomorfi, pipistrelli, ricci, toporagni e talpe; dei roditori solo istrici,
-  // scoiattoli, ghiri e castori (niente topi e ratti)
-  mammiferi: {
-    nome: 'Mammiferi',
-    gbif: [732, 731, 785, 734, 5722, 5534, 9469, 9705, 9456, 3240562, 5493],
-    inat: [41573, 152870, 43094, 40268, 533971, 44167, 45933, 71385, 43791],
-  },
-  rare: { nome: 'Rare', minacciate: true },
+  selvatici: { nome: 'Tutti gli animali', gbif: [359, 212, 358, 131], inat: [40151, 3, 26036, 20978] },
+  rare: { nome: 'Solo rare', minacciate: true },
 };
-export const GRUPPI_FAUNA_PREDEFINITI = ['rapaci', 'acqua', 'mammiferi', 'rare'];
+export const GRUPPI_FAUNA_PREDEFINITI = ['selvatici'];
 // mammiferi e uccelli (per le specie minacciate)
 export const CLASSI_FAUNA = { gbif: [359, 212], inat: [40151, 3] };
 // "Rare": vulnerabili, in pericolo o in pericolo critico (Lista Rossa IUCN), esclusi passeriformi e
