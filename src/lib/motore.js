@@ -3,6 +3,8 @@ import { filtraSentieri, ordinaSentieri } from './filtri.js';
 import { misureSentiero } from './riassunto.js';
 import { passaQuotaDislivello, passaLunghezza, kmPercorsi } from './quotaDislivello.js';
 import { valutaCompatibilita, visibileInModalita } from './compatibilita.js';
+import { fattoreRitmo } from './ritmo.js';
+import { inPezzi } from './lavoro.js';
 
 // Intervalli dei filtri numerici
 export const INTERVALLI = {
@@ -17,11 +19,26 @@ export function nelIntervallo(valore, intervallo) {
 }
 
 // Prepara una volta sola misure e compatibilità di ogni percorso
+// Il calcolo (circa 200 ms con 800 percorsi) si ricorda per gli stessi elenchi di sentieri e tracce e lo stesso ritmo:
+// mappa e Suggerisci lo condividono, e riaprire Suggerisci non lo rifà.
+const preparatoDi = (s, tracce) => {
+  const traccia = tracce.get(s.id) ?? null;
+  return { sentiero: s, traccia, misure: misureSentiero(s, traccia), compat: valutaCompatibilita(s, traccia) };
+};
+let memoria = null; // { sentieri, tracce, ritmo, valore }
+const ricorda = (sentieri, tracce, valore) => (memoria = { sentieri, tracce, ritmo: fattoreRitmo(), valore });
+const ricordato = (sentieri, tracce) => (memoria && memoria.sentieri === sentieri && memoria.tracce === tracce && memoria.ritmo === fattoreRitmo() ? memoria.valore : null);
+
 export function preparaPercorsi(sentieri, tracce) {
-  return sentieri.map((s) => {
-    const traccia = tracce.get(s.id) ?? null;
-    return { sentiero: s, traccia, misure: misureSentiero(s, traccia), compat: valutaCompatibilita(s, traccia) };
-  });
+  return ricordato(sentieri, tracce) ?? ricorda(sentieri, tracce, sentieri.map((s) => preparatoDi(s, tracce))).valore;
+}
+// Lo stesso a pezzi piccoli (non blocca lo schermo); il risultato resta in memoria per preparaPercorsi
+export async function preparaPercorsiInPezzi(sentieri, tracce) {
+  const gia = ricordato(sentieri, tracce);
+  if (gia) return gia;
+  const valore = await inPezzi(sentieri, (s) => preparatoDi(s, tracce));
+  ricorda(sentieri, tracce, valore);
+  return valore;
 }
 
 // filtri: quelli dei sentieri + distanza/durata + quota e dislivello; attivita: trekking | mtb

@@ -5,7 +5,8 @@
 // solo sentieri segnati e senza accesso regolato, fuori anche i non segnati, evidenziati.
 import L from 'leaflet';
 import { stato } from '../stato.js';
-import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
+import { preparaPercorsi, preparaPercorsiInPezzi, filtraPercorsi } from '../lib/motore.js';
+import { inPezzi, respira } from '../lib/lavoro.js';
 import { eUscita, FILTRI_VUOTI } from '../lib/filtri.js';
 import { quoteDellaTraccia } from '../lib/riassunto.js';
 import { percorsoSentiero, tracciaDaNonUsare, invertiPercorso } from '../lib/tracce.js';
@@ -103,7 +104,7 @@ import { linkModificaTraccia } from './modificaTraccia.js';
 import { specieDelPercorso, comuniATutti, motiviDistintivi, unisciInversi, separaLuce, testoLuce } from '../lib/risultatiSuggerisci.js';
 import { leggiScelte, salvaScelte, applicaScelta } from '../lib/scelteSuggerisci.js';
 import { conRitardo } from '../lib/ritardo.js';
-import { MISURA_ATTIVA, registra, cronometra } from '../lib/misura.js';
+import { cronometra } from '../lib/misura.js';
 import { ATTIVITA } from '../lib/compatibilita.js';
 import { durataInBici } from '../lib/condizioni.js';
 
@@ -437,6 +438,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         if (zonaSpecie.stato !== 'ok') throw new Error('specie della zona non disponibili');
       }
       if (mia !== idConteggio) return;
+      await scaldaCandidati();
+      if (mia !== idConteggio) return;
       conteggio = contaCon(dataDelQuando(scelte.quando, oggiItalia())).n;
     } catch {
       conteggio = null;
@@ -475,85 +478,130 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
 
   // --- i candidati: misure scelte (A/R), fauna nel periodo, acqua, rifugio per la notte, uscite ---
   let puntiUtili = null;
-  function candidatiGrezzi(data) {
-    const t0 = MISURA_ATTIVA ? performance.now() : 0;
-    const mese = Number(data.slice(5, 7));
-    const modo = modoScelto();
+  let usciteCache = null;
+  // Le parti dei candidati che dipendono solo dalla traccia e dal verso (percorso in pezzi, quote, anello, misure di andata e
+  // ritorno) e dai punti utili lungo il percorso: si calcolano una volta per traccia (WeakMap: spariscono con la traccia).
+  const geoCache = new WeakMap();
+  function geoDi(p) {
+    const s = p.sentiero;
+    const verso = versoDi(s) ? 'inverso' : 'normale';
+    let g = geoCache.get(p.traccia);
+    if (g?.verso === verso) return g;
+    const grezzi = percorsoSentiero(p.traccia.geojson);
+    const pezzi = (verso === 'inverso' ? invertiPercorso(grezzi) : grezzi).pezzi;
+    const quote = quoteDellaTraccia(s, p.traccia);
+    const incompleta = tracciaDaNonUsare(s, p.traccia).incompleta;
+    const anello = !incompleta && eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });
+    const base = incompleta ? null : baseAndata(pezzi, quote);
+    g = { verso, pezzi, quote, incompleta, anello, base, misureAr: base ? misureAR(base, { anello }) : null, viciniDi: null, punti: undefined };
+    geoCache.set(p.traccia, g);
+    return g;
+  }
+  const viciniDi = (p, g) => {
+    if (!puntiUtili) return [];
+    if (g.punti !== puntiUtili) {
+      g.viciniDi = puntiLungoIlPercorso(puntiUtili, p.traccia.geojson);
+      g.punti = puntiUtili;
+    }
+    return g.viciniDi;
+  };
+  // prepara a pezzi (senza bloccare lo schermo) i calcoli che poi candidati() trova già pronti
+  async function scaldaCandidati(data = dataDelQuando(scelte.quando, oggiItalia())) {
+    await preparaPercorsiInPezzi(sentieri, tracce);
+    const chiave = chiaveCandidati(data);
+    if (candidatiPronti?.chiave === chiave) return;
+    const contesto = contestoCandidati(data);
+    // prima i calcoli sulle tracce (percorsi in pezzi, quote, punti utili), poi i candidati: tutto a pezzi, in pausa se si tocca
+    await inPezzi(preparaPercorsi(sentieri, tracce).filter((p) => p.traccia?.geojson), (p) => viciniDi(p, geoDi(p)));
+    await respira();
+    const elenco = await inPezzi(daCandidare(), (p) => candidatoDi(p, contesto));
+    if (chiaveCandidati(data) === chiave) candidatiPronti = { chiave, elenco };
+  }
+  // da dove si parte (la mia posizione o il centro della mappa) e il resto di ciò che serve a costruire un candidato
+  function contestoCandidati(data) {
     const da = posizione() ?? (() => {
       const c = mappa.getCenter();
       return [c.lng, c.lat];
     })();
-    // sentieri usati dalle uscite delle associazioni
-    const usciteDi = new Map();
-    // (anche le uscite con una traccia propria: il loro percorso è quello)
-    for (const v of sentieriDelleUscite(sentieri.filter(eUscita), tracce)) {
-      usciteDi.set(v.sentiero ?? v.chiave, v.uscite.map((u) => u.escursione?.nomeUscita || u.nome));
-    }
-    // compatibili con l'attività scelta (a piedi niente itinerari MTB), come negli altri elenchi
-    // in MTB, di base solo i percorribili in bici; con «Anche quelli da verificare per la bici» anche quelli con la bici da verificare
-    const filtrati = filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI, soloBici: inBici() && scelte.biciDaVerificare ? 'tutti' : '' }, stato.leggi().attivita);
-    if (MISURA_ATTIVA) registra('Suggerisci: candidati · uscite, preparazione e filtri', performance.now() - t0);
-    let msPercorsi = 0;
-    let msPunti = 0;
-    const risultati = filtrati
+    // sentieri usati dalle uscite delle associazioni (si calcola una volta: sentieri e tracce non cambiano finché la mappa è aperta)
+    const usciteDi = (usciteCache ??= (() => {
+      const m = new Map();
+      // (anche le uscite con una traccia propria: il loro percorso è quello)
+      for (const v of sentieriDelleUscite(sentieri.filter(eUscita), tracce)) m.set(v.sentiero ?? v.chiave, v.uscite.map((u) => u.escursione?.nomeUscita || u.nome));
+      return m;
+    })());
+    return { mese: Number(data.slice(5, 7)), modo: modoScelto(), da, usciteDi };
+  }
+  // i percorsi che possono essere candidati
+  // compatibili con l'attività scelta (a piedi niente itinerari MTB), come negli altri elenchi
+  // in MTB, di base solo i percorribili in bici; con «Anche quelli da verificare per la bici» anche quelli con la bici da verificare
+  const daCandidare = () =>
+    filtraPercorsi(preparaPercorsi(sentieri, tracce), { ...FILTRI_VUOTI, soloBici: inBici() && scelte.biciDaVerificare ? 'tutti' : '' }, stato.leggi().attivita)
       .filter((p) => p.traccia?.geojson && !['uscita_guidata', 'rete_sentieri'].includes(p.sentiero.tipoPercorso))
       // traccia incompleta (salti oltre 500 m): si propone solo se la fonte dà i km, e con quelli
-      .filter((p) => !tracciaDaNonUsare(p.sentiero, p.traccia).incompleta || p.misure.km != null)
-      .filter((p) => scelte.distanza !== 'parco' || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco))
-      .map((p) => {
-        const tp = MISURA_ATTIVA ? performance.now() : 0;
-        const s = p.sentiero;
-        // nel verso scelto con "Inverti senso": per due giorni il rifugio è a fine primo giorno in quel verso
-        const grezzi = percorsoSentiero(p.traccia.geojson);
-        const pezzi = (versoDi(s) ? invertiPercorso(grezzi) : grezzi).pezzi;
-        const quote = quoteDellaTraccia(s, p.traccia);
-        const incompleta = tracciaDaNonUsare(s, p.traccia).incompleta;
-        const anello = !incompleta && eAnelloPezzi(pezzi, { roundtrip: Boolean(p.traccia.dettagli?.roundtrip) });
-        const base = incompleta ? null : baseAndata(pezzi, quote);
-        // le misure della scelta (Solo andata / A/R), come nella scheda
-        const misure = base
-          ? misureScelte(misureAR(base, { anello }), modo)
-          : (() => {
-              const k = modo === 'ar' && !anello ? 2 : 1;
-              return { km: p.misure.km * k, salita: p.misure.salita != null ? p.misure.salita * k : null, durataMin: p.misure.durataMin != null ? p.misure.durataMin * k : null };
-            })();
-        const partenza = puntoDiPartenza(s, p.traccia);
-        const tv = MISURA_ATTIVA ? performance.now() : 0;
-        const vicini = puntiUtili ? puntiLungoIlPercorso(puntiUtili, p.traccia.geojson) : [];
-        if (MISURA_ATTIVA) msPunti += performance.now() - tv;
-        const voce = {
-          ...p,
-          pezzi,
-          quote,
-          // in MTB i tempi sono da bici (non i tempi CAI a piedi)
-          misure: inBici() ? { ...misure, durataMin: durataInBici(misure.km, misure.salita, 'mtb') ?? misure.durataMin } : misure,
-          anello,
-          difficolta: s.difficolta,
-          fauna: possibilitaFauna(s, mese, { stagione: scelte.periodo !== 'anno', raggioMesi: raggioMesi() }),
-          specie: !scelte.cerco.includes('fauna') || !scelte.specie
-            ? null
-            : specieDinamica()
-              ? puntiSpecieZona(zonaSpecie.osservazioni, p.traccia.geojson, scelte.specie.slice(PREFISSO_ZONA.length), mesePeriodo(mese), { raggioMesi: raggioMesi(), nome: scelte.specieNome })
-              : puntiSpecie(s, scelte.specie, mesePeriodo(mese), raggioMesi()),
-          panorama: s.panorama?.punteggio ?? null,
-          bosco: s.panorama?.boscoPercento ?? null,
-          apertura: s.panorama?.criteri?.apertura ?? null,
-          quotaMax: quote?.max ?? null,
-          specieLungo: specieDelPercorso(s, trattoDelPercorso(s, p.traccia)),
-          acqua: vicini.filter(conAcqua).length,
-          vicini,
-          uscite: usciteDi.get(s.id) ?? [],
-          auto: partenza ? stimaAuto(da, [partenza.lon, partenza.lat]) : null,
-          rifugioNotte: null,
-        };
-        if (MISURA_ATTIVA) msPercorsi += performance.now() - tp;
-        return voce;
-      });
-    if (MISURA_ATTIVA) {
-      registra('Suggerisci: candidati · misure, fauna e quote per percorso', msPercorsi - msPunti);
-      registra('Suggerisci: candidati · acqua e rifugi lungo il percorso', msPunti);
-    }
-    return risultati;
+      .filter((p) => !geoDi(p).incompleta || p.misure.km != null)
+      .filter((p) => scelte.distanza !== 'parco' || !scelte.parco || (p.sentiero.parchi ?? [p.sentiero.parco]).includes(scelte.parco));
+  function candidatoDi(p, { mese, modo, da, usciteDi }) {
+    const s = p.sentiero;
+    // nel verso scelto con "Inverti senso": per due giorni il rifugio è a fine primo giorno in quel verso
+    const g = geoDi(p);
+    const { pezzi, quote, anello } = g;
+    // le misure della scelta (Solo andata / A/R), come nella scheda
+    const misure = g.base
+      ? misureScelte(g.misureAr, modo)
+      : (() => {
+          const k = modo === 'ar' && !anello ? 2 : 1;
+          return { km: p.misure.km * k, salita: p.misure.salita != null ? p.misure.salita * k : null, durataMin: p.misure.durataMin != null ? p.misure.durataMin * k : null };
+        })();
+    const partenza = puntoDiPartenza(s, p.traccia);
+    const vicini = viciniDi(p, g);
+    // la fauna possibile dipende solo dal mese e dal periodo scelti: una volta per percorso e per scelta
+    g.fauna ??= new Map();
+    const kf = `${mese}|${scelte.periodo}|${raggioMesi()}`;
+    if (!g.fauna.has(kf)) g.fauna.set(kf, possibilitaFauna(s, mese, { stagione: scelte.periodo !== 'anno', raggioMesi: raggioMesi() }));
+    return {
+      ...p,
+      pezzi,
+      quote,
+      // in MTB i tempi sono da bici (non i tempi CAI a piedi)
+      misure: inBici() ? { ...misure, durataMin: durataInBici(misure.km, misure.salita, 'mtb') ?? misure.durataMin } : misure,
+      anello,
+      difficolta: s.difficolta,
+      fauna: g.fauna.get(kf),
+      specie: !scelte.cerco.includes('fauna') || !scelte.specie
+        ? null
+        : specieDinamica()
+          ? puntiSpecieZona(zonaSpecie.osservazioni, p.traccia.geojson, scelte.specie.slice(PREFISSO_ZONA.length), mesePeriodo(mese), { raggioMesi: raggioMesi(), nome: scelte.specieNome })
+          : puntiSpecie(s, scelte.specie, mesePeriodo(mese), raggioMesi()),
+      panorama: s.panorama?.punteggio ?? null,
+      bosco: s.panorama?.boscoPercento ?? null,
+      apertura: s.panorama?.criteri?.apertura ?? null,
+      quotaMax: quote?.max ?? null,
+      specieLungo: (g.specieLungo ??= specieDelPercorso(s, trattoDelPercorso(s, p.traccia))),
+      acqua: vicini.filter(conAcqua).length,
+      vicini,
+      uscite: usciteDi.get(s.id) ?? [],
+      auto: partenza ? stimaAuto(da, [partenza.lon, partenza.lat]) : null,
+      rifugioNotte: null,
+    };
+  }
+  // Tutto ciò da cui dipendono i candidati: se è uguale, il calcolo fatto prima vale ancora (si prepara a pezzi in
+  // scaldaCandidati e le chiamate sincrone lo trovano pronto). Ogni candidato si restituisce in una copia: chi li usa
+  // aggiunge campi (notte, giorni…) che non devono restare per la volta dopo.
+  let candidatiPronti = null; // { chiave, elenco }
+  const chiaveCandidati = (data) => {
+    const c = posizione() ?? mappa.getCenter();
+    const da = Array.isArray(c) ? c : [c.lng, c.lat];
+    return JSON.stringify([data, modoScelto(), da.map((x) => Math.round(x * 1000)), stato.leggi().attivita, scelte.biciDaVerificare, scelte.distanza, scelte.parco, scelte.periodo, scelte.cerco, scelte.specie, scelte.specieNome, zonaSpecie.chiave, zonaSpecie.stato, Boolean(puntiUtili), sentieri.map((x) => x.verso ?? '').join('')]);
+  };
+  const copie = (elenco) => elenco.map((c) => ({ ...c, rifugioNotte: null }));
+  function candidatiGrezzi(data) {
+    const chiave = chiaveCandidati(data);
+    if (candidatiPronti?.chiave === chiave) return copie(candidatiPronti.elenco);
+    const contesto = contestoCandidati(data);
+    const elenco = daCandidare().map((p) => candidatoDi(p, contesto));
+    candidatiPronti = { chiave, elenco };
+    return copie(elenco);
   }
   const candidati = cronometra('Suggerisci: candidati (totale)', candidatiGrezzi);
 
@@ -835,6 +883,8 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
     } else risultati.innerHTML = '<p class="tenue">Cerco tra i percorsi…</p>';
     // i punti (rifugi, acqua) non devono bloccare la ricerca: dopo 8 secondi si va avanti senza
     puntiUtili ??= await Promise.race([caricaPunti(), new Promise((r) => setTimeout(() => r(null), 8000))]);
+    if (mia !== richiesta) return;
+    await scaldaCandidati();
     if (mia !== richiesta) return;
     const data = dataDelQuando(scelte.quando, oggiItalia());
     const adessoSuggerisci = new Date();

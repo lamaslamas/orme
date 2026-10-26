@@ -22,6 +22,8 @@ import {
   righeSonde,
   istanteMappaUsabile,
   attribuisciLunghi,
+  dividiPerBlocco,
+  paginaInSecondoPiano,
 } from '../lib/misura.js';
 import { NOMI_LIVELLI } from './cartografia.js';
 
@@ -255,6 +257,7 @@ export function avviaMisuratore() {
     (voci ?? []).map((e) => ({
       inizio: e.startTime,
       durata: e.duration,
+      bloccante: loaf ? e.blockingDuration : undefined,
       script: loaf ? (e.scripts ?? []).map((sc) => ({ origine: origine(sc), durata: sc.duration })) : [],
     }));
 
@@ -280,7 +283,8 @@ export function avviaMisuratore() {
     const { gruppi, grandi } = righeRisorse(risorse, origineApp, usabile ?? Infinity);
     const lunghi = comeLunghi(await leggiVoci('longtask'));
     const lunghiLoaf = comeLunghi(await leggiVoci('long-animation-frame'), true);
-    const base = lunghiLoaf.length ? lunghiLoaf : lunghi;
+    const { bloccanti, lenti } = dividiPerBlocco(lunghiLoaf);
+    const base = lunghiLoaf.length ? bloccanti : lunghi;
     const attribuiti = attribuisciLunghi(base, cronologiaLavori(), fasi.map((f) => ({ t: f.t, testo: f.nome })), { soglia: 100, massimo: 8 });
     const ms = (x) => (Number.isFinite(x) ? `${Math.round(x)} ms` : 'non disponibile');
     ultimo = [
@@ -296,8 +300,11 @@ export function avviaMisuratore() {
       ...grandi,
       'Letture e scritture sul telefono:',
       ...righeSonde(sondeRegistrate()),
-      `Compiti lunghi dall'apertura (${lunghiLoaf.length ? 'fotogrammi lunghi' : 'long task'}): ${attribuiti.testa}`,
+      'Lavori pianificati dall\'apertura (da 15 ms in su; origine = file:riga:colonna della build):',
+      ...(righeTempi(tempiRegistrati()).length ? righeTempi(tempiRegistrati()).slice(0, 15) : ['  nessuno']),
+      `Compiti che bloccano lo schermo dall'apertura: ${attribuiti.testa}`,
       ...attribuiti.righe,
+      `Fotogrammi lenti che non bloccano (attese di disegno o pagina in secondo piano): ${lenti}${paginaInSecondoPiano.stato ? ' · ATTENZIONE: la pagina è finita in secondo piano, i tempi non sono affidabili' : ''}`,
       `Elementi: ${conteggi()}`,
     ].join('\n');
     iniziale();
@@ -314,6 +321,7 @@ export function avviaMisuratore() {
 
   // Uso normale: 30 secondi di uso libero; compiti lunghi sopra 100 ms con evento e lavori che li accompagnano
   async function provaUso() {
+    paginaInSecondoPiano.stato = false;
     azzeraTempi();
     azzeraCronologia();
     const eventi = [];
@@ -361,7 +369,9 @@ export function avviaMisuratore() {
     if (m) for (const t of suMappa) m.off(t, registraMoto);
     scollega();
     osservatori.forEach((o) => o.disconnect());
-    const base = lunghiLoaf.length ? comeLunghi(lunghiLoaf, true) : comeLunghi(lunghi);
+    const secondoPiano = paginaInSecondoPiano.stato;
+    const { bloccanti, lenti } = dividiPerBlocco(comeLunghi(lunghiLoaf, true));
+    const base = lunghiLoaf.length ? bloccanti : comeLunghi(lunghi);
     const attribuiti = attribuisciLunghi(base, cronologiaLavori(), eventi, { soglia: 100, inizio });
     const lunghi50 = comeLunghi(lunghi).map((x) => x.durata);
     const fotogrammi = lunghiLoaf.map((e) => ({
@@ -375,8 +385,9 @@ export function avviaMisuratore() {
     ultimo = [
       ...(await testaRiepilogo('uso normale (30 s)')),
       `Cosa è successo: ${tocchi} tocchi, ${mosse} spostamenti o zoom della mappa, ${eventi.length - tocchi - mosse} altri eventi`,
-      `Compiti lunghi: ${attribuiti.testa}`,
+      `Compiti che bloccano lo schermo: ${attribuiti.testa}`,
       ...attribuiti.righe,
+      `Fotogrammi lenti che non bloccano (attese di disegno o pagina in secondo piano): ${lenti}${secondoPiano ? ' · ATTENZIONE: la pagina è finita in secondo piano durante la prova, i tempi non sono affidabili' : ''}`,
       `Compiti lunghi sopra 50 ms (tutti): ${riassuntoLunghi(lunghi50)}`,
       'Fotogrammi lunghi (script, stile, altro):',
       ...(fotogrammi.length ? riassuntoFotogrammiLunghi(fotogrammi) : ['  nessuno (o non misurabili su questo browser)']),

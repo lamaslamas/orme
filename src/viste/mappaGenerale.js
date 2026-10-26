@@ -7,7 +7,7 @@ import { tendinaTrascinabile } from './tendina.js';
 import { creaSuggeriscimi } from './suggeriscimi.js';
 import { senzaTracciaNellaZona, testoRiassunto } from '../lib/elencoZona.js';
 import { dividiPerTraccia, unisciGeometrie } from '../lib/filtri.js';
-import { preparaPercorsi, filtraPercorsi } from '../lib/motore.js';
+import { preparaPercorsiInPezzi, filtraPercorsi } from '../lib/motore.js';
 import { htmlSelettoreAttivita, collegaSelettoreAttivita } from './attivita.js';
 import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
@@ -385,7 +385,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
   let filtratiOra = [];
   const daQui = aggiungiDaQui(mappa, () => filtratiOra, { attenua: true, creaAnelloDaQui: (punto) => suggerisci?.apriAnelloDa(punto) });
 
-  const preparati = intervallo('mappa: preparazione dei percorsi', () => preparaPercorsi(sentieri, tracce));
+  const preparati = await intervallo('mappa: preparazione dei percorsi (a pezzi)', () => preparaPercorsiInPezzi(sentieri, tracce));
   // l'elenco "Nella zona inquadrata" segue la mappa: si aggiorna quando la si sposta o ingrandisce
   let inMappa = [];
   let senzaTracciaOra = []; // senza traccia con i filtri attivi (tutti i parchi)

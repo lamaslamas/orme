@@ -225,7 +225,92 @@ function installaSonde() {
     // niente sonde di IndexedDB
   }
 }
-if (MISURA_ATTIVA) installaSonde();
+// ---- lavori pianificati: timer, eventi, fotogrammi, tempi di riposo, risposte di IndexedDB e dei Worker ----
+// Ogni funzione che il browser richiama (non solo quelle nostre) è cronometrata e registrata con l'origine di chi l'ha
+// programmata: file:riga:colonna della build (con lo stesso commit, scripts/origine.mjs la traduce nel codice sorgente).
+// Solo con ?misura e solo se dura almeno 15 ms, così il riepilogo dice cosa gira anche senza toccare niente.
+const SOGLIA_LAVORO_MS = 15;
+const origineProgrammazione = () => {
+  // le prime due righe sono questa funzione e la sonda che la chiama: l'origine è chi ha programmato il lavoro
+  const righe = String(new Error().stack ?? '').split('\n').slice(3);
+  const r = righe.find((x) => !/lib\/misura|misura\.js|node_modules\/\.vite|<anonymous>$/.test(x) && /https?:\/\//.test(x));
+  const m = r?.match(/(?:\/|\()([^/()]+?)(?:-\w{8})?\.js:(\d+):(\d+)/);
+  return m ? `${m[1]}:${m[2]}:${m[3]}` : 'origine ignota';
+};
+function cronometraChiamata(f, nome, origine) {
+  return function (...a) {
+    const inizio = performance.now();
+    try {
+      return f.apply(this, a);
+    } finally {
+      const ms = performance.now() - inizio;
+      if (ms >= SOGLIA_LAVORO_MS) registra(`${nome} da ${origine}`, ms);
+    }
+  };
+}
+export const paginaInSecondoPiano = { stato: false }; // vero se durante la misura la pagina è finita in secondo piano
+function installaSondeLavori() {
+  try {
+    document.addEventListener('visibilitychange', () => document.hidden && (paginaInSecondoPiano.stato = true));
+    for (const nome of ['setTimeout', 'setInterval']) {
+      const originale = globalThis[nome];
+      globalThis[nome] = function (f, ...a) {
+        return typeof f === 'function' ? originale.call(this, cronometraChiamata(f, `${nome === 'setTimeout' ? 'timer' : 'intervallo'} (${Math.round(a[0] ?? 0)} ms)`, origineProgrammazione()), ...a) : originale.call(this, f, ...a);
+      };
+    }
+    for (const nome of ['requestAnimationFrame', 'requestIdleCallback']) {
+      const originale = globalThis[nome];
+      if (typeof originale === 'function') globalThis[nome] = function (f, ...a) { return originale.call(this, cronometraChiamata(f, nome === 'requestAnimationFrame' ? 'fotogramma' : 'tempo di riposo', origineProgrammazione()), ...a); };
+    }
+    // ascoltatori di eventi (tocchi, risposte, messaggi dei Worker, caricamenti…): per tipo, bersaglio e origine
+    const mappa = new WeakMap(); // ascoltatore originale → { chiave: avvolto }
+    const aggiungi = EventTarget.prototype.addEventListener;
+    const rimuovi = EventTarget.prototype.removeEventListener;
+    EventTarget.prototype.addEventListener = function (tipo, f, opzioni) {
+      if (typeof f !== 'function') return aggiungi.call(this, tipo, f, opzioni);
+      const cattura = typeof opzioni === 'object' ? Boolean(opzioni?.capture) : Boolean(opzioni);
+      const chiave = `${tipo}|${cattura}`;
+      const avvolti = mappa.get(f) ?? new Map();
+      let w = avvolti.get(chiave);
+      if (!w) {
+        w = cronometraChiamata(f, `evento ${tipo} su ${this?.constructor?.name ?? '?'}`, origineProgrammazione());
+        avvolti.set(chiave, w);
+        mappa.set(f, avvolti);
+      }
+      return aggiungi.call(this, tipo, w, opzioni);
+    };
+    EventTarget.prototype.removeEventListener = function (tipo, f, opzioni) {
+      const cattura = typeof opzioni === 'object' ? Boolean(opzioni?.capture) : Boolean(opzioni);
+      return rimuovi.call(this, tipo, mappa.get(f)?.get(`${tipo}|${cattura}`) ?? f, opzioni);
+    };
+    // gestori assegnati come proprietà (onsuccess, oncomplete, onmessage…)
+    const proprieta = [[IDBRequest, 'onsuccess'], [IDBRequest, 'onerror'], [IDBTransaction, 'oncomplete'], [Worker, 'onmessage'], [MessagePort, 'onmessage'], [XMLHttpRequest, 'onload']];
+    for (const [Classe, nome] of proprieta) {
+      const d = Object.getOwnPropertyDescriptor(Classe.prototype, nome) ?? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Classe.prototype), nome);
+      if (!d?.set) continue;
+      Object.defineProperty(Classe.prototype, nome, { ...d, set(f) { d.set.call(this, typeof f === 'function' ? cronometraChiamata(f, `${nome} (${Classe.name})`, origineProgrammazione()) : f); } });
+    }
+    // analisi e scrittura di JSON grandi
+    for (const nome of ['parse', 'stringify']) {
+      const originale = JSON[nome];
+      JSON[nome] = function (...a) {
+        const inizio = performance.now();
+        try {
+          return originale.apply(this, a);
+        } finally {
+          const ms = performance.now() - inizio;
+          if (ms >= SOGLIA_LAVORO_MS) registra(`JSON.${nome} (${nome === 'parse' ? `${Math.round(String(a[0]).length / 1024)} KB` : 'oggetto'}) da ${origineProgrammazione()}`, ms);
+        }
+      };
+    }
+  } catch {
+    // alcune sonde non sono possibili su questo browser
+  }
+}
+if (MISURA_ATTIVA) {
+  installaSonde();
+  installaSondeLavori();
+}
 
 // ---------- riepilogo dell'avvio (calcoli puri, con i test) ----------
 
@@ -330,4 +415,11 @@ export function attribuisciLunghi(lunghi, lavori, eventi, { soglia = 100, massim
   const totale = oltre.reduce((n, l) => n + l.durata, 0);
   const testa = oltre.length ? `${oltre.length} sopra ${soglia} ms (totale ${durata(totale)}, il più lungo ${ms(oltre[0].durata)})` : `nessuno sopra ${soglia} ms`;
   return { testa, righe };
+}
+
+// I fotogrammi lunghi che non bloccano (blockingDuration sotto 50 ms) sono attese di disegno o di una pagina in secondo
+// piano, non lavoro che ferma lo schermo: si contano a parte. voci: [{ durata, bloccante (ms | undefined), ... }]
+export function dividiPerBlocco(voci) {
+  const bloccanti = voci.filter((v) => v.bloccante == null || v.bloccante >= 50);
+  return { bloccanti, lenti: voci.length - bloccanti.length };
 }

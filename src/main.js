@@ -34,11 +34,13 @@ import { stato } from './stato.js';
 import { escapeHtml } from './lib/formato.js';
 import { sezioneDi, reindirizza } from './lib/sezioni.js';
 import { MISURA_ATTIVA, segna, intervallo } from './lib/misura.js';
+import { ascoltaInterazioni } from './lib/lavoro.js';
 
 // misuratore delle prestazioni: solo con ?misura nell'indirizzo (altrimenti non si carica nemmeno)
 if (MISURA_ATTIVA) import('./viste/misuratore.js').then((m) => m.avviaMisuratore());
 
 const app = document.getElementById('app');
+ascoltaInterazioni(); // il lavoro in sottofondo si ferma mentre si tocca
 segna('script principale in esecuzione');
 collegaVisore();
 preparaInstallazione();

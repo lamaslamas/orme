@@ -6,6 +6,7 @@ import { stato } from '../stato.js';
 import { creaBaseVettoriale, creaSentieriVettoriali, mostraSentieri } from './mappaVettoriale.js';
 import { aggiungiPuntiUtili } from './puntiUtili.js';
 import { cronometra, registraMappa } from '../lib/misura.js';
+import { collegaMappaAlLavoro } from '../lib/lavoro.js';
 import { telePigre } from './telaPigra.js';
 import { creaCoda } from '../lib/codaMovimento.js';
 
@@ -145,6 +146,7 @@ export function creaMappa(contenitore, { anteprima = false, livelli = [], ricord
     mappa.getPane(nome).style.pointerEvents = 'none';
   }
   if (!anteprima) registraMappa(mappa); // misuratore (?misura)
+  if (!anteprima) collegaMappaAlLavoro(mappa); // il lavoro in sottofondo aspetta mentre la mappa si sposta
   // mentre la mappa si muove i controlli "di vetro" non sfocano lo sfondo: sul telefono ricalcolare la
   // sfocatura a ogni fotogramma costa più del disegno della mappa (stile.css, .mappa-in-movimento)
   if (!anteprima) {

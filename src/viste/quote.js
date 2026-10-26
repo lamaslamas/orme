@@ -20,8 +20,39 @@ async function leggiTessera(z, x, y) {
   return decodificaTessera(ctx.getImageData(0, 0, LATO_TESSERA, LATO_TESSERA).data);
 }
 
+// Preferibilmente in un Web Worker (scarico, decodifica e lettura dei pixel fuori dal filo principale); senza Worker o
+// OffscreenCanvas (browser vecchi) si fa qui, come prima.
+let worker = null;
+let numero = 0;
+const attese = new Map();
+function inWorker(z, x, y) {
+  if (!worker) {
+    worker = new Worker(new URL('../lib/terrainWorker.js', import.meta.url), { type: 'module' });
+    worker.onmessage = ({ data }) => {
+      const a = attese.get(data.id);
+      if (!a) return;
+      attese.delete(data.id);
+      if (data.errore) a.no(new Error(data.errore));
+      else a.ok(data.quote);
+    };
+    worker.onerror = () => {
+      // il Worker non parte (es. politica di sicurezza): le richieste in corso falliscono e si torna al filo principale
+      for (const a of attese.values()) a.no(new Error('Worker delle quote non disponibile'));
+      attese.clear();
+      worker = false;
+    };
+  }
+  return new Promise((ok, no) => {
+    const id = ++numero;
+    attese.set(id, { ok, no });
+    worker.postMessage({ id, z, x, y });
+  });
+}
+const conWorker = () => typeof Worker === 'function' && typeof OffscreenCanvas === 'function' && worker !== false;
+const leggiTesseraQuote = (z, x, y) => (conWorker() ? inWorker(z, x, y).catch(() => (worker === false ? leggiTessera(z, x, y) : Promise.reject(new Error('tessera non letta')))) : leggiTessera(z, x, y));
+
 let lettore = null;
-const lettoreTerrain = () => (lettore ??= creaLettoreTerrain({ leggiTessera }));
+const lettoreTerrain = () => (lettore ??= creaLettoreTerrain({ leggiTessera: leggiTesseraQuote }));
 
 // pezzi [[lon, lat]…] → { pezzi con le quote, fonte: 'terrain' | 'open-meteo' }
 export function quoteDeiPezzi(pezzi, opzioni = {}) {

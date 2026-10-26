@@ -9,6 +9,7 @@
 // - archivio: copia dell'ultima versione dell'archivio pubblico ricevuta (chiave: id),
 //             serve a capire quali campi ho modificato io
 // - meta:     informazioni interne (es. dati iniziali già caricati)
+import { respira, aspettaQuiete } from './lib/lavoro.js';
 import { DATI_INIZIALI, VERSIONE_DATI_INIZIALI, VERSIONE_TRACCE_INIZIALI, AGGIORNAMENTI } from './datiIniziali.js';
 import { applicaAggiornamento, tracciaDaAggiornare } from './lib/aggiornamenti.js';
 import { completaSentiero } from './lib/sentiero.js';
@@ -125,6 +126,25 @@ async function leggiDa(store, chiave) {
   return richiesta(db.transaction(store).objectStore(store).get(chiave));
 }
 
+// Lettura di un archivio grande a lotti: un getAll da 800 record con le tracce blocca lo schermo per 200 ms (la copia dei
+// dati avviene sul filo principale). A lotti da `lotto` record, con una pausa tra l'uno e l'altro (e finché si tocca la mappa).
+async function tuttiDaInPezzi(store, lotto = 60) {
+  const db = await apriDb();
+  const chiave = db.transaction(store).objectStore(store).keyPath;
+  if (typeof chiave !== 'string') return tuttiDa(store);
+  const tutti = [];
+  let ultimo = null;
+  for (;;) {
+    const intervallo = ultimo == null ? null : IDBKeyRange.lowerBound(ultimo, true);
+    const pezzo = await richiesta(db.transaction(store).objectStore(store).getAll(intervallo, lotto));
+    for (const x of pezzo) tutti.push(x);
+    if (pezzo.length < lotto) return tutti;
+    ultimo = pezzo.at(-1)[chiave];
+    await respira();
+    await aspettaQuiete({ massimoMs: 400 }); // all'avvio non si fa attendere troppo chi sposta già la mappa
+  }
+}
+
 async function tuttiDa(store) {
   const db = await apriDb();
   return richiesta(db.transaction(store).objectStore(store).getAll());
@@ -147,7 +167,7 @@ async function eliminaDa(store, chiave) {
 
 // --- Sentieri ---
 
-export const tuttiISentieri = async () => (await tuttiDa('sentieri')).map(completaSentiero);
+export const tuttiISentieri = async () => (await tuttiDaInPezzi('sentieri', 100)).map(completaSentiero);
 
 export async function leggiSentiero(id) {
   const s = await leggiDa('sentieri', id);
@@ -186,7 +206,7 @@ export async function eliminaTraccia(sentieroId) {
 }
 
 export async function tutteLeTracce() {
-  return new Map((await tuttiDa('tracce')).map((t) => [t.sentieroId, t]));
+  return new Map((await tuttiDaInPezzi('tracce', 40)).map((t) => [t.sentieroId, t]));
 }
 
 export async function sentieriConTraccia() {
@@ -261,21 +281,28 @@ export async function eliminaPercorso(id) {
 
 // Le celle TINITALY che le versioni di prima salvavano sul telefono (dem:…): ora le quote vengono dalle
 // Terrain Tiles e dal profilo del robot, quindi si tolgono per liberare spazio. Una volta sola.
+// (Solo le chiavi, senza copiare i valori: nell'archivio «meta» ci sono anche celle e zone molto grandi. Fatta la prima
+// volta, non si ripete.)
+const CHIAVE_DEM_PULITO = 'orme.demPulito';
 export async function eliminaCelleDem() {
+  try {
+    if (globalThis.localStorage?.getItem(CHIAVE_DEM_PULITO)) return;
+  } catch {
+    // memoria del browser non leggibile: si controlla comunque
+  }
   const db = await apriDb();
-  const tx = db.transaction('meta', 'readwrite');
-  const negozio = tx.objectStore('meta');
-  await new Promise((ok, no) => {
-    const richiesta = negozio.openCursor();
-    richiesta.onsuccess = () => {
-      const c = richiesta.result;
-      if (!c) return ok();
-      if (String(c.key).startsWith('dem:')) c.delete();
-      c.continue();
-    };
-    richiesta.onerror = () => no(richiesta.error);
-  });
-  await fine(tx);
+  const chiavi = await richiesta(db.transaction('meta').objectStore('meta').getAllKeys());
+  const daTogliere = chiavi.filter((k) => String(k).startsWith('dem:'));
+  if (daTogliere.length) {
+    const tx = db.transaction('meta', 'readwrite');
+    for (const k of daTogliere) tx.objectStore('meta').delete(k);
+    await fine(tx);
+  }
+  try {
+    globalThis.localStorage?.setItem(CHIAVE_DEM_PULITO, '1');
+  } catch {
+    // pazienza: si ricontrolla alla prossima apertura
+  }
 }
 
 // --- Rifugi e acqua fuori dai parchi, a celle (src/lib/puntiUtili.js): { punti, scaricato } ---

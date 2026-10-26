@@ -27,6 +27,7 @@ import {
 } from '../lib/intorno.js';
 import { sentieriConNome } from '../lib/sentieriConNome.js';
 import { dimenticaPunti } from './puntiUtili.js';
+import { respira, aspettaQuiete } from '../lib/lavoro.js';
 import { profiloDaTerrain } from './quote.js';
 
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -91,6 +92,9 @@ async function calcolaQuote({ avanzamento, chiusa }) {
   let fatti = 0;
   for (const s of daFare) {
     if (chiusa()) break;
+    // un percorso alla volta, e non mentre si tocca o si sposta la mappa
+    await respira();
+    await aspettaQuiete();
     avanzamento(`Calcolo i dislivelli… ${fatti + 1} di ${daFare.length}`);
     const g = tracce.get(s.id).geojson;
     // prima le Terrain Tiles (~30 m, come il disegno e le schede); Open-Meteo solo se non rispondono
@@ -137,6 +141,7 @@ export async function osservazioniDellaZona(centro, km, { chiusa = () => false }
       const json = await r.json();
       for (const o of interpretaGbif(json)) osservazioni.push({ animale: o.animale, lat: o.lat, lon: o.lon, sfumata: o.sfumata, osservatore: o.osservatore, data: o.data });
       if (chiusa()) return null;
+      await aspettaQuiete();
       if (json.endOfRecords || !json.results?.length) break;
       await attendi(300); // con calma: GBIF è gratuito
     }
@@ -165,6 +170,8 @@ async function calcolaFauna(zona, { avanzamento, chiusa }) {
   if (!osservazioni) return false;
   const oggi = new Date().toISOString().slice(0, 10);
   for (const s of daFare) {
+    await respira();
+    await aspettaQuiete();
     const g = tracce.get(s.id).geojson;
     await aggiornaCalcolati(s.id, { faunaInat: faunaDelPercorso(osservazioni, g, oggi) });
   }
