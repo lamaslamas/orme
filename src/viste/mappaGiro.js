@@ -4,7 +4,6 @@ import { calcolaGiro } from '../lib/giro.js';
 import { escapeHtml } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
-import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { freccia, marcatoreEstremo } from './disegnoTraccia.js';
@@ -90,9 +89,8 @@ export async function vistaMappaGiro(app, id) {
   mappa.attenuaSentieri(calcolo.pezzi.length > 0);
   if (limiti.isValid()) mappa.fitBounds(limiti, { padding: [36, 36] });
   const fermaGps = aggiungiGps(mappa, () => (calcolo.pezzi.length ? { geojson: calcolo.geojson } : null));
-  const misura = aggiungiMisura(mappa, () => (calcolo.pezzi.length ? [calcolo.geojson] : []));
   const avv = aggiungiAvvistamenti(mappa);
-  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
   requestAnimationFrame(() => mappa.invalidateSize());
 
   return () => {

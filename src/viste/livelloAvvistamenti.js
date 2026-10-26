@@ -17,7 +17,7 @@ export function aggiungiAvvistamenti(mappa, { filtro = () => true } = {}) {
   let visibile = false;
   let scelta = false;
 
-  const barra = L.DomUtil.create('div', 'misura-barra');
+  const barra = L.DomUtil.create('div', 'barra-flottante');
   barra.hidden = true;
   mappa.getContainer().appendChild(barra);
   L.DomEvent.disableClickPropagation(barra);

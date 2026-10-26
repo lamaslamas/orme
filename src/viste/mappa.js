@@ -10,7 +10,6 @@ import { versoDi, specchiaTratto } from '../lib/verso.js';
 import { lunghezzaDeiPezzi } from '../lib/lungoIlPercorso.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { aggiungiGps } from './gps.js';
-import { aggiungiMisura } from './misura.js';
 import { aggiungiAvvistamenti } from './livelloAvvistamenti.js';
 import { aggiungiHeatmap } from './heatmap.js';
 import { disegnaPercorso } from './disegnoTraccia.js';
@@ -71,9 +70,8 @@ export async function vistaMappa(app, id) {
   const livelloAnteprima = L.layerGroup().addTo(mappa);
   let risultati = null; // risultati della ricerca OSM in corso di scelta
   const fermaGps = aggiungiGps(mappa, () => traccia, { naviga: true });
-  const misura = aggiungiMisura(mappa, () => (traccia ? [traccia.geojson] : []));
   const avv = aggiungiAvvistamenti(mappa);
-  const heat = aggiungiHeatmap(mappa, { occupata: () => misura.attiva() || avv.attiva() });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => avv.attiva() });
   panorama = aggiungiLivelloPanorama(mappa, sentiero, () => traccia);
   // con la panoramicità accesa la linea della traccia si attenua (restano pin e frecce)
   function attenuaTraccia() {

@@ -126,7 +126,7 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
   }
 
   // parte ridotto (titolo e legenda): i filtri si aprono con un tocco
-  const pannello = L.DomUtil.create('div', 'misura-barra pannello-heatmap ridotto');
+  const pannello = L.DomUtil.create('div', 'barra-flottante pannello-heatmap ridotto');
   pannello.hidden = true;
   (pannelloIn ?? mappa.getContainer()).appendChild(pannello);
   L.DomEvent.disableClickPropagation(pannello);
@@ -525,10 +525,10 @@ export function aggiungiHeatmap(mappa, { occupata = () => false, personalizza = 
           ? `<div class="heat-legenda griglia-legenda"><span>rispetto a tutte: poche</span>${[1, 2, 3, 4]
               .map((c) => `<b style="background:${COLORI_CLASSI[c]}"></b>`)
               .join('')}<span>molte</span><b class="insufficiente"></b><span>dati scarsi</span></div>
-             <p class="misura-nota" id="statoGriglia"></p>`
+             <p class="nota-mappa" id="statoGriglia"></p>`
           : `<div class="heat-scala"><p class="heat-cosa">${escapeHtml(cosaSiVede())}</p><div class="heat-legenda"><span>poche</span><i aria-hidden="true"></i><span>molte</span></div></div>`
       }
-      <p class="misura-nota">Tocca una zona colorata o un'icona per vedere le osservazioni. Heatmap iNaturalist; icone ed elenchi da tutte le fonti (GBIF: iNaturalist, eBird, Observation.org…).</p>`;
+      <p class="nota-mappa">Tocca una zona colorata o un'icona per vedere le osservazioni. Heatmap iNaturalist; icone ed elenchi da tutte le fonti (GBIF: iNaturalist, eBird, Observation.org…).</p>`;
     pannello.hidden = false;
     scriviConto();
   }

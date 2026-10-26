@@ -371,26 +371,14 @@ body.con-mappa main { max-width: none; padding: 0; }
 .etichetta-salto { font-size: 0.75rem; }
 
 /* --- Misure --- */
-.misura-bottone { display: grid !important; place-items: center; color: var(--testo); }
-.misura-bottone.attivo { background: #fef9c3 !important; color: #111827; }
-.misurando { cursor: crosshair; }
-.misurando .gps-stato { bottom: auto; top: 10px; }
-.misura-barra {
+
+.barra-flottante {
   position: absolute; left: 8px; right: 8px; bottom: 22px; z-index: 850;
   background: rgba(var(--chiaro-rgb), 0.97); border-radius: 12px; padding: 8px 10px 6px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3); font-size: 0.9rem; cursor: default;
 }
-.misura-modi { display: flex; border: 1px solid var(--bordo); border-radius: 8px; overflow: hidden; }
-.misura-modi button { flex: 1; min-height: 36px; border: none; background: var(--scheda-piena); cursor: pointer; }
-.misura-modi button.scelto { background: var(--verde); color: #fff; font-weight: 600; }
-.misura-modi button:disabled { color: #aaa; }
-.misura-testo { margin: 8px 2px; line-height: 1.4; }
-.misura-comandi { display: flex; gap: 6px; }
-.misura-comandi button {
-  flex: 1; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); cursor: pointer;
-}
-.misura-nota { margin: 4px 2px 0; font-size: 0.72rem; color: var(--testo-tenue); }
-.misurando .legenda { display: none; }
+
+.nota-mappa { margin: 4px 2px 0; font-size: 0.72rem; color: var(--testo-tenue); }
 
 /* --- Partenza, arrivo, verso --- */
 .pin-traccia { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45)); }
@@ -595,11 +583,11 @@ body.con-mappa main { padding: 0 0 calc(var(--altezza-barra) + env(safe-area-ins
 }
 .heat-bottone.attivo { background: #6d28d9 !important; color: #fff !important; }
 .pannello-heatmap { bottom: 22px; }
-.misurando .pannello-heatmap { display: none; }
+
 .heat-testa { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .heat-testa span { display: flex; gap: 10px; align-items: center; }
 .chiudi-pannello { border: 1px solid var(--bordo); background: var(--scheda-piena); border-radius: 8px; min-width: 32px; min-height: 28px; cursor: pointer; }
-.pannello-heatmap.ridotto .heat-filtri, .pannello-heatmap.ridotto .misura-nota { display: none; }
+.pannello-heatmap.ridotto .heat-filtri, .pannello-heatmap.ridotto .nota-mappa { display: none; }
 .heat-filtri { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 .heat-filtri select:first-child { grid-column: 1 / -1; }
 .heat-filtri select { min-height: 38px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); font: inherit; font-size: 14px; padding: 0 6px; }
@@ -792,7 +780,7 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 
 /* --- superfici di vetro --- */
 .vetro,
-.testata, .barra-schede, .barra-azioni, .foglio, .pannello-livelli, .misura-barra, .legenda,
+.testata, .barra-schede, .barra-azioni, .foglio, .pannello-livelli, .barra-flottante, .legenda,
 .gps-stato, .avviso-mappa, .segmenti, .pillola, .ricerca {
   -webkit-backdrop-filter: var(--sfocatura);
   backdrop-filter: var(--sfocatura);
@@ -807,11 +795,11 @@ h1, .titolo-pagina { font-weight: 800; letter-spacing: -0.02em; }
 .barra-schede a.attiva, .barra-schede a.attiva svg { color: var(--teal); }
 
 /* sopra la mappa il vetro è più pieno: il testo deve restare leggibile */
-.pannello-livelli, .misura-barra, .legenda, .gps-stato, .avviso-mappa {
+.pannello-livelli, .barra-flottante, .legenda, .gps-stato, .avviso-mappa {
   background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra-alta);
 }
 .pannello-livelli { border-radius: 18px; padding: 8px 14px 12px; }
-.misura-barra { border-radius: 18px; }
+.barra-flottante { border-radius: 18px; }
 .legenda { border-radius: 12px; }
 
 /* --- schede e riquadri --- */
@@ -1982,12 +1970,10 @@ body.suggerisci-aperto .home-sotto { display: none; }
   body.home-mappa .cornice-tendina { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); }
 }
 /* strumenti attivi (righello, percorsi da qui): sopra i pulsanti in basso; con un pannello aperto si riducono a una riga */
-.mappa-home .misura-barra { bottom: calc(var(--altezza-pills) + 6px); }
-body.strumento-misura.pannello-aperto { --altezza-strumento: 66px; }
-body.pannello-aperto .misura-barra .misura-modi,
-body.pannello-aperto .misura-barra .misura-comandi,
-body.pannello-aperto .misura-barra .misura-nota { display: none; }
-body.pannello-aperto .misura-barra { z-index: 1060; }
+.mappa-home .barra-flottante { bottom: calc(var(--altezza-pills) + 6px); }
+
+body.pannello-aperto .barra-flottante .nota-mappa { display: none; }
+body.pannello-aperto .barra-flottante { z-index: 1060; }
 
 /* --- Disegno: comandi sopra il pannello (mai sotto), niente barra Fauna e comandi inutili --- */
 body.disegno .mappa-disegno .leaflet-bottom.leaflet-left, body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: calc(var(--altezza-foglio, 190px) + 8px); }
@@ -2000,7 +1986,7 @@ body.disegno .pannello-heatmap { display: none; }
   body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: 16px; }
   body.disegno .gps-stato { bottom: 16px; left: calc(50% + 210px); }
 }
-.misura-barra .x-pannello { top: -18px; right: 6px; }
+.barra-flottante .x-pannello { top: -18px; right: 6px; }
 
 .ordina-elenco[hidden] { display: none; }
 .azioni-vuota .bottone { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; flex: 0 1 auto; }
