@@ -46,7 +46,7 @@ export async function vistaPianifica(app) {
   };
   app.innerHTML = `
     <h1 class="titolo-pagina">Pianifica</h1>
-    <a class="invito-meteo" href="#/domani"><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Dove vado domani?</b><span class="tenue piccolo">I percorsi migliori secondo il meteo, la durata e le tue preferenze</span></span></a>
+    <a class="invito-meteo" href="#/suggerisci"><span class="icona-meteo" aria-hidden="true">⛅</span><span><b>Suggerisci</b><span class="tenue piccolo">I percorsi migliori secondo il meteo, la durata e le tue preferenze</span></span></a>
     <div class="azioni">
       <a class="bottone primario" href="#/percorso-nuovo">Disegna un percorso</a>
       <button type="button" class="bottone" id="caricaGpx">Importa file (GPX, KML, zip)</button>

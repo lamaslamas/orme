@@ -22,7 +22,7 @@ Non è una guida ufficiale né un servizio di sicurezza: molte tracce sono "da v
 - **Fauna**: per ogni percorso gli animali osservati lungo il sentiero o nella zona e i mesi migliori
   (osservazioni verificate da GBIF: iNaturalist, eBird, Observation.org e altre fonti);
   heatmap delle osservazioni.
-- **Dove vado domani?**: i percorsi migliori per oggi o domani secondo il meteo (pioggia, vento,
+- **Suggerisci**: i percorsi migliori per oggi o domani secondo il meteo (pioggia, vento,
   freddo in quota, fango, ore di luce), la durata e le tue preferenze.
 - **Compatibilità** con trekking, MTB ed e-MTB, sempre prudente: le regole del parco prevalgono.
 - **Lungo il percorso**: rifugi, bivacchi e acqua, indice panoramico.
@@ -104,9 +104,9 @@ solo dati del luogo (tipo, nome, quota, potabilità, stagionalità), mai telefon
 Sulla mappa sono due livelli separati, "Rifugi e bivacchi" e "Acqua", visibili da zoom 12;
 nella scheda del sentiero quelli entro 300 m dalla traccia.
 
-## Dove vado domani?
+## Suggerisci e il meteo
 
-La pagina `#/domani` ordina i percorsi per oggi o domani con le previsioni orarie di
+Suggerisci (a pagina intera su computer, `#/suggerisci`) ordina i percorsi per oggi o domani con le previsioni orarie di
 [Open-Meteo](https://open-meteo.com/) (gratuito, senza chiavi, CC BY 4.0), chieste alla quota di
 partenza e a quella del punto più alto. I calcoli sono in `src/lib/condizioni.js`: pioggia e
 temporali nelle ore di cammino, freddo percepito in quota, caldo (meno se c'è bosco), raffiche

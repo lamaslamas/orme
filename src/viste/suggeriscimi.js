@@ -151,7 +151,7 @@ function htmlGruppo(nome, voci, scelto, multipla = false) {
 
 // mappa: la mappa della home; sentieri e tracce: tutti quelli sul telefono;
 // posizione(): [lon, lat] mia (o null); allApertura(): chi apre questa tendina chiude le altre
-// modoPagina: la vista a pagina intera dei risultati («Dove vado domani?»): niente tendina né segnali sulla mappa (che qui è
+// modoPagina: la vista a pagina intera dei risultati (Suggerisci su computer): niente tendina né segnali sulla mappa (che qui è
 // nascosta e serve solo per il centro), le scelte in una colonna e le card tutte insieme
 export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizione = () => null, allApertura = () => {}, modoPagina = false }) {
   let scelte = scelteRicordate();

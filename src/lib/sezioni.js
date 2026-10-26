@@ -4,7 +4,7 @@ export function sezioneDi(percorso) {
   if (/^\/(miei|pianifica|salvati|percorso)(\/|-|\?|$)/.test(percorso)) return 'miei';
   if (/^\/associazioni(\/|\?|$)/.test(percorso)) return 'associazioni';
   // elenco dei parchi, backup e il resto
-  if (/^\/(altro|backup|parchi|parco|domani|nuovo)(\/|\?|$)/.test(percorso)) return 'altro';
+  if (/^\/(altro|backup|parchi|parco|nuovo)(\/|\?|$)/.test(percorso)) return 'altro';
   // la mappa e le schede dei sentieri che si aprono da lì
   return 'mappa';
 }
@@ -14,6 +14,8 @@ const REINDIRIZZA = [
   [/^\/(mappa|intorno)\/?$/, () => '/'],
   [/^\/pianifica\/?$/, () => '/miei?scheda=percorsi'],
   [/^\/salvati\/?$/, () => '/miei?scheda=salvati'],
+  // «Dove vado domani?» è diventato Suggerisci
+  [/^\/domani(\?.*)?$/, () => '/suggerisci'],
   [/^\/(giri|giro(?:-nuovo|\/.*)?)\/?$/, () => '/miei?scheda=percorsi'],
   [/^\/(avvistamenti|avvistamento\/.*)\/?$/, () => '/'],
 ];

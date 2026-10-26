@@ -2230,9 +2230,9 @@ a.modifica-carta {
 .condividi-link { width: 100%; font: inherit; font-size: 0.8rem; word-break: break-all; }
 .avviso-condividi { position: fixed; z-index: 3000; left: 50%; transform: translateX(-50%); bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 18px); max-width: min(90vw, 420px); padding: 10px 16px; border-radius: 14px; background: var(--testo); color: var(--sfondo); font-weight: 600; font-size: 0.92rem; box-shadow: var(--ombra-alta); text-align: center; }
 
-/* «Dove vado domani?»: Suggerisci a pagina intera. Su telefono scelte e poi risultati; su computer le scelte in una colonna
+/* Suggerisci a pagina intera. Su telefono scelte e poi risultati; su computer le scelte in una colonna
    fissa a sinistra e le card in due colonne */
-.pagina-domani { max-width: 1280px; margin: 0 auto; }
+.pagina-suggerisci { max-width: 1280px; margin: 0 auto; }
 .suggerisci-pagina .foglio-suggerisci.in-pagina { position: static; inset: auto; width: auto; z-index: auto; display: block; max-height: none; background: none; border: none; box-shadow: none; border-radius: 0; }
 .foglio-suggerisci.in-pagina .suggerisci-corpo { overflow: visible; padding: 0; }
 .foglio-suggerisci.in-pagina .suggerisci-piede { position: sticky; bottom: 0; padding: 8px 0 10px; background: var(--sfondo, #f4f6f4); border-top: 1px solid var(--bordo); }

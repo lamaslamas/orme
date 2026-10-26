@@ -738,7 +738,11 @@ export async function vistaMappaGenerale(app, idParco = null) {
     posizione: () => miaPosizione,
     allApertura: () => mostraFoglio(false),
   });
-  app.querySelector('#apriSuggerisci').addEventListener('click', () => (suggerisci.aperto() ? suggerisci.chiudi() : suggerisci.apri()));
+  // su computer Suggerisci usa tutta la pagina; su telefono è una tendina sulla mappa
+  app.querySelector('#apriSuggerisci').addEventListener('click', () => {
+    if (matchMedia('(min-width: 1024px)').matches) location.hash = '#/suggerisci';
+    else suggerisci.aperto() ? suggerisci.chiudi() : suggerisci.apri();
+  });
   // tornando indietro dalla pagina di un sentiero aperto da Suggerisci: la lista com'era
   requestAnimationFrame(() => suggerisci.riprendi());
   mostraFoglio = (si) => {

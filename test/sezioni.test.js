@@ -12,7 +12,7 @@ describe('barra in basso', () => {
     expect(sezioneDi('/associazioni')).toBe('associazioni');
     expect(sezioneDi('/parchi')).toBe('altro');
     expect(sezioneDi('/parco/pnalm')).toBe('altro');
-    expect(sezioneDi('/domani')).toBe('altro');
+    expect(sezioneDi('/suggerisci')).toBe('mappa');
     expect(sezioneDi('/backup')).toBe('altro');
     expect(sezioneDi('/altro')).toBe('altro');
   });
@@ -26,6 +26,8 @@ describe('barra in basso', () => {
     expect(reindirizza('/giri')).toBe('/miei?scheda=percorsi');
     expect(reindirizza('/giro/g1')).toBe('/miei?scheda=percorsi');
     expect(reindirizza('/avvistamenti')).toBe('/');
+    expect(reindirizza('/domani')).toBe('/suggerisci');
+    expect(reindirizza('/domani?zona=x')).toBe('/suggerisci');
     expect(reindirizza('/')).toBeNull();
   });
 });
