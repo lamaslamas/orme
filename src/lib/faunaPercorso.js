@@ -8,6 +8,7 @@ import { TAXON_INATURALIST } from './costanti.js';
 import { distanzaDallaTracciaM } from './geo.js';
 import { mesiMigliori } from './inaturalistTraccia.js';
 import { puntoNelPoligono } from './confini.js';
+import { nascoste } from './specieNascoste.js';
 
 export const RAGGIO_PERCORSO_M = 500;
 export const RAGGIO_ZONA_M = 5000;
@@ -75,12 +76,12 @@ export function faunaDalleOsservazioni(risultati, geojson) {
 
 // Animali di un percorso: quelli delle associazioni più quelli di iNaturalist
 export function animaliPossibili(s) {
-  return [...new Set([...(s.animali ?? []), ...(s.faunaInat?.specie ?? []).map((x) => x.animale)])];
+  return [...new Set([...(s.animali ?? []), ...(s.faunaInat?.specie ?? []).map((x) => x.animale)])].filter((a) => !nascoste.esclude({ animale: a }));
 }
 
 // Un percorso è "di osservazione" se lo dice l'archivio (uscite delle associazioni)
 // o se iNaturalist ha osservazioni verificate proprio lungo il percorso
-export const conFaunaLungoIlPercorso = (s) => (s.faunaInat?.specie ?? []).some((x) => x.livello === 'percorso');
+export const conFaunaLungoIlPercorso = (s) => (s.faunaInat?.specie ?? []).some((x) => x.livello === 'percorso' && !nascoste.esclude({ animale: x.animale }));
 
 // Riepilogo della fauna di un parco: osservazioni verificate dentro il confine (o, per quelle
 // con posizione sfumata, dentro il riquadro del parco). Stesse soglie dei percorsi.
@@ -175,8 +176,9 @@ export function periodoMigliore(specie) {
 // stagione: il giudizio conta solo le osservazioni del mese e di quelli accanto
 // raggioMesi: con «stagione», quanti mesi accanto (0 = solo il mese; di base 1)
 export function possibilitaFauna(s, mese = null, { km = null, stagione = false, raggioMesi = 1 } = {}) {
-  const tutte = s?.faunaInat?.specie ?? [];
-  const associazioni = s?.animali ?? [];
+  // le specie nascoste non contano: né per «Ricco di fauna» né per le specie dette
+  const tutte = nascoste.senza(s?.faunaInat?.specie ?? [], (x) => ({ animale: x.animale }));
+  const associazioni = nascoste.senza(s?.animali ?? [], (a) => ({ animale: a }));
   if (!tutte.length && !associazioni.length) return null;
   const periodo = periodoMigliore(tutte);
   const mesi = stagione && mese ? mesiVicini(mese, raggioMesi) : null;
@@ -231,7 +233,7 @@ export function puntiSpecie(s, valore, mese, raggioMesi = 1) {
   let punti = 0;
   let migliore = null;
   for (const x of s?.faunaInat?.specie ?? []) {
-    if (!animali.includes(x.animale)) continue;
+    if (!animali.includes(x.animale) || nascoste.esclude({ animale: x.animale })) continue;
     const n = mesi ? nelPeriodo(x, mesi) : x.osservazioni;
     if (!n) continue;
     const p = n * Math.min(1, (x.persone ?? 0) / 10) * (x.livello === 'percorso' ? 2 : 1);
@@ -239,7 +241,7 @@ export function puntiSpecie(s, valore, mese, raggioMesi = 1) {
     if (!migliore || p > migliore.p) migliore = { p, x, n };
   }
   // le uscite delle associazioni che la cercano valgono come una segnalazione sicura
-  const uscite = (s?.animali ?? []).filter((a) => animali.includes(a));
+  const uscite = (s?.animali ?? []).filter((a) => animali.includes(a) && !nascoste.esclude({ animale: a }));
   if (uscite.length) {
     punti += 5;
     migliore ??= { p: 5, x: { animale: uscite[0], persone: 0 }, n: 0 };

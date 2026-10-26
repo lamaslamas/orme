@@ -249,7 +249,7 @@ async function osservazioniDelParco(idParco) {
 }
 
 // versione 2: le specie hanno anche l'anno dell'ultima osservazione
-const VERSIONE_FAUNA = 5; // 3: anche il tratto più ricco (faunaInat.tratti); 5: nessuna esclusione di specie (restano fuori solo le posizioni sfumate)
+const VERSIONE_FAUNA = 6; // 3: anche il tratto più ricco (faunaInat.tratti); 5: nessuna esclusione di specie (restano fuori solo le posizioni sfumate); 6: i conti per specie in ogni km (tratti.perKmSpecie), per rifare il tratto quando alcune specie sono nascoste
 let faune = 0;
 for (const p of archivio.percorsi) {
   const g = p.traccia?.geojson;

@@ -2,12 +2,15 @@
 // sola in cima perché vale per tutti, cosa invece resta nella card perché cambia da un percorso all'altro, e un sentiero
 // e il suo inverso (536 e 536A) che compaiono una volta sola.
 import { distanzaKm } from './geo.js';
+import { nascoste } from './specieNascoste.js';
+import { specieDelNome } from './trattoFauna.js';
 
 // Le specie lungo il percorso (non quelle del parco): quelle viste sulla traccia e quelle del tratto con più fauna
 export function specieDelPercorso(s, tratto = null) {
   const lungo = (s?.faunaInat?.specie ?? []).filter((x) => x.livello === 'percorso' && x.animale);
   const ordinate = [...lungo].sort((a, b) => (b.osservazioni ?? 0) - (a.osservazioni ?? 0)).map((x) => x.animale);
-  return [...new Set([...(tratto?.migliore?.specie ?? tratto?.specie ?? []), ...ordinate])].slice(0, 5);
+  // senza le specie nascoste (il tratto arriva già senza, ma qui può servire un tratto di prima)
+  return [...new Set([...(tratto?.migliore?.specie ?? tratto?.specie ?? []), ...ordinate])].filter((n) => !nascoste.esclude(specieDelNome(n))).slice(0, 5);
 }
 
 // gli elementi presenti in tutte le liste (se ce ne sono almeno due: con un solo risultato non c'è niente di «comune»)

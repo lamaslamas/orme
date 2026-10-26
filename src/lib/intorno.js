@@ -16,6 +16,7 @@ import { API_INATURALIST, parametriRare, iconaDaAntenati } from './inaturalist.j
 export { iconaDaAntenati };
 import { ANIMALI, TAXON_INATURALIST } from './costanti.js';
 import { taxaDeiGruppi, conMinacciate } from './gruppiFauna.js';
+import { nascoste } from './specieNascoste.js';
 import { ID_INTORNO, INTORNO } from '../datiParchi.js';
 
 // cambia quando cambia cosa si cerca: le zone scaricate prima si riscaricano da sole
@@ -268,7 +269,7 @@ const LICENZE_LIBERE = new Set(['cc0', 'cc-by', 'cc-by-sa']);
 
 // Specie con il numero di osservazioni verificate nel raggio; minacciate: le specie a rischio
 // tra mammiferi e uccelli (si cercano a parte e si uniscono)
-export function urlSpecieDellaZona(centro, km, gruppi, { minacciate = false } = {}) {
+export function urlSpecieDellaZona(centro, km, gruppi, { minacciate = false, escludiInat = [] } = {}) {
   const p = new URLSearchParams();
   const [lon, lat] = centro;
   p.set('lat', lat.toFixed(4));
@@ -276,6 +277,9 @@ export function urlSpecieDellaZona(centro, km, gruppi, { minacciate = false } = 
   p.set('radius', String(km));
   if (minacciate) parametriRare(p);
   else p.set('taxon_id', taxaDeiGruppi({ gruppi }, 'inat').join(','));
+  // le specie nascoste non servono: la lista ha posto per altre
+  const esclusi = [...new Set([...(p.get('without_taxon_id')?.split(',') ?? []), ...escludiInat.map(String)].filter(Boolean))];
+  if (esclusi.length) p.set('without_taxon_id', esclusi.join(','));
   p.set('quality_grade', 'research');
   p.set('captive', 'false'); // niente osservazioni in cattività (animali domestici, di allevamento, zoo)
   p.set('locale', 'it');
@@ -283,9 +287,9 @@ export function urlSpecieDellaZona(centro, km, gruppi, { minacciate = false } = 
   return `${API_INATURALIST}/observations/species_counts?${p}`;
 }
 // la ricerca delle rare, se c'è, è l'ultima
-export const ricercheSpecieDellaZona = (centro, km, gruppi) => [
-  ...(taxaDeiGruppi({ gruppi }, 'inat').length ? [urlSpecieDellaZona(centro, km, gruppi)] : []),
-  ...(conMinacciate({ gruppi }) ? [urlSpecieDellaZona(centro, km, gruppi, { minacciate: true })] : []),
+export const ricercheSpecieDellaZona = (centro, km, gruppi, { escludiInat = nascoste.idInat() } = {}) => [
+  ...(taxaDeiGruppi({ gruppi }, 'inat').length ? [urlSpecieDellaZona(centro, km, gruppi, { escludiInat })] : []),
+  ...(conMinacciate({ gruppi }) ? [urlSpecieDellaZona(centro, km, gruppi, { minacciate: true, escludiInat })] : []),
 ];
 
 const maiuscola = (t) => (t ? t.replace(/^./, (c) => c.toUpperCase()) : t);
@@ -294,7 +298,7 @@ const maiuscola = (t) => (t ? t.replace(/^./, (c) => c.toUpperCase()) : t);
 // dalla più osservata. Foto solo con licenza libera (come le altre foto di Orme), altrimenti l'icona.
 // rare: quali risposte sono quelle delle specie rare (hanno un posto riservato in testa)
 export const POSTI_RARE = 3;
-export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [] } = {}) {
+export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [], esclude = (x) => nascoste.esclude(x) } = {}) {
   const perId = new Map();
   const idRare = new Set(risposte.filter((_, i) => rare.includes(i)).flatMap((j) => (j?.results ?? []).map((r) => r.taxon?.id)));
   for (const r of risposte.flatMap((j) => j?.results ?? [])) {
@@ -302,6 +306,7 @@ export function specieDellaZona(risposte, max = SPECIE_IN_EVIDENZA, { rare = [] 
     if (!t.id || perId.has(t.id) || eDomestico({ scientifico: t.name, nome: t.preferred_common_name })) continue;
     const foto = t.default_photo;
     const animale = Object.entries(TAXON_INATURALIST).find(([, x]) => x.id === t.id)?.[0];
+    if (esclude({ animale, scientifico: t.name })) continue; // nascosta (anche se la risposta è di prima)
     perId.set(t.id, {
       inat: t.id,
       nome: animale ? ANIMALI[animale] : maiuscola(t.preferred_common_name) || t.name,

@@ -6,6 +6,7 @@
 import { lunghezzaDeiPezzi, posizioneSullaTraccia } from './lungoIlPercorso.js';
 import { improntaTraccia } from './panorama.js';
 import { tracciaDaNonUsare } from './tracce.js';
+import { nascoste } from './specieNascoste.js';
 
 export const RAGGIO_TRATTO_M = 150;
 export const MINIMO_OSSERVATORI_TRATTO = 3;
@@ -19,6 +20,9 @@ export const NOMI_RAPACI = {
 };
 // il nome con cui la specie entra nel conteggio: la chiave di Orme, il nome italiano di un rapace comune o lo scientifico
 const nomeSpecie = (x) => x.animale ?? NOMI_RAPACI[x.nomeScientifico] ?? (x.nomeScientifico || null);
+// al contrario: dal nome con cui la specie è nel tratto a ciò che serve per riconoscerla tra le specie nascoste
+const SCIENTIFICO_DEL_NOME = new Map(Object.entries(NOMI_RAPACI).map(([sci, nome]) => [nome, sci]));
+export const specieDelNome = (nome) => (SCIENTIFICO_DEL_NOME.has(nome) ? { scientifico: SCIENTIFICO_DEL_NOME.get(nome) } : /\s/.test(String(nome)) ? { scientifico: nome } : { animale: nome });
 
 // osservazioni: [{ animale, nomeScientifico, ordine, data, lat, lon, sfumata, osservatore }]; pezzi: la traccia in ordine di percorrenza
 // → { km, perKm: [osservatori diversi per ogni km], migliore: { daKm, aKm, persone, specie } | null }
@@ -53,16 +57,45 @@ export function trattiFauna(osservazioni, pezzi, { raggioM = RAGGIO_TRATTO_M } =
     return { persone: tutte.size, perAnimale };
   };
   const perKm = perBin.map((_, i) => unione([i]).persone);
-  if (km < LUNGHEZZA_MINIMA_KM) return { km: Math.round(km * 10) / 10, perKm, migliore: null };
+  // osservatori diversi di ogni specie in ogni km: serve a rifare il tratto quando alcune specie sono nascoste
+  const perKmSpecie = perBin.map((m) => Object.fromEntries([...m].map(([a, set]) => [a, set.size])));
+  if (km < LUNGHEZZA_MINIMA_KM) return { km: Math.round(km * 10) / 10, perKm, perKmSpecie, migliore: null };
   let migliore = null;
   const finestra = 2;
   for (let i = 0; i + finestra <= bins; i++) {
     const { persone, perAnimale } = unione(Array.from({ length: finestra }, (_, k) => i + k));
     if (persone > (migliore?.persone ?? 0)) migliore = { daKm: i, aKm: Math.min(i + finestra, Math.round(km * 10) / 10), persone, perAnimale };
   }
-  if (!migliore || migliore.persone < MINIMO_OSSERVATORI_TRATTO) return { km: Math.round(km * 10) / 10, perKm, migliore: null };
+  if (!migliore || migliore.persone < MINIMO_OSSERVATORI_TRATTO) return { km: Math.round(km * 10) / 10, perKm, perKmSpecie, migliore: null };
   const specie = [...migliore.perAnimale].sort((a, b) => b[1].size - a[1].size).slice(0, 3).map(([a]) => a);
-  return { km: Math.round(km * 10) / 10, perKm, migliore: { daKm: migliore.daKm, aKm: migliore.aKm, persone: migliore.persone, specie } };
+  return { km: Math.round(km * 10) / 10, perKm, perKmSpecie, migliore: { daKm: migliore.daKm, aKm: migliore.aKm, persone: migliore.persone, specie } };
+}
+
+// Il tratto migliore senza le specie nascoste. Con i conti per specie (perKmSpecie) si rifà la finestra di due
+// chilometri; senza (dati calcolati prima) si tiene il tratto di prima se gli resta almeno una specie.
+// I conti per specie si sommano: chi ha visto due specie conta due volte (poche persone in più, mai in meno).
+export function trattoSenzaNascoste(tratti, esclude = (x) => nascoste.esclude(x)) {
+  const m = tratti?.migliore ?? null;
+  if (!m) return null;
+  const visibili = (nomi) => nomi.filter((n) => !esclude(specieDelNome(n)));
+  if (!Array.isArray(tratti.perKmSpecie)) {
+    const specie = visibili(m.specie ?? []);
+    return specie.length === (m.specie ?? []).length ? m : specie.length ? { ...m, specie } : null;
+  }
+  const bins = tratti.perKmSpecie;
+  const conti = bins.map((b) => Object.fromEntries(Object.entries(b).filter(([n]) => !esclude(specieDelNome(n)))));
+  if (conti.every((c, i) => Object.keys(c).length === Object.keys(bins[i]).length)) return m; // niente di nascosto qui: il tratto è lo stesso
+  if ((tratti.km ?? 0) < LUNGHEZZA_MINIMA_KM) return null;
+  const finestra = 2;
+  let migliore = null;
+  for (let i = 0; i + finestra <= conti.length; i++) {
+    const perSpecie = {};
+    for (let k = 0; k < finestra; k++) for (const [n, c] of Object.entries(conti[i + k])) perSpecie[n] = (perSpecie[n] ?? 0) + c;
+    const persone = Object.values(perSpecie).reduce((a, b) => a + b, 0);
+    if (persone > (migliore?.persone ?? 0)) migliore = { daKm: i, aKm: Math.min(i + finestra, tratti.km), persone, perSpecie };
+  }
+  if (!migliore || migliore.persone < MINIMO_OSSERVATORI_TRATTO) return null;
+  return { daKm: migliore.daKm, aKm: migliore.aKm, persone: migliore.persone, specie: Object.entries(migliore.perSpecie).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n]) => n) };
 }
 
 // "km 6–8"
@@ -71,7 +104,7 @@ export const testoTratto = (t) => `km ${String(t.daKm).replace('.', ',')}–${St
 // Il tratto da mostrare per un percorso: solo se il robot l'ha calcolato sulla traccia che c'è ora (un GPX mio
 // la cambia) e se la traccia è continua
 export function trattoDelPercorso(sentiero, traccia) {
-  const t = sentiero?.faunaInat?.tratti?.migliore;
+  const t = trattoSenzaNascoste(sentiero?.faunaInat?.tratti);
   if (!t || !traccia?.geojson) return null;
   if (sentiero.faunaInat.impronta !== improntaTraccia(traccia.geojson).split('-')[1]) return null;
   return tracciaDaNonUsare(sentiero, traccia).incompleta ? null : t;

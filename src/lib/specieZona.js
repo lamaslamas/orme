@@ -7,6 +7,7 @@ import { mesiVicini, affidabilita, GRUPPI_SPECIE, MINIMO_OSSERVAZIONI, MINIMO_PE
 import { mesiMigliori } from './inaturalistTraccia.js';
 import { ANIMALI } from './costanti.js';
 import { API_INATURALIST } from './inaturalist.js';
+import { nascoste } from './specieNascoste.js';
 
 export const PREFISSO_ZONA = 'zona:'; // valore di una specie scelta tra quelle della zona: "zona:Egretta garzetta"
 export const SPECIE_DELLA_ZONA_MAX = 8;
@@ -34,6 +35,7 @@ export function specieDellaZonaPerOsservatori(osservazioni, meseScelto = null, {
   for (const o of osservazioni ?? []) {
     const chiave = o.nomeScientifico;
     if (!chiave || eDomestico({ scientifico: chiave, nome: o.specie })) continue;
+    if (nascoste.esclude({ animale: o.animale, nomeScientifico: chiave })) continue; // specie nascosta
     if (gruppo && !inGruppo(o, gruppo)) continue;
     const s = perSpecie.get(chiave) ?? { chiave, nome: o.animale ? ANIMALI[o.animale] : o.specie, animale: o.animale ?? null, n: 0, persone: new Set(), nPeriodo: 0, personePeriodo: new Set(), ultimoAnno: 0 };
     s.n++;
@@ -59,7 +61,7 @@ export function puntiSpecieZona(osservazioni, geojson, chiave, meseScelto, { rag
   const nuovo = () => ({ n: 0, persone: new Set(), mesi: Array(12).fill(0), ultimo: 0 });
   const livelli = { percorso: nuovo(), zona: nuovo() };
   for (const o of osservazioni ?? []) {
-    if (o.nomeScientifico !== chiave) continue;
+    if (o.nomeScientifico !== chiave || nascoste.esclude({ animale: o.animale, nomeScientifico: chiave })) continue;
     const d = distanzaDallaTracciaM([o.lon, o.lat], geojson);
     const vicino = !o.sfumata && d <= RAGGIO_PERCORSO_M;
     if (!vicino && d > RAGGIO_ZONA_M + (o.sfumata ? 10_000 : 0)) continue;

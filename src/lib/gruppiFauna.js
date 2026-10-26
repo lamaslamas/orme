@@ -30,10 +30,11 @@ export function salvaGruppiSalvati(gruppi, memoria = globalThis.localStorage) {
     // memoria non disponibile: la scelta vale per questa visita
   }
 }
-// La scritta sopra la scala: "Tutti gli animali", "Rapaci, Mammiferi", "Nessun gruppo scelto"
-export function testoGruppi(gruppi) {
+// La scritta sopra la scala: "Tutti gli animali", "Rapaci, Mammiferi", "Nessun gruppo scelto"; con delle specie
+// nascoste in più: "Tutti gli animali · 5 nascoste"
+export function testoGruppi(gruppi, nascoste = 0) {
   const scelti = (gruppi ?? []).filter((g) => GRUPPI_FAUNA[g]);
   if (!scelti.length) return 'Nessun gruppo scelto';
-  if (Object.keys(GRUPPI_FAUNA).every((g) => scelti.includes(g))) return 'Tutti gli animali';
-  return Object.keys(GRUPPI_FAUNA).filter((g) => scelti.includes(g)).map((g) => GRUPPI_FAUNA[g].nome).join(', ');
+  const nomi = Object.keys(GRUPPI_FAUNA).every((g) => scelti.includes(g)) ? 'Tutti gli animali' : Object.keys(GRUPPI_FAUNA).filter((g) => scelti.includes(g)).map((g) => GRUPPI_FAUNA[g].nome).join(', ');
+  return nascoste > 0 ? `${nomi} · ${nascoste} ${nascoste === 1 ? 'nascosta' : 'nascoste'}` : nomi;
 }

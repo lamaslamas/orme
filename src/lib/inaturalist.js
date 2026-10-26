@@ -64,6 +64,9 @@ export function parametriInat(filtri, oggi = new Date()) {
     const ids = chiavi.map((k) => TAXON_INATURALIST[k]?.id).filter(Boolean);
     if (ids.length) p.set('taxon_id', ids.join(','));
   }
+  // specie nascoste (src/lib/specieNascoste.js): la heatmap le lascia fuori, insieme alle altre esclusioni
+  const esclusi = [...new Set([...(p.get('without_taxon_id')?.split(',') ?? []), ...(filtri.escludiInat ?? []).map(String)].filter(Boolean))];
+  if (esclusi.length) p.set('without_taxon_id', esclusi.join(','));
   p.set('captive', 'false'); // mai osservazioni in cattività
   if (filtri.soloVerificate) p.set('quality_grade', 'research');
   const mesi = STAGIONI[filtri.stagione]?.mesi ?? [];
