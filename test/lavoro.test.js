@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { inPezzi, interagendo, aspettaQuiete, azzeraInterazioni, collegaMappaAlLavoro, ascoltaInterazioni } from '../src/lib/lavoro.js';
+import { inPezzi, inPezziStimati, interagendo, aspettaQuiete, azzeraInterazioni, collegaMappaAlLavoro, ascoltaInterazioni } from '../src/lib/lavoro.js';
 
 beforeEach(() => azzeraInterazioni());
 
@@ -52,5 +52,29 @@ describe('lavoro a pezzi', () => {
     document.dispatchEvent(new Event('pointerdown'));
     expect(interagendo(250)).toBe(true);
     scollega();
+  });
+});
+
+describe('lavoro a pezzi con costo stimato', () => {
+  it('cede il passo prima di un elemento pesante, non dopo', async () => {
+    const ordine = [];
+    const attesa = (ms) => {
+      const t = performance.now();
+      while (performance.now() - t < ms);
+    };
+    const originale = globalThis.setTimeout;
+    let cessioni = 0;
+    globalThis.setTimeout = (f, ms, ...a) => (ms === 0 ? (cessioni++, originale(f, ms, ...a)) : originale(f, ms, ...a));
+    const scheduler = globalThis.scheduler;
+    const ri = globalThis.requestIdleCallback;
+    globalThis.scheduler = undefined;
+    globalThis.requestIdleCallback = undefined;
+    // tre piccoli (1 unità = 1 ms) e uno grande (60 unità): il grande sforerebbe il budget di 25 ms, quindi si cede prima
+    await inPezziStimati(['a', 'b', 'c', 'GRANDE'], (x) => { attesa(x === 'GRANDE' ? 60 : 1); ordine.push(x); }, (x) => (x === 'GRANDE' ? 60 : 1), { budgetMs: 25 });
+    globalThis.setTimeout = originale;
+    globalThis.scheduler = scheduler;
+    globalThis.requestIdleCallback = ri;
+    expect(ordine).toEqual(['a', 'b', 'c', 'GRANDE']);
+    expect(cessioni).toBeGreaterThanOrEqual(1);
   });
 });

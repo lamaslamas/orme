@@ -63,3 +63,24 @@ export function azzeraInterazioni() {
   ultimaInterazione = -Infinity;
   mappaInMovimento = false;
 }
+
+// Come inPezzi, ma con il costo stimato di ogni elemento (es. quanti punti ha una traccia): si impara quanti ms costa ogni
+// unità e si cede il passo PRIMA di un elemento che da solo sforerebbe il budget (inPezzi può solo cedere dopo averlo
+// fatto). costo(elemento) → numero. Gli elementi si fanno nell'ordine dato.
+export async function inPezziStimati(elementi, fn, costo, { budgetMs = 25, quietaMs = PAUSA_DOPO_INTERAZIONE_MS } = {}) {
+  let msPerUnita = 0.005; // stima iniziale prudente, poi si corregge con quello che si misura
+  let inizio = adesso();
+  for (let i = 0; i < elementi.length; i++) {
+    const unita = Math.max(1, costo(elementi[i]));
+    const usato = adesso() - inizio;
+    if (usato > 0 && usato + unita * msPerUnita > budgetMs) {
+      await respira();
+      await aspettaQuiete({ quietaMs });
+      inizio = adesso();
+    }
+    const prima = adesso();
+    fn(elementi[i], i);
+    const ms = adesso() - prima;
+    msPerUnita = msPerUnita * 0.6 + (ms / unita) * 0.4;
+  }
+}

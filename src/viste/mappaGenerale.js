@@ -31,7 +31,7 @@ import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from 
 import { misureSentiero } from '../lib/riassunto.js';
 import { cronometra, impostaContatore, segna, intervallo } from '../lib/misura.js';
 import { creaIndice } from '../lib/indiceSpaziale.js';
-import { inPezzi } from '../lib/lavoro.js';
+import { inPezzi, inPezziStimati, respira } from '../lib/lavoro.js';
 import { parchiCercati, urlLuoghi, luoghiDallaRisposta, risultatiOrdinati } from '../lib/cercaLuogo.js';
 import { suTelefono } from './foglioPercorso.js';
 import { leggiIntorno } from '../db.js';
@@ -537,6 +537,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     limiti.clear();
     perId.clear();
     indice.svuota();
+    puntiCache.clear();
     schede.clear();
     misurePer.clear();
     toccabili.pulisci();
@@ -579,6 +580,16 @@ export async function vistaMappaGenerale(app, idParco = null) {
     if (elencoAperto() || zonaCercata) for (const id of quiOra) voluti.add(id);
     return voluti;
   }
+  // quanti punti ha la traccia (il costo del disegno cresce con quelli), contati una volta
+  const puntiCache = new Map();
+  const puntiDi = (id) => {
+    if (!puntiCache.has(id)) {
+      let n = 0;
+      for (const linea of perId.get(id)?.traccia?.geojson?.coordinates ?? []) n += linea.length;
+      puntiCache.set(id, n);
+    }
+    return puntiCache.get(id);
+  };
   // un percorso sulla mappa: bordo, linea e area toccabile
   function disegnaUno(id) {
     const { sentiero, traccia: grezza } = perId.get(id);
@@ -611,14 +622,21 @@ export async function vistaMappaGenerale(app, idParco = null) {
       gruppi.delete(id);
       aree.delete(id);
     }
-    // prima i "fatto", così i "da fare" restano sopra e ben visibili
-    const mancanti = [...voluti].filter((id) => !gruppi.has(id) && perId.has(id)).sort((a, b) => sopra(perId.get(a)) - sopra(perId.get(b)));
+    // prima i "fatto", così i "da fare" restano sopra; a parità prima i più vicini al centro della vista (quelli che si vedono subito)
+    const centro = mappa.getCenter();
+    const distanza = (id) => limiti.get(id)?.getCenter().distanceTo(centro) ?? Infinity;
+    const mancanti = [...voluti].filter((id) => !gruppi.has(id) && perId.has(id)).sort((a, b) => sopra(perId.get(a)) - sopra(perId.get(b)) || distanza(a) - distanza(b));
     if (mancanti.length <= 3) {
       for (const id of mancanti) disegnaUno(id);
       return finePercorsi();
     }
     finePercorsi();
-    inPezzi(mancanti, (id) => mio === giroDisegno && !gruppi.has(id) && disegnaUno(id), { budgetMs: 25 }).then(() => mio === giroDisegno && finePercorsi());
+    // il disegno parte dopo il tocco (non dentro) e a pezzi: si cede il passo prima di una traccia pesante
+    (async () => {
+      await respira();
+      await inPezziStimati(mancanti, (id) => mio === giroDisegno && !gruppi.has(id) && disegnaUno(id), (id) => puntiDi(id), { budgetMs: 25 });
+      if (mio === giroDisegno) finePercorsi();
+    })();
   });
   // un percorso scelto da un elenco: si disegna (se non c'è già) e si tocca; resta anche chiudendo l'elenco
   function mostraPercorso(id) {
