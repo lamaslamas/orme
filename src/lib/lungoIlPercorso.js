@@ -176,23 +176,5 @@ export function misureDeiPezzi(pezzi) {
   return { km, salita: disl?.salita ?? null, discesa: disl?.discesa ?? null, durataMin: stimaDurataMin(km, disl), durataStimata: true, conQuote: Boolean(disl) };
 }
 
-// Rifugi e bivacchi per la notte vicino a un punto di fine giornata ({ km, punto }): entro raggioM
-// dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
-// Per dormire si accetta una deviazione più lunga che per l'acqua: 1 km dalla traccia (il resto
-// dell'app usa RAGGIO_LUNGO_IL_PERCORSO_M, 300 m)
-const STRUTTURE_TIPI = new Set(['campeggio', 'agriturismo', 'bb', 'ostello', 'albergo', 'alloggio']);
-export const RAGGIO_PERNOTTO_M = 1000;
-export const RAGGIO_STRUTTURE_M = 2000; // campeggi, agriturismi, B&B, ostelli e alberghi: fino a 2 km dalla traccia
-export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_PERNOTTO_M, raggioStruttureM = RAGGIO_STRUTTURE_M, finestraKm = 3, perLaNotte = () => true } = {}) {
-  const geojson = { type: 'MultiLineString', coordinates: pezzi };
-  const massimo = Math.max(raggioM, raggioStruttureM);
-  const vicino = (finestraKm * 1000 + massimo) / 1000; // in linea d'aria, per scartare subito i lontani
-  return punti
-    .filter((p) => perLaNotte(p) && distanzaKm([p.lon, p.lat], fine.punto) <= vicino)
-    .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi), distanzaM: Math.round(distanzaDallaTracciaM([p.lon, p.lat], geojson)) }))
-    .filter((p) => p.km != null && Math.abs(p.km - fine.km) <= finestraKm && p.distanzaM <= (STRUTTURE_TIPI.has(p.tipo) ? raggioStruttureM : raggioM))
-    .sort((a, b) => Math.abs(a.km - fine.km) - Math.abs(b.km - fine.km));
-}
-
 // I tempi lungo il percorso in MTB: 12 km/h in piano e 400 m/h in salita (la discesa non si conta), con il ritmo scelto
 export const profiloTempiBici = (pezzi) => profiloTempi(pezzi, { kmh: BICI.mtb.kmh, salitaMh: BICI.mtb.salitaMh, discesaMh: Infinity });

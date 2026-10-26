@@ -2,7 +2,7 @@
 // Si salvano solo dati pubblici sui luoghi. Per i rifugi anche gestore, posti, prenotazione, telefono, sito e
 // orari del luogo come li scrive OSM (mai email, mai nomi di persone).
 import { puntoNelPoligono } from './confini.js';
-import { distanzaDallaTracciaM } from './geo.js';
+import { distanzaDallaTracciaM, distanzaKm } from './geo.js';
 import { dentroIlParco } from './overpass.js';
 
 export const TIPI_PUNTO = {
@@ -11,7 +11,7 @@ export const TIPI_PUNTO = {
   ricovero: { gruppo: 'rifugi', nome: 'Ricovero', plurale: 'ricoveri' },
   fonte: { gruppo: 'acqua', nome: 'Sorgente', plurale: 'sorgenti' },
   fontanella: { gruppo: 'acqua', nome: 'Fontanella', plurale: 'fontanelle' },
-  // dove dormire oltre ai rifugi (non si disegnano sulla mappa: servono a "2 giorni con notte" e a "Su più giorni")
+  // dove dormire oltre ai rifugi (non si disegnano sulla mappa: servono a «Posto per dormire vicino» e all'elenco lungo il percorso)
   campeggio: { gruppo: 'strutture', nome: 'Campeggio', plurale: 'campeggi' },
   agriturismo: { gruppo: 'strutture', nome: 'Agriturismo', plurale: 'agriturismi' },
   bb: { gruppo: 'strutture', nome: 'B&B', plurale: 'B&B' },
@@ -22,7 +22,7 @@ export const TIPI_PUNTO = {
 // i gruppi che si vedono sulla mappa e negli elenchi lungo il percorso (le strutture per dormire no)
 export const sulMappa = (p) => TIPI_PUNTO[p?.tipo]?.gruppo !== 'strutture';
 const STRUTTURE = '^(camp_site|guest_house|hostel|hotel|chalet)$';
-// Una sola soglia in tutta l'app (schede, Pianifica, disegno, Su più giorni): rifugi e acqua "lungo
+// Una sola soglia in tutta l'app (schede, Pianifica, disegno): rifugi e acqua "lungo
 // il percorso" se entro 300 m dalla traccia. Con 200 m sui percorsi dell'archivio si perdono il 15%
 // delle fonti e dei rifugi (sorgenti un po' sotto il sentiero, posizioni approssimate in OSM);
 // 300 m sono una deviazione di pochi minuti.
@@ -166,26 +166,23 @@ export function puntiNelRiquadro(punti, [s, o, n, e]) {
 
 // Dove passare la notte: rifugi, bivacchi e ricoveri non chiusi né privati
 export const perLaNotte = (p) => ['rifugi', 'strutture'].includes(TIPI_PUNTO[p.tipo]?.gruppo) && !p.chiuso && !p.privato;
-// "Dove dormire": qualsiasi (predefinito) / solo rifugi e bivacchi / solo strutture (campeggi, agriturismi, B&B, ostelli, alberghi)
-export const DOVE_DORMIRE = { qualsiasi: 'Qualsiasi', rifugi: 'Solo rifugi e bivacchi', strutture: 'Solo strutture' };
-export function perLaNotteScelta(dove = 'qualsiasi') {
-  return (p) => perLaNotte(p) && (dove === 'qualsiasi' || (dove === 'rifugi' ? TIPI_PUNTO[p.tipo].gruppo === 'rifugi' : TIPI_PUNTO[p.tipo].gruppo === 'strutture'));
+// Posto per dormire vicino: il più vicino alla traccia (partenza compresa) tra rifugi, bivacchi, campeggi, agriturismi e
+// altre strutture, entro raggioM. daPartenza: la traccia più vicina è la partenza (si dice «dalla partenza»)
+export const RAGGIO_DORMIRE_M = 2000;
+export function postoPerDormire(punti, geojson, partenza, raggioM = RAGGIO_DORMIRE_M) {
+  const p = puntiLungoIlPercorso(punti.filter(perLaNotte), geojson, raggioM)[0];
+  if (!p) return null;
+  const dallaPartenza = partenza ? Math.round(distanzaKm([p.lon, p.lat], partenza) * 1000) : null;
+  const daPartenza = dallaPartenza != null && dallaPartenza <= p.distanzaM + 50;
+  return { nome: p.nome ?? null, tipo: p.tipo, distanzaM: daPartenza ? dallaPartenza : p.distanzaM, daPartenza };
 }
-const CHIAVE_DORMIRE = 'orme.doveDormire';
-export function doveDormire() {
-  try {
-    const v = globalThis.localStorage?.getItem(CHIAVE_DORMIRE);
-    return DOVE_DORMIRE[v] ? v : 'qualsiasi';
-  } catch {
-    return 'qualsiasi';
-  }
-}
-export function ricordaDoveDormire(v) {
-  try {
-    globalThis.localStorage?.setItem(CHIAVE_DORMIRE, v);
-  } catch {
-    // vale solo per questa visita
-  }
+// "Agriturismo Il Poggio, a 800 m dalla partenza" / "un campeggio, sulla traccia"
+export function testoPostoPerDormire(d) {
+  const tipo = TIPI_PUNTO[d.tipo]?.nome ?? 'Posto per dormire';
+  const cosa = d.nome ? `${tipo} ${d.nome}` : `${tipo === 'Alloggio' ? 'un alloggio' : tipo === 'B&B' ? 'un B&B' : `un ${tipo.toLowerCase()}`}`;
+  const da = d.daPartenza ? 'dalla partenza' : 'dalla traccia';
+  const dist = d.distanzaM < 30 ? (d.daPartenza ? 'alla partenza' : 'sulla traccia') : `a ${d.distanzaM >= 1000 ? `${(d.distanzaM / 1000).toLocaleString('it-IT', { maximumFractionDigits: 1 })} km` : `${d.distanzaM} m`} ${da}`;
+  return `${cosa}, ${dist}`;
 }
 // "Campeggio Sorgente (campeggio, a 800 m dalla traccia)": il posto per dormire, con tipo e distanza
 export function etichettaPernotto(p) {

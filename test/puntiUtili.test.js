@@ -135,7 +135,7 @@ describe('dati dei rifugi da OSM', () => {
 
 describe('dove dormire: strutture oltre ai rifugi', () => {
   it('campeggi, agriturismi, B&B, ostelli e alberghi solo con i tipi che scrive OSM; niente dedotto', async () => {
-    const { puntoDaElemento, perLaNotteScelta, etichettaPernotto } = await import('../src/lib/puntiUtili.js');
+    const { puntoDaElemento, perLaNotte, etichettaPernotto } = await import('../src/lib/puntiUtili.js');
     const el = (tags, id = 1) => ({ type: 'node', id, lat: 40.3, lon: 15.8, tags });
     expect(puntoDaElemento(el({ tourism: 'camp_site', name: 'Camping Sirino', phone: '+39 0973 111111', website: 'https://camping.example' }))).toMatchObject({ tipo: 'campeggio', nome: 'Camping Sirino', telefono: '+39 0973 111111', sito: 'https://camping.example' });
     expect(puntoDaElemento(el({ tourism: 'guest_house', guest_house: 'agritourism' })).tipo).toBe('agriturismo');
@@ -145,21 +145,26 @@ describe('dove dormire: strutture oltre ai rifugi', () => {
     expect(puntoDaElemento(el({ tourism: 'guest_house' })).tipo).toBe('alloggio'); // tipo non indicato: non si inventa
     const rif = puntoDaElemento(el({ tourism: 'alpine_hut' }));
     const camp = puntoDaElemento(el({ tourism: 'camp_site' }, 2));
-    expect([rif, camp].filter(perLaNotteScelta('qualsiasi'))).toHaveLength(2);
-    expect([rif, camp].filter(perLaNotteScelta('rifugi'))).toEqual([rif]);
-    expect([rif, camp].filter(perLaNotteScelta('strutture'))).toEqual([camp]);
+    expect([rif, camp].filter(perLaNotte)).toHaveLength(2);
     expect(etichettaPernotto({ ...camp, nome: 'Camping Sirino', distanzaM: 800 })).toBe('Camping Sirino (campeggio, a 800 m dalla traccia)');
     expect(etichettaPernotto({ ...camp, distanzaM: 10 })).toBe('un campeggio (sulla traccia)');
   });
-  it('le strutture arrivano fino a 2 km dalla traccia, i rifugi fino a 1 km', async () => {
-    const { rifugiPerLaNotte } = await import('../src/lib/lungoIlPercorso.js');
-    const pezzi = [[[15.8, 40.3], [15.84, 40.3]]];
+  it('posto per dormire vicino: il più vicino entro 2 km dalla partenza o dalla traccia', async () => {
+    const { postoPerDormire, testoPostoPerDormire } = await import('../src/lib/puntiUtili.js');
+    const geojson = { type: 'MultiLineString', coordinates: [[[15.8, 40.3], [15.84, 40.3]]] };
     const aNord = (m) => 40.3 + m / 111_195;
     const punti = [
-      { id: 'r', tipo: 'rifugio', lon: 15.82, lat: aNord(1500) },
-      { id: 'c', tipo: 'campeggio', lon: 15.82, lat: aNord(1500) },
+      { id: 'l', tipo: 'campeggio', nome: 'Lontano', lon: 15.82, lat: aNord(2500) },
+      { id: 'a', tipo: 'agriturismo', nome: 'Il Poggio', lon: 15.8, lat: aNord(800) },
+      { id: 'c', tipo: 'rifugio', nome: 'Rifugio Chiuso', chiuso: true, lon: 15.8, lat: aNord(100) },
+      { id: 'f', tipo: 'sorgente', lon: 15.8, lat: aNord(50) },
     ];
-    const r = rifugiPerLaNotte(punti, pezzi, { km: 1.7, punto: [15.82, 40.3] });
-    expect(r.map((x) => x.id)).toEqual(['c']);
+    const r = postoPerDormire(punti, geojson, [15.8, 40.3]);
+    expect(r).toMatchObject({ nome: 'Il Poggio', tipo: 'agriturismo', daPartenza: true });
+    expect(r.distanzaM).toBeGreaterThan(780);
+    expect(r.distanzaM).toBeLessThan(820);
+    expect(testoPostoPerDormire({ ...r, distanzaM: 800 })).toBe('Agriturismo Il Poggio, a 800 m dalla partenza');
+    expect(testoPostoPerDormire({ tipo: 'campeggio', nome: null, distanzaM: 1400, daPartenza: false })).toBe('un campeggio, a 1,4 km dalla traccia');
+    expect(postoPerDormire(punti.slice(0, 1), geojson, [15.8, 40.3])).toBeNull();
   });
 });

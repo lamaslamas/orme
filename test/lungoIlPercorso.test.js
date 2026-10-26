@@ -46,7 +46,7 @@ describe('punti lungo la traccia: al km X', () => {
   });
 });
 
-import { profiloTempi, profiloTempiBici, rifugiPerLaNotte } from '../src/lib/lungoIlPercorso.js';
+import { profiloTempi, profiloTempiBici } from '../src/lib/lungoIlPercorso.js';
 import { durataInBici } from '../src/lib/condizioni.js';
 import { stimaDurataMin } from '../src/lib/durata.js';
 describe('percorsi su più giorni', () => {
@@ -78,24 +78,6 @@ describe('percorsi su più giorni', () => {
     expect(s.min.at(-1)).toBeCloseTo((s.km.at(-1) / 4) * 60, 5);
   });
 
-  it('rifugi vicino alla fine della giornata, con la distanza dalla traccia', () => {
-    const fine = { km: 10, punto: [13.6 + 0.12, 41.8] };
-    const punti = [
-      { id: 'a', tipo: 'rifugio', lon: 13.72, lat: 41.802 }, // ~220 m a nord, al km 10
-      { id: 'e', tipo: 'rifugio', lon: 13.721, lat: 41.804 }, // ~440 m: dentro 1 km (per dormire)
-      { id: 'f', tipo: 'rifugio', lon: 13.72, lat: 41.812 }, // ~1,3 km: troppo lontano
-      { id: 'b', tipo: 'bivacco', lon: 13.75, lat: 41.8 }, // sul percorso, al km 12,5
-      { id: 'c', tipo: 'rifugio', lon: 13.72, lat: 41.83 }, // 3,3 km dalla traccia
-      { id: 'd', tipo: 'rifugio', lon: 13.62, lat: 41.8 }, // al km 1,7: troppo indietro
-    ];
-    const r = rifugiPerLaNotte(punti, pezzi, fine);
-    // dal più vicino (lungo la traccia) al punto di fine giornata
-    expect(r.map((p) => p.id)).toEqual(['e', 'a', 'b']);
-    const a = r.find((p) => p.id === 'a');
-    expect(a.distanzaM).toBeGreaterThan(200);
-    expect(a.distanzaM).toBeLessThan(250);
-    expect(r.find((p) => p.id === 'b').distanzaM).toBe(0);
-  });
 });
 
 import { misureDeiPezzi } from '../src/lib/lungoIlPercorso.js';
@@ -122,13 +104,5 @@ describe('un solo calcolo della durata', () => {
     expect(conProfilo.durataMin).toBe(stimaDurataMin(conProfilo.km, { salita: 800, discesa: 600 }));
     expect(conProfilo.durataMin).toBeGreaterThan(senzaProfilo.durataMin);
     expect(misureSentiero({ quote: { impronta: 'altra', salita: 800, discesa: 600 } }, { geojson }).durataMin).toBe(senzaProfilo.durataMin);
-  });
-});
-
-import { RAGGIO_PERNOTTO_M } from '../src/lib/lungoIlPercorso.js';
-import { RAGGIO_LUNGO_IL_PERCORSO_M } from '../src/lib/puntiUtili.js';
-describe('rifugi per la notte', () => {
-  it('1 km per dormire, 300 m per il resto', () => {
-    expect([RAGGIO_PERNOTTO_M, RAGGIO_LUNGO_IL_PERCORSO_M]).toEqual([1000, 300]);
   });
 });

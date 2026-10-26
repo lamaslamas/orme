@@ -23,11 +23,11 @@ describe('scelte salvate in formati vecchi: si aprono sempre (come «Dove vado d
     expect(leggiScelte({ getItem: () => { throw new Error('no memoria'); } })).toEqual(SCELTE_PREDEFINITE);
   });
   it('gli altri campi hanno il tipo giusto', () => {
-    const s = normalizzaScelte({ quando: 'ieri', tempo: 5, fatica: ['x'], distanza: 120, parco: null, specie: 3, lunghezza: 99, modo: 'boh', quota: 1200, dormire: 'ovunque', senzaQuote: true });
+    const s = normalizzaScelte({ quando: 'ieri', tempo: 5, fatica: ['x'], distanza: 120, parco: null, specie: 3, lunghezza: 99, modo: 'boh', quota: 1200, senzaQuote: true });
     expect(s).toMatchObject({ quando: 'oggi', tempo: 'mezza', fatica: 'qualsiasi', distanza: '120', parco: '', specie: '3', lunghezza: '12', modo: 'percorsi', quota: '1200', senzaQuote: '' });
-    expect(s.dormire).toBeUndefined();
     expect(normalizzaScelte({ tempo: '', distanza: '' })).toMatchObject({ tempo: '', distanza: '' }); // scelte tolte: restano tolte
-    expect(normalizzaScelte({ dormire: 'rifugi' }).dormire).toBe('rifugi');
+    expect(normalizzaScelte({ dormire: 'rifugi' }).dormire).toBeUndefined(); // il vecchio «Dove dormire» non c'è più
+    expect(normalizzaScelte({ tempo: 'due' }).tempo).toBe('mezza'); // «2 giorni con notte» salvato prima
   });
   it('non condivide la lista con le scelte predefinite', () => {
     const a = normalizzaScelte({});
@@ -74,6 +74,6 @@ describe('il tocco su una voce (la causa dell\'errore: «cerco» diventava una s
     expect(s).toMatchObject({ tempo: '', fatica: 'qualsiasi', distanza: '' });
     s = applicaScelta(s, 'quando', 'sabato');
     expect(s.quando).toBe('sabato');
-    expect(applicaScelta(s, 'tempo', 'due').tempo).toBe('due');
+    expect(applicaScelta(s, 'tempo', 'giornata').tempo).toBe('giornata');
   });
 });

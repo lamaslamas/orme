@@ -38,18 +38,19 @@ describe('Suggeriscimi: regole', () => {
     expect(adattoAlTempo(240, 'mezza')).toBe(true);
     expect(adattoAlTempo(300, 'mezza')).toBe(false);
     expect(adattoAlTempo(300, 'giornata')).toBe(true);
-    expect(adattoAlTempo(600, 'due')).toBe(true);
     expect(adattoAllaFatica({ salita: 300, durataMin: 150 }, 'E', 'facile')).toBe(true);
     expect(adattoAllaFatica({ salita: 800, durataMin: 300 }, 'E', 'facile')).toBe(false);
     expect(adattoAllaFatica({ salita: 1200, durataMin: 400 }, 'EE', 'impegnativa')).toBe(true);
     expect(adattoAllaFatica({ salita: 900, durataMin: 300 }, 'EEA', 'media')).toBe(false);
   });
-  it('esclude cosa non va: tempo, distanza, due giorni senza rifugio', () => {
+  it('esclude cosa non va: tempo, distanza, posto per dormire', () => {
     expect(valuta(base({ misure: { km: 20, salita: 450, durataMin: 400 } }), SCELTE_PREDEFINITE)).toBeNull();
     expect(valuta(base({ auto: { lineaKm: 80, minuti: 113 } }), SCELTE_PREDEFINITE)).toBeNull();
-    const lungo = base({ misure: { km: 25, salita: 900, durataMin: 600 } });
-    expect(valuta(lungo, { ...SCELTE_PREDEFINITE, tempo: 'due' })).toBeNull();
-    expect(valuta({ ...lungo, rifugioNotte: 'Rifugio di Forca Resuni' }, { ...SCELTE_PREDEFINITE, tempo: 'due' })).not.toBeNull();
+    const dormire = { ...SCELTE_PREDEFINITE, cerco: ['dormire'] };
+    expect(valuta(base({ dormire: null }), dormire)).toBeNull(); // tiene solo i percorsi con un posto per dormire
+    expect(valuta(base(), SCELTE_PREDEFINITE)).not.toBeNull();
+    const con = valuta(base({ dormire: { nome: 'Il Poggio', tipo: 'agriturismo', distanzaM: 800, daPartenza: true } }), dormire);
+    expect(con.trovati).toEqual(['dormire']);
   });
   it('le cose cercate alzano il punteggio, la fauna secondo il giudizio nel periodo', () => {
     const scelte = { ...SCELTE_PREDEFINITE, cerco: ['fauna', 'associazioni'] };
@@ -66,7 +67,7 @@ describe('Suggeriscimi: regole', () => {
     const c = base({ anello: true, bosco: 70, fauna: { livello: 'frequenti', specie: ['lupo', 'orso'] }, specieLungo: ['cervo', 'camoscio'], acqua: 2, misure: { km: 9, salita: 580, durataMin: 250 } });
     // le durate restano su una riga (spazi non separabili)
     expect(testoPerche(c)).toBe('Anello nel bosco, ricco di fauna (cervo, camoscio), 2 punti acqua, +580\u00a0m · max\u00a01.300\u00a0m · 4\u00a0h\u00a010');
-    expect(testoPerche(base({ rifugioNotte: 'Rifugio Acquanera' }), { modo: 'ar' })).toBe('Andata e ritorno, Rifugio Acquanera a fine primo giorno, +450\u00a0m · max\u00a01.300\u00a0m · 3\u00a0h\u00a020');
+    expect(testoPerche(base({ dormire: { nome: 'Il Poggio', tipo: 'agriturismo', distanzaM: 800, daPartenza: true } }), { modo: 'ar', trovati: ['dormire'] })).toBe('Andata e ritorno, Agriturismo Il Poggio, a 800 m dalla partenza, +450\u00a0m · max\u00a01.300\u00a0m · 3\u00a0h\u00a020');
   });
   it('la fauna è quella lungo il percorso, non quella del parco; le specie comuni a tutti si dicono in cima', () => {
     const c = base({ fauna: { livello: 'frequenti', specie: ['lupo', 'orso'] }, specieLungo: ['nibbio_reale', 'cervo', 'camoscio'] });

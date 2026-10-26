@@ -15,7 +15,7 @@ import { htmlTerreno, leggiTerrenoDaOsm } from './terreno.js';
 import { htmlNaturaPercorso, collegaNaturaPercorso } from './natura.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
-import { htmlPiuGiorni, collegaPiuGiorni, MINUTI_PER_DUE_GIORNI, quoteDisponibili, pezziConQuote } from './piuGiorni.js';
+import { quoteDisponibili, pezziConQuote } from './quotePercorso.js';
 import { oraPartenzaTesto } from './andataRitorno.js';
 import { serveScaricoQuote, chiaveQuote } from '../lib/quoteSalvate.js';
 import { misureDeiPezzi } from '../lib/lungoIlPercorso.js';
@@ -69,8 +69,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
   const arDa = (m) => (pezzi.length ? misureAR({ km: Math.round(m.km * 10) / 10, salita: m.salita, discesa: m.discesa }, { anello: eAnelloPezzi(pezzi) }) : null);
   let ar = arDa(misure);
   let fonteQuote = quote?.fonte;
-  // "Su più giorni" se la camminata scelta supera la giornata più corta
-  const serveGiorni = (modo) => ar && misureScelte(ar, modo).durataMin > MINUTI_PER_DUE_GIORNI;
   const e = estremiTraccia(invertito ? invertiGeojson(p.geojson) : p.geojson);
   const idUrl = encodeURIComponent(p.id);
   const suPagina = () => (virtuale ? location.hash.startsWith('#/condiviso') : location.hash === `#/percorso/${idUrl}`);
@@ -116,7 +114,6 @@ export async function vistaPercorso(app, id, virtuale = null) {
       <div class="percorso-colonna-b">
         <div id="contenitoreTerreno">${htmlTerreno(p, pezzi)}</div>
         ${pezzi.length ? '<div id="puntiLungo"></div>' : ''}
-        ${pezzi.length ? `<div id="contenitoreGiorni" ${serveGiorni(modoScelto()) ? '' : 'hidden'}>${htmlPiuGiorni()}</div>` : ''}
         ${pezzi.length ? htmlNaturaPercorso() : ''}
         ${e ? htmlPortamiAllaPartenza({ lat: e.inizio[1], lon: e.inizio[0], fonte: 'traccia' }) : ''}
         ${virtuale ? (virtuale.note ? `<section class="riquadro"><h2>Note</h2><p>${escapeHtml(virtuale.note)}</p></section>` : '') : `<section class="riquadro">
@@ -240,35 +237,10 @@ export async function vistaPercorso(app, id, virtuale = null) {
       iniziali: inizialiOrari,
       alCambioModo: (modo) => {
         app.querySelector('#numeriPercorso').innerHTML = htmlNumeri(misure, fonteQuote, ar, modo);
-        const giorni = app.querySelector('#contenitoreGiorni');
-        if (giorni) {
-          giorni.hidden = !serveGiorni(modo);
-          // le giornate calcolate prima valevano per l'altra scelta
-          giorni.querySelector('.giorni-risultato').innerHTML = '';
-        }
       },
     });
   };
   collegaAR();
-  // su più giorni: dove finisce ogni giornata e dove dormire
-  collegaPiuGiorni(app.querySelector('.piu-giorni'), attuale, pezzi, puntiDelPercorso, {
-    modo: modoScelto,
-    anello: () => Boolean(ar?.anello),
-    conQuote: (pq, fonte) => {
-      misure = misureDeiPezzi(pq);
-      ar = arDa(misure);
-      fonteQuote = fonte;
-      const numeri = app.querySelector('#numeriPercorso');
-      if (numeri) numeri.innerHTML = htmlNumeri(misure, fonte, ar);
-      aggiornaMeteo(misureMeteo(), quoteMeteoDaiPezzi(pq));
-      // anche il blocco «Quando», ora con le quote
-      const blocco = app.querySelector('.quando');
-      if (blocco && ar) {
-        blocco.outerHTML = htmlQuando(ar, modoScelto(), inizialiOrari);
-        collegaAR();
-      }
-    },
-  });
   const mini = creaMappa(contenitore, { anteprima: true });
   const puntiNatura = L.layerGroup().addTo(mini);
   collegaNaturaPercorso(app.querySelector('#natura'), pezzi, (oss) => {

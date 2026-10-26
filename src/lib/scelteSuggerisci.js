@@ -4,7 +4,6 @@ import { SCELTE_PREDEFINITE, MODI_SUGGERISCI, QUANDO, TEMPI, COSE, FATICHE, DIST
 import { LUNGHEZZE } from './anello.js';
 
 export const CHIAVE_SCELTE = 'orme.suggerisci';
-const DOVE = ['qualsiasi', 'rifugi', 'strutture'];
 const CAMPI_TESTO = ['specie', 'specieNome', 'parco', 'quota', 'salita', 'senzaQuote', 'lunghezzaKm', 'biciDaVerificare'];
 
 const come = (v, predefinito) => (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : predefinito);
@@ -31,7 +30,7 @@ export function normalizzaScelte(grezze) {
   s.periodo = come(g.periodo, '') in PERIODI ? g.periodo : SCELTE_PREDEFINITE.periodo;
   const lunghezza = come(g.lunghezza, SCELTE_PREDEFINITE.lunghezza);
   s.lunghezza = lunghezza in LUNGHEZZE ? lunghezza : SCELTE_PREDEFINITE.lunghezza;
-  if ('dormire' in s && !DOVE.includes(s.dormire)) delete s.dormire;
+  delete s.dormire; // «Dove dormire» (2 giorni con notte) non c'è più: un valore salvato prima non deve restare
   // il cursore del dislivello e «Includi anche quelli senza dati di quota» non ci sono più: un valore salvato prima non deve restare nascosto
   s.salita = '';
   s.senzaQuote = '';

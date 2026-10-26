@@ -227,7 +227,6 @@ import { parcoDa } from '../datiParchi.js';
 import { COLORI } from './colori.js';
 import { iconaAnimale, ICONE } from './icone.js';
 import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.js';
-import { htmlGiornoNotte, collegaGiornoNotte } from './giornoNotte.js';
 import { linkCodice } from './codice.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
 import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
@@ -478,7 +477,6 @@ export async function vistaScheda(app, id) {
       </section>
 
       ${htmlSezione('fauna', { icona: 'zampa', titolo: 'Fauna', riassunto: riassuntoFauna(s, traccia) }, htmlFauna(s, traccia))}
-      ${puntoLuce && pezziTraccia.length ? htmlSezione('giornonotte', { icona: 'calendario', titolo: 'Giorno o notte?', riassunto: 'Un giorno o una notte fuori: i fatti a confronto' }, htmlGiornoNotte({ tratto: trattoFauna0 })) : ''}
 
 
       ${traccia ? htmlSezione('rifugi', { icona: 'casa', titolo: 'Rifugi e acqua', riassunto: 'Cerco lungo il percorso…' }, '<div id="puntiLungo"></div>') : ''}
@@ -671,7 +669,6 @@ export async function vistaScheda(app, id) {
     impostaVerso(s.id, !invertito, versoDallArchivio(s));
     vistaScheda(app, id);
   });
-  collegaGiornoNotte(app.querySelector('[data-sezione="giornonotte"]'), { id: s.id, pezzi: pezziTraccia, tratto: trattoFauna0, anello: statoGiro.anello, linkParco });
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {

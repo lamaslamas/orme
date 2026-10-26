@@ -4,7 +4,7 @@
 export const PARCHI = [
   {
     id: 'pnalm',
-    nazionale: true, // regole nazionali sul pernottamento (Pianifica, più giorni)
+    nazionale: true, // parco nazionale: regole sulle biciclette
     nome: "Parco Nazionale d'Abruzzo, Lazio e Molise",
     nomeBreve: 'PNALM',
     regioni: ['Abruzzo', 'Lazio', 'Molise'],
