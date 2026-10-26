@@ -1,7 +1,5 @@
-// Condividere un mio percorso: GPX, link senza server e immagine. Nel link e nel file vanno solo traccia, nome, note e
+// Condividere un mio percorso: link senza server e GPX. Nel link e nel file vanno solo traccia, nome, note e
 // verso: niente osservazioni, posizioni GPS mie o altri dati del telefono.
-import { distanzaKm } from './geo.js';
-
 export const MAX_LINK = 2000; // caratteri dell'indirizzo intero
 export const TOLLERANZE_M = [5, 10, 20, 40, 80, 160, 320];
 const SCALA = 1e5; // un grado = 100000 unità: circa 1 m

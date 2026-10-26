@@ -8,7 +8,7 @@ import { improntaTraccia } from '../lib/panorama.js';
 import { quoteDisponibili } from '../lib/quoteSalvate.js';
 import { pianoNotte, testoGiornate, MOTIVI_NOTTE } from '../lib/pianoNotte.js';
 import { doveDormire, ricordaDoveDormire, DOVE_DORMIRE } from '../lib/puntiUtili.js';
-import { modoScelto, oraPartenzaScelta } from './andataRitorno.js';
+import { oraPartenzaScelta } from './andataRitorno.js';
 import { statoQuando, ascoltaQuando } from './quando.js';
 import { puntoNelPoligono } from '../lib/confini.js';
 import { escapeHtml } from '../lib/formato.js';

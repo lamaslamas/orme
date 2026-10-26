@@ -26,4 +26,3 @@ export function minutiAlKm(serie, km) {
   return min[i - 1] + (min[i] - min[i - 1]) * f;
 }
 
-const sotto = (min, soglia) => Math.max(0, Math.min(min, soglia));

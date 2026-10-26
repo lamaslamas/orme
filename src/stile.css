@@ -2198,7 +2198,7 @@ a.modifica-carta {
 .riassunto-zona .riga-luce > span { flex: 1 1 220px; min-width: 0; }
 
 /* Avviso di migrazione (giri e avvistamenti di prima): sopra la barra in basso, finché non si scarica il backup */
-.avviso-migrazione { position: fixed; z-index: 3500; left: 10px; right: 10px; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 12px); max-width: 520px; margin: 0 auto; padding: 14px 16px; border-radius: 16px; background: var(--vetro-forte); border: var(--bordo-vetro); box-shadow: var(--ombra-alta); display: grid; gap: 6px; font-size: 0.9rem; }
+.avviso-migrazione { position: fixed; z-index: 3500; left: 10px; right: 10px; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + 12px); max-width: 520px; margin: 0 auto; padding: 14px 16px; border-radius: 16px; background: var(--scheda-piena); border: var(--bordo-vetro); box-shadow: var(--ombra-alta); display: grid; gap: 6px; font-size: 0.9rem; }
 .avviso-migrazione p { margin: 0; }
 .azioni-migrazione { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 

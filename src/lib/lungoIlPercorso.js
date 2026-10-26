@@ -176,16 +176,6 @@ export function misureDeiPezzi(pezzi) {
   return { km, salita: disl?.salita ?? null, discesa: disl?.discesa ?? null, durataMin: stimaDurataMin(km, disl), durataStimata: true, conQuote: Boolean(disl) };
 }
 
-// Dove si arriva dopo "minuti" di cammino: km e punto, interpolando tra due punti della traccia
-function alMinuto(serie, minuti) {
-  const { punti, km, min } = serie;
-  const i = min.findIndex((m) => m >= minuti);
-  if (i <= 0) return i === 0 ? { km: 0, punto: punti[0] } : null;
-  const f = (minuti - min[i - 1]) / (min[i] - min[i - 1] || 1);
-  const [a, b] = [punti[i - 1], punti[i]];
-  return { km: km[i - 1] + (km[i] - km[i - 1]) * f, punto: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f] };
-}
-
 // Rifugi e bivacchi per la notte vicino a un punto di fine giornata ({ km, punto }): entro raggioM
 // dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
 // Per dormire si accetta una deviazione più lunga che per l'acqua: 1 km dalla traccia (il resto

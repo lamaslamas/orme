@@ -5,7 +5,7 @@
 // src/lib/andataRitorno.js e src/lib/fotografia.js.
 import { stato } from '../stato.js';
 import { datiPerMeteo } from '../lib/condizioni.js';
-import { GIORNI_STRISCIA, dateDaOggi, nomeGiorno, giornoDellaStriscia, partenzaPassata, avvisiOrari, partiEntro, tempoDelGiorno, TEMPI_METEO } from '../lib/quandoAndare.js';
+import { GIORNI_STRISCIA, dateDaOggi, nomeGiorno, giornoDellaStriscia, partenzaPassata, avvisiOrari, partiEntro, TEMPI_METEO } from '../lib/quandoAndare.js';
 import { MODI, orariGiornata, oraDaMinuti, minutiDaOra } from '../lib/andataRitorno.js';
 import { orariDelGiorno } from '../lib/fotografia.js';
 import { albaTramonto, minutiItaliani } from '../lib/sole.js';

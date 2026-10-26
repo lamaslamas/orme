@@ -20,10 +20,9 @@ import { linkCodice } from './codice.js';
 import { urlOsservazioniGbif, interpretaGbif } from '../lib/gbif.js';
 import { riquadroIntorno, zonaInquadrata } from '../lib/intorno.js';
 import { specieDellaZonaPerOsservatori, puntiSpecieZona, PREFISSO_ZONA, urlNomeItaliano, nomeItalianoDaRisposta } from '../lib/specieZona.js';
-import { TIPI_PUNTO, puntiLungoIlPercorso, conAcqua, perLaNotte, perLaNotteScelta, doveDormire, ricordaDoveDormire, DOVE_DORMIRE, etichettaPernotto } from '../lib/puntiUtili.js';
-import { profiloTempi, profiloTempiBici, kmLungoLaTraccia, RAGGIO_STRUTTURE_M, RAGGIO_PERNOTTO_M, lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
-import { baseAndata, misureAR, misureScelte, eAnelloPezzi, pezziScelti } from '../lib/andataRitorno.js';
-import { albaTramonto, minutiItaliani } from '../lib/sole.js';
+import { TIPI_PUNTO, puntiLungoIlPercorso, conAcqua, perLaNotte, doveDormire, ricordaDoveDormire, DOVE_DORMIRE } from '../lib/puntiUtili.js';
+import { lunghezzaDeiPezzi, riquadroDeiPezzi, percorsoCoperto } from '../lib/lungoIlPercorso.js';
+import { baseAndata, misureAR, misureScelte, eAnelloPezzi } from '../lib/andataRitorno.js';
 import { htmlRigaRitmo } from './ritmo.js';
 import { confrontaNotte } from '../lib/dueGiorni.js';
 import { pianoNotte, testoGiornate } from '../lib/pianoNotte.js';
@@ -36,6 +35,7 @@ import { sentieriDelleUscite } from '../lib/collegamenti.js';
 import { datiPerMeteo, giornoAllaQuota, giudicaGiornata, SOGLIE_PREDEFINITE } from '../lib/condizioni.js';
 import { puntoDiPartenza } from '../lib/navigazione.js';
 import {
+  SCELTE_PREDEFINITE,
   MODI_SUGGERISCI,
   QUANDO,
   TEMPI,
@@ -907,7 +907,6 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
   }
 
   const NOMI_GIORNO = { ok: 'Meteo favorevole', attenzione: 'Attenzione', sconsigliato: 'Sconsigliato' };
-  const ora = (min) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(Math.round(min % 60)).padStart(2, '0')}`;
   // Cosa vale per tutti i risultati si dice una volta in cima; nelle card restano le differenze
   let contestoCard = { specieComuni: [], luceComune: null, motiviComuni: [], motiviDi: new Map() };
   function calcolaContesto() {
