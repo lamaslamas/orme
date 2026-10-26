@@ -103,10 +103,6 @@ export function notaFonte(fonte, calcolate) {
   return parti.length ? `Indicato dalla fonte${adattato ? ', adattato al ritmo' : ''}: ${parti.join(' · ')}` : '';
 }
 
-// Con A/R una giornata può finire sul ritorno: per cercare i rifugi si usa il punto equivalente
-// sull'andata (stessa traccia), cioè il km 2L − km
-export const fineSullAndata = (fine, kmAndata) => (fine.km > kmAndata ? { ...fine, km: Math.max(0, 2 * kmAndata - fine.km) } : fine);
-
 // Base dell'andata: km dalla traccia; salita e discesa dalle quote della traccia o, se non le ha, dal
 // profilo calcolato con il modello del terreno (TINITALY). null senza traccia o senza quote: lì la
 // scheda tiene i dati della fonte

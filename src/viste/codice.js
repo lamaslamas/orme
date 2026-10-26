@@ -1,5 +1,5 @@
 // Codice di comportamento per chi fotografa la natura: pagina in Altro, richiamata da Suggerisci (specie),
-// dalla fauna della scheda, da «Luce e fotografia» e da «Giorno o notte?». Testo di buone pratiche, non un regolamento.
+// dalla fauna della scheda, e da «Giorno o notte?». Testo di buone pratiche, non un regolamento.
 export const REGOLE = [
   ['Resta sui sentieri', 'nei parchi uscire dai sentieri può essere vietato, e il disturbo maggiore agli animali viene da chi si avvicina.'],
   ['Mantieni la distanza', "se un animale cambia comportamento per causa tua (smette di mangiare, si allerta, si allontana) sei troppo vicino. Usa il teleobiettivo, non i passi."],

@@ -1,4 +1,4 @@
-// "Quando andare" nella scheda di un sentiero: i prossimi 7 giorni, ognuno con il giudizio di
+// Il blocco «Quando» della scheda di un sentiero: i prossimi 7 giorni, ognuno con il giudizio di
 // giudicaGiornata (lo stesso di "Dove vado domani"), il tempo che fa di giorno, le temperature alla
 // partenza e in cima, il tramonto e il motivo principale.
 import { giudicaGiornata, giornoAllaQuota, SOGLIE_PREDEFINITE } from './condizioni.js';
@@ -125,7 +125,7 @@ export function giornoOraIniziali({ oggi, domani, adessoMin, oraSolita, durataMi
 }
 
 // «Parti entro»: un solo orario, il più restrittivo tra la luce (tramonto meno margine, con il ritmo scelto) e il meteo
-// («Quando andare»: pioggia, temporali, vento…), con il motivo. meteo: { entroMin, poi } o null.
+// (il meteo del blocco «Quando»: pioggia, temporali, vento…), con il motivo. meteo: { entroMin, poi } o null.
 export function partiEntro({ luceMin, meteo = null, tramontoMin }) {
   if (!Number.isFinite(luceMin) && !Number.isFinite(meteo?.entroMin)) return null;
   const tr = Number.isFinite(tramontoMin) ? ` (tramonto alle ${hhmm(tramontoMin)})` : '';

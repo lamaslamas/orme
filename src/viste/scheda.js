@@ -398,7 +398,7 @@ export async function vistaScheda(app, id) {
       ${sospetto ? `<p class="avviso-via">${ICONE.avviso}<span>Probabilmente invertito: il nome arriva a ${escapeHtml(sospetto.cima)}, ma la traccia parte dal punto più alto (${migliaia(sospetto.partenzaQuota)} m) e scende a ${migliaia(sospetto.arrivoQuota)} m.</span></p>` : ''}
       <button type="button" class="bottone testo" data-inverti-verso>${ICONE.inverti ?? '⇄'}<span>${invertito ? (versoDallArchivio(s) ? 'Verso corretto dall\'archivio · torna al verso della traccia' : 'Senso invertito · torna al verso della traccia') : 'Inverti senso'}</span></button>
     </div>`;
-  // giorno e ora con cui si apre "Percorrenza": quelli di Suggerisci, oppure domani alle 8 se oggi è tardi o manca la luce
+  // giorno e ora con cui si apre «Quando»: quelli di Suggerisci, oppure domani alle 8 se oggi è tardi o manca la luce
   const inizialiOrari = (() => {
     const oggiIt = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Rome' });
     const domani = new Date(new Date(`${oggiIt}T12:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10);

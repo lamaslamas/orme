@@ -46,7 +46,7 @@ describe('punti lungo la traccia: al km X', () => {
   });
 });
 
-import { profiloTempi, profiloTempiBici, finiGiornata, rifugiPerLaNotte } from '../src/lib/lungoIlPercorso.js';
+import { profiloTempi, profiloTempiBici, rifugiPerLaNotte } from '../src/lib/lungoIlPercorso.js';
 import { durataInBici } from '../src/lib/condizioni.js';
 import { stimaDurataMin } from '../src/lib/durata.js';
 describe('percorsi su più giorni', () => {
@@ -76,16 +76,6 @@ describe('percorsi su più giorni', () => {
     const s = profiloTempi([linea.map(([x, y]) => [x, y])]);
     expect(s.conQuote).toBe(false);
     expect(s.min.at(-1)).toBeCloseTo((s.km.at(-1) / 4) * 60, 5);
-  });
-
-  it('fine di ogni giornata, prima con le quote che senza', () => {
-    const con = finiGiornata(profiloTempi(pezzi), 4);
-    const senza = finiGiornata(profiloTempi([linea.map(([x, y]) => [x, y])]), 4);
-    expect(con.length).toBeGreaterThanOrEqual(1);
-    expect(con[0].giorno).toBe(1);
-    expect(con[0].km).toBeGreaterThan(10); // le prime 4 ore sono in piano: ~16 km
-    expect(senza[0].km).toBeCloseTo(16, 0);
-    expect(con.at(-1).km).toBeLessThan(profiloTempi(pezzi).km.at(-1));
   });
 
   it('rifugi vicino alla fine della giornata, con la distanza dalla traccia', () => {
@@ -135,18 +125,10 @@ describe('un solo calcolo della durata', () => {
   });
 });
 
-import { quotaPiuVicina, testoDislivelloRifugio, RAGGIO_PERNOTTO_M } from '../src/lib/lungoIlPercorso.js';
+import { RAGGIO_PERNOTTO_M } from '../src/lib/lungoIlPercorso.js';
 import { RAGGIO_LUNGO_IL_PERCORSO_M } from '../src/lib/puntiUtili.js';
 describe('rifugi per la notte', () => {
   it('1 km per dormire, 300 m per il resto', () => {
     expect([RAGGIO_PERNOTTO_M, RAGGIO_LUNGO_IL_PERCORSO_M]).toEqual([1000, 300]);
-  });
-  it('dislivello approssimato dal punto della traccia più vicino', () => {
-    const pezzi = [[[13.7, 41.8, 1200], [13.72, 41.8, 1350], [13.74, 41.8, 1500]]];
-    expect(quotaPiuVicina(pezzi, [13.721, 41.803])).toBe(1350);
-    expect(testoDislivelloRifugio(1472, 1350)).toBe('circa +120 m');
-    expect(testoDislivelloRifugio(1310, 1350)).toBe('circa −40 m');
-    expect(testoDislivelloRifugio(1354, 1350)).toBe('circa in piano');
-    expect(testoDislivelloRifugio(null, 1350)).toBe('');
   });
 });

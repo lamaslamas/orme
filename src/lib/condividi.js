@@ -151,4 +151,3 @@ export function leggiLink(query) {
   }
 }
 
-export const lunghezzaKmLinee = (linee) => linee.reduce((m, l) => m + l.reduce((s, p, i) => (i ? s + distanzaKm(l[i - 1], p) : 0), 0), 0);

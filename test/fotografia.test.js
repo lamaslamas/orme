@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { luciDelGiorno, minutiItaliani } from '../src/lib/sole.js';
-import { orariDelGiorno, minutiAlKm, pianoFoto } from '../src/lib/fotografia.js';
+import { orariDelGiorno, minutiAlKm } from '../src/lib/fotografia.js';
 
 const ROMA = [12.5, 41.9];
 describe('luci del giorno', () => {
@@ -36,38 +36,5 @@ describe('quando partire', () => {
     expect(minutiAlKm(serie, 0)).toBe(0);
     expect(minutiAlKm(serie, 2.5)).toBe(37.5);
     expect(minutiAlKm(serie, 99)).toBe(150);
-  });
-  it('all\'alba: si arriva 20 minuti prima e si dice quanto è buio', () => {
-    const p = pianoFoto({ evento: 'alba', km: 6, kmTotale: 10, serieAndata: serie, orari });
-    expect(p.arrivoMin).toBe(7 * 60 + 15 - 20);
-    expect(p.andataMin).toBe(90);
-    expect(p.partenzaMin).toBe(5 * 60 + 25); // 6:55 - 1h30 = 5:25
-    expect(p.buioMin).toBe(80); // dalle 5:25 alle 6:45, alba civile
-    expect(p.crepuscoloMin).toBe(10); // dalle 6:45 alle 6:55
-    expect(p.avvisi.map((a) => a.tipo)).toEqual(['buio', 'regole']);
-  });
-  it('km vicino: si parte dopo l\'alba civile, niente buio ma resta il richiamo alle regole', () => {
-    const p = pianoFoto({ evento: 'alba', km: 0.5, kmTotale: 10, serieAndata: serie, orari: { ...orari, albaCivile: 5 * 60, alba: 5 * 60 + 30 } });
-    expect(p.buioMin).toBeGreaterThanOrEqual(0);
-    const chiaro = pianoFoto({ evento: 'alba', km: 0.5, kmTotale: 10, serieAndata: serie, orari: { ...orari, albaCivile: 3 * 60, alba: 3 * 60 + 30 } });
-    expect(chiaro.buioMin).toBe(0);
-    expect(chiaro.avvisi.map((a) => a.tipo)).toEqual(['regole']); // si cammina nel crepuscolo, prima che il sole sorga
-  });
-  it('al tramonto: si arriva all\'inizio dell\'ora d\'oro e il rientro dopo il crepuscolo è buio', () => {
-    const p = pianoFoto({ evento: 'tramonto', km: 6, kmTotale: 10, serieAndata: serie, serieRitorno: serie, orari });
-    expect(p.arrivoMin).toBe(17 * 60);
-    expect(p.partenzaMin).toBe(15 * 60 + 30);
-    expect(p.rientro.fineMin).toBe(17 * 60 + 50 + 90); // 6 km di ritorno = 90 minuti dopo il tramonto
-    expect(p.rientro.buioMin).toBe(17 * 60 + 50 + 90 - (18 * 60 + 20)); // 60 minuti dopo il crepuscolo civile
-    expect(p.avvisi.map((a) => a.tipo)).toEqual(['buio', 'regole']);
-  });
-  it('partenza prima di mezzanotte: lo dice e propone la notte fuori', () => {
-    const lungo = { km: [0, 40], min: [0, 600] };
-    const p = pianoFoto({ evento: 'alba', km: 40, kmTotale: 40, serieAndata: lungo, orari });
-    expect(p.partenzaMin).toBeLessThan(0);
-    expect(p.avvisi[0].tipo).toBe('prima-di-mezzanotte');
-  });
-  it('senza alba (sole sempre su) non inventa niente', () => {
-    expect(pianoFoto({ evento: 'alba', km: 3, kmTotale: 10, serieAndata: serie, orari: { alba: null } }).impossibile).toBeTruthy();
   });
 });

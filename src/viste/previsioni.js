@@ -1,6 +1,6 @@
 // Previsioni meteo (Open-Meteo, gratuito e senza chiavi) per celle di 0,1°: scaricate a gruppi e
 // tenute un'ora, anche sul dispositivo, così riaprire una pagina non le scarica di nuovo.
-// Le usano "Dove vado domani", Suggeriscimi e la scheda del sentiero ("Quando andare").
+// Le usano Suggerisci e il blocco «Quando» della scheda del sentiero.
 import { urlPrevisioni, giorniDaRisposta } from '../lib/condizioni.js';
 
 const VALIDITA_MS = 60 * 60 * 1000;

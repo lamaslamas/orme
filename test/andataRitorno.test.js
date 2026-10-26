@@ -78,14 +78,6 @@ describe('andata e ritorno', () => {
   });
 });
 
-import { fineSullAndata } from '../src/lib/andataRitorno.js';
-describe('su più giorni con A/R', () => {
-  it('una giornata che finisce sul ritorno si cerca sul punto equivalente dell\'andata', () => {
-    expect(fineSullAndata({ km: 15, giorno: 2 }, 10).km).toBe(5);
-    expect(fineSullAndata({ km: 7 }, 10).km).toBe(7);
-  });
-});
-
 import { baseAndata } from '../src/lib/andataRitorno.js';
 describe('base dell\'andata', () => {
   const pezzi = [[[13.8, 41.8], [13.81, 41.8], [13.82, 41.8]]];

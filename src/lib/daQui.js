@@ -3,7 +3,6 @@
 import { distanzaDallaTracciaM, distanzaKm } from './geo.js';
 import { percorsoSentiero } from './tracce.js';
 
-export const RAGGI_DA_QUI = [100, 200, 500];
 export const RAGGIO_DA_QUI = 200;
 
 // riquadro di ogni traccia, calcolato una volta sola

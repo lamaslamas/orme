@@ -1050,45 +1050,11 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .fauna-percorsi.tenue { color: var(--testo-tenue); }
 
 /* --- Dove vado domani? --- */
-.pagina-meteo { display: grid; gap: 14px; }
-.pagina-meteo > * { margin: 0; }
-.pagina-meteo .titolo-pagina { margin: 0; }
-.pannello-scelte {
-  display: grid; gap: 14px; padding: 16px; border-radius: 20px;
-  background: var(--vetro); border: var(--bordo-vetro); box-shadow: var(--ombra);
-}
-.scelte-riga { display: grid; gap: 10px; }
-.pannello-scelte .segmenti, .pannello-scelte .selettore-attivita { margin: 0; max-width: none; box-shadow: none; }
-.pannello-scelte .selettore-attivita .segmenti { background: var(--sfondo); }
-.scelta-giorno { grid-template-columns: repeat(2, 1fr); background: var(--sfondo); }
-.gruppo-scelta { display: grid; gap: 6px; }
-.scelta-nome { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--testo-tenue); }
-.pannello-scelte .pillole { margin: 0; padding: 0 0 2px; }
-.pannello-scelte .pillola .icona { margin-left: -2px; }
+
 .icona { flex: none; }
 
-.parchi-meteo { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
-.parco-meteo {
-  width: 100%; height: 100%; display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px; align-items: center; text-align: left;
-  padding: 12px 14px; border-radius: 16px; border: var(--bordo-vetro); background: var(--vetro); box-shadow: var(--ombra); font: inherit; color: inherit; cursor: pointer;
-}
-.parco-meteo .simbolo { grid-row: span 2; display: grid; }
-.parco-nome { font-weight: 700; }
-.parco-dati { font-size: 0.82rem; color: var(--testo-tenue); }
-
 .conteggio { margin: 0; }
-.classifica-meteo { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
-.voce-meteo a {
-  display: grid; gap: 8px; height: 100%; padding: 14px 16px; border-radius: 16px; text-decoration: none; color: inherit;
-  background: var(--scheda); border: var(--bordo-vetro); box-shadow: var(--ombra); border-left: 4px solid transparent;
-}
-.voce-meteo.giudizio-ok a { border-left-color: #3f8f4f; }
-.voce-meteo.giudizio-attenzione a { border-left-color: #c98a1b; }
-.voce-meteo.giudizio-sconsigliato a { border-left-color: #b5473a; }
-.voce-testa { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
-.voce-testa .simbolo { display: grid; padding-top: 1px; }
-.voce-meteo .nome { font-weight: 700; line-height: 1.3; }
-.voce-corpo { display: grid; gap: 4px; padding-left: 32px; }
+
 .riga-meteo { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: start; font-size: 0.9rem; line-height: 1.35; }
 .riga-meteo .icona { margin-top: 2px; color: var(--testo-tenue); }
 .riga-meteo.motivo { font-weight: 600; }
@@ -1099,15 +1065,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .giudizio-sconsigliato .riga-meteo.motivo .icona { color: #b5473a; }
 .riga-meteo.rifugi .icona { color: #9a4b2f; }
 .riga-meteo.acqua .icona { color: #2a7bbf; }
-.mostra-altri { justify-self: start; }
-.preferenze-meteo summary { font-weight: 700; cursor: pointer; }
-.preferenze-meteo label { display: grid; gap: 4px; margin: 10px 0; font-size: 0.92rem; }
-@media (min-width: 760px) {
-  .scelte-riga { grid-template-columns: minmax(200px, 1fr) minmax(320px, 1.6fr); }
-  .gruppo-scelta { grid-template-columns: 170px 1fr; align-items: center; }
-  .pannello-scelte .pillole { flex-wrap: wrap; overflow: visible; }
-  .classifica-meteo { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
-}
+
 .invito-meteo {
   display: flex; align-items: center; gap: 12px; margin: 12px 0 4px; padding: 14px 16px; border-radius: 18px; text-decoration: none; color: inherit;
   background: var(--vetro); border: var(--bordo-vetro); box-shadow: var(--ombra);
@@ -1162,8 +1120,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* --- Percorsi da qui --- */
 
 /* spillo arancio sul punto scelto */
-
-.scegli-punto, .scegli-punto .leaflet-interactive { cursor: crosshair !important; }
 
 /* --- crediti delle foto: solo a schermo pieno; nelle anteprime un piccolo "©" --- */
 .carta-foto, .carta-specie { position: relative; }
@@ -1528,8 +1484,7 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 /* Pianifica, su più giorni */
 .ore-giorno { display: flex; gap: 8px; margin: 6px 0 10px; }
 .giorni { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 10px; }
-.giorni-rifugi { margin: 4px 0 0; padding-left: 16px; display: grid; gap: 4px; font-size: 0.92rem; }
-.giorni-rifugi .piccolo { display: block; }
+
 .avviso-pernotto { display: grid; grid-template-columns: 16px 1fr; gap: 6px; margin: 6px 0 0; font-size: 0.86rem; color: var(--tonale-testo, inherit); }
 .avviso-pernotto svg { width: 16px; height: 16px; margin-top: 2px; }
 /* I miei percorsi: tre schede, il titolo delle schermate interne non si ripete */
@@ -1806,16 +1761,7 @@ body.disegno main { padding: 0; }
 .senza-traccia-zona[hidden] { display: none; }
 
 /* Andata e ritorno (scheda del sentiero e del percorso) */
-.andata-ritorno .scelta-ar { grid-template-columns: repeat(2, 1fr); margin: 4px 0 10px; }
-.tabella-ar { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.tabella-ar th, .tabella-ar td { padding: 6px 4px; border-top: 1px solid var(--bordo); text-align: left; font-weight: 400; white-space: nowrap; }
-.tabella-ar th { color: var(--testo-tenue, inherit); }
-.tabella-ar tr.totale th, .tabella-ar tr.totale td { font-weight: 800; }
-.orari-ar { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--sfondo); }
-.orari-scelte { display: flex; flex-wrap: wrap; gap: 8px 14px; }
-.orari-scelte label { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
-.orari-scelte input { font: inherit; min-height: 36px; border: 1px solid var(--bordo); border-radius: 8px; background: var(--scheda-piena); color: inherit; padding: 0 6px; }
-.orari-risultato p { margin: 8px 0 0; }
+
 .avviso-luce { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: rgba(239, 159, 39, 0.16); color: #7a4a06; }
 :root[data-scuro] .avviso-luce { background: rgba(239, 159, 39, 0.18); color: #fac775; }
 .avviso-luce svg { flex: none; width: 18px; height: 18px; margin-top: 2px; }
@@ -1883,7 +1829,7 @@ body.suggerisci-aperto .home-sotto { display: none; }
 .non-segnati-anello { color: #9a6408; font-weight: 700; }
 :root[data-scuro] .non-segnati-anello { color: #fac775; }
 
-/* "Quando andare" nella scheda: 7 giorni in fila, si scorrono sul telefono */
+/* «Quando» nella scheda: 7 giorni in fila, si scorrono sul telefono */
 .striscia-meteo { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(64px, 1fr); gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 4px 0 8px; padding-bottom: 2px; }
 .striscia-meteo::-webkit-scrollbar { display: none; }
 .giorno-striscia {
@@ -2031,12 +1977,9 @@ body.percorso-mappa main { padding: 0; }
 .azioni-vuoto { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 /* luce e fotografia */
-.foto-luce h3 { margin: 12px 0 6px; font-size: 0.95rem; }
-.luci-giorno { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; margin: 8px 0; font-size: 0.9rem; }
-.luci-giorno dt { color: var(--testo-tenue); }
-.luci-giorno dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; }
+
 .campo-km { width: 4.2em; margin-left: 4px; padding: 0 4px; border: 1px solid var(--bordo); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-.foto-risposta { margin: 10px 0 6px; line-height: 1.45; }
+
 .profilo-tratto b { white-space: nowrap; }
 
 /* giorno o notte */
@@ -2184,14 +2127,12 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 .disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 10px; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
 /* «Modifica traccia» a icona, nelle card e nelle liste */
 .lista > li,
-.voce-risultato,
-.voce-meteo { position: relative; }
+.voce-risultato { position: relative; }
 a.modifica-carta {
   position: absolute; right: 10px; top: 52px; z-index: 2; width: 34px; height: 34px; padding: 0; border-radius: 50%;
   display: grid; place-items: center; background: rgba(var(--chiaro-rgb), 0.92); color: var(--teal); box-shadow: 0 1px 4px rgba(37, 50, 56, 0.2);
 }
 .voce-risultato > a.modifica-carta,
-.voce-meteo > a.modifica-carta,
 .lista > li > a.modifica-carta:not(.voce-percorso a) { top: 8px; right: 8px; }
 .voce-percorso > a.modifica-carta { top: 52px; right: 10px; }
 .lista > li:not(.voce-percorso) > a.modifica-carta { top: 8px; right: 8px; }

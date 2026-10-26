@@ -1,6 +1,6 @@
 // «2 giorni con notte»: le due giornate si calcolano dalla luce, non dalla metà del cammino.
 // - Primo giorno: parte all'ora scelta e finisce al più tardi al tramonto meno 30 minuti (tempi con il ritmo scelto).
-// - Secondo giorno: parte alle 8:00 (all'alba se il percorso ha un tratto con più fauna, come in «Luce e fotografia»)
+// - Secondo giorno: parte alle 8:00 (all'alba se il percorso ha un tratto con più fauna, come nel tratto da fotografare)
 //   e dura al più fino al tramonto meno 30 minuti.
 // - Si dorme in un posto raggiunto entro la fine del primo giorno, da cui il secondo basta per finire.
 // - La fatica scelta vale per ciascuna giornata, non per il totale.

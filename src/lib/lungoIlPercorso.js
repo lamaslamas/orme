@@ -186,16 +186,6 @@ function alMinuto(serie, minuti) {
   return { km: km[i - 1] + (km[i] - km[i - 1]) * f, punto: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f] };
 }
 
-const RESTO_MIN = 30; // meno di mezz'ora rimasta: si arriva in giornata
-
-// Fine di ogni giornata con "ore" di cammino al giorno (l'ultima giornata finisce all'arrivo)
-export function finiGiornata(serie, ore) {
-  const totale = serie.min.at(-1) ?? 0;
-  const fini = [];
-  for (let g = 1; g * ore * 60 < totale - RESTO_MIN; g++) fini.push({ giorno: g, minuti: g * ore * 60, ...alMinuto(serie, g * ore * 60) });
-  return fini;
-}
-
 // Rifugi e bivacchi per la notte vicino a un punto di fine giornata ({ km, punto }): entro raggioM
 // dalla traccia e a non più di finestraKm (lungo la traccia) dal punto, dal più vicino
 // Per dormire si accetta una deviazione più lunga che per l'acqua: 1 km dalla traccia (il resto
@@ -212,31 +202,6 @@ export function rifugiPerLaNotte(punti, pezzi, fine, { raggioM = RAGGIO_PERNOTTO
     .map((p) => ({ ...p, km: kmLungoLaTraccia([p.lon, p.lat], pezzi), distanzaM: Math.round(distanzaDallaTracciaM([p.lon, p.lat], geojson)) }))
     .filter((p) => p.km != null && Math.abs(p.km - fine.km) <= finestraKm && p.distanzaM <= (STRUTTURE_TIPI.has(p.tipo) ? raggioStruttureM : raggioM))
     .sort((a, b) => Math.abs(a.km - fine.km) - Math.abs(b.km - fine.km));
-}
-
-// Quota del punto della traccia più vicino a [lon, lat] (pezzi con le quote), per il dislivello
-// approssimato fino a un rifugio fuori traccia
-export function quotaPiuVicina(pezzi, [lon, lat]) {
-  let migliore = null;
-  let d = Infinity;
-  for (const linea of pezzi ?? []) {
-    for (const p of linea) {
-      if (!Number.isFinite(p[2])) continue;
-      const x = (p[0] - lon) * Math.cos((lat * Math.PI) / 180);
-      const y = p[1] - lat;
-      const q = x * x + y * y;
-      if (q < d) [d, migliore] = [q, p[2]];
-    }
-  }
-  return migliore;
-}
-
-// "circa +120 m" / "circa −40 m" (sotto i 10 m non si dice: è nel rumore delle quote)
-export function testoDislivelloRifugio(quotaRifugio, quotaTraccia) {
-  if (!Number.isFinite(quotaRifugio) || !Number.isFinite(quotaTraccia)) return '';
-  const d = Math.round((quotaRifugio - quotaTraccia) / 10) * 10;
-  if (Math.abs(d) < 10) return 'circa in piano';
-  return `circa ${d > 0 ? '+' : '−'}${Math.abs(d)} m`;
 }
 
 // I tempi lungo il percorso in MTB: 12 km/h in piano e 400 m/h in salita (la discesa non si conta), con il ritmo scelto

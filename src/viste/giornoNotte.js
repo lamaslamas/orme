@@ -119,7 +119,7 @@ export function collegaGiornoNotte(box, { id, pezzi, tratto = null, anello = fal
 
     // un punto alla partenza: non c'è niente da confrontare
     if (kmTarget < 0.05) {
-      risultato.innerHTML = `<p>Il punto è alla partenza: non serve camminare per arrivarci, e quindi nemmeno una notte fuori. Per esserci all'alba guarda «Luce e fotografia».</p>`;
+      risultato.innerHTML = `<p>Il punto è alla partenza: non serve camminare per arrivarci, e quindi nemmeno una notte fuori. Per esserci all'alba guarda l'ora dell'alba in «Quando».</p>`;
       return;
     }
     // --- colonna A
