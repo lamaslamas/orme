@@ -24,7 +24,7 @@ import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
 import { miniatura } from './lista.js';
-import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
+import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './copertine.js';
 import { misureSentiero } from '../lib/riassunto.js';
 import { cronometra, impostaContatore, segna, intervallo } from '../lib/misura.js';
 import { creaIndice } from '../lib/indiceSpaziale.js';

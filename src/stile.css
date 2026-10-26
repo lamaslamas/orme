@@ -1178,12 +1178,6 @@ main.entra > *:nth-child(n + 4) { animation-delay: 90ms; }
 .sezione-rifugi .sezione-icona { color: #9a4b2f; }
 
 /* da vedere: striscia di foto e luoghi */
-.striscia-foto { list-style: none; margin: 0 0 8px; padding: 0 0 4px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; }
-.striscia-foto li { flex: none; width: 132px; scroll-snap-align: start; display: grid; gap: 2px; }
-.striscia-foto a { position: relative; display: block; }
-.striscia-foto img { width: 132px; height: 100px; object-fit: cover; border-radius: 10px; display: block; }
-.striscia-foto .km { position: absolute; left: 6px; bottom: 6px; font-size: 0.72rem; font-weight: 700; background: rgba(var(--chiaro-rgb), 0.85); color: var(--testo); border-radius: 6px; padding: 0 5px; }
-.luoghi-vicini { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; font-size: 0.92rem; }
 
 /* --- Percorsi da qui --- */
 

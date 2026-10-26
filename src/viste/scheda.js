@@ -238,7 +238,6 @@ import { htmlSezione, collegaSezioni, impostaRiassunto } from './sezioniScheda.j
 import { htmlFotografia, collegaFotografia, riassuntoLuce } from './fotografia.js';
 import { htmlGiornoNotte, collegaGiornoNotte } from './giornoNotte.js';
 import { linkCodice } from './codice.js';
-import { htmlDaVedere, daVedereDellaTraccia, riassuntoScheda } from './daVedere.js';
 import { possibilitaFauna, POSSIBILITA_FAUNA, affidabilita } from '../lib/faunaPercorso.js';
 import { riassuntoPunti, RAGGIO_LUNGO_IL_PERCORSO_M } from '../lib/puntiUtili.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
@@ -493,7 +492,6 @@ export async function vistaScheda(app, id) {
       ${puntoLuce ? htmlSezione('foto', { icona: 'foto', titolo: 'Luce e fotografia', riassunto: riassuntoLuce(puntoLuce) }, htmlFotografia({ conPercorso: pezziTraccia.length > 0, tratto: trattoFauna0 })) : ''}
       ${puntoLuce && pezziTraccia.length ? htmlSezione('giornonotte', { icona: 'calendario', titolo: 'Giorno o notte?', riassunto: 'Un giorno o una notte fuori: i fatti a confronto' }, htmlGiornoNotte({ tratto: trattoFauna0 })) : ''}
 
-      ${traccia ? htmlSezione('davedere', { icona: 'binocolo', titolo: 'Da vedere', riassunto: 'Cerco foto e luoghi…' }, '<div id="daVedere"></div>') : ''}
 
       ${traccia ? htmlSezione('rifugi', { icona: 'casa', titolo: 'Rifugi e acqua', riassunto: 'Cerco lungo il percorso…' }, '<div id="puntiLungo"></div>') : ''}
 
@@ -688,15 +686,6 @@ export async function vistaScheda(app, id) {
   });
   collegaFotografia(app.querySelector('[data-sezione="foto"]'), { punto: puntoLuce, pezzi: pezziTraccia, tratto: trattoFauna0, linkParco });
   collegaGiornoNotte(app.querySelector('[data-sezione="giornonotte"]'), { id: s.id, pezzi: pezziTraccia, tratto: trattoFauna0, anello: statoGiro.anello, linkParco });
-  // foto e luoghi lungo il percorso: dal file a parte; se non c'è niente la sezione sparisce
-  if (traccia)
-    daVedereDellaTraccia(s, traccia).then((d) => {
-      const sezione = app.querySelector('[data-sezione="davedere"]');
-      if (!sezione) return;
-      if (!d) return sezione.remove();
-      sezione.querySelector('#daVedere').innerHTML = htmlDaVedere(d);
-      impostaRiassunto(app, 'davedere', riassuntoScheda(d));
-    });
   const liberaFoto = collegaFotoPersonali(app, s.id);
   app.querySelector('#caricaGpx').addEventListener('click', () => fileGpx.click());
   fileGpx.addEventListener('change', async () => {

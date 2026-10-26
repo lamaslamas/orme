@@ -13,7 +13,7 @@ import { COLORI } from './colori.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
 import { ICONE } from './icone.js';
 import { linkModificaTraccia } from './modificaTraccia.js';
-import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './daVedere.js';
+import { copertina, copertineCaricate, caricaCopertine as caricaDaVedere } from './copertine.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
 import { modoScelto } from './andataRitorno.js';
 

@@ -1,7 +1,7 @@
 // "Le mie foto" nella scheda del sentiero. Le foto restano solo su questo telefono:
 // si salvano ridotte e ricodificate in JPEG, così perdono i dati nascosti (EXIF) e la posizione GPS.
 import { fotoDelSentiero, salvaFoto, eliminaFoto } from '../db.js';
-import { azzeraCopertine } from './daVedere.js';
+import { azzeraCopertine } from './copertine.js';
 import { dimensioniRidotte, creaIdFoto, LATO_FOTO, LATO_MINIATURA, QUALITA_JPEG } from '../lib/foto.js';
 import { escapeHtml } from '../lib/formato.js';
 

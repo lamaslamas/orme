@@ -11,7 +11,7 @@ import { puntiLungoIlPercorso, riassuntoPunti } from '../lib/puntiUtili.js';
 import { leggiSentiero, salvaSentiero } from '../db.js';
 import { iniziaBozza, aggiungiABozza, impostaAperturaDisegno, aperturaDaMappa } from '../lib/bozza.js';
 import { htmlFaunaBreve } from './faunaBreve.js';
-import { copertina, caricaCopertine } from './daVedere.js';
+import { copertina, caricaCopertine } from './copertine.js';
 import { caricaPunti } from './puntiUtili.js';
 import { ICONE } from './icone.js';
 import { linkModificaTraccia } from './modificaTraccia.js';

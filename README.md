@@ -25,7 +25,7 @@ Non è una guida ufficiale né un servizio di sicurezza: molte tracce sono "da v
 - **Dove vado domani?**: i percorsi migliori per oggi o domani secondo il meteo (pioggia, vento,
   freddo in quota, fango, ore di luce), la durata e le tue preferenze.
 - **Compatibilità** con trekking, MTB ed e-MTB, sempre prudente: le regole del parco prevalgono.
-- **Lungo il percorso**: rifugi, bivacchi e acqua, indice panoramico, foto e luoghi da vedere.
+- **Lungo il percorso**: rifugi, bivacchi e acqua, indice panoramico.
 - **Percorsi da qui**: tocchi un punto sulla mappa e vedi quali sentieri ci passano.
 - **Pianifica** un percorso tuo seguendo i sentieri, oppure carica il tuo GPX.
 
@@ -94,11 +94,6 @@ Dopo l'importazione, per ogni percorso con traccia:
   anonimo per contare le persone, mai i nomi. `--solo-fauna` ricalcola subito solo la fauna;
 - **indice panoramico** (analisi di visibilità sul terreno);
 - **terreno** (tag OSM delle vie), al massimo 20 minuti per giro: si completa nei giorni successivi.
-
-**Da vedere** (`scripts/calcola-da-vedere.mjs`, file a parte `public/dati/da-vedere.json`, scaricato
-solo quando si apre la scheda di un sentiero): voci di Wikipedia entro 1 km
-dalla traccia e foto di Wikimedia Commons entro 300 m (solo licenze libere senza NC/ND, con
-autore), al massimo 15 minuti per giro; si rinnova ogni 60 giorni o quando cambia la traccia.
 
 I confini dei parchi sono in `public/dati/confini.json` (`node scripts/scarica-confini.mjs`).
 
