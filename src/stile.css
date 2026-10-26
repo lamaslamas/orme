@@ -1999,8 +1999,10 @@ body.suggerisci-aperto .home-sotto { display: none; }
 }
 .x-pannello:hover { background: var(--bordo); }
 @media (max-width: 1023.98px) {
-  /* sulla mappa iniziale le tendine finiscono sopra i tre pulsanti (Suggerisci, Percorsi qui, matita) */
-  body.home-mappa .cornice-tendina { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom) + var(--altezza-pills) + var(--altezza-strumento, 0px)); }
+  /* Una sola regola per tutte le tendine: aperta una tendina, i tre pulsanti in basso (Suggerisci, Percorsi qui, matita) si
+     nascondono e la tendina arriva fino alla barra in basso, senza una striscia di mappa in mezzo. Chiuse, i pulsanti ci sono. */
+  body.pannello-aperto .home-sotto { display: none; }
+  body.home-mappa .cornice-tendina { bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); }
 }
 /* strumenti attivi (righello, percorsi da qui): sopra i pulsanti in basso; con un pannello aperto si riducono a una riga */
 .mappa-home .misura-barra, .mappa-home .barra-daqui { bottom: calc(var(--altezza-pills) + 6px); }

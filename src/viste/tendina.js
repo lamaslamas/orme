@@ -114,7 +114,8 @@ export function tendinaTrascinabile(foglio, { maniglia = '.foglio-maniglia-zona'
     }
     const giu = sposta(a[p], a.aperta);
     // la fine della lista resta raggiungibile anche a metà (la parte sotto la barra non si vede)
-    corpoDi().style.paddingBottom = giu ? `${giu + 16}px` : '';
+    // (e sempre un po' d'aria in fondo: l'ultimo elemento si vede intero scorrendo, anche a tendina aperta)
+    corpoDi().style.paddingBottom = `${giu + 16}px`;
   }
 
   // --- trascinamento: la tendina segue il dito, poi la posizione più vicina (o la spinta) ---
