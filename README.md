@@ -21,7 +21,7 @@ Non è una guida ufficiale né un servizio di sicurezza: molte tracce sono "da v
   uscite di associazioni ed enti parco), con lunghezza, dislivello, durata stimata e difficoltà.
 - **Fauna**: per ogni percorso gli animali osservati lungo il sentiero o nella zona e i mesi migliori
   (osservazioni verificate da GBIF: iNaturalist, eBird, Observation.org e altre fonti);
-  heatmap delle osservazioni e distribuzione ufficiale europea delle specie.
+  heatmap delle osservazioni.
 - **Dove vado domani?**: i percorsi migliori per oggi o domani secondo il meteo (pioggia, vento,
   freddo in quota, fango, ore di luce), la durata e le tue preferenze.
 - **Compatibilità** con trekking, MTB ed e-MTB, sempre prudente: le regole del parco prevalgono.
@@ -48,7 +48,7 @@ dispositivo (con backup su file quando vuoi). Ai servizi esterni vanno solo coor
 
 Dati © OpenStreetMap (ODbL) · osservazioni GBIF e iNaturalist (licenze CC indicate su ogni
 osservazione) · meteo Open-Meteo (CC BY 4.0) · mappe OpenFreeMap, Waymarked Trails, OpenTopoMap,
-Esri · distribuzione delle specie EEA (CC BY 4.0) · foto Wikimedia Commons (autore e licenza su
+Esri · foto Wikimedia Commons (autore e licenza su
 ogni foto, elenco in Altro → Crediti delle foto) · testi Wikipedia (CC BY-SA).
 
 ## Sviluppo
@@ -117,16 +117,6 @@ quote dei sentieri, raggruppate in celle di 0,1°; preferenze e scelte restano s
 Il profilo delle quote di ogni traccia (partenza, punto più alto, dislivello) lo calcola il robot
 con il modello del terreno (`src/lib/profiloQuote.js`, campo `quote` dell'archivio);
 `node scripts/calcola-panorama.mjs --solo-quote` lo ricalcola senza gli altri passi.
-
-## Distribuzione ufficiale delle specie
-
-`public/dati/distribuzione.json` contiene le celle di 10 km della Direttiva Habitat
-(Art. 17, rapporto 2013-2018) per orso, lupo, camoscio, lontra e gatto selvatico:
-fonte EEA, licenza CC BY 4.0. Il rapporto cambia ogni sei anni; per riscaricarlo:
-
-```bash
-node scripts/scarica-distribuzione.mjs
-```
 
 Icone: `scripts/icona.svg` → `npm install --no-save sharp && node scripts/genera-icone.mjs`.
 

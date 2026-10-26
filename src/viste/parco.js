@@ -9,7 +9,6 @@ import { ottieniConfine, disegnaConfine } from './confine.js';
 import { montaElenco } from './lista.js';
 import { impostaBanner } from './banner.js';
 import { aggiungiHeatmap } from './heatmap.js';
-import { aggiungiDistribuzione } from './distribuzione.js';
 import { aggiungiGps } from './gps.js';
 import { stato } from '../stato.js';
 import { ANIMALI } from '../lib/costanti.js';
@@ -118,7 +117,7 @@ export async function vistaParco(app, id) {
     elenco.ricalcola();
   });
 
-  mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'distribuzione', 'percorsi', 'confini', 'gps'], ricorda: `parco:${parco.id}` });
+  mappa = creaMappa(app.querySelector('#mappaParco'), { livelli: ['heatmap', 'percorsi', 'confini', 'gps'], ricorda: `parco:${parco.id}` });
   let attesaVista = null;
   mappa.on('moveend', () => {
     clearTimeout(attesaVista);
@@ -139,7 +138,6 @@ export async function vistaParco(app, id) {
   );
   mappa.attenuaSentieri(true);
   const fermaGps = aggiungiGps(mappa, () => null);
-  aggiungiDistribuzione(mappa);
   const heat = aggiungiHeatmap(mappa);
   const percorsi = L.layerGroup();
   const toccabili = percorsiToccabili(mappa);

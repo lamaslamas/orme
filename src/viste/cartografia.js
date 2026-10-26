@@ -70,7 +70,6 @@ export const NOMI_LIVELLI = {
   osservazione: 'Percorsi di osservazione',
   uscite: 'Sentieri delle uscite',
   confini: 'Confini dei parchi',
-  distribuzione: 'Distribuzione EEA',
   panoramicita: 'Panoramicità',
   rifugi: 'Rifugi e bivacchi',
   acqua: 'Acqua',

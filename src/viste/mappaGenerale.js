@@ -13,7 +13,6 @@ import { escapeHtml, codici, durata, testoSalitaMax } from '../lib/formato.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiHeatmap } from './heatmap.js';
-import { aggiungiDistribuzione } from './distribuzione.js';
 import { percorsiToccabili } from './toccaPercorso.js';
 import { disegnaConfine, ottieniConfine } from './confine.js';
 import { leggiFiltri, htmlFiltri, collegaFiltri, filtriAttivi } from './filtri.js';
@@ -284,7 +283,7 @@ export async function vistaMappaGenerale(app, idParco = null) {
     </div>
   `;
 
-  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'distribuzione', 'percorsiSempre', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
+  const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'percorsiSempre', 'uscite', 'confini', 'gps'], ricorda: 'mappa' });
   segna('mappa: creata');
   mappa.whenReady(() => segna('mappa: pronta (Leaflet)'));
   const confini = L.layerGroup();
@@ -348,7 +347,6 @@ export async function vistaMappaGenerale(app, idParco = null) {
     // sotto un sentiero dell'archivio possono passare altri itinerari (es. il Sentiero Italia)
     altriItinerari: (latlng) => foglioVia.apri(latlng, mappa.sentieroVicino?.(latlng)),
   });
-  aggiungiDistribuzione(mappa);
   // un foglio alla volta: aprendo l'elenco si nasconde la fauna (e viceversa)
   let mostraFoglio = null;
   // fauna come in "Intorno a me": gruppi di animali scelti e "Cosa vedere qui" nella zona inquadrata
