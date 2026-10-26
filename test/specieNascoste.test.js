@@ -75,7 +75,7 @@ describe('specie più comuni: le più osservate in Italia', () => {
   const json = { results: [r(13858, 'Passer domesticus', 22050, 'passera europea'), r(42048, 'Canis lupus', 20000, 'lupo'), r(6930, 'Anas platyrhynchos', 19301, 'germano reale'), r(5267, 'Milvus milvus', 10645, 'nibbio reale'), r(1, 'Canis lupus familiaris', 9000, 'cane'), r(12716, 'Turdus merula', 19214, 'merlo'), r(13858, 'Passer domesticus', 5)] };
   it('la richiesta è per tutta Italia, animali selvatici verificati', () => {
     const u = new URL(urlSpecieComuni());
-    expect(u.searchParams.get('place_id')).toBe('6774');
+    expect(u.searchParams.get('place_id')).toBe('6973');
     expect(u.searchParams.get('captive')).toBe('false');
     expect(u.searchParams.get('taxon_id')).toBe('40151,3,26036,20978');
     expect(u.searchParams.get('without_taxon_id')).toBe('71261,67570,4730,4929,4262,4255');
@@ -94,6 +94,10 @@ describe('specie più comuni: le più osservate in Italia', () => {
     const e = specieComuniDaRisposta(molte);
     expect(e).toHaveLength(30);
     expect(e.some((x) => x.scientifico === 'Corvus cornix')).toBe(true);
+  });
+  it('salamandra pezzata, svasso maggiore e ramarro occidentale restano sempre visibili', () => {
+    const e = specieComuniDaRisposta({ results: [r(1, 'Salamandra salamandra', 9), r(2, 'Podiceps cristatus', 8), r(3, 'Lacerta bilineata', 7), r(4, 'Turdus merula', 6)] });
+    expect(e.map((x) => x.scientifico)).toEqual(['Turdus merula']);
   });
   it('al massimo 30', () => {
     const molte = { results: Array.from({ length: 80 }, (_, i) => r(1000 + i, `Genus specie${i}`, 1000 - i)) };

@@ -62,11 +62,12 @@ export function salvaNascosteSalvate(valore, memoria = globalThis.localStorage) 
 // Le specie di «Quale animale» (Suggerisci): sono quelle che cerco, quindi le «più comuni» non le toccano mai;
 // si nascondono solo a mano
 export const SEMPRE_VISIBILI = ['cervo', 'camoscio', 'lupo', 'orso', 'capriolo', 'cinghiale', 'volpe', 'daino', 'aquila_reale', 'nibbio_reale', 'cicogna_nera'];
-const CHIAVI_SEMPRE_VISIBILI = new Set(SEMPRE_VISIBILI.map((a) => SCIENTIFICO_DI[a]));
+// più tre che voglio sempre vedere: salamandra pezzata, svasso maggiore, ramarro occidentale
+const CHIAVI_SEMPRE_VISIBILI = new Set([...SEMPRE_VISIBILI.map((a) => SCIENTIFICO_DI[a]), 'salamandra salamandra', 'podiceps cristatus', 'lacerta bilineata']);
 
 // Le specie più comuni: le più osservate in tutta Italia tra gli animali selvatici (mammiferi, uccelli, rettili, anfibi;
 // iNaturalist, osservazioni verificate, niente cattività), senza quelle sempre visibili e senza gli animali domestici
-export const ITALIA_INAT = 6774;
+export const ITALIA_INAT = 6973;
 export const CLASSI_COMUNI_INAT = [40151, 3, 26036, 20978]; // mammiferi, uccelli, rettili, anfibi
 // Soggetti fotografici: non entrano mai tra le più comuni (rapaci, cicogne, aironi, cormorani, fenicotteri)
 export const SOGGETTI_FOTOGRAFICI_INAT = [71261, 67570, 4730, 4929, 4262, 4255]; // Accipitriformes, Falconiformes, Ciconiidae, Ardeidae, Phalacrocoracidae, Phoenicopteridae
