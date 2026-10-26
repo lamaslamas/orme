@@ -2280,3 +2280,5 @@ body.pianificatore main { padding: 0; }
   .pian-sugg { left: calc(50% + 210px); }
 }
 .pian-opzioni .chip-scorciatoia { padding: 0 11px; font-size: 0.84rem; min-height: 38px; }
+/* «Niente acqua né rifugi entro 300 m» senza icona finiva nella colonna stretta dell'icona e si tagliava in «N…» */
+.disegno-punti > span:only-child { grid-column: 1 / -1; white-space: normal; }
