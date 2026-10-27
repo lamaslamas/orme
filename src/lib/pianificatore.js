@@ -11,16 +11,25 @@ export function nuovaTappa(p, extra = {}) {
   return { id: `t${Date.now().toString(36)}${contatore.toString(36)}`, p: [arr(p[0]), arr(p[1])], libero: false, nome: null, ...extra };
 }
 // i punti salvati (anche solo { p, libero }) → tappe con id
-export const tappeDaPunti = (punti) => (punti ?? []).map((x, i) => nuovaTappa(x.p ?? x, { libero: i === 0 ? false : Boolean(x.libero), nome: x.nome ?? null }));
+export const tappeDaPunti = (punti) => (punti ?? []).map((x, i) => nuovaTappa(x.p ?? x, { libero: i === 0 ? false : Boolean(x.libero), nome: x.nomeManuale ? x.nome ?? null : null, nomeManuale: Boolean(x.nomeManuale) }));
 
 // «A», 1, 2… e «B» per l'ultima (con almeno due tappe)
 export const etichetta = (i, n) => (i === 0 ? 'A' : i === n - 1 ? 'B' : String(i));
 
 // il nuovo punto dopo la tappa k (trascinando il tratto che parte da k)
 export const inserisciDopo = (tappe, k, p) => [...tappe.slice(0, k + 1), nuovaTappa(p), ...tappe.slice(k + 1)];
-export const sposta = (tappe, i, p) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome: null } : t));
+// spostata: il nome automatico si ritrova (quello scritto a mano resta)
+export const sposta = (tappe, i, p) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], ...(t.nomeManuale ? {} : { nome: null, luoghi: null }) } : t));
 export const togli = (tappe, i) => tappe.filter((_, j) => j !== i).map((t, j) => (j === 0 ? { ...t, libero: false } : t));
 // una tappa su (-1) o giù (+1); la prima tappa del percorso non è mai «libera»
+// una tappa trascinata dal posto `da` al posto `a`; la prima tappa del percorso non è mai «libera»
+export function muovi(tappe, da, a) {
+  if (da === a || da < 0 || a < 0 || da >= tappe.length || a >= tappe.length) return tappe;
+  const r = [...tappe];
+  const [t] = r.splice(da, 1);
+  r.splice(a, 0, t);
+  return r.map((x, k) => (k === 0 ? { ...x, libero: false } : x));
+}
 export function riordina(tappe, i, verso) {
   const j = i + verso;
   if (j < 0 || j >= tappe.length) return tappe;
@@ -28,7 +37,13 @@ export function riordina(tappe, i, verso) {
   [r[i], r[j]] = [r[j], r[i]];
   return r.map((t, k) => (k === 0 ? { ...t, libero: false } : t));
 }
-export const sostituisci = (tappe, i, p, nome = null) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome } : t));
+// un altro luogo scelto con la ricerca (il nome è quello del luogo, non scritto a mano)
+export const sostituisci = (tappe, i, p, nome = null) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome, luoghi: null, nomeManuale: false } : t));
+// rinominata a mano; vuoto = di nuovo il nome automatico
+export const rinomina = (tappe, i, testo) => {
+  const nome = String(testo ?? '').trim();
+  return tappe.map((t, j) => (j === i ? (nome ? { ...t, nome, nomeManuale: true } : { ...t, nome: null, nomeManuale: false }) : t));
+};
 
 // Annulla e Ripeti: la storia delle liste di tappe
 export function creaStoria(iniziale = []) {
@@ -130,3 +145,29 @@ export const preferenzaPer = (scelta, attivita) => (attivita === 'mtb' ? null : 
 export const chiaveTratto = (a, b, libero, opzioni = '') => `${a.p[0]},${a.p[1]}>${b.p[0]},${b.p[1]}${libero ? ':libero' : ''}|${opzioni}`;
 
 export const distanzaM = (a, b) => distanzaKm(a, b) * 1000;
+
+// --- nomi delle tappe ---
+// Nominatim (reverse a zoom 17) → { via, localita, paese }: la via o il sentiero più vicino, la frazione o località, il paese
+export const urlReverseTappa = (lat, lon) =>
+  `https://nominatim.openstreetmap.org/reverse?${new URLSearchParams({ format: 'jsonv2', zoom: '17', addressdetails: '1', 'accept-language': 'it', lat: lat.toFixed(5), lon: lon.toFixed(5) })}`;
+export function luoghiDaRisposta(json) {
+  const a = json?.address;
+  if (!a) return null;
+  const via = a.road || a.footway || a.path || a.pedestrian || a.track || a.cycleway || a.bridleway || null;
+  const localita = a.hamlet || a.locality || a.isolated_dwelling || a.farm || a.neighbourhood || a.suburb || null;
+  const paese = a.village || a.town || a.city || a.municipality || a.city_district || null;
+  return via || localita || paese ? { via, localita, paese } : null;
+}
+// il primo che c'è: un punto di interesse entro 100 m, la via o il sentiero, la località, il paese
+export const RAGGIO_POI_NOME_M = 100;
+export const nomeAutomaticoTappa = ({ poi = null, luoghi = null } = {}) => poi || luoghi?.via || luoghi?.localita || luoghi?.paese || null;
+export const nomeDellaTappa = (t) => t?.nome || nomeAutomaticoTappa({ poi: t?.poi, luoghi: t?.luoghi });
+// «Via Monteroni · km 4,2»: sempre con il km, che distingue anche due tappe con lo stesso nome
+export const kmTesto = (km) => (Number.isFinite(km) ? `km ${String(Math.round(km * 10) / 10).replace('.', ',')}` : '');
+export const etichettaConKm = (nome, km) => [nome, kmTesto(km)].filter(Boolean).join(' · ');
+// i km di ogni tappa lungo il percorso, dai tratti calcolati (lunghezze in metri)
+export function kmDelleTappe(lunghezzeTrattiM) {
+  const km = [0];
+  for (const m of lunghezzeTrattiM) km.push(km.at(-1) + m / 1000);
+  return km;
+}

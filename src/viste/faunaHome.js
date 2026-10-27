@@ -7,7 +7,7 @@ import { leggiGruppiSalvati, leggiSoloRare, salvaSoloRare } from '../lib/gruppiF
 import { ricercheSpecieDellaZona, specieDellaZona, zonaInquadrata } from '../lib/intorno.js';
 import { specieDalleOsservazioni, filtraOsservazioni } from '../lib/filtroFauna.js';
 import { iconaPerOsservazione } from '../lib/gbif.js';
-import { NOMI_IT, cercaNomeItaliano } from './heatmap.js';
+import { NOMI_IT, cercaNomeItaliano } from './faunaComune.js';
 import { escapeHtml } from '../lib/formato.js';
 import { stato } from '../stato.js';
 import { nascoste, urlSpecieComuni, specieComuniDaRisposta } from '../lib/specieNascoste.js';
@@ -22,7 +22,8 @@ const riccoOra = (f) => f.fauna === 'frequenti' && f.stagione === 'adesso';
 
 // contenitore: dove mettere il foglio; restituisce { personalizza, collega(heat), pannello, chiudi }
 // allApertura(): quando il foglio si apre (es. per chiudere l'elenco dei percorsi: uno alla volta)
-export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apriElenco = () => {} } = {}) {
+// compatto: senza «Percorsi ricchi di fauna qui» (nel pianificatore non c'è un elenco di percorsi)
+export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apriElenco = () => {}, compatto = false } = {}) {
   let gruppi = leggiGruppi();
   let scelta = null; // { inat, nome, scientifico }
   let heat = null;
@@ -38,7 +39,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
     <div class="fauna-heat"></div>
     <div class="fauna-corpo">
       <div class="fauna-azioni">
-        <button type="button" class="chip-scorciatoia" data-azione="ricco">${ICONE.zampa}<span>Percorsi ricchi di fauna qui</span></button>
+        ${compatto ? '' : `<button type="button" class="chip-scorciatoia" data-azione="ricco">${ICONE.zampa}<span>Percorsi ricchi di fauna qui</span></button>`}
         <label class="interruttore solo-rare"><input type="checkbox" data-azione="solo-rare" /> Solo rare</label>
       </div>
       <h3 class="titolo-sezione">Cosa vedere qui</h3>
@@ -122,6 +123,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   function disegnaScelte() {
     foglio.querySelector('[data-azione="solo-rare"]').checked = leggiSoloRare();
     const ricco = foglio.querySelector('[data-azione="ricco"]');
+    if (!ricco) return;
     const on = riccoOra(stato.leggi().filtri);
     ricco.classList.toggle('attiva', on);
     ricco.setAttribute('aria-pressed', String(on));

@@ -4,13 +4,13 @@
 // numeri, profilo toccabile e barra del fondo sempre visibili; Annulla e Ripeti; salvataggio come nel disegno.
 // I calcoli sono in src/lib/pianificatore.js, i tratti li calcola BRouter (src/lib/brouter.js).
 import { calcolaPercorso, profiloPer } from '../lib/brouter.js';
-import { unisciTratti, unisciTerreno, profiloPezzi, trattoLibero } from '../lib/disegno.js';
+import { unisciTratti, unisciTerreno, profiloPezzi, trattoLibero, lunghezzaM } from '../lib/disegno.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
 import { nuovoIdPercorso } from '../lib/percorso.js';
 import { salvaPercorso } from '../db.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
-import { luogoVicino, nomeProposto } from './nomeAutomatico.js';
+import { luoghiTappa, nomeProposto } from './nomeAutomatico.js';
 import { nomeDaSostituire } from '../lib/nomePercorso.js';
 import { urlLuoghi, luoghiDallaRisposta } from '../lib/cercaLuogo.js';
 import { stileUnico } from '../lib/stileMappa.js';
@@ -18,9 +18,11 @@ import { preparaLibreria, ATTR_VETTORIALE } from './mappaVettoriale.js';
 import { finestraTrascinabile } from './tendina.js';
 import { stato } from '../stato.js';
 import { ICONE } from './icone.js';
+import { creaFaunaHome } from './faunaHome.js';
+import { aggiungiFaunaGl, adattatoreMappa } from './faunaGl.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import {
-  nuovaTappa, etichetta, inserisciDopo, sposta, togli, riordina, sostituisci, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto,
+  nuovaTappa, etichetta, inserisciDopo, sposta, togli, muovi, rinomina, sostituisci, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
 } from '../lib/pianificatore.js';
 
 const COLORE = '#0f6e56';
@@ -49,6 +51,7 @@ export async function vistaPianificatore(app) {
   let richiesta = 0;
   let chiusa = false;
   let nomeInCorso = 0;
+  let kmTappe = null; // i km di ogni tappa lungo il percorso (null finché non è calcolato)
 
   document.body.classList.add('con-mappa', 'pianificatore');
   app.innerHTML = `
@@ -67,7 +70,9 @@ export async function vistaPianificatore(app) {
       <button type="button" class="chip-scorciatoia" data-preferenza="sentieri">Preferisci sentieri</button>
       <button type="button" class="chip-scorciatoia" data-preferenza="misto">Misto</button>
     </div>
+    <p class="pian-fauna-stato" id="pianFaunaStato" role="status" hidden></p>
     <div class="pian-strumenti">
+      <button type="button" class="pill-mappa tondo" data-azione="fauna" aria-pressed="false" aria-label="Fauna" title="Fauna: heatmap, icone e filtri">${ICONE.zampa}</button>
       <button type="button" class="pill-mappa tondo" data-azione="posizione" aria-label="La mia posizione" title="La mia posizione">${ICONE.navigazione}</button>
       <button type="button" class="pill-mappa tondo" data-azione="annulla" aria-label="Annulla" title="Annulla">${ICONE.indietro}</button>
       <button type="button" class="pill-mappa tondo" data-azione="ripeti" aria-label="Ripeti" title="Ripeti"><span style="display:inline-block;transform:scaleX(-1);display:grid">${ICONE.indietro}</span></button>
@@ -130,6 +135,21 @@ export async function vistaPianificatore(app) {
   }
 
   if (import.meta.env.DEV) window.__pianMappa = mappa; // solo per le prove in sviluppo
+  // la Fauna: lo stesso pannello e gli stessi filtri della mappa principale, in versione compatta
+  const faunaPannello = creaFaunaHome(app, adattatoreMappa(mappa), { compatto: true });
+  const statoFauna = app.querySelector('#pianFaunaStato');
+  const faunaGl = aggiungiFaunaGl(mappa, maplibregl, {
+    personalizza: () => faunaPannello.personalizza(),
+    alCambio: (testo) => {
+      statoFauna.textContent = testo;
+      statoFauna.hidden = !testo;
+    },
+    prima: 'linea-tocco',
+  });
+  faunaPannello.collega(faunaGl);
+  const segnaFauna = () => app.querySelector('[data-azione="fauna"]')?.setAttribute('aria-pressed', String(Boolean(stato.leggi().livelli.heatmap)));
+  const scollegaFauna = stato.ascolta(segnaFauna);
+  segnaFauna();
   const pronta = new Promise((r) => (mappa.loaded() ? r() : mappa.once('load', r)));
   const marcatori = new Map(); // id tappa → Marker
   let segnoProfilo = null;
@@ -144,7 +164,7 @@ export async function vistaPianificatore(app) {
     mappa.addLayer({ id: 'linea-libera', type: 'line', source: 'linea', filter: ['get', 'libero'], layout: { 'line-join': 'round' }, paint: { 'line-color': COLORE, 'line-width': 4, 'line-dasharray': [1.4, 1.4] } });
     mappa.addLayer({ id: 'elastico-linea', type: 'line', source: 'elastico', layout: { 'line-cap': 'round' }, paint: { 'line-color': COLORE, 'line-width': 4, 'line-dasharray': [1.5, 1.5], 'line-opacity': 0.9 } });
   }
-  pronta.then(preparaSorgenti).catch((e) => console.error('Pianificatore: livelli', e));
+  pronta.then(preparaSorgenti).then(() => faunaGl.avvia()).catch((e) => console.error('Pianificatore: livelli', e));
 
   // --- le tappe sulla mappa ---
   function elementoMarcatore(i, n) {
@@ -215,6 +235,7 @@ export async function vistaPianificatore(app) {
     if (chiusa) return;
     if (tappe.length < 2) {
       risultato = null;
+      kmTappe = null;
       mappa.getSource('linea')?.setData(vuoto());
       scrivi(tappe.length ? 'Tocca la mappa o cerca un luogo per l\'arrivo' : 'Tocca la mappa o cerca un luogo per la partenza');
       return mostraBarra();
@@ -235,6 +256,8 @@ export async function vistaPianificatore(app) {
     const linea = unisciTratti(fatti);
     mappa.getSource('linea')?.setData({ type: 'FeatureCollection', features: fatti.map((t, i) => lineaGeo(t.coordinate, { seg: i, libero: Boolean(t.libero) })) });
     risultato = { linea, terreno: unisciTerreno(fatti), tratti: fatti, pezziQuote: null, fonte: null, misure: misureDeiPezzi([linea]) };
+    kmTappe = kmDelleTappe(fatti.map((t) => lunghezzaM(t.coordinate)));
+    disegnaTappeElenco();
     mostraBarra();
     // quote (TINITALY) per dislivello, tempo e profilo
     const { pezzi, fonte } = await quoteDeiPezzi([linea]).catch(() => ({ pezzi: [linea], fonte: null }));
@@ -285,34 +308,109 @@ export async function vistaPianificatore(app) {
     const tappe = storia.ora();
     $('.pian-titolo-tappe').hidden = !tappe.length;
     $('#pianTappe').innerHTML = tappe
-      .map(
-        (t, i) => `<li data-i="${i}">
+      .map((t, i) => {
+        const nome = nomeDellaTappa(t) ?? (i === 0 ? 'Partenza' : i === tappe.length - 1 ? 'Arrivo' : `Tappa ${i}`);
+        return `<li data-i="${i}">
+          <span class="pian-presa" role="button" tabindex="0" aria-label="Riordina la tappa ${etichetta(i, tappe.length)}: tieni premuto e trascina (o frecce su e giù)">⠿</span>
           <span class="pian-tappa piccola${i === 0 ? ' prima' : i === tappe.length - 1 && tappe.length > 1 ? ' ultima' : ''}" aria-hidden="true">${etichetta(i, tappe.length)}</span>
-          <button type="button" class="pian-nome" data-azione="cerca-tappa" aria-label="Cambia luogo della tappa ${etichetta(i, tappe.length)}">${escapeHtml(t.nome ?? (i === 0 ? 'Partenza' : i === tappe.length - 1 ? 'Arrivo' : `Tappa ${i}`))}</button>
+          <button type="button" class="pian-nome" data-azione="rinomina" aria-label="Rinomina la tappa ${etichetta(i, tappe.length)}"><span class="pian-nome-testo">${escapeHtml(nome)}</span>${kmTappe ? `<span class="pian-km">${escapeHtml(kmTesto(kmTappe[i]))}</span>` : ''}</button>
           <span class="pian-azioni-tappa">
-            <button type="button" data-azione="su" aria-label="Sposta su" ${i === 0 ? 'disabled' : ''}>▲</button>
-            <button type="button" data-azione="giu" aria-label="Sposta giù" ${i === tappe.length - 1 ? 'disabled' : ''}>▼</button>
-            <button type="button" data-azione="togli" aria-label="Elimina la tappa">${ICONE.chiudi}</button>
+            <button type="button" data-azione="cerca-tappa" aria-label="Cerca un altro luogo per la tappa ${etichetta(i, tappe.length)}">${ICONE.cerca}</button>
+            <button type="button" data-azione="togli" aria-label="Elimina la tappa ${etichetta(i, tappe.length)}">${ICONE.chiudi}</button>
           </span>
-        </li>`,
-      )
+        </li>`;
+      })
       .join('');
   }
-  // il nome di ogni tappa si trova da solo (il luogo più vicino, una richiesta al secondo)
+  // il nome di ogni tappa si trova da solo: via o sentiero, poi località, poi paese (Nominatim, una richiesta per tappa,
+  // ricordata sul telefono). Quello scritto a mano non si cambia
   async function trovaNomi() {
     const mia = ++nomeInCorso;
-    for (const t of storia.ora().filter((x) => !x.nome)) {
-      const nome = await luogoVicino(t.p);
+    for (const t of storia.ora().filter((x) => !x.nomeManuale && !x.luoghi && !x.nome)) {
+      const luoghi = await luoghiTappa(t.p);
       if (chiusa || mia !== nomeInCorso) return;
-      if (!nome) continue;
+      if (!luoghi) continue;
       const k = storia.ora().findIndex((x) => x.id === t.id);
-      if (k < 0 || storia.ora()[k].nome) continue;
+      if (k < 0 || storia.ora()[k].luoghi || storia.ora()[k].nomeManuale) continue;
       // il nome non è un cambio da annullare: si scrive sulla tappa com'è
-      storia.ora()[k].nome = nome;
-      const bottone = $(`#pianTappe li[data-i="${k}"] .pian-nome`);
-      if (bottone) bottone.textContent = nome;
+      storia.ora()[k].luoghi = luoghi;
+      aggiornaNomeRiga(k);
     }
   }
+  function aggiornaNomeRiga(k) {
+    const testo = $(`#pianTappe li[data-i="${k}"] .pian-nome-testo`);
+    if (testo && !$(`#pianTappe li[data-i="${k}"] .pian-nome-campo`)) testo.textContent = nomeDellaTappa(storia.ora()[k]) ?? testo.textContent;
+  }
+  // toccando il nome si scrive il proprio; vuoto = di nuovo quello automatico
+  function iniziaRinomina(i) {
+    const li = $(`#pianTappe li[data-i="${i}"]`);
+    const tappa = storia.ora()[i];
+    const bottone = li?.querySelector('.pian-nome');
+    if (!bottone || !tappa) return;
+    const campo = document.createElement('input');
+    campo.className = 'pian-nome-campo';
+    campo.value = nomeDellaTappa(tappa) ?? '';
+    campo.setAttribute('aria-label', `Nome della tappa ${etichetta(i, storia.ora().length)}`);
+    bottone.replaceWith(campo);
+    campo.focus();
+    campo.select();
+    const fine = (salva) => {
+      if (!campo.isConnected) return;
+      if (salva && campo.value.trim() !== (nomeDellaTappa(tappa) ?? '')) cambia(rinomina(storia.ora(), i, campo.value));
+      else disegnaTappeElenco();
+    };
+    campo.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fine(true);
+      else if (e.key === 'Escape') fine(false);
+    });
+    campo.addEventListener('blur', () => fine(true));
+  }
+  // riordino: si tiene premuta la maniglia e si trascina (dito o mouse); con la tastiera, frecce su e giù sulla maniglia
+  const elencoTappe = $('#pianTappe');
+  elencoTappe.addEventListener('pointerdown', (e) => {
+    const presa = e.target.closest('.pian-presa');
+    if (!presa) return;
+    e.preventDefault();
+    const li = presa.closest('li');
+    const da = Number(li.dataset.i);
+    const righe = [...elencoTappe.children];
+    const rette = righe.map((r) => r.getBoundingClientRect());
+    const y0 = e.clientY;
+    let a = da;
+    presa.setPointerCapture(e.pointerId);
+    li.classList.add('trascinata');
+    const muoviF = (ev) => {
+      const dy = ev.clientY - y0;
+      li.style.transform = `translateY(${dy}px)`;
+      const centro = rette[da].top + rette[da].height / 2 + dy;
+      a = Math.max(0, rette.findIndex((r) => centro < r.bottom));
+      if (centro >= rette.at(-1).bottom) a = rette.length - 1;
+      righe.forEach((r, k) => {
+        if (k === da) return;
+        const spostamento = da < a && k > da && k <= a ? -rette[da].height : da > a && k < da && k >= a ? rette[da].height : 0;
+        r.style.transform = spostamento ? `translateY(${spostamento}px)` : '';
+      });
+    };
+    const fineF = () => {
+      presa.removeEventListener('pointermove', muoviF);
+      presa.removeEventListener('pointerup', fineF);
+      presa.removeEventListener('pointercancel', fineF);
+      for (const r of righe) r.style.transform = '';
+      li.classList.remove('trascinata');
+      if (a !== da) cambia(muovi(storia.ora(), da, a));
+    };
+    presa.addEventListener('pointermove', muoviF);
+    presa.addEventListener('pointerup', fineF);
+    presa.addEventListener('pointercancel', fineF);
+  });
+  elencoTappe.addEventListener('keydown', (e) => {
+    const presa = e.target.closest('.pian-presa');
+    if (!presa || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault();
+    const da = Number(presa.closest('li').dataset.i);
+    cambia(muovi(storia.ora(), da, da + (e.key === 'ArrowUp' ? -1 : 1)));
+    $(`#pianTappe li[data-i="${Math.max(0, Math.min(storia.ora().length - 1, da + (e.key === 'ArrowUp' ? -1 : 1)))}"] .pian-presa`)?.focus();
+  });
   function aggiornaPulsanti() {
     $('[data-azione="annulla"]').disabled = !storia.puoAnnullare();
     $('[data-azione="ripeti"]').disabled = !storia.puoRipetere();
@@ -332,7 +430,7 @@ export async function vistaPianificatore(app) {
 
   // --- tocco sulla mappa: una tappa in fondo ---
   mappa.on('click', (e) => {
-    if (trascinando || e.originalEvent?.target?.closest?.('.pian-tappa')) return;
+    if (trascinando || faunaGl.pressioneLungaAppena() || e.originalEvent?.target?.closest?.('.pian-tappa')) return;
     if (mappa.getZoom() + 1 < ZOOM_MINIMO && storia.ora().length) return scrivi('Avvicinati per mettere le tappe sui sentieri');
     cambia([...storia.ora(), nuovaTappa([e.lngLat.lng, e.lngLat.lat])]);
   });
@@ -433,9 +531,8 @@ export async function vistaPianificatore(app) {
     const i = Number(b.closest('li')?.dataset.i);
     if (azione === 'annulla') (storia.annulla(), aggiorna());
     else if (azione === 'ripeti') (storia.ripeti(), aggiorna());
-    else if (azione === 'su') cambia(riordina(storia.ora(), i, -1));
-    else if (azione === 'giu') cambia(riordina(storia.ora(), i, 1));
     else if (azione === 'togli') cambia(togli(storia.ora(), i));
+    else if (azione === 'rinomina') iniziaRinomina(i);
     else if (azione === 'cerca-tappa') {
       tappaDaCambiare = i;
       campo.placeholder = `Cerca il luogo per la tappa ${etichetta(i, storia.ora().length)}`;
@@ -448,6 +545,10 @@ export async function vistaPianificatore(app) {
       const aperto = f.classList.toggle('aperto');
       b.setAttribute('aria-expanded', String(aperto));
     } else if (azione === 'posizione') posizione();
+    else if (azione === 'fauna') {
+      // acceso ma con il pannello chiuso: si riapre; altrimenti si accende o si spegne
+      if (!faunaPannello.riapri()) stato.imposta({ livelli: { heatmap: !stato.leggi().livelli.heatmap } });
+    }
     else if (azione === 'salva' && risultato) apriSalva();
   };
   app.addEventListener('click', suClick);
@@ -491,7 +592,7 @@ export async function vistaPianificatore(app) {
       note: '',
       nome: $('#pianNome').value.trim() || 'Percorso senza nome',
       origine: 'disegnato',
-      puntiControllo: storia.ora().map(({ p, libero }) => ({ p, libero })),
+      puntiControllo: storia.ora().map(({ p, libero, nome, nomeManuale }) => ({ p, libero, ...(nomeManuale ? { nome, nomeManuale } : {}) })),
       geojson: { type: 'MultiLineString', coordinates: [risultato.linea] },
       terreno: risultato.terreno,
       fonteTerreno: 'brouter',
@@ -509,6 +610,9 @@ export async function vistaPianificatore(app) {
     chiusa = true;
     richiesta++;
     osservatore?.disconnect();
+    scollegaFauna();
+    faunaGl.rimuovi();
+    faunaPannello.chiudi();
     app.removeEventListener('click', suClick);
     for (const m of marcatori.values()) m.remove();
     segnoProfilo?.remove();

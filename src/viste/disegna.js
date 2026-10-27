@@ -22,6 +22,7 @@ import { versoDi } from '../lib/verso.js';
 import { creaMappa } from './mappa.js';
 import { aggiungiGps } from './gps.js';
 import { aggiungiHeatmap } from './heatmap.js';
+import { creaFaunaHome } from './faunaHome.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { mostraPuntiLungoIlPercorso } from './puntiUtili.js';
@@ -103,7 +104,10 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
   const mappa = creaMappa(app.querySelector('#mappa'), { livelli: ['heatmap', 'gps'], ricorda: 'pianifica' });
   const fermaGps = aggiungiGps(mappa, () => null);
   // la fauna si guarda soltanto: i tocchi sulla mappa sono del disegno
-  const heat = aggiungiHeatmap(mappa, { occupata: () => true });
+  // (gli stessi filtri e lo stesso pannello compatto della mappa principale; i tocchi restano del disegno)
+  const fauna = creaFaunaHome(app, mappa, { compatto: true });
+  const heat = aggiungiHeatmap(mappa, { occupata: () => true, personalizza: fauna.personalizza, pannelloIn: fauna.pannello, riapriPannello: () => fauna.riapri() });
+  fauna.collega(heat);
   // la traccia di partenza, in grigio, per confrontare con quella che si modifica
   if (daBase) L.polyline(base.linea.map(([lon, lat]) => [lat, lon]), { color: '#6b7280', weight: 4, opacity: 0.8, dashArray: '2 8', interactive: false }).addTo(mappa);
   const livelloLinea = L.layerGroup().addTo(mappa);
@@ -571,6 +575,7 @@ export async function vistaDisegna(app, id = null, sorgente = null) {
     clearTimeout(aggiorna.timer);
     fermaGps();
     heat.rimuovi();
+    fauna.chiudi();
     mappa.remove();
     finestraSalva.remove();
     document.body.classList.remove('con-mappa', 'disegno');

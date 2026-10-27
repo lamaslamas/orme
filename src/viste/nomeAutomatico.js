@@ -3,6 +3,7 @@
 import { urlReverse, luogoDaRisposta, nomeAutomatico } from '../lib/nomePercorso.js';
 import { distanzaKm, lunghezzaKm } from '../lib/geo.js';
 import { eAnelloPezzi } from '../lib/andataRitorno.js';
+import { urlReverseTappa, luoghiDaRisposta } from '../lib/pianificatore.js';
 
 const CHIAVE = 'orme.nomiLuoghi';
 const PAUSA_MS = 1100;
@@ -43,6 +44,46 @@ export function luogoVicino([lon, lat]) {
       const nome = luogoDaRisposta(await r.json());
       if (nome) salva(chiave, nome);
       return nome;
+    } catch {
+      return null;
+    }
+  });
+  coda = lavoro.catch(() => {});
+  return lavoro;
+}
+
+// via, località e paese di una tappa del pianificatore (Nominatim reverse a zoom 17): una richiesta per tappa, nella stessa
+// coda del nome automatico (al massimo una al secondo) e ricordata sul telefono come i nomi delle zone
+const CHIAVE_TAPPE = 'orme.luoghiTappe';
+const leggiTappe = () => {
+  try {
+    return JSON.parse(localStorage.getItem(CHIAVE_TAPPE) ?? '{}');
+  } catch {
+    return {};
+  }
+};
+export function luoghiTappa([lon, lat]) {
+  const chiave = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  const noto = leggiTappe()[chiave];
+  if (noto) return Promise.resolve(noto);
+  const lavoro = coda.then(async () => {
+    const atteso = ultimaRichiesta + PAUSA_MS - Date.now();
+    if (atteso > 0) await new Promise((r) => setTimeout(r, atteso));
+    ultimaRichiesta = Date.now();
+    try {
+      const r = await fetch(urlReverseTappa(lat, lon), { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return null;
+      const luoghi = luoghiDaRisposta(await r.json());
+      if (luoghi) {
+        try {
+          const tutti = leggiTappe();
+          tutti[chiave] = luoghi;
+          localStorage.setItem(CHIAVE_TAPPE, JSON.stringify(Object.fromEntries(Object.entries(tutti).slice(-300))));
+        } catch {
+          // senza memoria si richiede ogni volta
+        }
+      }
+      return luoghi;
     } catch {
       return null;
     }

@@ -1885,7 +1885,7 @@ body.pannello-aperto .barra-flottante { z-index: 1060; }
 body.disegno .mappa-disegno .leaflet-bottom.leaflet-left, body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: calc(var(--altezza-foglio, 190px) + 8px); }
 body.disegno .gps-stato { bottom: calc(var(--altezza-foglio, 190px) + 12px); }
 /* la fauna nel disegno si guarda soltanto: restano il pulsante Fauna e la mappa, senza scala e filtri */
-body.disegno .pannello-heatmap { display: none; }
+/* nel disegno la barra della Fauna sta nel pannello Fauna (filtri in chiaro e conto) */
 @media (min-width: 1024px) {
   /* il pannello è una scheda a sinistra: scala e crediti a sinistra restano a destra di lei */
   body.disegno .mappa-disegno .leaflet-bottom.leaflet-left { margin-left: 420px; bottom: 16px; }
@@ -2282,3 +2282,25 @@ body.pianificatore main { padding: 0; }
 .pian-opzioni .chip-scorciatoia { padding: 0 11px; font-size: 0.84rem; min-height: 38px; }
 /* «Niente acqua né rifugi entro 300 m» senza icona finiva nella colonna stretta dell'icona e si tagliava in «N…» */
 .disegno-punti > span:only-child { grid-column: 1 / -1; white-space: normal; }
+/* riordino delle tappe con la maniglia, nomi con il km */
+.pian-presa { display: grid; place-items: center; width: 32px; height: 40px; flex: none; font-size: 1.25rem; line-height: 1; color: var(--testo-tenue); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 8px; }
+.pian-presa:active, .pian-presa:focus-visible { background: var(--bordo); cursor: grabbing; }
+.pian-tappe li { position: relative; transition: transform 0.12s; background: var(--sfondo); }
+.pian-tappe li.trascinata { z-index: 3; transition: none; box-shadow: var(--ombra); border-radius: 12px; opacity: 0.95; }
+.pian-nome { display: flex; flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.25; }
+.pian-nome-testo { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pian-km { font-size: 0.76rem; font-weight: 500; color: var(--testo-tenue); }
+.pian-nome-campo { flex: 1; min-width: 0; min-height: 38px; border: 1px solid var(--verde); border-radius: 10px; background: var(--sfondo); color: inherit; font: inherit; font-weight: 600; padding: 0 10px; }
+
+/* Fauna nel pianificatore */
+.pian-fauna-stato { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 106px); left: 10px; margin: 0; padding: 6px 12px; border-radius: 999px; max-width: calc(100vw - 80px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.8rem; font-weight: 700; pointer-events: none; }
+.pian-fauna-stato[hidden] { display: none; }
+.pian-opzioni .chip-scorciatoia svg { width: 16px; height: 16px; }
+.pian-fauna-icona { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #fff; border: 2px solid #7c6cf0; box-shadow: 0 1px 4px rgba(37, 50, 56, 0.4); margin-bottom: 6px; }
+.pian-fauna-icona img { transform: rotate(45deg); width: 18px; height: 18px; }
+.pian-fauna-icona.sfumata { border-style: dashed; background: rgba(241, 236, 255, 0.85); opacity: 0.85; }
+.pian-fauna-icona b { position: absolute; transform: rotate(45deg); right: -9px; top: -9px; min-width: 16px; padding: 0 4px; border-radius: 8px; background: #5b4b9a; color: #fff; font-size: 10px; line-height: 16px; text-align: center; }
+body.pianificatore.fauna-aperta .pian-foglio { display: none; }
+.pianificatore .fauna-heat:empty { display: none; }
+body.pianificatore .foglio-fauna { z-index: 1050; }
+.pian-strumenti .pill-mappa[aria-pressed="true"] { background: var(--verde); color: #fff; border-color: transparent; }

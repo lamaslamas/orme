@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { nuovaTappa, tappeDaPunti, etichetta, inserisciDopo, sposta, togli, riordina, sostituisci, creaStoria, trattoPiuVicino, classeFondo, fondoDaTerreno, preferenzaPer, chiaveTratto } from '../src/lib/pianificatore.js';
+import { muovi, rinomina, luoghiDaRisposta, nomeAutomaticoTappa, nomeDellaTappa, etichettaConKm, kmDelleTappe, urlReverseTappa, nuovaTappa, tappeDaPunti, etichetta, inserisciDopo, sposta, togli, riordina, sostituisci, creaStoria, trattoPiuVicino, classeFondo, fondoDaTerreno, preferenzaPer, chiaveTratto } from '../src/lib/pianificatore.js';
 
 const t = (lon, lat) => nuovaTappa([lon, lat]);
 const nomi = (l) => l.map((x) => x.p.join(','));
@@ -81,5 +81,48 @@ describe('pianificatore: tratto più vicino e fondo', () => {
     const a = t(1, 1);
     const b = t(2, 2);
     expect(chiaveTratto(a, b, false, 'trekking:1.5')).not.toBe(chiaveTratto(a, b, false, 'mtb'));
+  });
+});
+
+describe('pianificatore: riordino con trascinamento e nomi', () => {
+  it('trascinare una tappa in un altro posto; la partenza non è mai «libera»', () => {
+    const l = [t(1, 1), { ...t(2, 2), libero: true }, t(3, 3), t(4, 4)];
+    expect(nomi(muovi(l, 3, 1))).toEqual(['1,1', '4,4', '2,2', '3,3']);
+    expect(nomi(muovi(l, 0, 2))).toEqual(['2,2', '3,3', '1,1', '4,4']);
+    expect(muovi(l, 0, 2)[0].libero).toBe(false);
+    expect(muovi(l, 1, 1)).toBe(l);
+    expect(muovi(l, 1, 9)).toBe(l);
+  });
+  it('rinominare a mano resta anche spostando la tappa; vuoto torna automatico', () => {
+    const l = [{ ...t(1, 1), nome: 'Opi', luoghi: { paese: 'Opi' } }];
+    const r = rinomina(l, 0, '  Fonte della Rocca ');
+    expect(r[0]).toMatchObject({ nome: 'Fonte della Rocca', nomeManuale: true });
+    expect(sposta(r, 0, [2, 2])[0].nome).toBe('Fonte della Rocca');
+    expect(rinomina(r, 0, '')[0]).toMatchObject({ nome: null, nomeManuale: false });
+    expect(sposta(l, 0, [2, 2])[0]).toMatchObject({ nome: null, luoghi: null }); // l'automatico si ritrova
+  });
+  it('il nome: POI, poi via, poi località, poi paese; sempre con il km', () => {
+    const luoghi = { via: 'Via Monteroni', localita: 'Tarantini', paese: 'Copertino' };
+    expect(nomeAutomaticoTappa({ poi: 'Fontana del Gigante', luoghi })).toBe('Fontana del Gigante');
+    expect(nomeAutomaticoTappa({ luoghi })).toBe('Via Monteroni');
+    expect(nomeAutomaticoTappa({ luoghi: { localita: 'Tarantini', paese: 'Copertino' } })).toBe('Tarantini');
+    expect(nomeAutomaticoTappa({ luoghi: { paese: 'Copertino' } })).toBe('Copertino');
+    expect(nomeAutomaticoTappa({})).toBeNull();
+    expect(nomeDellaTappa({ nome: 'A mano', luoghi })).toBe('A mano');
+    expect(etichettaConKm('Via Monteroni', 4.2)).toBe('Via Monteroni · km 4,2');
+    expect(etichettaConKm('Copertino', 0)).toBe('Copertino · km 0');
+    expect(etichettaConKm('Copertino', undefined)).toBe('Copertino');
+  });
+  it('Nominatim: via o sentiero, frazione, paese', () => {
+    expect(luoghiDaRisposta({ address: { road: 'Via Monteroni', hamlet: 'Tarantini', town: 'Copertino' } })).toEqual({ via: 'Via Monteroni', localita: 'Tarantini', paese: 'Copertino' });
+    expect(luoghiDaRisposta({ address: { footway: 'Sentiero I1', village: 'Opi' } })).toEqual({ via: 'Sentiero I1', localita: null, paese: 'Opi' });
+    expect(luoghiDaRisposta({ address: { isolated_dwelling: 'Masseria Cesine', city: 'Vernole' } }).localita).toBe('Masseria Cesine');
+    expect(luoghiDaRisposta({ address: { country: 'Italia' } })).toBeNull();
+    expect(luoghiDaRisposta({})).toBeNull();
+    expect(urlReverseTappa(40.3, 18.1)).toContain('zoom=17');
+  });
+  it('i km di ogni tappa', () => {
+    expect(kmDelleTappe([1500, 2700]).map((x) => Math.round(x * 10) / 10)).toEqual([0, 1.5, 4.2]);
+    expect(kmDelleTappe([])).toEqual([0]);
   });
 });
