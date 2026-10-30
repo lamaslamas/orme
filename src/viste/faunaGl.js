@@ -7,6 +7,7 @@ import { leggiGruppiSalvati, testoGruppi } from '../lib/gruppiFauna.js';
 import { nascoste } from '../lib/specieNascoste.js';
 import { urlIconaAnimale } from './icone.js';
 import { filtriHeatmap } from './heatmap.js';
+import { aggiungiImmagine, caricaImmagine, disegnaFauna, idImmagineFauna, FAUNA_L, FAUNA_A } from './segniGl.js';
 import { senzaGruppi, cercaOsservazioniFauna, raggruppaOsservazioni, popupGruppoHtml, cercaNomeItaliano, NOMI_IT } from './faunaComune.js';
 
 const ZOOM_ICONE = 11; // zoom di MapLibre: uno meno di Leaflet (12)
@@ -35,7 +36,7 @@ export function adattatoreMappa(mappa) {
 
 // → { attiva, ricarica, osservazioniVisibili, testoStato, pressioneLungaAppena, rimuovi }
 // personalizza(): campi in più per i filtri (la specie scelta); alCambio(): il testo di stato è cambiato
-export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), alCambio = () => {}, prima = null } = {}) {
+export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), alCambio = () => {}, alFiltri = () => {}, prima = null } = {}) {
   const calcolaFiltri = () => ({ ...filtriHeatmap(stato.leggi()), gruppi: leggiGruppiSalvati(), escludiInat: nascoste.idInat(), escludi: nascoste.firma(), ...personalizza() });
   let filtri = calcolaFiltri();
   let attiva = false;
@@ -43,7 +44,6 @@ export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), 
   let ultimeOss = [];
   let contoIcone = null; // null = non ancora cercate; sempre lo stesso criterio, a ogni zoom
   let contoParziale = false;
-  let marcatori = [];
   let controllo = null;
   let richiesta = 0;
   let attesa = null;
@@ -83,25 +83,39 @@ export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), 
     mappa.addLayer({ id: 'fauna-heat', type: 'raster', source: 'fauna-heat', ...(filtri.taxon ? {} : { minzoom: ZOOM_HEATMAP_GRUPPI }), paint: { 'raster-opacity': 0.85, 'raster-fade-duration': 150 } }, prima && mappa.getLayer(prima) ? prima : undefined);
   }
 
-  // --- icone ---
+  // --- icone: un livello della mappa (symbol layer), non marcatori HTML ---
+  function assicuraLivelloIcone() {
+    if (!mappa.getSource('fauna-icone')) mappa.addSource('fauna-icone', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    if (!mappa.getLayer('fauna-icone')) {
+      mappa.addLayer({ id: 'fauna-icone', type: 'symbol', source: 'fauna-icone', layout: { 'icon-image': ['get', 'img'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
+    }
+  }
+  const datiIcone = (features = []) => mappa.getSource('fauna-icone')?.setData({ type: 'FeatureCollection', features });
   function pulisciIcone() {
-    for (const m of marcatori) m.remove();
-    marcatori = [];
     gruppiOra = [];
+    generazioneIcone++;
+    datiIcone();
   }
-  function elementoIcona(g) {
-    const el = document.createElement('div');
-    el.className = `pian-fauna-icona${g.sfumata ? ' sfumata' : ''}`;
-    el.style.pointerEvents = 'none'; // i tocchi passano alla mappa: la pressione lunga la gestiamo noi
-    el.innerHTML = `<img src="${urlIconaAnimale(g.icona)}" alt="" width="18" height="18" />${g.oss.length > 1 ? `<b>${g.oss.length}</b>` : ''}`;
-    return el;
+  // le immagini degli spilli (animale, tratteggio, numero) si disegnano una volta sola e restano nella mappa
+  async function immagineDelGruppo(g) {
+    const url = urlIconaAnimale(g.icona);
+    const id = idImmagineFauna(url, g.sfumata, g.oss.length);
+    if (!mappa.hasImage(id)) {
+      const img = await caricaImmagine(url);
+      aggiungiImmagine(mappa, id, FAUNA_L, FAUNA_A, (ctx) => disegnaFauna(ctx, { img, sfumata: g.sfumata, conto: g.oss.length }));
+    }
+    return id;
   }
-  function disegnaIcone() {
-    pulisciIcone();
-    if (!attiva || contoIcone == null) return;
+  let generazioneIcone = 0;
+  async function disegnaIcone() {
+    if (!attiva || contoIcone == null) return pulisciIcone();
+    const mia = ++generazioneIcone;
     const gruppi = raggruppaOsservazioni(ultimeOss, (o) => mappa.project([o.lon, o.lat]), mappa.getZoom() + 1 < 14 ? 90 : 60);
+    const ids = await Promise.all(gruppi.map(immagineDelGruppo));
+    if (rimossa || mia !== generazioneIcone) return;
+    assicuraLivelloIcone();
     gruppiOra = gruppi;
-    for (const g of gruppi) marcatori.push(new maplibregl.Marker({ element: elementoIcona(g), anchor: 'bottom' }).setLngLat([g.lon, g.lat]).addTo(mappa));
+    datiIcone(gruppi.map((g, i) => ({ type: 'Feature', properties: { i, img: ids[i] }, geometry: { type: 'Point', coordinates: [g.lon, g.lat] } })));
     for (const sci of [...new Set(gruppi.filter((g) => !g.animale && g.scientifico).map((g) => g.scientifico))].slice(0, 15)) cercaNomeItaliano(sci);
   }
   const visibili = () => {
@@ -166,13 +180,10 @@ export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), 
       if (!giu || giu.id !== id) return;
       const r = contenitore.getBoundingClientRect();
       const px = [e.clientX - r.left, e.clientY - r.top];
-      let migliore = null;
-      for (const g of gruppiOra) {
-        const p = mappa.project([g.lon, g.lat]);
-        const d = Math.hypot(p.x - px[0], p.y - 12 - px[1]); // l'icona sta sopra il punto
-        if (d <= RAGGIO_ICONA_PX && (!migliore || d < migliore.d)) migliore = { g, d };
-      }
-      if (!migliore) return;
+      // l'icona sta sopra il punto: si cerca in un riquadro attorno al tocco
+      const trovate = mappa.getLayer('fauna-icone') ? mappa.queryRenderedFeatures([[px[0] - RAGGIO_ICONA_PX, px[1] - RAGGIO_ICONA_PX], [px[0] + RAGGIO_ICONA_PX, px[1] + RAGGIO_ICONA_PX]], { layers: ['fauna-icone'] }) : [];
+      const migliore = trovate.length ? { g: gruppiOra[trovate[0].properties.i] } : null;
+      if (!migliore?.g) return;
       ultimaPressioneLunga = performance.now();
       const g = migliore.g;
       const popup = new maplibregl.Popup({ offset: [0, -26], maxWidth: '300px' }).setLngLat([g.lon, g.lat]).setHTML(popupGruppoHtml(g)).addTo(mappa);
@@ -196,6 +207,7 @@ export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), 
     chiaveCoperta = null;
     disegnaHeatmap();
     aggiornaIcone();
+    alFiltri();
   }
   const scollegaStato = stato.ascolta((nuovo) => {
     const acceso = Boolean(nuovo.livelli.heatmap);
@@ -228,6 +240,8 @@ export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), 
     ricarica,
     osservazioniVisibili: () => (contoIcone == null ? null : visibili()),
     testoStato,
+    filtri: () => filtri,
+    testoFiltri: () => (attiva ? `Filtri della Fauna: ${nomeFiltri()}` : ''),
     pressioneLungaAppena: () => performance.now() - ultimaPressioneLunga < 700,
     rimuovi() {
       rimossa = true;
@@ -237,6 +251,8 @@ export function aggiungiFaunaGl(mappa, maplibregl, { personalizza = () => ({}), 
       scollegaNascoste();
       pulisciIcone();
       togliHeatmap();
+      if (mappa.getLayer('fauna-icone')) mappa.removeLayer('fauna-icone');
+      if (mappa.getSource('fauna-icone')) mappa.removeSource('fauna-icone');
     },
   };
 }

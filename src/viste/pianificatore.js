@@ -20,6 +20,13 @@ import { stato } from '../stato.js';
 import { ICONE } from './icone.js';
 import { creaFaunaHome } from './faunaHome.js';
 import { aggiungiFaunaGl, adattatoreMappa } from './faunaGl.js';
+import { creaPoiGl } from './poiGl.js';
+import { faunaLungoIlPercorso } from './faunaLungoIlPercorso.js';
+import { urlIconaPoi } from './segniGl.js';
+import { CATEGORIE_POI, categoriaDelPoi, nomePoi, nomePerTappa, passaDiQui, poiVicinoA } from '../lib/poiPianificatore.js';
+import { creaBase, fetta } from '../lib/modificaTraccia.js';
+import { ANIMALI } from '../lib/costanti.js';
+import { NOMI_IT } from './faunaComune.js';
 import { escapeHtml, durata } from '../lib/formato.js';
 import {
   nuovaTappa, etichetta, inserisciDopo, sposta, togli, muovi, rinomina, sostituisci, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
@@ -51,6 +58,8 @@ export async function vistaPianificatore(app) {
   let richiesta = 0;
   let chiusa = false;
   let nomeInCorso = 0;
+  let poi = null; // i punti di interesse sulla mappa (poiGl.js)
+  let poiOra = { lungo: [], tutti: [], mancanti: false };
   let kmTappe = null; // i km di ogni tappa lungo il percorso (null finché non è calcolato)
 
   document.body.classList.add('con-mappa', 'pianificatore');
@@ -71,8 +80,10 @@ export async function vistaPianificatore(app) {
       <button type="button" class="chip-scorciatoia" data-preferenza="misto">Misto</button>
     </div>
     <p class="pian-fauna-stato" id="pianFaunaStato" role="status" hidden></p>
+    <div class="pian-categorie" id="pianCategorie" role="group" aria-label="Punti di interesse da mostrare" hidden></div>
     <div class="pian-strumenti">
       <button type="button" class="pill-mappa tondo" data-azione="fauna" aria-pressed="false" aria-label="Fauna" title="Fauna: heatmap, icone e filtri">${ICONE.zampa}</button>
+      <button type="button" class="pill-mappa tondo" data-azione="categorie" aria-pressed="false" aria-expanded="false" aria-label="Punti di interesse" title="Punti di interesse">${ICONE.segnaposto}</button>
       <button type="button" class="pill-mappa tondo" data-azione="posizione" aria-label="La mia posizione" title="La mia posizione">${ICONE.navigazione}</button>
       <button type="button" class="pill-mappa tondo" data-azione="annulla" aria-label="Annulla" title="Annulla">${ICONE.indietro}</button>
       <button type="button" class="pill-mappa tondo" data-azione="ripeti" aria-label="Ripeti" title="Ripeti"><span style="display:inline-block;transform:scaleX(-1);display:grid">${ICONE.indietro}</span></button>
@@ -83,8 +94,11 @@ export async function vistaPianificatore(app) {
       <div class="disegno-numeri" id="pianNumeri"></div>
       <div class="disegno-profilo" id="pianProfilo"></div>
       <div id="pianFondo"></div>
+      <div class="pian-fauna-riga" id="pianFaunaRiga" hidden></div>
       <h2 class="titolo-sezione pian-titolo-tappe">Tappe</h2>
       <ol class="pian-tappe" id="pianTappe"></ol>
+      <h2 class="titolo-sezione pian-titolo-poi" hidden>Lungo il percorso</h2>
+      <ul class="pian-poi" id="pianPoi"></ul>
       <button type="button" class="bottone primario pieno" data-azione="salva" disabled>${ICONE.segnalibro}<span>Salva</span></button>
     </section>
     <dialog class="foglio foglio-salva">
@@ -144,19 +158,30 @@ export async function vistaPianificatore(app) {
       statoFauna.textContent = testo;
       statoFauna.hidden = !testo;
     },
-    prima: 'linea-tocco',
+    alFiltri: () => risultato && pianificaFaunaPercorso(), // i filtri cambiano: la fauna lungo il percorso si rifà
+    prima: 'fauna-tratto',
   });
   faunaPannello.collega(faunaGl);
   const segnaFauna = () => app.querySelector('[data-azione="fauna"]')?.setAttribute('aria-pressed', String(Boolean(stato.leggi().livelli.heatmap)));
   const scollegaFauna = stato.ascolta(segnaFauna);
   segnaFauna();
-  const pronta = new Promise((r) => (mappa.loaded() ? r() : mappa.once('load', r)));
+  // «pronta» = lo stile è caricato (non aspetta tutte le tessere: con il server delle mappe lento il pianificatore parte lo stesso)
+  const stileCaricato = () => {
+    try {
+      return Boolean(mappa.getStyle()?.layers?.length);
+    } catch {
+      return false;
+    }
+  };
+  const pronta = new Promise((r) => (stileCaricato() ? r() : mappa.once('style.load', r)));
   const marcatori = new Map(); // id tappa → Marker
   let segnoProfilo = null;
 
   function preparaSorgenti() {
     mappa.addSource('linea', { type: 'geojson', data: vuoto() });
     mappa.addSource('elastico', { type: 'geojson', data: vuoto() });
+    mappa.addSource('fauna-tratto', { type: 'geojson', data: vuoto() });
+    mappa.addLayer({ id: 'fauna-tratto', type: 'line', source: 'fauna-tratto', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#f4c542', 'line-width': 17, 'line-opacity': 0.6 } });
     mappa.addLayer({ id: 'linea-tocco', type: 'line', source: 'linea', paint: { 'line-width': 26, 'line-opacity': 0 } });
     mappa.addLayer({ id: 'linea-bordo', type: 'line', source: 'linea', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': 0.95 } });
     // il tratteggio non può dipendere dai dati: due livelli, uno per i tratti sui sentieri e uno per quelli «fuori sentiero»
@@ -164,7 +189,18 @@ export async function vistaPianificatore(app) {
     mappa.addLayer({ id: 'linea-libera', type: 'line', source: 'linea', filter: ['get', 'libero'], layout: { 'line-join': 'round' }, paint: { 'line-color': COLORE, 'line-width': 4, 'line-dasharray': [1.4, 1.4] } });
     mappa.addLayer({ id: 'elastico-linea', type: 'line', source: 'elastico', layout: { 'line-cap': 'round' }, paint: { 'line-color': COLORE, 'line-width': 4, 'line-dasharray': [1.5, 1.5], 'line-opacity': 0.9 } });
   }
-  pronta.then(preparaSorgenti).then(() => faunaGl.avvia()).catch((e) => console.error('Pianificatore: livelli', e));
+  pronta
+    .then(preparaSorgenti)
+    .then(() => {
+      poi = creaPoiGl(mappa, maplibregl, { alCambio: alPoi, passa: passaDiQuiPoi });
+      disegnaCategorie();
+      faunaGl.avvia();
+      if (risultato) {
+        poi.aggiorna(risultato.linea);
+        pianificaFaunaPercorso();
+      }
+    })
+    .catch((e) => console.error('Pianificatore: livelli', e));
 
   // --- le tappe sulla mappa ---
   function elementoMarcatore(i, n) {
@@ -236,6 +272,8 @@ export async function vistaPianificatore(app) {
     if (tappe.length < 2) {
       risultato = null;
       kmTappe = null;
+      poi?.aggiorna(null);
+      pianificaFaunaPercorso();
       mappa.getSource('linea')?.setData(vuoto());
       scrivi(tappe.length ? 'Tocca la mappa o cerca un luogo per l\'arrivo' : 'Tocca la mappa o cerca un luogo per la partenza');
       return mostraBarra();
@@ -248,6 +286,8 @@ export async function vistaPianificatore(app) {
     const fallito = esiti.findIndex((x) => x.status === 'rejected');
     if (fallito >= 0) {
       risultato = null;
+      poi?.aggiorna(null);
+      pianificaFaunaPercorso();
       mappa.getSource('linea')?.setData(vuoto());
       mostraBarra(esiti[fallito].reason?.message ?? 'Il tratto non si è calcolato.', fallito + 1);
       return;
@@ -259,6 +299,8 @@ export async function vistaPianificatore(app) {
     kmTappe = kmDelleTappe(fatti.map((t) => lunghezzaM(t.coordinate)));
     disegnaTappeElenco();
     mostraBarra();
+    poi?.aggiorna(linea);
+    pianificaFaunaPercorso();
     // quote (TINITALY) per dislivello, tempo e profilo
     const { pezzi, fonte } = await quoteDeiPezzi([linea]).catch(() => ({ pezzi: [linea], fonte: null }));
     if (mia !== richiesta || chiusa) return;
@@ -431,6 +473,9 @@ export async function vistaPianificatore(app) {
   // --- tocco sulla mappa: una tappa in fondo ---
   mappa.on('click', (e) => {
     if (trascinando || faunaGl.pressioneLungaAppena() || e.originalEvent?.target?.closest?.('.pian-tappa')) return;
+    // un tocco su un punto di interesse ne apre i dettagli («Passa di qui»); altrove aggiunge una tappa
+    const toccato = poi?.poiAl(e.point);
+    if (toccato) return poi.apri(toccato);
     if (mappa.getZoom() + 1 < ZOOM_MINIMO && storia.ora().length) return scrivi('Avvicinati per mettere le tappe sui sentieri');
     cambia([...storia.ora(), nuovaTappa([e.lngLat.lng, e.lngLat.lat])]);
   });
@@ -513,6 +558,91 @@ export async function vistaPianificatore(app) {
   });
 
   // --- comandi ---
+  // --- punti di interesse ---
+  function disegnaCategorie() {
+    const accese = poi?.categorie() ?? new Set();
+    $('#pianCategorie').innerHTML = CATEGORIE_POI.map(
+      (c) => `<button type="button" class="chip-scorciatoia" data-azione="categoria" data-chiave="${c.chiave}" aria-pressed="${accese.has(c.chiave)}"><img src="${urlIconaPoi(c)}" alt="" width="15" height="18" /><span>${escapeHtml(c.nome)}</span></button>`,
+    ).join('');
+  }
+  // i POI lungo il percorso sono cambiati: elenco nel foglio e nomi delle tappe
+  function alPoi(nuovi) {
+    poiOra = nuovi;
+    const lista = nuovi.lungo.filter((p) => p.categoria).slice(0, 15);
+    $('.pian-titolo-poi').hidden = !lista.length;
+    $('#pianPoi').innerHTML = lista
+      .map((p) => {
+        const c = categoriaDelPoi(p);
+        return `<li><img src="${urlIconaPoi(c)}" alt="" width="20" height="24" /><span class="pian-poi-nome">${escapeHtml(nomePoi(p))}<span class="pian-km">km ${String(p.km).replace('.', ',')} · ${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}</span></span><button type="button" class="link" data-azione="passa-poi" data-id="${escapeHtml(p.id)}">Passa di qui</button></li>`;
+      })
+      .join('');
+    if (nuovi.mancanti && !lista.length) $('#pianPoi').innerHTML = '<li class="tenue piccolo">Punti di interesse non scaricati per questa zona.</li>';
+    // il nome delle tappe: un punto di interesse entro 100 m vince su via, località e paese (quelle a mano restano)
+    let cambiato = false;
+    for (const t of storia.ora()) {
+      if (t.nomeManuale || t.nome) continue;
+      const trovato = poiVicinoA(t.p, nuovi.tutti);
+      const nome = trovato ? nomePerTappa(trovato) : null;
+      if ((t.poi ?? null) !== nome) {
+        t.poi = nome;
+        cambiato = true;
+      }
+    }
+    if (cambiato) disegnaTappeElenco();
+  }
+  function passaDiQuiPoi(p) {
+    cambia(passaDiQui(storia.ora(), kmTappe, p.km, p));
+  }
+  // --- fauna lungo il percorso: le specie entro 300 m e il tratto con più fauna sulla linea ---
+  let attesaFauna = null;
+  let controlloFauna = null;
+  function pianificaFaunaPercorso() {
+    clearTimeout(attesaFauna);
+    controlloFauna?.abort();
+    const riga = $('#pianFaunaRiga');
+    if (!risultato) {
+      riga.hidden = true;
+      mappa.getSource('fauna-tratto')?.setData(vuoto());
+      return;
+    }
+    attesaFauna = setTimeout(async () => {
+      controlloFauna = new AbortController();
+      const mio = controlloFauna;
+      const linea = risultato?.linea;
+      riga.hidden = false;
+      riga.innerHTML = '<span class="tenue piccolo">Fauna lungo il percorso: cerco…</span>';
+      try {
+        const f = await faunaLungoIlPercorso(linea, faunaGl.filtri(), mio.signal);
+        if (chiusa || mio.signal.aborted || linea !== risultato?.linea) return;
+        mostraFaunaPercorso(f);
+      } catch (e) {
+        if (e?.name === 'AbortError') return;
+        riga.innerHTML = '<span class="tenue piccolo">Fauna lungo il percorso: non disponibile ora.</span>';
+      }
+    }, 2000);
+  }
+  function mostraFaunaPercorso(f) {
+    const riga = $('#pianFaunaRiga');
+    const sorgente = mappa.getSource('fauna-tratto');
+    if (!f || f.troppoLungo) {
+      sorgente?.setData(vuoto());
+      riga.innerHTML = '<span class="tenue piccolo">Fauna lungo il percorso: percorso troppo lungo per cercarla.</span>';
+      return;
+    }
+    const filtro = faunaGl.testoFiltri();
+    const nomi = (a) => {
+      const n = ANIMALI[a] ?? NOMI_IT.get(a) ?? a;
+      return n.replace(/^./, (c) => c.toUpperCase());
+    };
+    const specie = f.specie.length
+      ? `${f.specie.map((x) => `${escapeHtml(x.nome)}${x.rara ? ' (rara)' : ''}`).join(', ')}${f.altre ? ` e altre ${f.altre}` : ''}`
+      : 'nessuna osservazione entro 300 m';
+    const tratto = f.tratto ? `<span class="pian-fauna-tratto">Più fauna: km ${String(Math.round(f.tratto.daKm * 10) / 10).replace('.', ',')}–${String(Math.round(f.tratto.aKm * 10) / 10).replace('.', ',')} (${f.tratto.specie.slice(0, 3).map((a) => escapeHtml(nomi(a))).join(', ')})</span>` : '';
+    riga.innerHTML = `<b>Fauna lungo il percorso</b><span>${specie}${f.approssimato ? ' · le più recenti' : ''}</span>${tratto}${filtro ? `<span class="tenue piccolo">${escapeHtml(filtro)}</span>` : ''}`;
+    if (f.tratto && risultato) sorgente?.setData({ type: 'FeatureCollection', features: [lineaGeo(fetta(creaBase([risultato.linea]), f.tratto.daM, f.tratto.aM))] });
+    else sorgente?.setData(vuoto());
+  }
+
   const suClick = async (e) => {
     const b = e.target.closest('[data-azione], [data-attivita], [data-preferenza]');
     if (!b) return;
@@ -545,7 +675,18 @@ export async function vistaPianificatore(app) {
       const aperto = f.classList.toggle('aperto');
       b.setAttribute('aria-expanded', String(aperto));
     } else if (azione === 'posizione') posizione();
-    else if (azione === 'fauna') {
+    else if (azione === 'categorie') {
+      const box = $('#pianCategorie');
+      box.hidden = !box.hidden;
+      b.setAttribute('aria-expanded', String(!box.hidden));
+      b.setAttribute('aria-pressed', String(!box.hidden));
+    } else if (azione === 'categoria') {
+      poi?.imposta(b.dataset.chiave, !poi.categorie().has(b.dataset.chiave));
+      disegnaCategorie();
+    } else if (azione === 'passa-poi') {
+      const p = poiOra.lungo.find((x) => x.id === b.dataset.id);
+      if (p) passaDiQuiPoi(p);
+    } else if (azione === 'fauna') {
       // acceso ma con il pannello chiuso: si riapre; altrimenti si accende o si spegne
       if (!faunaPannello.riapri()) stato.imposta({ livelli: { heatmap: !stato.leggi().livelli.heatmap } });
     }
@@ -610,6 +751,9 @@ export async function vistaPianificatore(app) {
     chiusa = true;
     richiesta++;
     osservatore?.disconnect();
+    clearTimeout(attesaFauna);
+    controlloFauna?.abort();
+    poi?.rimuovi();
     scollegaFauna();
     faunaGl.rimuovi();
     faunaPannello.chiudi();

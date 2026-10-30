@@ -2304,3 +2304,28 @@ body.pianificatore.fauna-aperta .pian-foglio { display: none; }
 .pianificatore .fauna-heat:empty { display: none; }
 body.pianificatore .foglio-fauna { z-index: 1050; }
 .pian-strumenti .pill-mappa[aria-pressed="true"] { background: var(--verde); color: #fff; border-color: transparent; }
+
+/* POI e fauna lungo il percorso nel pianificatore */
+.pian-categorie { position: fixed; z-index: 1002; top: calc(env(safe-area-inset-top) + 112px); right: 64px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; padding: 10px; border-radius: 16px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); }
+.pian-categorie[hidden] { display: none; }
+.pian-categorie .chip-scorciatoia { gap: 6px; }
+.pian-categorie .chip-scorciatoia img { display: block; }
+.pian-categorie .chip-scorciatoia[aria-pressed="false"] { opacity: 0.55; }
+.pian-categorie .chip-scorciatoia[aria-pressed="true"] { border-color: var(--verde); }
+.pian-poi { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 2px; }
+.pian-poi li { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.pian-poi-nome { flex: 1; min-width: 0; display: grid; font-weight: 600; line-height: 1.25; }
+.pian-poi-nome > span.pian-km, .pian-km { font-size: 0.76rem; font-weight: 500; color: var(--testo-tenue); }
+.pian-poi .link { flex: none; font-size: 0.85rem; min-height: 36px; }
+.pian-fauna-riga { display: grid; gap: 2px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 12px; background: var(--scheda-piena); font-size: 0.86rem; line-height: 1.35; }
+.pian-fauna-riga[hidden] { display: none; }
+.pian-fauna-tratto { font-weight: 700; color: #8a6a00; }
+:root[data-scuro] .pian-fauna-tratto { color: #f4c542; }
+.popup-poi { display: grid; gap: 4px; padding: 2px 4px; }
+.popup-poi .bottone { margin-top: 4px; min-height: 40px; }
+.pianificatore:not(.fauna-aperta) .pian-foglio:not(.aperto) .pian-poi, .pianificatore .pian-foglio:not(.aperto) .pian-titolo-poi { display: none; }
+@media (min-width: 1024px) {
+  .pian-foglio:not(.aperto) .pian-poi { display: grid !important; }
+  .pian-foglio:not(.aperto) .pian-titolo-poi:not([hidden]) { display: block !important; }
+  .pian-categorie { left: calc(var(--larghezza-nav) + 420px); }
+}

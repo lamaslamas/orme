@@ -596,3 +596,7 @@ export async function importa(dati, modo = 'unisci') {
     foto: dati.foto?.length ?? 0,
   };
 }
+
+// --- Punti di interesse del pianificatore (capanni, belvedere, cime, parcheggi), a celle da 0,1°: { punti, scaricato } ---
+export const leggiPoiCella = (id) => leggiDa('meta', `poi2:${id}`);
+export const salvaPoiCella = (id, punti) => scriviIn('meta', { chiave: `poi2:${id}`, punti, scaricato: new Date().toISOString() });

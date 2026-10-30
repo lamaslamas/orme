@@ -19,7 +19,7 @@ export const etichetta = (i, n) => (i === 0 ? 'A' : i === n - 1 ? 'B' : String(i
 // il nuovo punto dopo la tappa k (trascinando il tratto che parte da k)
 export const inserisciDopo = (tappe, k, p) => [...tappe.slice(0, k + 1), nuovaTappa(p), ...tappe.slice(k + 1)];
 // spostata: il nome automatico si ritrova (quello scritto a mano resta)
-export const sposta = (tappe, i, p) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], ...(t.nomeManuale ? {} : { nome: null, luoghi: null }) } : t));
+export const sposta = (tappe, i, p) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], ...(t.nomeManuale ? {} : { nome: null, luoghi: null, poi: null }) } : t));
 export const togli = (tappe, i) => tappe.filter((_, j) => j !== i).map((t, j) => (j === 0 ? { ...t, libero: false } : t));
 // una tappa su (-1) o giù (+1); la prima tappa del percorso non è mai «libera»
 // una tappa trascinata dal posto `da` al posto `a`; la prima tappa del percorso non è mai «libera»
@@ -38,7 +38,7 @@ export function riordina(tappe, i, verso) {
   return r.map((t, k) => (k === 0 ? { ...t, libero: false } : t));
 }
 // un altro luogo scelto con la ricerca (il nome è quello del luogo, non scritto a mano)
-export const sostituisci = (tappe, i, p, nome = null) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome, luoghi: null, nomeManuale: false } : t));
+export const sostituisci = (tappe, i, p, nome = null) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome, luoghi: null, poi: null, nomeManuale: false } : t));
 // rinominata a mano; vuoto = di nuovo il nome automatico
 export const rinomina = (tappe, i, testo) => {
   const nome = String(testo ?? '').trim();
