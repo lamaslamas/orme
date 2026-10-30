@@ -935,7 +935,7 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         <span class="tenue piccolo">${escapeHtml(rigaSotto)}</span>
         ${schedaBici(v)}
         ${v.ancheAlContrario ? `<span class="chip chip-contrario">anche al contrario${typeof v.ancheAlContrario === 'string' ? ` (${escapeHtml(v.ancheAlContrario)})` : ''}</span>` : ''}
-        ${linkModificaTraccia('sentiero', s.id, { stile: 'icona' })}
+        ${linkModificaTraccia('sentiero', s.id, { stile: 'icona', etichetta: 'Modifica nel pianificatore' })}
       </div>
     </li>`;
   }
@@ -1404,12 +1404,12 @@ export function creaSuggeriscimi(contenitore, mappa, { sentieri, tracce, posizio
         ${gamboKm ? `<span class="tenue piccolo">I primi ${gamboKm} km si rifanno al ritorno</span>` : ''}
         ${v.nomi?.length ? `<span class="tenue piccolo">Sentieri ${escapeHtml(v.nomi.join(' · '))}</span>` : ''}
         ${v.nomi ? '' : `<span class="tenue piccolo">${escapeHtml(testoQuotaSegnata(v.segnata))}${kmNonSegnati >= 0.05 ? ` · <span class="non-segnati-anello">${km1(kmNonSegnati)} km non segnati</span> (tratteggio giallo)` : ''}</span>`}
-        <button type="button" class="bottone testo modifica-anello" data-azione="modifica" data-anello="${i}">Modifica nel disegno</button>
+        <button type="button" class="bottone testo modifica-anello" data-azione="modifica" data-anello="${i}">Modifica nel pianificatore</button>
       </div>
     </li>`;
   }
 
-  // "Modifica nel disegno": punti lungo l'anello (uno ogni 1,2 km) diventano la bozza; nel disegno
+  // «Modifica nel pianificatore»: punti lungo l'anello (uno ogni 1,2 km) diventano la bozza; nel pianificatore
   // BRouter li collega e gli avvisi del parco restano
   function modificaNelDisegno(v) {
     const punti = puntiLungo(v.linea, 1.2);

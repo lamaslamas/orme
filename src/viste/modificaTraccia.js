@@ -6,11 +6,11 @@
 import { escapeHtml } from '../lib/formato.js';
 import { ICONE } from './icone.js';
 
-export const hrefModificaTraccia = (tipo, id) => `#/${tipo === 'percorso' ? 'percorso' : 'sentiero'}/${encodeURIComponent(id)}/disegna`;
+const hrefModificaTraccia = (tipo, id) => `#/${tipo === 'percorso' ? 'percorso' : 'sentiero'}/${encodeURIComponent(id)}/disegna`;
 
 // il pulsante; classe e contenuto secondo il punto in cui compare: 'pieno' (bottone con testo), 'icona' (solo matita, nelle card)
-export function linkModificaTraccia(tipo, id, { stile = 'pieno', classe = '' } = {}) {
+export function linkModificaTraccia(tipo, id, { stile = 'pieno', classe = '', etichetta = 'Modifica traccia' } = {}) {
   const href = hrefModificaTraccia(tipo, id);
-  if (stile === 'icona') return `<a class="modifica-carta ${escapeHtml(classe)}" href="${href}" aria-label="Modifica traccia" title="Modifica traccia">${ICONE.matita}</a>`;
-  return `<a class="bottone ${escapeHtml(classe)}" href="${href}">${ICONE.matita}<span>Modifica traccia</span></a>`;
+  if (stile === 'icona') return `<a class="modifica-carta ${escapeHtml(classe)}" href="${href}" aria-label="${escapeHtml(etichetta)}" title="${escapeHtml(etichetta)}">${ICONE.matita}</a>`;
+  return `<a class="bottone ${escapeHtml(classe)}" href="${href}">${ICONE.matita}<span>${escapeHtml(etichetta)}</span></a>`;
 }

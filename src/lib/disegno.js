@@ -1,17 +1,8 @@
-// Modalità disegno: il percorso è una serie di punti e, tra due punti, un tratto calcolato da BRouter
-// (agganciato ai sentieri) oppure a mano libera (linea dritta). Ogni punto { p: [lon, lat], libero }
-// dice come si arriva a lui dal punto prima. Qui solo i calcoli, senza mappa né rete.
+// Percorso a tappe: tra due tappe un tratto calcolato da BRouter (agganciato ai sentieri) oppure «fuori sentiero» (linea
+// dritta). Ogni tappa { p: [lon, lat], libero } dice come si arriva a lei dalla tappa prima. Qui solo i calcoli, senza mappa né rete.
 import { distanzaKm } from './geo.js';
 
 export const chiaveTratto = (a, b, libero) => `${a.p[0]},${a.p[1]}>${b.p[0]},${b.p[1]}${libero ? ':libero' : ''}`;
-
-// punti salvati (anche nel formato di prima, [[lon, lat]…]) → [{ p, libero }]
-export function normalizzaPunti(punti) {
-  return (punti ?? [])
-    .map((x) => (Array.isArray(x) ? { p: [x[0], x[1]], libero: false } : x?.p ? { p: [x.p[0], x.p[1]], libero: Boolean(x.libero), ...(Number.isFinite(x.pos) ? { pos: x.pos } : {}) } : null))
-    .filter(Boolean)
-    .map((x, i) => (i === 0 ? { ...x, libero: false } : x));
-}
 
 // tratto a mano libera: linea dritta, con un punto ogni 25 m (per le quote)
 export function trattoLibero(a, b, passoM = 25) {
@@ -43,8 +34,6 @@ export function unisciTerreno(tratti) {
 export const lunghezzaM = (linea) => linea.reduce((m, p, i) => (i ? m + distanzaKm(linea[i - 1], p) * 1000 : 0), 0);
 
 export const eAnello = (punti) => punti.length > 2 && punti[0].p[0] === punti.at(-1).p[0] && punti[0].p[1] === punti.at(-1).p[1];
-// chiude ad anello: si torna al primo punto (agganciati ai sentieri)
-export const chiudiAnello = (punti) => (punti.length < 2 || eAnello(punti) ? punti : [...punti, { p: [...punti[0].p], libero: false }]);
 
 // inverte il verso: ogni punto tiene il modo del tratto che ora arriva a lui
 export function inverti(punti) {
@@ -72,3 +61,12 @@ export const puntoAlKm = (serie, km) => serie.reduce((m, x) => (Math.abs(x.km - 
 
 // tratto segnato secondo BRouter: fa parte di un percorso escursionistico (locale, regionale, nazionale, internazionale)
 export const terrenoSegnato = (tag) => Object.keys(tag ?? {}).some((k) => /^route_hiking_(l|r|n|i)wn$/.test(k));
+
+// La scala verticale del profilo: almeno `minimo` metri di dislivello, così un percorso quasi piano appare piano (15 m non
+// sembrano una collina). Il tratto vero sta al centro della scala. → { basso, alto }
+export function scalaProfilo(min, max, minimo = 100) {
+  const intervallo = max - min;
+  if (!(intervallo < minimo)) return { basso: min, alto: max };
+  const centro = (min + max) / 2;
+  return { basso: centro - minimo / 2, alto: centro + minimo / 2 };
+}

@@ -1628,42 +1628,16 @@ body.pannello-aperto .cerca-zona { display: none; }
 .legenda-sentieri li { display: flex; align-items: center; gap: 8px; }
 .legenda-sentieri svg { flex: none; border-radius: 3px; background: var(--sfondo-legenda, rgba(127, 127, 127, 0.12)); }
 
-/* --- Modalità disegno --- */
-body.disegno .cima { display: none; }
-body.disegno main { padding: 0; }
-.mappa-disegno {
-  position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
-  height: auto; min-height: 0; z-index: 1;
-}
-.mappa-disegno .leaflet-top { top: calc(env(safe-area-inset-top) + 104px); }
-.mappa-disegno .leaflet-bottom { bottom: 190px; }
-@media (max-width: 1023.98px) { .mappa-disegno .leaflet-control-zoom { display: none; } }
-.disegno-sopra { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 10px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
-.disegno-sopra > * { pointer-events: auto; }
-.disegno-strumenti { display: flex; gap: 6px; }
-.disegno-strumenti .pill-mappa.tondo { width: 44px; min-height: 44px; }
-.disegno-sopra > .pill-mappa.tondo { width: 44px; min-height: 44px; }
+/* --- Pianificatore: numeri e profilo --- */
+
 .pill-mappa.attiva { background: var(--verde); color: #fff; border-color: transparent; }
-.disegno-menu { position: absolute; top: 50px; right: 0; display: grid; padding: 6px; border-radius: 16px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); }
-.disegno-menu[hidden] { display: none; }
-.disegno-menu button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: none; background: none; color: var(--testo); font: inherit; font-weight: 600; text-align: left; border-radius: 10px; cursor: pointer; }
-.disegno-menu button:hover { background: var(--bordo); }
-.disegno-menu svg, .menu-punto svg { width: 18px; height: 18px; }
-.disegno-suggerimento { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 62px); left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 999px; max-width: calc(100vw - 24px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.disegno-suggerimento[hidden] { display: none; }
-.foglio-disegno {
-  position: fixed; z-index: 1040; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom));
-  max-height: 40vh; max-height: 40dvh; overflow: auto; overscroll-behavior: contain; padding: 0 16px 12px;
-  background: var(--sfondo); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro);
-}
-.foglio-disegno.aperto { max-height: 78vh; max-height: 78dvh; }
-.foglio-disegno:not(.aperto) .disegno-dettagli { display: none; }
+
 .disegno-numeri { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 4px; margin-bottom: 4px; }
 .disegno-numeri > p { grid-column: 1 / -1; margin: 6px 0; }
 .disegno-numeri b { display: block; font-size: 1.1rem; font-weight: 800; white-space: nowrap; }
 .disegno-numeri span { font-size: 0.75rem; color: var(--testo-tenue); }
 .disegno-profilo svg { display: block; width: 100%; height: 56px; touch-action: none; cursor: crosshair; }
-.foglio-disegno.aperto .disegno-profilo svg { height: 110px; }
+
 .profilo-area { fill: rgba(15, 110, 86, 0.18); }
 .profilo-linea { stroke: #0f6e56; stroke-width: 2; }
 .profilo-cursore { stroke: #ef9f27; stroke-width: 2; }
@@ -1671,26 +1645,8 @@ body.disegno main { padding: 0; }
 :root[data-scuro] .profilo-linea { stroke: #5dcaa5; }
 .profilo-dati { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0 0; font-size: 0.78rem; color: var(--testo-tenue); }
 .profilo-fonte { margin: 0; font-size: 0.72rem; }
-.disegno-punti { display: grid; grid-template-columns: 18px 1fr; gap: 6px; align-items: center; margin: 8px 0; font-size: 0.86rem; white-space: nowrap; }
-.disegno-punti span { overflow: hidden; text-overflow: ellipsis; }
-.disegno-punti svg { width: 16px; height: 16px; }
-.disegno-dettagli .riquadro { margin: 8px 0; }
-.foglio-disegno .bottone.pieno { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 6px; }
-.foglio-disegno .bottone.pieno svg { width: 18px; height: 18px; }
-.stato-disegno { grid-column: 1 / -1; margin: 2px 0 0; }
-.punto-disegno { border-radius: 50%; background: #fff; border: 3px solid #0f6e56; box-sizing: border-box; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
-.punto-disegno.primo { background: #0f6e56; border-color: #fff; }
-.punto-disegno.ultimo { background: #0b1012; border-color: #fff; }
-.punto-disegno.libero { border-style: dashed; }
-.menu-punto { display: flex; gap: 6px; }
-.menu-punto button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--bordo); background: var(--scheda); color: var(--testo); font: inherit; font-weight: 700; cursor: pointer; }
-.popup-punto-disegno .leaflet-popup-content { margin: 8px; }
+
 .foglio-salva .azioni-salva { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 6px; }
-@media (min-width: 1024px) {
-  .mappa-disegno { left: var(--larghezza-nav); bottom: 0; }
-  .disegno-sopra { left: calc(var(--larghezza-nav) + 10px); }
-  .foglio-disegno { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 16px; border-radius: 20px; }
-}
 
 /* Associazioni: filtri e gruppi per animale e periodo */
 .filtri-uscite { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 4px; }
@@ -1750,8 +1706,8 @@ body.disegno main { padding: 0; }
   .trascinabile .foglio-maniglia-zona { touch-action: none; cursor: grab; height: 28px; }
   /* i dettagli (foto, rifugi e acqua) ci sono sempre: si vedono trascinando la tendina in su */
   .foglio-percorso.trascinabile .foglio-dettagli { display: grid; }
-  .foglio-disegno.trascinabile .disegno-dettagli { display: block; }
-  .foglio-disegno.trascinabile { overflow: auto; }
+  
+  
   .foglio-home.trascinabile .foglio-home-corpo, .foglio-fauna.trascinabile .fauna-corpo, .foglio-percorso.trascinabile .foglio-corpo { flex: 1; min-height: 0; }
 }
 .senza-traccia-zona { margin-top: 14px; }
@@ -1882,16 +1838,8 @@ body.pannello-aperto .barra-flottante .nota-mappa { display: none; }
 body.pannello-aperto .barra-flottante { z-index: 1060; }
 
 /* --- Disegno: comandi sopra il pannello (mai sotto), niente barra Fauna e comandi inutili --- */
-body.disegno .mappa-disegno .leaflet-bottom.leaflet-left, body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: calc(var(--altezza-foglio, 190px) + 8px); }
-body.disegno .gps-stato { bottom: calc(var(--altezza-foglio, 190px) + 12px); }
-/* la fauna nel disegno si guarda soltanto: restano il pulsante Fauna e la mappa, senza scala e filtri */
-/* nel disegno la barra della Fauna sta nel pannello Fauna (filtri in chiaro e conto) */
-@media (min-width: 1024px) {
-  /* il pannello è una scheda a sinistra: scala e crediti a sinistra restano a destra di lei */
-  body.disegno .mappa-disegno .leaflet-bottom.leaflet-left { margin-left: 420px; bottom: 16px; }
-  body.disegno .mappa-disegno .leaflet-bottom.leaflet-right { bottom: 16px; }
-  body.disegno .gps-stato { bottom: 16px; left: calc(50% + 210px); }
-}
+
+
 .barra-flottante .x-pannello { top: -18px; right: 6px; }
 
 .ordina-elenco[hidden] { display: none; }
@@ -1921,9 +1869,6 @@ body.disegno .gps-stato { bottom: calc(var(--altezza-foglio, 190px) + 12px); }
 .importa-doppio { display: block; margin-top: 2px; font-size: 0.8rem; font-weight: 700; color: #9a6408; }
 :root[data-scuro] .importa-doppio { color: #fac775; }
 
-/* il fumetto «Tocca la mappa…» del disegno non intercetta i tocchi e si nasconde con il menu ⋯ aperto */
-.disegno-suggerimento { pointer-events: none; }
-.disegno-sopra:has(.disegno-menu:not([hidden])) ~ .disegno-suggerimento { display: none; }
 
 /* mappa grande di un mio percorso */
 body.percorso-mappa .cima { display: none; }
@@ -2113,8 +2058,6 @@ body.con-proposte .avviso-bozza { top: calc(env(safe-area-inset-top) + 112px); }
 
 /* Estendi: sentiero e collegati */
 
-.menu-taglio { display: grid; gap: 4px; }
-.disegno-strumenti .pill-mappa:not(.tondo) { padding: 0 10px; font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
 /* «Modifica traccia» a icona, nelle card e nelle liste */
 .lista > li,
 .voce-risultato { position: relative; }
@@ -2129,10 +2072,7 @@ a.modifica-carta {
 .modifica-traccia-via { margin-top: 8px; }
 
 /* disegno: i comandi in alto sono sempre almeno 44×44 px; il resto sta nel menu ⋯ con lo stato acceso indicato */
-.disegno-menu button { min-height: 44px; }
-.disegno-menu .stato-voce { margin-left: auto; font-size: 0.78rem; font-weight: 700; color: var(--verde); }
-.disegno-menu button.attiva { background: rgba(15, 110, 86, 0.14); }
-.disegno-strumenti .pill-mappa.con-stato { box-shadow: inset 0 0 0 2px var(--accento); }
+
 /* Condividi */
 .foglio-condividi { max-width: 520px; }
 .condividi-azioni { display: grid; gap: 8px; margin: 10px 0; }
@@ -2281,7 +2221,7 @@ body.pianificatore main { padding: 0; }
 }
 .pian-opzioni .chip-scorciatoia { padding: 0 11px; font-size: 0.84rem; min-height: 38px; }
 /* «Niente acqua né rifugi entro 300 m» senza icona finiva nella colonna stretta dell'icona e si tagliava in «N…» */
-.disegno-punti > span:only-child { grid-column: 1 / -1; white-space: normal; }
+
 /* riordino delle tappe con la maniglia, nomi con il km */
 .pian-presa { display: grid; place-items: center; width: 32px; height: 40px; flex: none; font-size: 1.25rem; line-height: 1; color: var(--testo-tenue); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 8px; }
 .pian-presa:active, .pian-presa:focus-visible { background: var(--bordo); cursor: grabbing; }
@@ -2300,7 +2240,6 @@ body.pianificatore main { padding: 0; }
 .pian-fauna-icona img { transform: rotate(45deg); width: 18px; height: 18px; }
 .pian-fauna-icona.sfumata { border-style: dashed; background: rgba(241, 236, 255, 0.85); opacity: 0.85; }
 .pian-fauna-icona b { position: absolute; transform: rotate(45deg); right: -9px; top: -9px; min-width: 16px; padding: 0 4px; border-radius: 8px; background: #5b4b9a; color: #fff; font-size: 10px; line-height: 16px; text-align: center; }
-body.pianificatore.fauna-aperta .pian-foglio { display: none; }
 .pianificatore .fauna-heat:empty { display: none; }
 body.pianificatore .foglio-fauna { z-index: 1050; }
 .pian-strumenti .pill-mappa[aria-pressed="true"] { background: var(--verde); color: #fff; border-color: transparent; }
@@ -2329,3 +2268,24 @@ body.pianificatore .foglio-fauna { z-index: 1050; }
   .pian-foglio:not(.aperto) .pian-titolo-poi:not([hidden]) { display: block !important; }
   .pian-categorie { left: calc(var(--larghezza-nav) + 420px); }
 }
+
+/* --- Pianificatore: tappe da prendere con il dito, pannelli che non si sovrappongono, niente testo selezionato --- */
+.pian-tappa { width: 34px; height: 34px; font-size: 13px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.pian-tappa::before { content: ''; position: absolute; inset: -5px; border-radius: 50%; } /* area di tocco di 44 px */
+.pian-tappa:active { cursor: grabbing; }
+.pian-tappa.piccola { width: 24px; height: 24px; font-size: 11px; cursor: default; }
+.pian-tappa.piccola::before { display: none; }
+.pian-hint { position: fixed; z-index: 1003; top: calc(env(safe-area-inset-top) + 160px); left: 50%; transform: translateX(-50%); margin: 0; padding: 10px 16px; border-radius: 999px; max-width: calc(100vw - 100px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); font-size: 0.88rem; font-weight: 700; text-align: center; pointer-events: none; }
+.pian-hint[hidden] { display: none; }
+.pian-avviso { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: #3b2a12; border: 1px solid #8a6420; color: #ffe3b3; font-size: 0.86rem; line-height: 1.35; }
+.pian-avviso[hidden] { display: none; }
+.pian-avviso .bottone { min-height: 38px; }
+/* con la Fauna aperta il foglio del pianificatore si riduce alla barra con i numeri (in alto) e il pannello Fauna sta sotto: mai sovrapposti */
+body.pianificatore.fauna-aperta .pian-foglio { top: calc(env(safe-area-inset-top) + 164px); bottom: auto; left: 10px; right: 70px; max-height: none; border-radius: 16px; padding: 4px 12px 8px; overflow: hidden; }
+body.pianificatore.fauna-aperta .pian-foglio > :not(.disegno-numeri):not(.pian-avviso) { display: none !important; }
+@media (min-width: 1024px) {
+  body.pianificatore.fauna-aperta .pian-foglio { top: 16px; left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; }
+}
+/* trascinando un pannello non si seleziona il testo: maniglie, intestazioni, numeri e pulsanti (restano selezionabili i campi in cui si scrive) */
+.pian-foglio, .pian-foglio *, .foglio-fauna, .foglio-fauna *, .trascinabile, .trascinabile *, .pian-opzioni, .pian-strumenti, .pian-sugg, .pian-fauna-stato, .pian-categorie, .pian-categorie * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.pian-foglio input, .foglio-fauna input, .trascinabile input, .trascinabile textarea, .trascinabile select { -webkit-user-select: text; user-select: text; }

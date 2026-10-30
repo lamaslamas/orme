@@ -1,6 +1,6 @@
 // Il profilo altimetrico piccolo (come nel disegno): linea e area, quota minima e massima, la fonte delle
 // quote; toccando o scorrendo il dito si vede il punto (km e quota) e la mappa lo mostra.
-import { puntoAlKm } from '../lib/disegno.js';
+import { puntoAlKm, scalaProfilo } from '../lib/disegno.js';
 import { km1 } from '../lib/lungoIlPercorso.js';
 import { escapeHtml, migliaia } from '../lib/formato.js';
 import { ANIMALI } from '../lib/costanti.js';
@@ -17,7 +17,9 @@ export function htmlProfiloMini(serie, fonte = '', tratto = null) {
   const [min, max] = [Math.min(...zs), Math.max(...zs)];
   const tot = serie.at(-1).km || 1;
   const X = (km) => (km / tot) * L;
-  const Y = (z) => A - 4 - ((z - min) / (max - min || 1)) * (A - 10);
+  // la scala verticale è di almeno 100 m: un percorso quasi piano appare piano
+  const { basso, alto } = scalaProfilo(min, max);
+  const Y = (z) => A - 4 - ((z - basso) / (alto - basso || 1)) * (A - 10);
   const d = serie.map((x, i) => `${i ? 'L' : 'M'}${X(x.km).toFixed(1)} ${Y(x.z).toFixed(1)}`).join(' ');
   return `<svg viewBox="0 0 ${L} ${A}" preserveAspectRatio="none" role="img" aria-label="Profilo altimetrico: da ${Math.round(min)} a ${Math.round(max)} m">
       <path d="${d} L${L} ${A} L0 ${A} Z" class="profilo-area"/>${

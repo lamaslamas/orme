@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizzaPunti, trattoLibero, unisciTratti, unisciTerreno, chiudiAnello, eAnello, inverti, profiloPezzi, puntoAlKm, terrenoSegnato, chiaveTratto } from '../src/lib/disegno.js';
+import { trattoLibero, unisciTratti, unisciTerreno, eAnello, inverti, profiloPezzi, puntoAlKm, terrenoSegnato, chiaveTratto } from '../src/lib/disegno.js';
 import { inCentroAbitato } from '../src/lib/puntiUtili.js';
 
 const A = { p: [13.8, 41.8], libero: false };
@@ -7,9 +7,7 @@ const B = { p: [13.81, 41.8], libero: false };
 const C = { p: [13.81, 41.81], libero: true };
 
 describe('modalità disegno: punti e tratti', () => {
-  it('punti salvati nel formato di prima; il primo non ha tratto', () => {
-    expect(normalizzaPunti([[13.8, 41.8], [13.81, 41.8]])).toEqual([A, B]);
-    expect(normalizzaPunti([{ p: [1, 2], libero: true }])[0].libero).toBe(false);
+  it('la chiave di un tratto', () => {
     expect(chiaveTratto(A, C, true)).toBe('13.8,41.8>13.81,41.81:libero');
   });
 
@@ -31,9 +29,8 @@ describe('modalità disegno: punti e tratti', () => {
   });
 
   it('anello e inversione', () => {
-    const anello = chiudiAnello([A, B, C]);
+    const anello = [A, B, C, { p: [...A.p], libero: false }];
     expect(eAnello(anello)).toBe(true);
-    expect(chiudiAnello(anello)).toBe(anello);
     // A→B agganciato, B→C a mano libera: al contrario C→B a mano libera, B→A agganciato
     expect(inverti([A, B, C])).toEqual([{ p: C.p, libero: false }, { p: B.p, libero: true }, { p: A.p, libero: false }]);
   });
@@ -60,5 +57,17 @@ describe('fontanelle in paese', () => {
     expect(inCentroAbitato(paese[0], paese)).toBe(true);
     expect(inCentroAbitato(f('x', 41.85, 13.85), paese)).toBe(false);
     expect(inCentroAbitato({ id: 's', tipo: 'fonte', lat: 41.8, lon: 13.8 }, paese)).toBe(false);
+  });
+});
+
+import { scalaProfilo } from '../src/lib/disegno.js';
+describe('profilo: scala verticale di almeno 100 m', () => {
+  it('un percorso quasi piano si vede piano, con il tratto al centro', () => {
+    expect(scalaProfilo(1090, 1105)).toEqual({ basso: 1047.5, alto: 1147.5 });
+    expect(scalaProfilo(5, 5)).toEqual({ basso: -45, alto: 55 });
+  });
+  it('con più di 100 m di dislivello la scala è quella vera', () => {
+    expect(scalaProfilo(1000, 1800)).toEqual({ basso: 1000, alto: 1800 });
+    expect(scalaProfilo(1000, 1100)).toEqual({ basso: 1000, alto: 1100 });
   });
 });

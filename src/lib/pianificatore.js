@@ -1,6 +1,8 @@
 // Il pianificatore (pagina MapLibre): i calcoli, senza mappa né rete. Il percorso è una lista di tappe (punti con un
 // id, la posizione e un nome che si trova da solo); tra due tappe un tratto calcolato da BRouter (src/lib/brouter.js).
 import { distanzaKm } from './geo.js';
+import { creaBase } from './modificaTraccia.js';
+import { posizioneSullaTraccia } from './lungoIlPercorso.js';
 
 const arr = (n) => Number(Number(n).toFixed(6));
 let contatore = 0;
@@ -19,7 +21,7 @@ export const etichetta = (i, n) => (i === 0 ? 'A' : i === n - 1 ? 'B' : String(i
 // il nuovo punto dopo la tappa k (trascinando il tratto che parte da k)
 export const inserisciDopo = (tappe, k, p) => [...tappe.slice(0, k + 1), nuovaTappa(p), ...tappe.slice(k + 1)];
 // spostata: il nome automatico si ritrova (quello scritto a mano resta)
-export const sposta = (tappe, i, p) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], ...(t.nomeManuale ? {} : { nome: null, luoghi: null, poi: null }) } : t));
+export const sposta = (tappe, i, p) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], pos: undefined, ...(t.nomeManuale ? {} : { nome: null, luoghi: null, poi: null }) } : t));
 export const togli = (tappe, i) => tappe.filter((_, j) => j !== i).map((t, j) => (j === 0 ? { ...t, libero: false } : t));
 // una tappa su (-1) o giù (+1); la prima tappa del percorso non è mai «libera»
 // una tappa trascinata dal posto `da` al posto `a`; la prima tappa del percorso non è mai «libera»
@@ -38,7 +40,7 @@ export function riordina(tappe, i, verso) {
   return r.map((t, k) => (k === 0 ? { ...t, libero: false } : t));
 }
 // un altro luogo scelto con la ricerca (il nome è quello del luogo, non scritto a mano)
-export const sostituisci = (tappe, i, p, nome = null) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome, luoghi: null, poi: null, nomeManuale: false } : t));
+export const sostituisci = (tappe, i, p, nome = null) => tappe.map((t, j) => (j === i ? { ...t, p: [arr(p[0]), arr(p[1])], nome, luoghi: null, poi: null, pos: undefined, nomeManuale: false } : t));
 // rinominata a mano; vuoto = di nuovo il nome automatico
 export const rinomina = (tappe, i, testo) => {
   const nome = String(testo ?? '').trim();
@@ -170,4 +172,92 @@ export function kmDelleTappe(lunghezzeTrattiM) {
   const km = [0];
   for (const m of lunghezzeTrattiM) km.push(km.at(-1) + m / 1000);
   return km;
+}
+
+// --- una traccia già esistente (sentiero dell'archivio, mio percorso, carrareccia) come tappe sulla sua «base» ---
+export const INTERVALLO_TAPPE_M = 3000; // senza punti di controllo, una tappa ogni 3 km
+// pezzi → { base, tappe }: la traccia come linea sola e le tappe con la loro posizione `pos` (metri dall'inizio) sulla base.
+// Tra due tappe con `pos` il tratto è il pezzo della traccia originale, senza ricalcolare niente (finché non si spostano).
+// puntiControllo: i punti con cui era stata disegnata (in ordine); se mancano, partenza, arrivo e una tappa ogni 3 km
+export function tappeDaTraccia(pezzi, puntiControllo = null) {
+  const base = creaBase(pezzi);
+  if (base.linea.length < 2) return { base: null, tappe: [] };
+  const lungo = puntiControllo?.length >= 2 ? puntiControllo : null;
+  let posizioni;
+  let punti;
+  if (lungo) {
+    // ogni punto sulla traccia nel punto più vicino, sempre in avanti (un anello o un andata e ritorno tornano sullo stesso posto)
+    let minimo = 0;
+    posizioni = [];
+    punti = [];
+    for (const x of lungo) {
+      const p = x.p ?? x;
+      let migliore = null;
+      for (let i = 0; i < base.linea.length; i++) {
+        if (base.cum[i] < minimo) continue;
+        const d = distanzaM(base.linea[i], p);
+        if (!migliore || d < migliore.d) migliore = { d, i };
+      }
+      if (!migliore) migliore = { d: Infinity, i: base.linea.length - 1 };
+      const sulla = migliore.d <= 60;
+      posizioni.push(sulla ? base.cum[migliore.i] : undefined);
+      if (sulla) minimo = base.cum[migliore.i];
+      punti.push({ p: sulla ? base.linea[migliore.i] : p, libero: false });
+    }
+  } else {
+    const n = Math.max(1, Math.round(base.totaleM / INTERVALLO_TAPPE_M));
+    posizioni = Array.from({ length: n + 1 }, (_, k) => (base.totaleM * k) / n);
+    punti = posizioni.map((m) => {
+      let i = 0;
+      while (i < base.linea.length - 1 && base.cum[i] < m) i++;
+      return { p: base.linea[i], libero: false };
+    });
+    posizioni = punti.map((_, k) => (k === 0 ? 0 : k === punti.length - 1 ? base.totaleM : posizioni[k]));
+  }
+  const tappe = punti.map((x, k) => nuovaTappa(x.p, { pos: posizioni[k], libero: false, nome: lungo?.[k]?.nomeManuale ? lungo[k].nome ?? null : null, nomeManuale: Boolean(lungo?.[k]?.nomeManuale) }));
+  return { base, tappe };
+}
+
+// --- tratti: agganciati alla strada e senza «code» ---
+export const DISTANZA_MASSIMA_AGGANCIO_M = 200; // un punto più lontano di così da ogni sentiero e strada non si aggancia: «Fuori sentiero»
+const uguali = (a, b) => Math.abs(a[0] - b[0]) < 2e-6 && Math.abs(a[1] - b[1]) < 2e-6;
+const lungM = (linea) => linea.reduce((m, p, i) => (i ? m + distanzaM(linea[i - 1], p) : 0), 0);
+function senzaFine(terreno, metri) {
+  const totale = terreno.at(-1)?.aM ?? 0;
+  return terreno.filter((x) => x.daM < totale - metri).map((x) => ({ ...x, aM: Math.min(x.aM, totale - metri) }));
+}
+function senzaInizio(terreno, metri) {
+  return terreno.filter((x) => x.aM > metri).map((x) => ({ ...x, daM: Math.max(0, x.daM - metri), aM: x.aM - metri }));
+}
+// Dove un tratto torna indietro sullo stesso cammino (la tappa sta su un ramo che finisce lì), il ramo si toglie: il percorso
+// passa dal punto dove il ramo si stacca. tratti: [{ coordinate, terreno, libero }] → nuovi tratti (gli stessi se non c'è niente da togliere)
+export function tagliaCode(tratti) {
+  const r = tratti.map((t) => ({ ...t, coordinate: [...t.coordinate], terreno: t.terreno ? [...t.terreno] : t.terreno }));
+  for (let k = 0; k < r.length - 1; k++) {
+    const a = r[k];
+    const b = r[k + 1];
+    if (a.libero || b.libero || a.coordinate.length < 3 || b.coordinate.length < 3) continue;
+    let m = 0;
+    while (m < a.coordinate.length && m < b.coordinate.length && uguali(a.coordinate[a.coordinate.length - 1 - m], b.coordinate[m])) m++;
+    if (m < 2) continue; // un solo punto in comune: la tappa
+    // il ramo va dalla giunzione (indice m-1 di b) alla tappa (indice 0 di b)
+    m = Math.min(m, a.coordinate.length - 1, b.coordinate.length - 1);
+    if (m < 2) continue;
+    const lunghezza = lungM(b.coordinate.slice(0, m));
+    r[k] = { ...a, coordinate: a.coordinate.slice(0, a.coordinate.length - m + 1), terreno: a.terreno ? senzaFine(a.terreno, lunghezza) : a.terreno };
+    r[k + 1] = { ...b, coordinate: b.coordinate.slice(m - 1), terreno: b.terreno ? senzaInizio(b.terreno, lunghezza) : b.terreno };
+    r[k].codaTolta = true;
+    r[k + 1].codaTolta = true;
+  }
+  return r;
+}
+// Dove cade ogni tappa sulla strada, secondo i tratti calcolati: la fine del tratto che ci arriva o l'inizio di quello che parte.
+// → [{ p, distanzaM }] (p null se non si sa: tappe tra tratti «fuori sentiero» o sulla traccia di partenza)
+export function aggancioDelleTappe(tappe, tratti) {
+  return tappe.map((t, i) => {
+    const prima = i > 0 && !tratti[i - 1]?.libero && !tratti[i - 1]?.daBase ? tratti[i - 1].coordinate.at(-1) : null;
+    const dopo = i < tratti.length && !tratti[i]?.libero && !tratti[i]?.daBase ? tratti[i].coordinate[0] : null;
+    const p = prima ?? dopo;
+    return p ? { p: [p[0], p[1]], distanzaM: Math.round(distanzaM(t.p, p)) } : { p: null, distanzaM: 0 };
+  });
 }

@@ -18,8 +18,7 @@ import { vistaAssociazioni } from './viste/associazioni.js';
 import { vistaUscitaAMano } from './viste/uscitaAMano.js';
 import { vistaSuggerisci } from './viste/suggerisciPagina.js';
 import { vistaPercorso } from './viste/percorso.js';
-import { vistaDisegna, vistaDisegnaSentiero, vistaDisegnaVia } from './viste/disegna.js';
-import { vistaPianificatore } from './viste/pianificatore.js';
+import { vistaPianificatore, vistaPianificatoreSentiero, vistaPianificatoreVia } from './viste/pianificatore.js';
 import { vistaMappaPercorso } from './viste/mappaPercorso.js';
 import { vistaParco } from './viste/parco.js';
 import { vistaImporta } from './viste/importa.js';
@@ -66,9 +65,8 @@ const percorsi = [
   [/^\/sentiero\/([^/]+)\/?$/, vistaScheda],
   [/^\/sentiero\/([^/]+)\/modifica\/?$/, vistaModifica],
   [/^\/sentiero\/([^/]+)\/mappa\/?$/, vistaMappa],
-  [/^\/sentiero\/([^/]+)\/disegna\/?$/, vistaDisegnaSentiero],
-  [/^\/via\/disegna\/?$/, vistaDisegnaVia],
-  [/^\/pianificatore\/?$/, vistaPianificatore],
+  [/^\/sentiero\/([^/]+)\/disegna\/?$/, vistaPianificatoreSentiero],
+  [/^\/via\/disegna\/?$/, vistaPianificatoreVia],
   [/^\/nuovo(?:\?parco=([^&]+))?$/, (app, parco) => vistaModifica(app, null, parco)],
   [/^\/parco\/([^/]+)\/?$/, vistaParco],
   [/^\/parco\/([^/]+)\/importa\/?$/, vistaImporta],
@@ -76,9 +74,9 @@ const percorsi = [
   [/^\/altro\/?$/, vistaAltro],
   [/^\/codice\/?$/, vistaCodice],
   [/^\/suggerisci\/?$/, vistaSuggerisci],
-  [/^\/percorso-nuovo\/?$/, (app) => vistaDisegna(app, null)],
+  [/^\/percorso-nuovo\/?$/, (app) => vistaPianificatore(app, null)],
   [/^\/percorso\/([^/]+)\/?$/, vistaPercorso],
-  [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaDisegna],
+  [/^\/percorso\/([^/]+)\/disegna\/?$/, vistaPianificatore],
   [/^\/percorso\/([^/]+)\/mappa\/?$/, vistaMappaPercorso],
   [/^\/condiviso\?(.+)$/, vistaCondiviso],
 ];

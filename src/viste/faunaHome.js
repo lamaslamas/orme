@@ -23,7 +23,7 @@ const riccoOra = (f) => f.fauna === 'frequenti' && f.stagione === 'adesso';
 // contenitore: dove mettere il foglio; restituisce { personalizza, collega(heat), pannello, chiudi }
 // allApertura(): quando il foglio si apre (es. per chiudere l'elenco dei percorsi: uno alla volta)
 // compatto: senza «Percorsi ricchi di fauna qui» (nel pianificatore non c'è un elenco di percorsi)
-export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apriElenco = () => {}, compatto = false } = {}) {
+export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apriElenco = () => {}, compatto = false, riservaAlto = 72 } = {}) {
   let gruppi = leggiGruppi();
   let scelta = null; // { inat, nome, scientifico }
   let heat = null;
@@ -56,7 +56,7 @@ export function creaFaunaHome(contenitore, mappa, { allApertura = () => {}, apri
   contenitore.appendChild(foglio);
   // la stessa tendina di "Percorsi qui": chiuderla (X, Esc, trascinandola in giù, o aprendone un'altra) nasconde
   // il pannello ma la Fauna resta accesa; un tocco su "Fauna" lo riapre. Si spegne dall'interruttore nel pannello
-  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', allaChiusura: () => mostra(false) });
+  const tendina = tendinaTrascinabile(foglio, { corpo: '.fauna-corpo', allaChiusura: () => mostra(false), riserva: riservaAlto });
   const elenco = foglio.querySelector('.specie-zona');
 
   // «Nascoste (N)»: le specie nascoste a mano, l'interruttore delle più comuni (con l'elenco da vedere prima)

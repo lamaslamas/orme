@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { muovi, rinomina, luoghiDaRisposta, nomeAutomaticoTappa, nomeDellaTappa, etichettaConKm, kmDelleTappe, urlReverseTappa, nuovaTappa, tappeDaPunti, etichetta, inserisciDopo, sposta, togli, riordina, sostituisci, creaStoria, trattoPiuVicino, classeFondo, fondoDaTerreno, preferenzaPer, chiaveTratto } from '../src/lib/pianificatore.js';
+import { tappeDaTraccia, tagliaCode, aggancioDelleTappe, DISTANZA_MASSIMA_AGGANCIO_M, muovi, rinomina, luoghiDaRisposta, nomeAutomaticoTappa, nomeDellaTappa, etichettaConKm, kmDelleTappe, urlReverseTappa, nuovaTappa, tappeDaPunti, etichetta, inserisciDopo, sposta, togli, riordina, sostituisci, creaStoria, trattoPiuVicino, classeFondo, fondoDaTerreno, preferenzaPer, chiaveTratto } from '../src/lib/pianificatore.js';
 
 const t = (lon, lat) => nuovaTappa([lon, lat]);
 const nomi = (l) => l.map((x) => x.p.join(','));
@@ -124,5 +124,81 @@ describe('pianificatore: riordino con trascinamento e nomi', () => {
   it('i km di ogni tappa', () => {
     expect(kmDelleTappe([1500, 2700]).map((x) => Math.round(x * 10) / 10)).toEqual([0, 1.5, 4.2]);
     expect(kmDelleTappe([])).toEqual([0]);
+  });
+});
+
+// 0,001° di longitudine ≈ 83 m a questa latitudine
+const dritta = (n, lat = 41.8, lon0 = 13) => Array.from({ length: n }, (_, i) => [lon0 + i * 0.001, lat]);
+
+describe('pianificatore: una traccia esistente come tappe', () => {
+  it('senza punti di controllo: partenza, arrivo e una tappa ogni 3 km, tutte sulla traccia', () => {
+    const { base, tappe } = tappeDaTraccia([dritta(121)]); // ≈ 10 km
+    expect(base.totaleM).toBeGreaterThan(9800);
+    expect(tappe.length).toBeGreaterThanOrEqual(4);
+    expect(tappe[0].pos).toBe(0);
+    expect(tappe.at(-1).pos).toBeCloseTo(base.totaleM, 0);
+    expect(tappe.every((t, i) => i === 0 || t.pos > tappe[i - 1].pos)).toBe(true);
+    expect(tappeDaTraccia([[[13, 41]]]).tappe).toEqual([]);
+  });
+  it('con i punti di controllo di un anello: ogni punto trova il suo posto, sempre in avanti', () => {
+    const andata = dritta(51);
+    const anello = [...andata, ...[...andata].reverse().slice(1)]; // andata e ritorno sulla stessa linea
+    const { tappe } = tappeDaTraccia([anello], [{ p: andata[0] }, { p: andata[50] }, { p: andata[0] }]);
+    expect(tappe.map((t) => Math.round(t.pos))).toEqual([0, Math.round(tappe[1].pos), Math.round(tappe[2].pos)]);
+    expect(tappe[2].pos).toBeGreaterThan(tappe[1].pos); // il ritorno è dopo l'andata
+  });
+  it('un punto lontano dalla traccia resta dov\'è e senza posizione (BRouter lo ricalcola)', () => {
+    const { tappe } = tappeDaTraccia([dritta(31)], [{ p: [13, 41.8] }, { p: [13.01, 41.85] }]);
+    expect(tappe[1].pos).toBeUndefined();
+    expect(tappe[1].p).toEqual([13.01, 41.85]);
+  });
+  it('spostare o sostituire una tappa toglie la posizione sulla base', () => {
+    const t = { ...nuovaTappa([13, 41.8]), pos: 120 };
+    expect(sposta([t], 0, [13.5, 41.8])[0].pos).toBeUndefined();
+    expect(sostituisci([t], 0, [13.5, 41.8], 'X')[0].pos).toBeUndefined();
+  });
+});
+
+describe('pianificatore: tratti senza code e agganciati', () => {
+  const tratto = (coordinate, terreno = null) => ({ coordinate, terreno: terreno ?? [{ daM: 0, aM: 1000, tag: { highway: 'path' } }] });
+  it('la tappa su un ramo senza uscita: il ramo si toglie e il percorso passa dalla giunzione', () => {
+    // A → J → (ramo) → Z; poi Z → ramo indietro → J → B
+    const J = [13.002, 41.8];
+    const a = tratto([[13, 41.8], [13.001, 41.8], J, [13.002, 41.801], [13.002, 41.802]], [{ daM: 0, aM: 400, tag: { highway: 'path' } }, { daM: 400, aM: 700, tag: { highway: 'track' } }]);
+    const b = tratto([[13.002, 41.802], [13.002, 41.801], J, [13.003, 41.8], [13.004, 41.8]], [{ daM: 0, aM: 300, tag: { highway: 'track' } }, { daM: 300, aM: 700, tag: { highway: 'path' } }]);
+    const [a2, b2] = tagliaCode([a, b]);
+    expect(a2.coordinate.at(-1)).toEqual(J);
+    expect(b2.coordinate[0]).toEqual(J);
+    expect(a2.coordinate).toHaveLength(3);
+    expect(b2.coordinate).toHaveLength(3);
+    // il terreno resta coerente con le lunghezze (il ramo è tolto da entrambi)
+    expect(a2.terreno.at(-1).aM).toBeLessThan(700);
+    expect(b2.terreno[0].daM).toBe(0);
+    expect(a2.codaTolta && b2.codaTolta).toBe(true);
+  });
+  it('senza ritorno sullo stesso cammino non cambia niente', () => {
+    const a = tratto([[13, 41.8], [13.001, 41.8], [13.002, 41.8]]);
+    const b = tratto([[13.002, 41.8], [13.003, 41.8], [13.004, 41.8]]);
+    const r = tagliaCode([a, b]);
+    expect(r[0].coordinate).toEqual(a.coordinate);
+    expect(r[1].coordinate).toEqual(b.coordinate);
+    expect(r[0].codaTolta).toBeUndefined();
+  });
+  it('un tratto «fuori sentiero» non si tocca', () => {
+    const a = { ...tratto([[13, 41.8], [13.001, 41.8], [13.002, 41.8]]), libero: true };
+    const b = tratto([[13.002, 41.8], [13.001, 41.8], [13, 41.8]]);
+    expect(tagliaCode([a, b])[0].coordinate).toHaveLength(3);
+  });
+  it('dove cade ogni tappa: la fine del tratto che arriva o l\'inizio di quello che parte; lontano più di 200 m si riconosce', () => {
+    const tappe = [nuovaTappa([13, 41.8]), nuovaTappa([13.0002, 41.8]), nuovaTappa([13.01, 41.8])];
+    const tratti = [tratto([[13, 41.8], [13.0004, 41.8]]), tratto([[13.0004, 41.8], [13.0100, 41.801]])];
+    const a = aggancioDelleTappe(tappe, tratti);
+    expect(a[1].p).toEqual([13.0004, 41.8]);
+    expect(a[1].distanzaM).toBeLessThan(DISTANZA_MASSIMA_AGGANCIO_M);
+    expect(a[2].distanzaM).toBeGreaterThan(50);
+    const lontana = aggancioDelleTappe([nuovaTappa([13, 41.8]), nuovaTappa([13.01, 41.8])], [tratto([[13, 41.8], [13.01, 41.8 + 400 / 111195]])]);
+    expect(lontana[1].distanzaM).toBeGreaterThan(DISTANZA_MASSIMA_AGGANCIO_M);
+    // fuori sentiero o sulla traccia di partenza: non si sa
+    expect(aggancioDelleTappe(tappe.slice(0, 2), [{ ...tratto([[13, 41.8], [13.001, 41.8]]), libero: true }])[1].p).toBeNull();
   });
 });

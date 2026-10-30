@@ -1,13 +1,18 @@
-// Il pianificatore (prima consegna): una pagina con la sola mappa MapLibre (la mappa principale resta Leaflet).
-// Tocco = tappa; trascinare la linea crea una tappa e ricalcola solo i tratti vicini; trascinare una tappa la sposta;
-// elenco delle tappe con nomi automatici, riordinabili ed eliminabili, e «Cerca un luogo» per partenza, arrivo e tappe;
-// numeri, profilo toccabile e barra del fondo sempre visibili; Annulla e Ripeti; salvataggio come nel disegno.
+// Il pianificatore: l'unico modo di disegnare e modificare un percorso (matita sulla mappa, «Modifica traccia» da ogni sentiero e
+// percorso, «Disegna da qui», Suggerisci). Una pagina con la sola mappa MapLibre (la mappa principale resta Leaflet).
+// Tocco = tappa agganciata alla strada; trascinare una tappa la sposta e trascinare la linea ne crea una (la linea segue come un
+// elastico, al rilascio si ricalcolano solo i tratti vicini); elenco delle tappe con nomi automatici, riordinabili ed eliminabili,
+// e «Cerca un luogo»; numeri, profilo toccabile e barra del fondo sempre visibili; Annulla e Ripeti; salvataggio in I miei percorsi.
+// Una traccia già esistente si apre come «base»: tra due tappe che non si sono mosse il tratto è il pezzo della traccia originale.
 // I calcoli sono in src/lib/pianificatore.js, i tratti li calcola BRouter (src/lib/brouter.js).
 import { calcolaPercorso, profiloPer } from '../lib/brouter.js';
 import { unisciTratti, unisciTerreno, profiloPezzi, trattoLibero, lunghezzaM } from '../lib/disegno.js';
+import { leggiBozza, salvaBozza, cancellaBozza, consumaAperturaDisegno } from '../lib/bozza.js';
+import { percorsoSentiero, invertiPercorso } from '../lib/tracce.js';
+import { versoDi } from '../lib/verso.js';
 import { misureDeiPezzi, km1 } from '../lib/lungoIlPercorso.js';
-import { nuovoIdPercorso } from '../lib/percorso.js';
-import { salvaPercorso } from '../db.js';
+import { nuovoIdPercorso, conservaOriginale } from '../lib/percorso.js';
+import { salvaPercorso, leggiPercorso, leggiSentiero, leggiTraccia } from '../db.js';
 import { quoteDeiPezzi, testoFonteQuote } from './quote.js';
 import { htmlProfiloMini, collegaProfiloMini } from './profiloMini.js';
 import { luoghiTappa, nomeProposto } from './nomeAutomatico.js';
@@ -23,13 +28,14 @@ import { aggiungiFaunaGl, adattatoreMappa } from './faunaGl.js';
 import { creaPoiGl } from './poiGl.js';
 import { faunaLungoIlPercorso } from './faunaLungoIlPercorso.js';
 import { urlIconaPoi } from './segniGl.js';
-import { CATEGORIE_POI, categoriaDelPoi, nomePoi, nomePerTappa, passaDiQui, poiVicinoA } from '../lib/poiPianificatore.js';
+import { CATEGORIE_POI, categoriaDelPoi, nomePoi, nomePerTappa, passaDiQui, poiVicinoA, riquadroDelPercorso } from '../lib/poiPianificatore.js';
 import { creaBase, fetta } from '../lib/modificaTraccia.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { NOMI_IT } from './faunaComune.js';
-import { escapeHtml, durata } from '../lib/formato.js';
+import { escapeHtml, durata, codici } from '../lib/formato.js';
 import {
   nuovaTappa, etichetta, inserisciDopo, sposta, togli, muovi, rinomina, sostituisci, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
+  tappeDaTraccia, tappeDaPunti, tagliaCode, aggancioDelleTappe, DISTANZA_MASSIMA_AGGANCIO_M,
 } from '../lib/pianificatore.js';
 
 const COLORE = '#0f6e56';
@@ -46,13 +52,28 @@ function ultimaVista() {
     return null;
   }
 }
+const CHIAVE_SUGGERIMENTO = 'orme.pianSuggerimento';
 const lineaGeo = (coordinate, props = {}) => ({ type: 'Feature', properties: props, geometry: { type: 'LineString', coordinates: coordinate.map(([x, y]) => [x, y]) } });
 const vuoto = () => ({ type: 'FeatureCollection', features: [] });
 
-export async function vistaPianificatore(app) {
+// id: un mio percorso da modificare (si salva sopra); sorgente: una traccia che non è un mio percorso (sentiero dell'archivio,
+// carrareccia): al salvataggio si crea sempre una copia in I miei percorsi. { pezzi, nomeProposto, note, indietro, avviso, daSentiero }
+export async function vistaPianificatore(app, id = null, sorgente = null) {
+  const esistente = id ? await leggiPercorso(id) : null;
+  if (id && !esistente) {
+    app.innerHTML = '<p class="vuoto">Percorso non trovato. <a href="#/miei">Torna ai miei percorsi</a></p>';
+    return;
+  }
+  // la traccia già caricata (mio percorso, sentiero dell'archivio, carrareccia) si apre come «base»; un percorso nuovo riparte dalla bozza
+  const pezziBase = esistente?.geojson?.coordinates?.length ? percorsoSentiero(esistente.geojson).pezzi : sorgente?.pezzi ?? null;
+  const daTraccia = pezziBase?.length ? tappeDaTraccia(pezziBase, esistente?.puntiControllo) : { base: null, tappe: [] };
+  const base = daTraccia.base;
+  const tappeIniziali = base ? daTraccia.tappe : tappeDaPunti(esistente || sorgente ? [] : (leggiBozza()?.punti ?? []));
+  const apertura = esistente || sorgente ? (consumaAperturaDisegno(), null) : consumaAperturaDisegno();
   let attivita = stato.leggi().attivita === 'mtb' ? 'mtb' : 'trekking';
   let preferenza = 'sentieri';
-  const storia = creaStoria([]);
+  const storia = creaStoria(tappeIniziali);
+  const agganciate = new Map(); // id tappa → dove cade sulla strada (da BRouter)
   const tratti = new Map(); // chiave → promessa del tratto (si ricalcola solo quello che cambia)
   let risultato = null; // { linea, terreno, tratti, pezziQuote, fonte, misure }
   let richiesta = 0;
@@ -66,7 +87,7 @@ export async function vistaPianificatore(app) {
   app.innerHTML = `
     <div id="mappaPian" class="pian-mappa" aria-label="Mappa del pianificatore"></div>
     <div class="pian-sopra">
-      <a class="pill-mappa tondo" href="#/" aria-label="Esci">${ICONE.chiudi}</a>
+      <a class="pill-mappa tondo" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : sorgente?.indietro ?? '#/'}" aria-label="Esci">${ICONE.chiudi}</a>
       <form class="pian-cerca" role="search">
         <label class="ricerca">${ICONE.cerca}<input type="search" name="luogo" placeholder="Cerca un luogo" aria-label="Cerca un luogo per partenza, arrivo o tappa" autocomplete="off" enterkeyhint="search" /></label>
         <ul class="risultati-luogo" hidden></ul>
@@ -89,9 +110,11 @@ export async function vistaPianificatore(app) {
       <button type="button" class="pill-mappa tondo" data-azione="ripeti" aria-label="Ripeti" title="Ripeti"><span style="display:inline-block;transform:scaleX(-1);display:grid">${ICONE.indietro}</span></button>
     </div>
     <p class="pian-sugg" id="pianSugg" role="status"></p>
+    <p class="pian-hint" id="pianHint" role="status" hidden>Trascina i punti o la linea per cambiare il percorso</p>
     <section class="pian-foglio" aria-label="Il percorso">
       <button type="button" class="pian-maniglia" data-azione="apri-foglio" aria-expanded="false" aria-label="Mostra o nascondi le tappe"><span class="foglio-maniglia"></span></button>
       <div class="disegno-numeri" id="pianNumeri"></div>
+      <div class="pian-avviso" id="pianAvviso" role="alert" hidden></div>
       <div class="disegno-profilo" id="pianProfilo"></div>
       <div id="pianFondo"></div>
       <div class="pian-fauna-riga" id="pianFaunaRiga" hidden></div>
@@ -104,7 +127,7 @@ export async function vistaPianificatore(app) {
     <dialog class="foglio foglio-salva">
       <div class="foglio-maniglia" aria-hidden="true"></div>
       <h2 class="foglio-titolo">Salva il percorso</h2>
-      <label class="campo"><span>Nome</span><input id="pianNome" placeholder="es. Anello di Val Fondillo" /></label>
+      <label class="campo"><span>Nome</span><input id="pianNome" placeholder="es. Anello di Val Fondillo" value="${escapeHtml(esistente?.nome ?? sorgente?.nomeProposto ?? '')}" /></label>
       <p class="tenue piccolo" id="pianRiepilogo"></p>
       <div class="azioni-salva"><button type="button" class="bottone" data-azione="continua">Continua</button><button type="button" class="bottone primario" data-azione="conferma">Salva</button></div>
       <p class="tenue piccolo">Lo ritrovi in I miei percorsi · Disegnati.</p>
@@ -150,7 +173,7 @@ export async function vistaPianificatore(app) {
 
   if (import.meta.env.DEV) window.__pianMappa = mappa; // solo per le prove in sviluppo
   // la Fauna: lo stesso pannello e gli stessi filtri della mappa principale, in versione compatta
-  const faunaPannello = creaFaunaHome(app, adattatoreMappa(mappa), { compatto: true });
+  const faunaPannello = creaFaunaHome(app, adattatoreMappa(mappa), { compatto: true, riservaAlto: 210 });
   const statoFauna = app.querySelector('#pianFaunaStato');
   const faunaGl = aggiungiFaunaGl(mappa, maplibregl, {
     personalizza: () => faunaPannello.personalizza(),
@@ -175,14 +198,20 @@ export async function vistaPianificatore(app) {
   };
   const pronta = new Promise((r) => (stileCaricato() ? r() : mappa.once('style.load', r)));
   const marcatori = new Map(); // id tappa → Marker
+  if (import.meta.env.DEV) window.__pian = { storia, agganciate, risultato: () => risultato, marcatori };
   let segnoProfilo = null;
 
   function preparaSorgenti() {
     mappa.addSource('linea', { type: 'geojson', data: vuoto() });
+    // la traccia com'era all'inizio, in grigio, per confrontarla con quella che si modifica
+    if (base) {
+      mappa.addSource('base', { type: 'geojson', data: lineaGeo(base.linea) });
+      mappa.addLayer({ id: 'base', type: 'line', source: 'base', layout: { 'line-cap': 'round' }, paint: { 'line-color': '#6b7280', 'line-width': 4, 'line-opacity': 0.8, 'line-dasharray': [0.5, 2] } });
+    }
     mappa.addSource('elastico', { type: 'geojson', data: vuoto() });
     mappa.addSource('fauna-tratto', { type: 'geojson', data: vuoto() });
     mappa.addLayer({ id: 'fauna-tratto', type: 'line', source: 'fauna-tratto', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#f4c542', 'line-width': 17, 'line-opacity': 0.6 } });
-    mappa.addLayer({ id: 'linea-tocco', type: 'line', source: 'linea', paint: { 'line-width': 26, 'line-opacity': 0 } });
+    mappa.addLayer({ id: 'linea-tocco', type: 'line', source: 'linea', paint: { 'line-width': 44, 'line-opacity': 0 } }); // 44 px: si prende anche con il dito
     mappa.addLayer({ id: 'linea-bordo', type: 'line', source: 'linea', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 9, 'line-opacity': 0.95 } });
     // il tratteggio non può dipendere dai dati: due livelli, uno per i tratti sui sentieri e uno per quelli «fuori sentiero»
     mappa.addLayer({ id: 'linea-colore', type: 'line', source: 'linea', filter: ['!', ['get', 'libero']], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': COLORE, 'line-width': 5 } });
@@ -213,6 +242,16 @@ export async function vistaPianificatore(app) {
     el.setAttribute('aria-label', primo ? 'Partenza' : ultimo ? 'Arrivo' : `Tappa ${i}`);
     return el;
   }
+  // dove si disegna una tappa: sulla strada dove BRouter l'ha agganciata, altrimenti dove l'ho messa
+  const doveStaLaTappa = (t) => agganciate.get(t.id) ?? t.p;
+  // durante il trascinamento di una tappa la linea si allunga come un elastico: dalla tappa prima e a quella dopo fino al dito
+  function elasticoTappa(k, p) {
+    const tappe = storia.ora();
+    const linee = [];
+    if (k > 0) linee.push(lineaGeo([doveStaLaTappa(tappe[k - 1]), p]));
+    if (k < tappe.length - 1) linee.push(lineaGeo([p, doveStaLaTappa(tappe[k + 1])]));
+    mappa.getSource('elastico')?.setData({ type: 'FeatureCollection', features: linee });
+  }
   function disegnaTappe() {
     const tappe = storia.ora();
     const ids = new Set(tappe.map((t) => t.id));
@@ -220,16 +259,29 @@ export async function vistaPianificatore(app) {
     tappe.forEach((t, i) => {
       let m = marcatori.get(t.id);
       if (!m) {
-        m = new maplibregl.Marker({ element: elementoMarcatore(i, tappe.length), draggable: true }).setLngLat(t.p).addTo(mappa);
+        m = new maplibregl.Marker({ element: elementoMarcatore(i, tappe.length), draggable: true }).setLngLat(doveStaLaTappa(t)).addTo(mappa);
+        const indiceDi = () => storia.ora().findIndex((x) => x.id === t.id);
+        m.on('dragstart', () => {
+          trascinando = { tappa: true };
+          scrivi('');
+        });
+        m.on('drag', () => {
+          const k = indiceDi();
+          const ll = m.getLngLat();
+          if (k >= 0) elasticoTappa(k, [ll.lng, ll.lat]);
+        });
         m.on('dragend', () => {
-          const k = storia.ora().findIndex((x) => x.id === t.id);
+          mappa.getSource('elastico')?.setData(vuoto());
+          setTimeout(() => (trascinando = null), 80); // il click che segue il rilascio non aggiunge una tappa
+          const k = indiceDi();
           if (k < 0) return;
           const ll = m.getLngLat();
+          agganciate.delete(t.id);
           cambia(sposta(storia.ora(), k, [ll.lng, ll.lat]));
         });
         marcatori.set(t.id, m);
       } else {
-        m.setLngLat(t.p);
+        m.setLngLat(doveStaLaTappa(t));
         const el = m.getElement();
         const nuovo = elementoMarcatore(i, tappe.length);
         el.className = nuovo.className;
@@ -246,6 +298,8 @@ export async function vistaPianificatore(app) {
   }
   const opzioniChiave = () => `${attivita}:${preferenzaPer(preferenza, attivita) ?? 'base'}`;
   function tratto(a, b) {
+    // due tappe ancora sulla traccia di partenza: il pezzo della traccia originale, senza ricalcolare niente
+    if (base && Number.isFinite(a.pos) && Number.isFinite(b.pos) && b.pos > a.pos && !b.libero) return Promise.resolve({ coordinate: fetta(base, a.pos, b.pos), terreno: [], libero: false, daBase: true });
     const k = chiaveTratto(a, b, b.libero, opzioniChiave());
     if (!tratti.has(k)) {
       const calcolo = b.libero
@@ -262,10 +316,13 @@ export async function vistaPianificatore(app) {
 
   async function aggiorna() {
     const tappe = storia.ora();
+    // una bozza per un percorso nuovo (la traccia di un percorso già esistente non tocca la bozza)
+    if (!esistente && !sorgente) salvaBozza(tappe.map((t) => t.p));
     disegnaTappe();
     disegnaTappeElenco();
     aggiornaPulsanti();
     trovaNomi();
+    mostraAvviso('');
     const mia = ++richiesta;
     await pronta;
     if (chiusa) return;
@@ -289,13 +346,29 @@ export async function vistaPianificatore(app) {
       poi?.aggiorna(null);
       pianificaFaunaPercorso();
       mappa.getSource('linea')?.setData(vuoto());
-      mostraBarra(esiti[fallito].reason?.message ?? 'Il tratto non si è calcolato.', fallito + 1);
+      const motivo = esiti[fallito].reason?.message ?? 'Il tratto non si è calcolato.';
+      mostraBarra('Percorso non calcolato');
+      mostraAvviso(motivo, fallito + 1);
       return;
     }
-    const fatti = esiti.map((x) => x.value);
+    const grezzi = esiti.map((x) => x.value);
+    // senza «code»: dove una tappa sta su un ramo che finisce lì, il percorso passa dal punto dove il ramo si stacca
+    const fatti = tagliaCode(grezzi);
     const linea = unisciTratti(fatti);
+    // le tappe si disegnano sulla strada dove BRouter le ha agganciate; una più lontana di 200 m da ogni sentiero o strada no: si avvisa
+    const vere = aggancioDelleTappe(tappe, grezzi);
+    const viste = aggancioDelleTappe(tappe, fatti);
+    agganciate.clear();
+    let lontana = -1;
+    tappe.forEach((t, i) => {
+      if (vere[i].p && vere[i].distanzaM > DISTANZA_MASSIMA_AGGANCIO_M) lontana = lontana < 0 ? i : lontana;
+      else if (viste[i].p) agganciate.set(t.id, viste[i].p);
+    });
+    disegnaTappe();
     mappa.getSource('linea')?.setData({ type: 'FeatureCollection', features: fatti.map((t, i) => lineaGeo(t.coordinate, { seg: i, libero: Boolean(t.libero) })) });
     risultato = { linea, terreno: unisciTerreno(fatti), tratti: fatti, pezziQuote: null, fonte: null, misure: misureDeiPezzi([linea]) };
+    if (lontana >= 0) mostraAvviso(`${etichetta(lontana, tappe.length) === 'A' ? 'La partenza' : etichetta(lontana, tappe.length) === 'B' ? 'L\'arrivo' : `La tappa ${lontana}`} è a ${vere[lontana].distanzaM} m dal sentiero o dalla strada più vicini.`, lontana === 0 ? 1 : lontana);
+    suggerisciTrascinare();
     kmTappe = kmDelleTappe(fatti.map((t) => lunghezzaM(t.coordinate)));
     disegnaTappeElenco();
     mostraBarra();
@@ -308,17 +381,40 @@ export async function vistaPianificatore(app) {
     mostraBarra();
   }
 
+  // un avviso con «Fuori sentiero» per il tratto: nel foglio, sempre sotto i numeri (anche a foglio ridotto)
+  function mostraAvviso(testo, tratto = 0) {
+    const box = $('#pianAvviso');
+    box.hidden = !testo;
+    box.innerHTML = testo ? `<span>${escapeHtml(testo)}</span>${tratto ? `<button type="button" class="bottone piccolo" data-azione="libera-tratto" data-indice="${tratto}">Fuori sentiero per questo tratto</button>` : ''}` : '';
+  }
+  // al primo uso: come cambiare il percorso (si vede qualche secondo, una volta sola)
+  function suggerisciTrascinare() {
+    let visto = false;
+    try {
+      visto = Boolean(localStorage.getItem(CHIAVE_SUGGERIMENTO));
+    } catch {
+      visto = true;
+    }
+    if (visto || chiusa) return;
+    try {
+      localStorage.setItem(CHIAVE_SUGGERIMENTO, '1');
+    } catch {
+      // si rivede la prossima volta
+    }
+    const hint = $('#pianHint');
+    hint.hidden = false;
+    setTimeout(() => (hint.hidden = true), 7000);
+  }
+
   // --- numeri, profilo, fondo: sempre visibili ---
   let serieProfilo = [];
-  function mostraBarra(messaggio = '', tratto = 0) {
+  function mostraBarra(messaggio = '') {
     const m = risultato?.misure;
     const numeri = $('#pianNumeri');
     if (m) {
       numeri.innerHTML = `<div><b>${km1(m.km)} km</b><span>distanza</span></div>
         <div><b>${m.salita != null ? `+${m.salita} −${m.discesa}` : '…'}</b><span>dislivello</span></div>
         <div><b>${m.durataMin != null ? durata(m.durataMin) : '–'}</b><span>tempo</span></div>${messaggio ? `<p class="tenue piccolo">${escapeHtml(messaggio)}</p>` : ''}`;
-    } else if (messaggio && tratto) {
-      numeri.innerHTML = `<p class="errore">${escapeHtml(messaggio)} <button type="button" class="bottone piccolo" data-azione="libera-tratto" data-indice="${tratto}">Fuori sentiero per questo tratto</button></p>`;
     } else {
       numeri.innerHTML = `<p class="tenue">${escapeHtml(messaggio || (storia.ora().length ? 'Ancora una tappa per il percorso' : 'Tocca la mappa per iniziare'))}</p>`;
     }
@@ -709,7 +805,7 @@ export async function vistaPianificatore(app) {
     );
   }
 
-  // --- salvataggio come nel disegno ---
+  // --- salvataggio in I miei percorsi ---
   const finestra = $('.foglio-salva');
   finestraTrascinabile(finestra);
   $('#pianNome').addEventListener('input', (e) => (e.target.dataset.digitato = '1'));
@@ -728,23 +824,34 @@ export async function vistaPianificatore(app) {
     const azione = e.target.closest('[data-azione]')?.dataset.azione;
     if (e.target === finestra || azione === 'continua') return finestra.close();
     if (azione !== 'conferma' || !risultato) return;
+    // dove c'è un pezzo della traccia di partenza il terreno non è noto: si legge da OpenStreetMap dalla scheda
+    const conBase = risultato.tratti.some((t) => t.daBase);
+    // un mio percorso si modifica direttamente; un sentiero dell'archivio o una carrareccia diventa sempre una copia
     const nuovo = {
-      id: nuovoIdPercorso(),
-      note: '',
+      ...(esistente ?? { id: nuovoIdPercorso(), note: sorgente?.note ?? '', ...(sorgente?.daSentiero ? { daSentiero: sorgente.daSentiero } : {}) }),
       nome: $('#pianNome').value.trim() || 'Percorso senza nome',
       origine: 'disegnato',
-      puntiControllo: storia.ora().map(({ p, libero, nome, nomeManuale }) => ({ p, libero, ...(nomeManuale ? { nome, nomeManuale } : {}) })),
+      puntiControllo: storia.ora().map((t) => ({ p: doveStaLaTappa(t), libero: t.libero, ...(t.nomeManuale ? { nome: t.nome, nomeManuale: true } : {}) })),
       geojson: { type: 'MultiLineString', coordinates: [risultato.linea] },
-      terreno: risultato.terreno,
-      fonteTerreno: 'brouter',
-      aggiornatoTerreno: new Date().toISOString(),
+      // la traccia del file importato si conserva (una volta sola): «Ripristina la traccia originale» nella scheda
+      ...conservaOriginale(esistente),
+      terreno: conBase ? [] : risultato.terreno,
+      fonteTerreno: conBase ? null : 'brouter',
+      aggiornatoTerreno: conBase ? null : new Date().toISOString(),
     };
     await salvaPercorso(nuovo);
+    if (!esistente && !sorgente) cancellaBozza();
     location.hash = `#/percorso/${encodeURIComponent(nuovo.id)}`;
   });
 
   aggiornaPulsanti();
   disegnaTappeElenco();
+  // all'apertura: la traccia da modificare o il percorso a tappe si inquadra; altrimenti la vista della mappa da cui si è venuti
+  if (tappeIniziali.length > 1) {
+    const [s, o, n, e] = riquadroDelPercorso(tappeIniziali.map((t) => t.p), 0.002);
+    mappa.fitBounds([[o, s], [e, n]], { padding: { top: 110, bottom: 260, left: 30, right: 30 }, maxZoom: 15, animate: false });
+  } else if (tappeIniziali.length === 1) mappa.jumpTo({ center: tappeIniziali[0].p, zoom: 14 });
+  else if (apertura?.centro) mappa.jumpTo({ center: [apertura.centro[1], apertura.centro[0]], zoom: (apertura.zoom ?? 13) - 1 });
   aggiorna();
 
   return () => {
@@ -764,4 +871,37 @@ export async function vistaPianificatore(app) {
     finestra.remove();
     document.body.classList.remove('con-mappa', 'pianificatore');
   };
+}
+
+// «Modifica traccia» da un sentiero dell'archivio: la traccia si apre nel pianificatore e si salva sempre una copia
+export async function vistaPianificatoreSentiero(app, idCodificato) {
+  const id = decodeURIComponent(idCodificato);
+  const [sentiero, traccia] = await Promise.all([leggiSentiero(id), leggiTraccia(id)]);
+  if (!sentiero || !traccia?.geojson?.coordinates?.length) {
+    app.innerHTML = `<p class="vuoto">Per modificare la traccia serve una traccia. <a href="#/sentiero/${encodeURIComponent(id)}">Torna al sentiero</a></p>`;
+    return;
+  }
+  return vistaPianificatore(app, null, {
+    // la traccia nel verso scelto («Inverti senso», o quello dell'archivio)
+    pezzi: (versoDi(sentiero ?? { id }) ? invertiPercorso(percorsoSentiero(traccia.geojson)) : percorsoSentiero(traccia.geojson)).pezzi,
+    nomeProposto: `${sentiero.codici?.length ? codici(sentiero) : sentiero.nome} (modificato)`,
+    note: `Modificato da ${[sentiero.codici?.length ? codici(sentiero) : '', sentiero.nome].filter(Boolean).join(' ')}.`,
+    indietro: `#/sentiero/${encodeURIComponent(id)}`,
+    daSentiero: id,
+  });
+}
+
+// «Modifica traccia» da una carrareccia o un sentiero non segnato: il tratto l'ha preparato il foglio al tocco
+export async function vistaPianificatoreVia(app) {
+  let via = null;
+  try {
+    via = JSON.parse(sessionStorage.getItem('orme.viaDaModificare') ?? 'null');
+  } catch {
+    via = null;
+  }
+  if (!via?.pezzi?.length) {
+    app.innerHTML = '<p class="vuoto">Tocca un sentiero sulla mappa e scegli «Modifica traccia». <a href="#/">Torna alla mappa</a></p>';
+    return;
+  }
+  return vistaPianificatore(app, null, { ...via, indietro: '#/' });
 }
