@@ -175,3 +175,25 @@ describe('rotazione dei server Overpass', async () => {
     expect(ordineServer(['a', 'b', 'c'])).toEqual(['a', 'b', 'c']);
   });
 });
+
+describe('interrogaOverpass: ferma la ricerca', () => {
+  it('un segnale già interrotto non chiede niente e non mette i server in pausa', async () => {
+    const { interrogaOverpass, ordineServer, azzeraServer } = await import('../src/lib/overpass.js');
+    azzeraServer();
+    const fetchFn = vi.fn();
+    const c = new AbortController();
+    c.abort();
+    await expect(interrogaOverpass('q', { server: ['a', 'b'], fetchFn, segnale: c.signal })).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(ordineServer(['a', 'b'])).toEqual(['a', 'b']);
+  });
+  it('interrompe la richiesta in corso, subito', async () => {
+    const { interrogaOverpass, azzeraServer } = await import('../src/lib/overpass.js');
+    azzeraServer();
+    const c = new AbortController();
+    const fetchFn = (url, { signal }) => new Promise((_, rifiuta) => signal.addEventListener('abort', () => rifiuta(new DOMException('x', 'AbortError'))));
+    const p = interrogaOverpass('q', { server: ['a', 'b'], fetchFn, segnale: c.signal, timeoutMs: 60000 });
+    setTimeout(() => c.abort(), 5);
+    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});

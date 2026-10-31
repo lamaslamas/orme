@@ -28,14 +28,19 @@ import { aggiungiFaunaGl, adattatoreMappa } from './faunaGl.js';
 import { creaPoiGl } from './poiGl.js';
 import { faunaLungoIlPercorso } from './faunaLungoIlPercorso.js';
 import { urlIconaPoi } from './segniGl.js';
-import { CATEGORIE_POI, categoriaDelPoi, nomePoi, nomePerTappa, passaDiQui, poiVicinoA, riquadroDelPercorso } from '../lib/poiPianificatore.js';
+import { CATEGORIE_POI, nomePoi, nomePerTappa, poiVicinoA, riquadroDelPercorso } from '../lib/poiPianificatore.js';
+import { PARCHI } from '../datiParchi.js';
+import { ottieniConfine } from './confine.js';
+import { COLORI } from './colori.js';
+import { LIVELLI_SENTIERI, visibilita } from '../lib/stileMappa.js';
 import { creaBase, fetta } from '../lib/modificaTraccia.js';
 import { ANIMALI } from '../lib/costanti.js';
 import { NOMI_IT } from './faunaComune.js';
 import { escapeHtml, durata, codici } from '../lib/formato.js';
 import {
-  nuovaTappa, etichetta, inserisciDopo, sposta, togli, muovi, rinomina, sostituisci, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
+  nuovaTappa, etichetta, inserisciDopo, sposta, togli, muovi, rinomina, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
   tappeDaTraccia, tappeDaPunti, tagliaCode, aggancioDelleTappe, DISTANZA_MASSIMA_AGGANCIO_M,
+  aggiungiAlPercorso, comePartenza, comeArrivo, tappaComePartenza, tappaComeArrivo, impostaLibero, taglia, tappeConAnello, ID_CHIUSURA, sovrapposizione, proiettaSuTratti,
 } from '../lib/pianificatore.js';
 
 const COLORE = '#0f6e56';
@@ -53,6 +58,22 @@ function ultimaVista() {
   }
 }
 const CHIAVE_SUGGERIMENTO = 'orme.pianSuggerimento';
+const CHIAVE_LIVELLI = 'orme.pianLivelli';
+const BASI_RASTER = {
+  topo: { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', massimo: 19, attribuzione: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' },
+  satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', massimo: 19, attribuzione: 'Immagini &copy; Esri, Maxar, Earthstar Geographics e comunità GIS' },
+};
+const CLASSI_NON_PERCORRIBILI = new Set(['rail', 'transit', 'ferry', 'aerialway', 'pier']);
+function leggiLivelli() {
+  let v = null;
+  try {
+    v = JSON.parse(localStorage.getItem(CHIAVE_LIVELLI) ?? 'null');
+  } catch {
+    v = null;
+  }
+  return { base: ['topo', 'satellite'].includes(v?.base) ? v.base : 'chiara', segnati: v?.segnati !== false, tutti: v?.tutti !== false, confini: v?.confini === true };
+}
+const coordinateTesto = ([lon, lat]) => `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
 const lineaGeo = (coordinate, props = {}) => ({ type: 'Feature', properties: props, geometry: { type: 'LineString', coordinates: coordinate.map(([x, y]) => [x, y]) } });
 const vuoto = () => ({ type: 'FeatureCollection', features: [] });
 
@@ -71,7 +92,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   const tappeIniziali = base ? daTraccia.tappe : tappeDaPunti(esistente || sorgente ? [] : (leggiBozza()?.punti ?? []));
   const apertura = esistente || sorgente ? (consumaAperturaDisegno(), null) : consumaAperturaDisegno();
   let attivita = stato.leggi().attivita === 'mtb' ? 'mtb' : 'trekking';
-  let preferenza = 'sentieri';
+  const preferenza = 'sentieri'; // il profilo è uno solo: sentieri
   const storia = creaStoria(tappeIniziali);
   const agganciate = new Map(); // id tappa → dove cade sulla strada (da BRouter)
   const tratti = new Map(); // chiave → promessa del tratto (si ricalcola solo quello che cambia)
@@ -80,49 +101,73 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   let chiusa = false;
   let nomeInCorso = 0;
   let poi = null; // i punti di interesse sulla mappa (poiGl.js)
-  let poiOra = { lungo: [], tutti: [], mancanti: false };
   let kmTappe = null; // i km di ogni tappa lungo il percorso (null finché non è calcolato)
+  let anello = false; // «Giro ad anello»: in fondo si torna alla partenza (la tappa finale si calcola, non è nell'elenco)
+  let forbici = false; // le forbici sono accese: il prossimo tocco sulla linea taglia
+  let fumetto = null; // il fumetto aperto sulla mappa
+  const livelli = leggiLivelli();
+  const avvisate = new Set(); // le tappe lontane dalle strade di cui si è già detto
+  // quante etichette ha il percorso: con l'anello nessuna tappa è «B» (si torna in A)
+  const nEt = () => storia.ora().length + (anello && storia.ora().length >= 2 ? 1 : 0);
 
   document.body.classList.add('con-mappa', 'pianificatore');
   app.innerHTML = `
     <div id="mappaPian" class="pian-mappa" aria-label="Mappa del pianificatore"></div>
-    <div class="pian-sopra">
-      <a class="pill-mappa tondo" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : sorgente?.indietro ?? '#/'}" aria-label="Esci">${ICONE.chiudi}</a>
-      <form class="pian-cerca" role="search">
-        <label class="ricerca">${ICONE.cerca}<input type="search" name="luogo" placeholder="Cerca un luogo" aria-label="Cerca un luogo per partenza, arrivo o tappa" autocomplete="off" enterkeyhint="search" /></label>
-        <ul class="risultati-luogo" hidden></ul>
-      </form>
+    <div class="pian-barra" role="toolbar" aria-label="Strumenti del percorso">
+      <a class="pill-mappa tondo pian-x" href="${esistente ? `#/percorso/${encodeURIComponent(esistente.id)}` : sorgente?.indietro ?? '#/'}" aria-label="Esci" title="Esci">${ICONE.chiudi}</a>
+      <div class="pian-attrezzi">
+        <button type="button" class="pill-mappa tondo" data-azione="annulla" aria-label="Annulla" title="Annulla">${ICONE.indietro}</button>
+        <button type="button" class="pill-mappa tondo" data-azione="ripeti" aria-label="Ripeti" title="Ripeti"><span style="display:grid;transform:scaleX(-1)">${ICONE.indietro}</span></button>
+        <button type="button" class="pill-mappa tondo" data-azione="forbici" aria-pressed="false" aria-label="Forbici: taglia il percorso" title="Forbici: taglia il percorso">${ICONE.forbici}</button>
+        <button type="button" class="pill-mappa pian-icona" data-azione="livelli" aria-pressed="false" aria-expanded="false" aria-label="Livelli della mappa" title="Livelli">${ICONE.livelli}<span class="testo">Livelli</span></button>
+        <button type="button" class="pill-mappa pian-icona" data-azione="fauna" aria-pressed="false" aria-label="Fauna" title="Fauna: heatmap, icone e filtri">${ICONE.zampa}<span class="testo">Fauna</span></button>
+        <button type="button" class="pill-mappa pian-icona" data-azione="categorie" aria-pressed="false" aria-expanded="false" aria-label="Punti di interesse" title="Punti di interesse">${ICONE.segnaposto}<span class="testo">POI</span></button>
+      </div>
+      <button type="button" class="pill-mappa pian-salva" data-azione="salva" disabled>${ICONE.segnalibro}<span>Salva</span></button>
     </div>
-    <div class="pian-opzioni" role="group" aria-label="Opzioni del percorso">
-      <button type="button" class="chip-scorciatoia" data-attivita="trekking">Trekking</button>
-      <button type="button" class="chip-scorciatoia" data-attivita="mtb">MTB</button>
-      <span class="pian-sep" aria-hidden="true"></span>
-      <button type="button" class="chip-scorciatoia" data-preferenza="sentieri">Preferisci sentieri</button>
-      <button type="button" class="chip-scorciatoia" data-preferenza="misto">Misto</button>
+    <div class="pian-livelli" id="pianLivelli" role="group" aria-label="Livelli della mappa" hidden>
+      <h3>Mappa di base</h3>
+      <div class="pian-basi">
+        <button type="button" class="chip-scorciatoia" data-base="chiara">Chiara</button>
+        <button type="button" class="chip-scorciatoia" data-base="topo">Dettagliata</button>
+        <button type="button" class="chip-scorciatoia" data-base="satellite">Satellitare</button>
+      </div>
+      <h3>Livelli</h3>
+      <label class="pian-voce"><span>Sentieri segnati</span><input type="checkbox" class="pian-interruttore" data-livello="segnati" /></label>
+      <label class="pian-voce"><span>Tutti i sentieri e carrarecce</span><input type="checkbox" class="pian-interruttore" data-livello="tutti" /></label>
+      <label class="pian-voce"><span>Confini dei parchi</span><input type="checkbox" class="pian-interruttore" data-livello="confini" /></label>
+      <label class="pian-voce"><span>Acqua e rifugi</span><input type="checkbox" class="pian-interruttore" data-livello="acquaRifugi" /></label>
     </div>
     <p class="pian-fauna-stato" id="pianFaunaStato" role="status" hidden></p>
     <div class="pian-categorie" id="pianCategorie" role="group" aria-label="Punti di interesse da mostrare" hidden></div>
-    <div class="pian-strumenti">
-      <button type="button" class="pill-mappa tondo" data-azione="fauna" aria-pressed="false" aria-label="Fauna" title="Fauna: heatmap, icone e filtri">${ICONE.zampa}</button>
-      <button type="button" class="pill-mappa tondo" data-azione="categorie" aria-pressed="false" aria-expanded="false" aria-label="Punti di interesse" title="Punti di interesse">${ICONE.segnaposto}</button>
-      <button type="button" class="pill-mappa tondo" data-azione="posizione" aria-label="La mia posizione" title="La mia posizione">${ICONE.navigazione}</button>
-      <button type="button" class="pill-mappa tondo" data-azione="annulla" aria-label="Annulla" title="Annulla">${ICONE.indietro}</button>
-      <button type="button" class="pill-mappa tondo" data-azione="ripeti" aria-label="Ripeti" title="Ripeti"><span style="display:inline-block;transform:scaleX(-1);display:grid">${ICONE.indietro}</span></button>
-    </div>
     <p class="pian-sugg" id="pianSugg" role="status"></p>
     <p class="pian-hint" id="pianHint" role="status" hidden>Trascina i punti o la linea per cambiare il percorso</p>
     <section class="pian-foglio" aria-label="Il percorso">
       <button type="button" class="pian-maniglia" data-azione="apri-foglio" aria-expanded="false" aria-label="Mostra o nascondi le tappe"><span class="foglio-maniglia"></span></button>
-      <div class="disegno-numeri" id="pianNumeri"></div>
-      <div class="pian-avviso" id="pianAvviso" role="alert" hidden></div>
-      <div class="disegno-profilo" id="pianProfilo"></div>
-      <div id="pianFondo"></div>
-      <div class="pian-fauna-riga" id="pianFaunaRiga" hidden></div>
-      <h2 class="titolo-sezione pian-titolo-tappe">Tappe</h2>
-      <ol class="pian-tappe" id="pianTappe"></ol>
-      <h2 class="titolo-sezione pian-titolo-poi" hidden>Lungo il percorso</h2>
-      <ul class="pian-poi" id="pianPoi"></ul>
-      <button type="button" class="bottone primario pieno" data-azione="salva" disabled>${ICONE.segnalibro}<span>Salva</span></button>
+      <div class="pian-barra-numeri">
+        <div class="disegno-numeri" id="pianNumeri"></div>
+        <div class="disegno-profilo" id="pianProfilo"></div>
+        <div id="pianFondo"></div>
+      </div>
+      <div class="pian-pannello">
+        <div class="pian-testa">
+          <h2>Il tuo percorso</h2>
+          <div class="pian-attivita" role="group" aria-label="Attività">
+            <button type="button" class="chip-scorciatoia" data-attivita="trekking">Trekking</button>
+            <button type="button" class="chip-scorciatoia" data-attivita="mtb">MTB</button>
+          </div>
+        </div>
+        <div class="pian-avviso" id="pianAvviso" role="alert" hidden></div>
+        <ol class="pian-tappe" id="pianTappe"></ol>
+        <button type="button" class="pian-aggiungi" data-azione="aggiungi-tappa"><b aria-hidden="true">+</b><span>Aggiungi tappa</span></button>
+        <form class="pian-cerca" role="search">
+          <label class="ricerca">${ICONE.cerca}<input type="search" name="luogo" placeholder="Cerca un luogo" aria-label="Cerca un luogo per partenza, arrivo o tappa" autocomplete="off" enterkeyhint="search" /></label>
+          <ul class="risultati-luogo" hidden></ul>
+        </form>
+        <label class="pian-anello"><span>Giro ad anello</span><input type="checkbox" class="pian-interruttore" id="pianAnello" role="switch" /></label>
+        <div class="pian-fauna-riga" id="pianFaunaRiga" hidden></div>
+        <p class="tenue piccolo pian-fonte" id="pianFonte"></p>
+      </div>
     </section>
     <dialog class="foglio foglio-salva">
       <div class="foglio-maniglia" aria-hidden="true"></div>
@@ -198,7 +243,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   };
   const pronta = new Promise((r) => (stileCaricato() ? r() : mappa.once('style.load', r)));
   const marcatori = new Map(); // id tappa → Marker
-  if (import.meta.env.DEV) window.__pian = { storia, agganciate, risultato: () => risultato, marcatori };
+  if (import.meta.env.DEV) window.__pian = { storia, agganciate, risultato: () => risultato, marcatori, dentro: () => ({ trascinando, forbici, anello, fumetto: Boolean(fumetto) }) };
   let segnoProfilo = null;
 
   function preparaSorgenti() {
@@ -221,8 +266,10 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   pronta
     .then(preparaSorgenti)
     .then(() => {
-      poi = creaPoiGl(mappa, maplibregl, { alCambio: alPoi, passa: passaDiQuiPoi });
+      poi = creaPoiGl(mappa, maplibregl, { alCambio: alPoi });
       disegnaCategorie();
+      applicaLivelli();
+      aggiornaLivelli();
       faunaGl.avvia();
       if (risultato) {
         poi.aggiorna(risultato.linea);
@@ -259,10 +306,11 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     tappe.forEach((t, i) => {
       let m = marcatori.get(t.id);
       if (!m) {
-        m = new maplibregl.Marker({ element: elementoMarcatore(i, tappe.length), draggable: true }).setLngLat(doveStaLaTappa(t)).addTo(mappa);
+        m = new maplibregl.Marker({ element: elementoMarcatore(i, nEt()), draggable: true }).setLngLat(doveStaLaTappa(t)).addTo(mappa);
         const indiceDi = () => storia.ora().findIndex((x) => x.id === t.id);
         m.on('dragstart', () => {
           trascinando = { tappa: true };
+          chiudiFumetto();
           scrivi('');
         });
         m.on('drag', () => {
@@ -283,7 +331,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       } else {
         m.setLngLat(doveStaLaTappa(t));
         const el = m.getElement();
-        const nuovo = elementoMarcatore(i, tappe.length);
+        const nuovo = elementoMarcatore(i, nEt());
         el.className = nuovo.className;
         el.textContent = nuovo.textContent;
         el.setAttribute('aria-label', nuovo.getAttribute('aria-label'));
@@ -314,10 +362,39 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   }
   const distanzaTra = (a, b) => Math.hypot((a[0] - b[0]) * Math.cos((a[1] * Math.PI) / 180), a[1] - b[1]) * 111.195;
 
+  // il ritorno di un anello: tra le alternative di BRouter si sceglie quella che ripassa meno dall'andata (se l'andata è ripetuta
+  // per oltre il 30 %, al massimo altre due richieste)
+  function trattoChiusura(a, b, andata) {
+    const k = chiaveTratto(a, b, false, `${opzioniChiave()}:anello:${andata.length}:${Math.round(lunghezzaM(andata))}`);
+    if (!tratti.has(k)) {
+      const prova = (alternativa) =>
+        calcolaPercorso([a.p, b.p], { profilo: profiloPer(attivita), preferenzaSegnati: preferenzaPer(preferenza, attivita), alternativa }).then((r) => ({ coordinate: r.coordinate.map(([lon, lat]) => [lon, lat]), terreno: r.terreno, libero: false }));
+      const calcolo = (async () => {
+        let migliore = await prova(0);
+        let quota = sovrapposizione(andata, migliore.coordinate);
+        for (let alt = 1; alt <= 2 && quota > 0.3; alt++) {
+          try {
+            const altra = await prova(alt);
+            const q = sovrapposizione(andata, altra.coordinate);
+            if (q < quota - 0.05) (migliore = altra), (quota = q);
+          } catch {
+            break; // le alternative non ci sono o BRouter è occupato: resta quello che c'è
+          }
+        }
+        return migliore;
+      })();
+      calcolo.catch(() => tratti.delete(k));
+      tratti.set(k, calcolo);
+    }
+    return tratti.get(k);
+  }
+
   async function aggiorna() {
-    const tappe = storia.ora();
+    const tappeU = storia.ora(); // le tappe dell'elenco
+    const tappe = tappeConAnello(tappeU, anello); // quelle che si calcolano (con l'anello, in fondo la partenza)
+    const conAnello = tappe.length > tappeU.length;
     // una bozza per un percorso nuovo (la traccia di un percorso già esistente non tocca la bozza)
-    if (!esistente && !sorgente) salvaBozza(tappe.map((t) => t.p));
+    if (!esistente && !sorgente) salvaBozza(tappeU.map((t) => t.p));
     disegnaTappe();
     disegnaTappeElenco();
     aggiornaPulsanti();
@@ -326,18 +403,26 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     const mia = ++richiesta;
     await pronta;
     if (chiusa) return;
-    if (tappe.length < 2) {
+    if (tappeU.length < 2) {
       risultato = null;
       kmTappe = null;
       poi?.aggiorna(null);
       pianificaFaunaPercorso();
       mappa.getSource('linea')?.setData(vuoto());
-      scrivi(tappe.length ? 'Tocca la mappa o cerca un luogo per l\'arrivo' : 'Tocca la mappa o cerca un luogo per la partenza');
+      scrivi(tappeU.length ? 'Tocca la mappa o cerca un luogo per l\'arrivo' : 'Tocca la mappa o cerca un luogo per la partenza');
       return mostraBarra();
     }
     mostraBarra('Calcolo…');
     scrivi('Calcolo del tratto…');
-    const esiti = await Promise.allSettled(tappe.slice(1).map((b, i) => tratto(tappe[i], b)));
+    let esiti = await Promise.allSettled(tappeU.slice(1).map((b, i) => tratto(tappeU[i], b)));
+    if (conAnello && esiti.every((x) => x.status === 'fulfilled')) {
+      const andata = unisciTratti(tagliaCode(esiti.map((x) => x.value)));
+      const ritorno = await trattoChiusura(tappeU.at(-1), tappe.at(-1), andata).then(
+        (value) => ({ status: 'fulfilled', value }),
+        (reason) => ({ status: 'rejected', reason }),
+      );
+      esiti = [...esiti, ritorno];
+    }
     if (mia !== richiesta || chiusa) return;
     scrivi('');
     const fallito = esiti.findIndex((x) => x.status === 'rejected');
@@ -361,13 +446,21 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     agganciate.clear();
     let lontana = -1;
     tappe.forEach((t, i) => {
+      if (t.id === ID_CHIUSURA) return; // il ritorno alla partenza non è una tappa
       if (vere[i].p && vere[i].distanzaM > DISTANZA_MASSIMA_AGGANCIO_M) lontana = lontana < 0 ? i : lontana;
       else if (viste[i].p) agganciate.set(t.id, viste[i].p);
     });
     disegnaTappe();
     mappa.getSource('linea')?.setData({ type: 'FeatureCollection', features: fatti.map((t, i) => lineaGeo(t.coordinate, { seg: i, libero: Boolean(t.libero) })) });
     risultato = { linea, terreno: unisciTerreno(fatti), tratti: fatti, pezziQuote: null, fonte: null, misure: misureDeiPezzi([linea]) };
-    if (lontana >= 0) mostraAvviso(`${etichetta(lontana, tappe.length) === 'A' ? 'La partenza' : etichetta(lontana, tappe.length) === 'B' ? 'L\'arrivo' : `La tappa ${lontana}`} è a ${vere[lontana].distanzaM} m dal sentiero o dalla strada più vicini.`, lontana === 0 ? 1 : lontana);
+    // una tappa a più di 200 m da ogni sentiero e strada: il fumetto lo dice e propone «Tratto fuori sentiero» (una volta per tappa)
+    if (lontana >= 0) {
+      const chiave = `${tappe[lontana].id}:${tappe[lontana].p.join(',')}`;
+      if (!avvisate.has(chiave)) {
+        avvisate.add(chiave);
+        apriFumettoTappa(tappe[lontana].id, `La tappa è a ${vere[lontana].distanzaM} m dal sentiero o dalla strada più vicini: il percorso non ci arriva. Puoi fare quel tratto fuori sentiero.`);
+      }
+    }
     suggerisciTrascinare();
     kmTappe = kmDelleTappe(fatti.map((t) => lunghezzaM(t.coordinate)));
     disegnaTappeElenco();
@@ -413,13 +506,15 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     const numeri = $('#pianNumeri');
     if (m) {
       numeri.innerHTML = `<div><b>${km1(m.km)} km</b><span>distanza</span></div>
-        <div><b>${m.salita != null ? `+${m.salita} −${m.discesa}` : '…'}</b><span>dislivello</span></div>
+        <div><b>${m.salita != null ? `+${m.salita} m` : '…'}</b><span>salita</span></div>
+        <div><b>${m.discesa != null ? `−${m.discesa} m` : '…'}</b><span>discesa</span></div>
         <div><b>${m.durataMin != null ? durata(m.durataMin) : '–'}</b><span>tempo</span></div>${messaggio ? `<p class="tenue piccolo">${escapeHtml(messaggio)}</p>` : ''}`;
     } else {
       numeri.innerHTML = `<p class="tenue">${escapeHtml(messaggio || (storia.ora().length ? 'Ancora una tappa per il percorso' : 'Tocca la mappa per iniziare'))}</p>`;
     }
     serieProfilo = risultato?.pezziQuote ? profiloPezzi(risultato.pezziQuote) : [];
-    $('#pianProfilo').innerHTML = serieProfilo.length > 1 ? htmlProfiloMini(serieProfilo, testoFonteQuote(risultato.fonte)) : '';
+    $('#pianProfilo').innerHTML = serieProfilo.length > 1 ? htmlProfiloMini(serieProfilo, '') : '';
+    $('#pianFonte').textContent = serieProfilo.length > 1 ? testoFonteQuote(risultato.fonte) : '';
     disegnaFondo();
     $('[data-azione="salva"]').disabled = !m;
   }
@@ -444,18 +539,15 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   // --- elenco delle tappe ---
   function disegnaTappeElenco() {
     const tappe = storia.ora();
-    $('.pian-titolo-tappe').hidden = !tappe.length;
     $('#pianTappe').innerHTML = tappe
       .map((t, i) => {
-        const nome = nomeDellaTappa(t) ?? (i === 0 ? 'Partenza' : i === tappe.length - 1 ? 'Arrivo' : `Tappa ${i}`);
+        const n = nEt();
+        const nome = nomeDellaTappa(t) ?? (i === 0 ? 'Partenza' : i === n - 1 ? 'Arrivo' : `Tappa ${i}`);
         return `<li data-i="${i}">
-          <span class="pian-presa" role="button" tabindex="0" aria-label="Riordina la tappa ${etichetta(i, tappe.length)}: tieni premuto e trascina (o frecce su e giù)">⠿</span>
-          <span class="pian-tappa piccola${i === 0 ? ' prima' : i === tappe.length - 1 && tappe.length > 1 ? ' ultima' : ''}" aria-hidden="true">${etichetta(i, tappe.length)}</span>
-          <button type="button" class="pian-nome" data-azione="rinomina" aria-label="Rinomina la tappa ${etichetta(i, tappe.length)}"><span class="pian-nome-testo">${escapeHtml(nome)}</span>${kmTappe ? `<span class="pian-km">${escapeHtml(kmTesto(kmTappe[i]))}</span>` : ''}</button>
-          <span class="pian-azioni-tappa">
-            <button type="button" data-azione="cerca-tappa" aria-label="Cerca un altro luogo per la tappa ${etichetta(i, tappe.length)}">${ICONE.cerca}</button>
-            <button type="button" data-azione="togli" aria-label="Elimina la tappa ${etichetta(i, tappe.length)}">${ICONE.chiudi}</button>
-          </span>
+          <span class="pian-presa" role="button" tabindex="0" aria-label="Riordina la tappa ${etichetta(i, n)}: tieni premuto e trascina (o frecce su e giù)">⠿</span>
+          <span class="pian-tappa piccola${i === 0 ? ' prima' : i === n - 1 && n > 1 ? ' ultima' : ''}" aria-hidden="true">${etichetta(i, n)}</span>
+          <button type="button" class="pian-nome" data-azione="rinomina" aria-label="Rinomina la tappa ${etichetta(i, n)}"><span class="pian-nome-testo">${escapeHtml(nome)}</span>${kmTappe ? `<span class="pian-km">${escapeHtml(kmTesto(kmTappe[i]))}</span>` : ''}</button>
+          <button type="button" class="pian-togli" data-azione="togli" aria-label="Togli la tappa ${etichetta(i, n)}">${ICONE.chiudi}</button>
         </li>`;
       })
       .join('');
@@ -488,7 +580,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     const campo = document.createElement('input');
     campo.className = 'pian-nome-campo';
     campo.value = nomeDellaTappa(tappa) ?? '';
-    campo.setAttribute('aria-label', `Nome della tappa ${etichetta(i, storia.ora().length)}`);
+    campo.setAttribute('aria-label', `Nome della tappa ${etichetta(i, nEt())}`);
     bottone.replaceWith(campo);
     campo.focus();
     campo.select();
@@ -557,40 +649,173 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       b.classList.toggle('attiva', on);
       b.setAttribute('aria-pressed', String(on));
     }
-    for (const b of app.querySelectorAll('[data-preferenza]')) {
-      const on = b.dataset.preferenza === preferenza && attivita !== 'mtb';
-      b.classList.toggle('attiva', on);
-      b.setAttribute('aria-pressed', String(on));
-      b.disabled = attivita === 'mtb';
-      b.title = attivita === 'mtb' ? 'Con MTB il profilo è uno solo' : '';
-    }
   }
 
-  // --- tocco sulla mappa: una tappa in fondo ---
+  // --- fumetti: un tocco sulla mappa, su un punto di interesse o su una tappa apre un fumetto con i comandi ---
+  function chiudiFumetto() {
+    const f = fumetto;
+    fumetto = null;
+    f?.remove();
+  }
+  function apriFumetto(lngLat, html, scosta = [0, -6]) {
+    chiudiFumetto();
+    const p = new maplibregl.Popup({ className: 'pian-fumetto', maxWidth: '300px', closeButton: true, closeOnClick: false, focusAfterOpen: false, offset: scosta }).setLngLat(lngLat).setHTML(html).addTo(mappa);
+    p.on('close', () => {
+      if (fumetto === p) fumetto = null;
+    });
+    fumetto = p;
+    mettiNelloSpazioLibero(p);
+    return p;
+  }
+  // il fumetto sta nell'area libera della mappa: sotto gli strumenti, fuori dal pannello (computer) o dalla colonna di pulsanti e dalla
+  // tendina (telefono); se serve la mappa si sposta da sola
+  function mettiNelloSpazioLibero(p) {
+    requestAnimationFrame(() => {
+      const r = p.getElement()?.getBoundingClientRect();
+      if (!r || chiusa) return;
+      const largo = window.innerWidth >= 1024;
+      const nav = largo ? app.closest('body')?.querySelector('nav')?.getBoundingClientRect().width ?? 232 : 0;
+      const limiti = {
+        su: largo ? 66 : 62,
+        sinistra: largo ? nav + 428 : 10,
+        destra: window.innerWidth - (largo ? 12 : 66),
+        giu: Math.min(window.innerHeight, (largo ? $('.pian-barra-numeri') : $('.pian-foglio'))?.getBoundingClientRect().top ?? window.innerHeight) - 8,
+      };
+      const dx = r.left < limiti.sinistra ? limiti.sinistra - r.left : r.right > limiti.destra ? limiti.destra - r.right : 0;
+      const dy = r.top < limiti.su ? limiti.su - r.top : r.bottom > limiti.giu ? limiti.giu - r.bottom : 0;
+      if (dx || dy) mappa.panBy([-dx, -dy], { duration: 200 });
+    });
+  }
+  // i pulsanti del fumetto (click) e l'interruttore (change) passano da qui
+  function collegaFumetto(p, gestore) {
+    const el = p.getElement();
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-f]');
+      if (b) gestore(b.dataset.f, el);
+    });
+    el.addEventListener('change', (e) => e.target.matches?.('[data-f="libero"]') && gestore('libero', el));
+  }
+  const interruttoreLibero = (acceso) => `<label class="pian-voce"><span>Tratto fuori sentiero</span><input type="checkbox" class="pian-interruttore" data-f="libero"${acceso ? ' checked' : ''} /></label>`;
+  // quanto dista dal sentiero o dalla strada più vicini (dai dati della mappa già caricati); null se la mappa è troppo lontana per saperlo
+  function distanzaDaStrade(p) {
+    if (mappa.getZoom() < 13) return null;
+    const vicini = mappa.querySourceFeatures('openmaptiles', { sourceLayer: 'transportation' }).filter((f) => !CLASSI_NON_PERCORRIBILI.has(f.properties?.class));
+    const m = 0.01; // gradi: attorno al punto bastano
+    const linee = [];
+    for (const f of vicini) {
+      const gs = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : f.geometry.type === 'LineString' ? [f.geometry.coordinates] : [];
+      for (const l of gs) if (l.some(([x, y]) => Math.abs(x - p[0]) < m && Math.abs(y - p[1]) < m)) linee.push(l);
+    }
+    return linee.length ? proiettaSuTratti(linee, p).distanzaM : Infinity;
+  }
+  // un punto della mappa (o un punto di interesse): Aggiungi al percorso, partenza, arrivo, tratto fuori sentiero
+  function apriFumettoPunto(p, { titolo = 'Punto sulla mappa', dettaglio = '', extra = {} } = {}) {
+    const n = storia.ora().length;
+    const d = distanzaDaStrade(p);
+    const lontano = d != null && d > DISTANZA_MASSIMA_AGGANCIO_M;
+    const avviso = lontano ? `A ${Number.isFinite(d) ? `circa ${Math.round(d / 10) * 10} m` : 'più di 200 m'} dal sentiero o dalla strada più vicini: il percorso non ci arriva. Puoi fare quel tratto fuori sentiero.` : '';
+    const bottoni = n === 0
+      ? '<button type="button" class="bottone primario" data-f="partenza">Imposta come partenza</button>'
+      : '<button type="button" class="bottone primario" data-f="aggiungi">Aggiungi al percorso</button><button type="button" class="bottone" data-f="partenza">Imposta come partenza</button><button type="button" class="bottone" data-f="arrivo">Imposta come arrivo</button>';
+    const f = apriFumetto(p, `<div class="fumetto-pian"><h3>${escapeHtml(titolo)}</h3>${dettaglio ? `<span class="coord">${escapeHtml(dettaglio)}</span>` : ''}<span class="coord">${coordinateTesto(p)}</span>${avviso ? `<p class="avviso">${escapeHtml(avviso)}</p>` : ''}${bottoni}${n ? interruttoreLibero(lontano) : ''}</div>`);
+    collegaFumetto(f, (az, el) => {
+      const libero = Boolean(el.querySelector('[data-f="libero"]')?.checked);
+      const tappe = storia.ora();
+      chiudiFumetto();
+      if (az === 'aggiungi') cambia(aggiungiAlPercorso(tappe, p, extra, libero));
+      else if (az === 'partenza') cambia(comePartenza(tappe, p, extra, libero));
+      else if (az === 'arrivo') cambia(comeArrivo(tappe, p, extra, libero));
+    });
+  }
+  // una tappa: Togli, partenza, arrivo, tratto fuori sentiero (per il tratto che arriva lì)
+  function apriFumettoTappa(id, avviso = '') {
+    const tappe = storia.ora();
+    const i = tappe.findIndex((t) => t.id === id);
+    if (i < 0) return;
+    const t = tappe[i];
+    const n = tappe.length;
+    const nome = nomeDellaTappa(t) ?? (i === 0 ? 'Partenza' : i === n - 1 && n > 1 ? 'Arrivo' : `Tappa ${i}`);
+    const f = apriFumetto(
+      doveStaLaTappa(t),
+      `<div class="fumetto-pian"><h3>${escapeHtml(etichetta(i, nEt()))} · ${escapeHtml(nome)}</h3>${avviso ? `<p class="avviso">${escapeHtml(avviso)}</p>` : ''}<button type="button" class="bottone" data-f="togli">Togli</button>${i > 0 ? '<button type="button" class="bottone" data-f="partenza-tappa">Imposta come partenza</button>' : ''}${i < n - 1 ? '<button type="button" class="bottone" data-f="arrivo-tappa">Imposta come arrivo</button>' : ''}${i > 0 ? interruttoreLibero(t.libero) : ''}</div>`,
+      [0, -24],
+    );
+    collegaFumetto(f, (az, el) => {
+      const k = storia.ora().findIndex((x) => x.id === id);
+      if (k < 0) return;
+      if (az === 'libero') return cambia(impostaLibero(storia.ora(), k, el.querySelector('[data-f="libero"]').checked));
+      chiudiFumetto();
+      if (az === 'togli') cambia(togli(storia.ora(), k));
+      else if (az === 'partenza-tappa') cambia(tappaComePartenza(storia.ora(), k));
+      else if (az === 'arrivo-tappa') cambia(tappaComeArrivo(storia.ora(), k));
+    });
+  }
+  // le forbici: un tocco sulla linea e si sceglie quale parte tenere
+  function apriFumettoTaglio(e) {
+    const tratti = risultato?.tratti?.map((t) => t.coordinate) ?? [];
+    const vicino = tratti.length ? proiettaSuTratti(tratti, [e.lngLat.lng, e.lngLat.lat]) : null;
+    const dito = vicino?.p ? mappa.project(vicino.p) : null;
+    if (!dito || Math.hypot(dito.x - e.point.x, dito.y - e.point.y) > 30) return scrivi(tratti.length ? 'Tocca la linea del percorso dove vuoi tagliare' : 'Il percorso da tagliare non c\'è ancora');
+    scrivi('');
+    const k = vicino.indice;
+    const f = apriFumetto(vicino.p, '<div class="fumetto-pian"><h3>Taglia qui</h3><button type="button" class="bottone primario" data-f="tieni-inizio">Tieni la parte dalla partenza a qui</button><button type="button" class="bottone primario" data-f="tieni-fine">Tieni la parte da qui all\'arrivo</button><button type="button" class="bottone" data-f="annulla">Non tagliare</button></div>');
+    collegaFumetto(f, (az) => {
+      chiudiFumetto();
+      if (az === 'annulla') return;
+      // con l'anello il ritorno è un tratto vero: tagliando l'anello si apre
+      const tutte = tappeConAnello(storia.ora(), anello).map((t) => (t.id === ID_CHIUSURA ? { ...t, id: nuovaTappa(t.p).id } : t));
+      impostaAnello(false);
+      cambia(taglia(tutte, k, vicino.p, az === 'tieni-inizio' ? 'inizio' : 'fine'));
+      impostaForbici(false);
+    });
+  }
+  function impostaForbici(acceso) {
+    forbici = acceso;
+    $('[data-azione="forbici"]').setAttribute('aria-pressed', String(acceso));
+    scrivi(acceso ? 'Tocca la linea del percorso dove vuoi tagliare' : '');
+    mappa.getCanvas().style.cursor = acceso ? 'crosshair' : '';
+  }
+  function impostaAnello(acceso) {
+    anello = acceso;
+    $('#pianAnello').checked = acceso;
+  }
+
+  // --- tocco sulla mappa ---
   mappa.on('click', (e) => {
-    if (trascinando || faunaGl.pressioneLungaAppena() || e.originalEvent?.target?.closest?.('.pian-tappa')) return;
-    // un tocco su un punto di interesse ne apre i dettagli («Passa di qui»); altrove aggiunge una tappa
+    if (trascinando || faunaGl.pressioneLungaAppena()) return;
+    // una tappa: i suoi comandi
+    const marcatore = e.originalEvent?.target?.closest?.('.pian-tappa');
+    if (marcatore) {
+      if (forbici) return;
+      const id = [...marcatori].find(([, m]) => m.getElement() === marcatore)?.[0];
+      return id && apriFumettoTappa(id);
+    }
+    if (forbici) return apriFumettoTaglio(e);
+    // un punto di interesse (le icone della fauna non si toccano: dettagli con la pressione lunga)
     const toccato = poi?.poiAl(e.point);
-    if (toccato) return poi.apri(toccato);
+    if (toccato) return apriFumettoPunto([toccato.lon, toccato.lat], { titolo: nomePoi(toccato), dettaglio: toccato.km != null ? `km ${String(toccato.km).replace('.', ',')} del percorso` : '', extra: { poi: nomePerTappa(toccato) } });
     if (mappa.getZoom() + 1 < ZOOM_MINIMO && storia.ora().length) return scrivi('Avvicinati per mettere le tappe sui sentieri');
-    cambia([...storia.ora(), nuovaTappa([e.lngLat.lng, e.lngLat.lat])]);
+    apriFumettoPunto([e.lngLat.lng, e.lngLat.lat]);
   });
 
   // --- trascinare la linea crea una tappa ---
   let trascinando = null; // { k, ... }
   function iniziaTrascinamento(e) {
+    if (forbici) return; // con le forbici un tocco sulla linea taglia
     const tappe = storia.ora();
     if (tappe.length < 2) return;
     const seg = e.features?.[0]?.properties?.seg;
     const k = Number.isInteger(seg) ? seg : trattoPiuVicino(risultato?.tratti?.map((t) => t.coordinate) ?? [], [e.lngLat.lng, e.lngLat.lat]).indice;
-    if (k < 0 || k >= tappe.length - 1) return;
+    const tratti = tappe.length - 1 + (nEt() > tappe.length ? 1 : 0); // con l'anello c'è anche il ritorno alla partenza
+    if (k < 0 || k >= tratti) return;
+    chiudiFumetto();
     e.preventDefault();
     mappa.dragPan.disable();
     trascinando = { k, mosso: false };
     const muovi = (ev) => {
       trascinando.mosso = true;
       trascinando.p = [ev.lngLat.lng, ev.lngLat.lat];
-      mappa.getSource('elastico')?.setData({ type: 'FeatureCollection', features: [lineaGeo([tappe[k].p, trascinando.p, tappe[k + 1].p])] });
+      mappa.getSource('elastico')?.setData({ type: 'FeatureCollection', features: [lineaGeo([doveStaLaTappa(tappe[k]), trascinando.p, doveStaLaTappa(tappe[k + 1] ?? tappe[0])])] });
     };
     const fine = (ev) => {
       mappa.off('mousemove', muovi);
@@ -618,7 +843,6 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   const campo = modulo.querySelector('input');
   const elenco = modulo.querySelector('.risultati-luogo');
   let risultatiRicerca = [];
-  let tappaDaCambiare = null; // indice di una tappa a cui si cerca un altro luogo
   const mostraRisultati = (voci, nota = '') => {
     risultatiRicerca = voci;
     elenco.innerHTML = voci.map((v, i) => `<li><button type="button" data-i="${i}">${ICONE.segnaposto}<span><b>${escapeHtml(v.nome)}</b>${v.dettaglio ? `<span class="tenue piccolo">${escapeHtml(v.dettaglio)}</span>` : ''}</span></button></li>`).join('') + (nota ? `<li class="tenue piccolo nota-luogo">${escapeHtml(nota)}</li>` : '');
@@ -644,12 +868,8 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     const p = [v.lon, v.lat];
     elenco.hidden = true;
     campo.value = '';
-    const tappe = storia.ora();
-    if (tappaDaCambiare != null && tappe[tappaDaCambiare]) {
-      cambia(sostituisci(tappe, tappaDaCambiare, p, v.nome));
-      tappaDaCambiare = null;
-      campo.placeholder = 'Cerca un luogo';
-    } else cambia([...tappe, nuovaTappa(p, { nome: v.nome })]);
+    // la partenza, poi l'arrivo, poi altre tappe: sempre in fondo
+    cambia([...storia.ora(), nuovaTappa(p, { nome: v.nome })]);
     mappa.flyTo({ center: p, zoom: Math.max(mappa.getZoom(), 12) });
   });
 
@@ -661,18 +881,8 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       (c) => `<button type="button" class="chip-scorciatoia" data-azione="categoria" data-chiave="${c.chiave}" aria-pressed="${accese.has(c.chiave)}"><img src="${urlIconaPoi(c)}" alt="" width="15" height="18" /><span>${escapeHtml(c.nome)}</span></button>`,
     ).join('');
   }
-  // i POI lungo il percorso sono cambiati: elenco nel foglio e nomi delle tappe
+  // i POI lungo il percorso sono cambiati: il nome delle tappe
   function alPoi(nuovi) {
-    poiOra = nuovi;
-    const lista = nuovi.lungo.filter((p) => p.categoria).slice(0, 15);
-    $('.pian-titolo-poi').hidden = !lista.length;
-    $('#pianPoi').innerHTML = lista
-      .map((p) => {
-        const c = categoriaDelPoi(p);
-        return `<li><img src="${urlIconaPoi(c)}" alt="" width="20" height="24" /><span class="pian-poi-nome">${escapeHtml(nomePoi(p))}<span class="pian-km">km ${String(p.km).replace('.', ',')} · ${p.distanzaM < 30 ? 'sul percorso' : `a ${p.distanzaM} m`}</span></span><button type="button" class="link" data-azione="passa-poi" data-id="${escapeHtml(p.id)}">Passa di qui</button></li>`;
-      })
-      .join('');
-    if (nuovi.mancanti && !lista.length) $('#pianPoi').innerHTML = '<li class="tenue piccolo">Punti di interesse non scaricati per questa zona.</li>';
     // il nome delle tappe: un punto di interesse entro 100 m vince su via, località e paese (quelle a mano restano)
     let cambiato = false;
     for (const t of storia.ora()) {
@@ -685,9 +895,6 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       }
     }
     if (cambiato) disegnaTappeElenco();
-  }
-  function passaDiQuiPoi(p) {
-    cambia(passaDiQui(storia.ora(), kmTappe, p.km, p));
   }
   // --- fauna lungo il percorso: le specie entro 300 m e il tratto con più fauna sulla linea ---
   let attesaFauna = null;
@@ -740,29 +947,38 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   }
 
   const suClick = async (e) => {
-    const b = e.target.closest('[data-azione], [data-attivita], [data-preferenza]');
+    const b = e.target.closest('[data-azione], [data-attivita], [data-base]');
     if (!b) return;
+    if (b.dataset.base) {
+      livelli.base = b.dataset.base;
+      salvaLivelli();
+      applicaLivelli();
+      return aggiornaLivelli();
+    }
     if (b.dataset.attivita) {
       if (b.dataset.attivita === attivita) return;
       attivita = b.dataset.attivita;
       stato.imposta({ attivita });
       return aggiorna();
     }
-    if (b.dataset.preferenza) {
-      if (b.dataset.preferenza === preferenza) return;
-      preferenza = b.dataset.preferenza;
-      return aggiorna();
-    }
     const azione = b.dataset.azione;
     const i = Number(b.closest('li')?.dataset.i);
-    if (azione === 'annulla') (storia.annulla(), aggiorna());
-    else if (azione === 'ripeti') (storia.ripeti(), aggiorna());
-    else if (azione === 'togli') cambia(togli(storia.ora(), i));
+    if (azione === 'annulla') (chiudiFumetto(), storia.annulla(), aggiorna());
+    else if (azione === 'ripeti') (chiudiFumetto(), storia.ripeti(), aggiorna());
+    else if (azione === 'togli') (chiudiFumetto(), cambia(togli(storia.ora(), i)));
     else if (azione === 'rinomina') iniziaRinomina(i);
-    else if (azione === 'cerca-tappa') {
-      tappaDaCambiare = i;
-      campo.placeholder = `Cerca il luogo per la tappa ${etichetta(i, storia.ora().length)}`;
+    else if (azione === 'aggiungi-tappa') {
+      scrivi('Cerca un luogo o tocca la mappa');
       campo.focus();
+    } else if (azione === 'forbici') {
+      chiudiFumetto();
+      impostaForbici(!forbici);
+    } else if (azione === 'livelli') {
+      const box = $('#pianLivelli');
+      box.hidden = !box.hidden;
+      b.setAttribute('aria-expanded', String(!box.hidden));
+      b.setAttribute('aria-pressed', String(!box.hidden));
+      if (!box.hidden) chiudiCategorie();
     } else if (azione === 'libera-tratto') {
       const k = Number(b.dataset.indice);
       cambia(storia.ora().map((t, j) => (j === k ? { ...t, libero: true } : t)));
@@ -770,18 +986,16 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       const f = $('.pian-foglio');
       const aperto = f.classList.toggle('aperto');
       b.setAttribute('aria-expanded', String(aperto));
-    } else if (azione === 'posizione') posizione();
-    else if (azione === 'categorie') {
+    } else if (azione === 'categorie') {
       const box = $('#pianCategorie');
       box.hidden = !box.hidden;
       b.setAttribute('aria-expanded', String(!box.hidden));
       b.setAttribute('aria-pressed', String(!box.hidden));
+      if (!box.hidden) chiudiLivelli();
     } else if (azione === 'categoria') {
       poi?.imposta(b.dataset.chiave, !poi.categorie().has(b.dataset.chiave));
       disegnaCategorie();
-    } else if (azione === 'passa-poi') {
-      const p = poiOra.lungo.find((x) => x.id === b.dataset.id);
-      if (p) passaDiQuiPoi(p);
+      aggiornaLivelli();
     } else if (azione === 'fauna') {
       // acceso ma con il pannello chiuso: si riapre; altrimenti si accende o si spegne
       if (!faunaPannello.riapri()) stato.imposta({ livelli: { heatmap: !stato.leggi().livelli.heatmap } });
@@ -789,20 +1003,98 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     else if (azione === 'salva' && risultato) apriSalva();
   };
   app.addEventListener('click', suClick);
-  // la mia posizione: resta solo in memoria. Senza tappe è la partenza
-  function posizione() {
-    if (!navigator.geolocation) return scrivi('Il telefono non dà la posizione');
-    scrivi('Cerco la tua posizione…');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        scrivi('');
-        const p = [pos.coords.longitude, pos.coords.latitude];
-        mappa.flyTo({ center: p, zoom: Math.max(mappa.getZoom(), 14) });
-        if (!storia.ora().length) cambia([nuovaTappa(p, { nome: 'La mia posizione' })]);
-      },
-      () => scrivi('Posizione non disponibile: tocca la mappa o cerca un luogo'),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 },
-    );
+  $('#pianAnello').addEventListener('change', (e) => {
+    chiudiFumetto();
+    anello = e.target.checked;
+    aggiorna();
+  });
+  function chiudiCategorie() {
+    $('#pianCategorie').hidden = true;
+    const b = $('[data-azione="categorie"]');
+    b.setAttribute('aria-expanded', 'false');
+    b.setAttribute('aria-pressed', 'false');
+  }
+  function chiudiLivelli() {
+    $('#pianLivelli').hidden = true;
+    const b = $('[data-azione="livelli"]');
+    b.setAttribute('aria-expanded', 'false');
+    b.setAttribute('aria-pressed', 'false');
+  }
+
+  // --- livelli: mappa di base, sentieri segnati, tutti i sentieri, confini, acqua e rifugi ---
+  const primoStrato = () => mappa.getStyle().layers.find((l) => l.type !== 'background')?.id;
+  const primaDelleScritte = () => mappa.getStyle().layers.find((l) => l.type === 'symbol' && l.source === 'openmaptiles')?.id;
+  function assicuraRaster(chiave) {
+    const b = BASI_RASTER[chiave];
+    if (!b || mappa.getSource(`base-${chiave}`)) return;
+    mappa.addSource(`base-${chiave}`, { type: 'raster', tiles: [b.url], tileSize: 256, maxzoom: b.massimo, attribution: b.attribuzione });
+    mappa.addLayer({ id: `base-${chiave}`, type: 'raster', source: `base-${chiave}` }, primoStrato());
+  }
+  function assicuraSegnati() {
+    if (mappa.getSource('segnati')) return;
+    mappa.addSource('segnati', { type: 'raster', tiles: ['https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png'], tileSize: 256, minzoom: 11, maxzoom: 18, attribution: '&copy; <a href="https://hiking.waymarkedtrails.org">Waymarked Trails</a> (CC-BY-SA)' });
+    mappa.addLayer({ id: 'segnati', type: 'raster', source: 'segnati', paint: { 'raster-opacity': 0.8 } }, primaDelleScritte());
+  }
+  function assicuraConfini() {
+    if (mappa.getSource('confini')) return;
+    const features = [];
+    mappa.addSource('confini', { type: 'geojson', data: vuoto() });
+    mappa.addLayer({ id: 'confini-fascia', type: 'line', source: 'confini', layout: { 'line-join': 'round' }, paint: { 'line-color': COLORI.confineFascia, 'line-width': 9, 'line-opacity': 0.22 } }, primaDelleScritte());
+    mappa.addLayer({ id: 'confini-linea', type: 'line', source: 'confini', layout: { 'line-join': 'round' }, paint: { 'line-color': COLORI.confine, 'line-width': 1.5, 'line-opacity': 0.9 } }, primaDelleScritte());
+    for (const parco of PARCHI) {
+      ottieniConfine(parco)
+        .then((c) => {
+          features.push({ type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: c.anelli } });
+          mappa.getSource('confini')?.setData({ type: 'FeatureCollection', features });
+        })
+        .catch(() => {}); // senza il confine di un parco si vedono gli altri
+    }
+  }
+  const mostra = (id, si) => mappa.getLayer(id) && mappa.setLayoutProperty(id, 'visibility', visibilita(si));
+  function applicaLivelli() {
+    if (!stileCaricato() || chiusa) return;
+    const raster = livelli.base !== 'chiara' ? livelli.base : null;
+    if (raster) assicuraRaster(raster);
+    for (const k of Object.keys(BASI_RASTER)) mostra(`base-${k}`, k === raster);
+    // sotto una base a immagini il disegno vettoriale si nasconde (le scritte restano sul satellitare; la «dettagliata» ha già le sue)
+    for (const l of mappa.getStyle().layers) {
+      if (l.id.startsWith('orme-')) continue;
+      if (l.type === 'symbol' && l.source === 'openmaptiles') mostra(l.id, livelli.base !== 'topo');
+      else if (l.type !== 'background' && (l.source === 'openmaptiles' || l.source === 'ne2_shaded')) mostra(l.id, !raster);
+    }
+    for (const id of LIVELLI_SENTIERI) mostra(id, livelli.tutti);
+    if (livelli.segnati) assicuraSegnati();
+    mostra('segnati', livelli.segnati);
+    if (livelli.confini) assicuraConfini();
+    mostra('confini-fascia', livelli.confini);
+    mostra('confini-linea', livelli.confini);
+  }
+  function aggiornaLivelli() {
+    for (const b of app.querySelectorAll('[data-base]')) b.setAttribute('aria-pressed', String(b.dataset.base === livelli.base));
+    for (const c of app.querySelectorAll('[data-livello]')) {
+      c.checked = c.dataset.livello === 'acquaRifugi' ? Boolean(poi?.categorie().has('acqua') && poi.categorie().has('dormire')) : Boolean(livelli[c.dataset.livello]);
+    }
+  }
+  const suCambio = (e) => {
+    const k = e.target.dataset?.livello;
+    if (!k) return;
+    if (k === 'acquaRifugi') {
+      poi?.imposta('acqua', e.target.checked);
+      poi?.imposta('dormire', e.target.checked);
+      disegnaCategorie();
+    } else {
+      livelli[k] = e.target.checked;
+      salvaLivelli();
+      applicaLivelli();
+    }
+  };
+  app.addEventListener('change', suCambio);
+  function salvaLivelli() {
+    try {
+      localStorage.setItem(CHIAVE_LIVELLI, JSON.stringify(livelli));
+    } catch {
+      // vale per questa visita
+    }
   }
 
   // --- salvataggio in I miei percorsi ---
@@ -831,7 +1123,8 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       ...(esistente ?? { id: nuovoIdPercorso(), note: sorgente?.note ?? '', ...(sorgente?.daSentiero ? { daSentiero: sorgente.daSentiero } : {}) }),
       nome: $('#pianNome').value.trim() || 'Percorso senza nome',
       origine: 'disegnato',
-      puntiControllo: storia.ora().map((t) => ({ p: doveStaLaTappa(t), libero: t.libero, ...(t.nomeManuale ? { nome: t.nome, nomeManuale: true } : {}) })),
+      // con l'anello anche la partenza ripetuta in fondo: riaprendo il percorso è una tappa come le altre
+      puntiControllo: tappeConAnello(storia.ora(), anello).map((t) => ({ p: t.id === ID_CHIUSURA ? doveStaLaTappa(storia.ora()[0]) : doveStaLaTappa(t), libero: t.libero, ...(t.nomeManuale ? { nome: t.nome, nomeManuale: true } : {}) })),
       geojson: { type: 'MultiLineString', coordinates: [risultato.linea] },
       // la traccia del file importato si conserva (una volta sola): «Ripristina la traccia originale» nella scheda
       ...conservaOriginale(esistente),
@@ -865,6 +1158,8 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     faunaGl.rimuovi();
     faunaPannello.chiudi();
     app.removeEventListener('click', suClick);
+    app.removeEventListener('change', suCambio);
+    chiudiFumetto();
     for (const m of marcatori.values()) m.remove();
     segnoProfilo?.remove();
     mappa.remove();

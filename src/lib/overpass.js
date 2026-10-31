@@ -132,13 +132,19 @@ export function combinaTraccia(scelti) {
 }
 
 // Prova i server uno dopo l'altro: Overpass a volte è sovraccarico
-export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetchFn = fetch, timeoutMs = 45000, attendi = dormi, adesso = Date.now } = {}) {
+// segnale: un AbortSignal per interrompere subito la richiesta («Ferma la ricerca»); l'errore è un AbortError e il server non va in pausa
+export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetchFn = fetch, timeoutMs = 45000, attendi = dormi, adesso = Date.now, segnale = null } = {}) {
   let ultimoErrore;
+  const interrotta = () => new DOMException('Richiesta interrotta', 'AbortError');
   const ordine = ordineServer(server, adesso());
   for (const [i, url] of ordine.entries()) {
+    if (segnale?.aborted) throw interrotta();
     if (i > 0) await attendi(ATTESA_BASE_MS * 2 ** Math.min(i - 1, 3));
+    if (segnale?.aborted) throw interrotta();
     const controllo = new AbortController();
     const timer = setTimeout(() => controllo.abort(), timeoutMs);
+    const fermaSubito = () => controllo.abort();
+    segnale?.addEventListener('abort', fermaSubito, { once: true });
     try {
       const risposta = await fetchFn(url, {
         method: 'POST',
@@ -154,10 +160,12 @@ export async function interrogaOverpass(query, { server = SERVER_OVERPASS, fetch
       pausa.delete(url);
       return json;
     } catch (e) {
+      if (segnale?.aborted) throw interrotta();
       ultimoErrore = e;
       pausa.set(url, adesso() + PAUSA_SERVER_MS);
     } finally {
       clearTimeout(timer);
+      segnale?.removeEventListener('abort', fermaSubito);
     }
   }
   const motivo = ultimoErrore?.name === 'AbortError' ? 'tempo scaduto' : ultimoErrore?.message;

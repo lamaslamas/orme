@@ -202,3 +202,98 @@ describe('pianificatore: tratti senza code e agganciati', () => {
     expect(aggancioDelleTappe(tappe.slice(0, 2), [{ ...tratto([[13, 41.8], [13.001, 41.8]]), libero: true }])[1].p).toBeNull();
   });
 });
+
+import { posizionePiuLogica, inserisciIn, aggiungiAlPercorso, comePartenza, comeArrivo, tappaComePartenza, tappaComeArrivo, impostaLibero, taglia, chiusuraAnello, tappeConAnello, ID_CHIUSURA, sovrapposizione, proiettaSuTratti } from '../src/lib/pianificatore.js';
+
+describe('pianificatore: comandi del fumetto', () => {
+  const base = () => [t(13.8, 41.8), t(13.82, 41.8), t(13.84, 41.8)];
+  it('«Aggiungi al percorso» mette il punto dove allunga meno il percorso', () => {
+    const l = base();
+    expect(posizionePiuLogica(l, [13.81, 41.8003])).toBe(1); // tra A e la tappa 1
+    expect(posizionePiuLogica(l, [13.83, 41.8003])).toBe(2); // tra la tappa 1 e B
+    expect(posizionePiuLogica(l, [13.9, 41.8])).toBe(3); // oltre l'arrivo: in fondo
+    expect(posizionePiuLogica(l, [13.7, 41.8])).toBe(3); // dietro la partenza: mai prima di A, quindi in fondo (per questo c'è «Imposta come partenza»)
+    expect(posizionePiuLogica([], [13.7, 41.8])).toBe(0);
+    expect(posizionePiuLogica([t(13.8, 41.8)], [13.7, 41.8])).toBe(1);
+  });
+  it('aggiungere inserisce una tappa nuova, libera se così si è scelto', () => {
+    const l = aggiungiAlPercorso(base(), [13.81, 41.8003], { poi: 'Fonte' }, true);
+    expect(l).toHaveLength(4);
+    expect(l[1].p).toEqual([13.81, 41.8003]);
+    expect(l[1].libero).toBe(true);
+    expect(l[1].poi).toBe('Fonte');
+    expect(inserisciIn(base(), 0, [1, 1], {}, true)[0].libero).toBe(false); // la prima non è mai libera
+  });
+  it('partenza e arrivo nuovi', () => {
+    const l = comePartenza(base(), [13.79, 41.8], {}, true);
+    expect(l[0].p).toEqual([13.79, 41.8]);
+    expect(l[0].libero).toBe(false);
+    expect(l[1].libero).toBe(true); // il tratto verso la vecchia partenza
+    const f = comeArrivo(base(), [13.9, 41.8], {}, true);
+    expect(f.at(-1).libero).toBe(true);
+    expect(comeArrivo([], [13.9, 41.8], {}, true)[0].libero).toBe(false);
+  });
+  it('una tappa che c\'è già diventa partenza o arrivo', () => {
+    const l = base();
+    expect(tappaComePartenza(l, 2)[0].id).toBe(l[2].id);
+    expect(tappaComeArrivo(l, 0).at(-1).id).toBe(l[0].id);
+    expect(tappaComeArrivo(l, 0)[0].libero).toBe(false);
+  });
+  it('«fuori sentiero» vale per il tratto che arriva alla tappa, mai per la prima', () => {
+    const l = base();
+    expect(impostaLibero(l, 1, true)[1].libero).toBe(true);
+    expect(impostaLibero(l, 0, true)[0].libero).toBe(false);
+    expect(impostaLibero(impostaLibero(l, 2, true), 2, false)[2].libero).toBe(false);
+  });
+  it('le forbici tengono la parte scelta e il taglio diventa arrivo o partenza', () => {
+    const l = base();
+    const inizio = taglia(l, 0, [13.81, 41.8], 'inizio');
+    expect(inizio).toHaveLength(2);
+    expect(inizio[0].id).toBe(l[0].id);
+    expect(inizio[1].p).toEqual([13.81, 41.8]);
+    const fine = taglia(l, 0, [13.81, 41.8], 'fine');
+    expect(fine).toHaveLength(3);
+    expect(fine[0].p).toEqual([13.81, 41.8]);
+    expect(fine[0].libero).toBe(false);
+    expect(fine[1].id).toBe(l[1].id);
+    expect(taglia(l, 5, [0, 0], 'fine')).toBe(l);
+  });
+});
+
+describe('pianificatore: giro ad anello', () => {
+  it('la tappa finale è la partenza, senza posizione sulla traccia né nome', () => {
+    const l = [{ ...t(13.8, 41.8), pos: 0, nome: 'Casa' }, t(13.82, 41.8)];
+    const c = chiusuraAnello(l);
+    expect(c.id).toBe(ID_CHIUSURA);
+    expect(c.p).toEqual(l[0].p);
+    expect(c.pos).toBeUndefined();
+    expect(c.libero).toBe(false);
+    expect(c.nome).toBeNull();
+  });
+  it('con l\'anello si calcola una tappa in più, ma solo con almeno due tappe', () => {
+    const l = [t(13.8, 41.8), t(13.82, 41.8)];
+    expect(tappeConAnello(l, true)).toHaveLength(3);
+    expect(tappeConAnello(l, false)).toBe(l);
+    expect(tappeConAnello([l[0]], true)).toHaveLength(1);
+  });
+  it('quanto il ritorno ripassa dall\'andata', () => {
+    const andata = Array.from({ length: 21 }, (_, i) => [13.8 + i * 0.001, 41.8]);
+    const stessa = [...andata].reverse();
+    const altra = Array.from({ length: 21 }, (_, i) => [13.82 - i * 0.001, 41.805]); // 550 m più a nord
+    expect(sovrapposizione(andata, stessa)).toBe(1);
+    expect(sovrapposizione(andata, altra)).toBe(0);
+    const meta = [...andata.slice(10).reverse(), ...altra.slice(10)];
+    expect(sovrapposizione(andata, meta)).toBeGreaterThan(0.4);
+    expect(sovrapposizione(andata, meta)).toBeLessThan(0.6);
+    expect(sovrapposizione([], stessa)).toBe(0);
+  });
+  it('il punto più vicino sulle linee', () => {
+    const r = proiettaSuTratti([[[13.8, 41.8], [13.82, 41.8]], [[13.8, 41.9], [13.82, 41.9]]], [13.81, 41.801]);
+    expect(r.indice).toBe(0);
+    expect(r.p[0]).toBeCloseTo(13.81, 4);
+    expect(r.p[1]).toBeCloseTo(41.8, 4);
+    expect(r.distanzaM).toBeGreaterThan(100);
+    expect(r.distanzaM).toBeLessThan(120);
+    expect(proiettaSuTratti([], [0, 0]).indice).toBe(-1);
+  });
+});

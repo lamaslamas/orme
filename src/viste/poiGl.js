@@ -5,9 +5,7 @@ import { leggiPoiCella, salvaPoiCella } from '../db.js';
 import { interrogaOverpass } from '../lib/overpass.js';
 import { puntiPerIlPercorso } from './puntiPercorso.js';
 import { aggiungiImmagine, disegnaPoi, POI_L, POI_A } from './segniGl.js';
-import { escapeHtml, migliaia } from '../lib/formato.js';
-import { TIPI_PUNTO } from '../lib/puntiUtili.js';
-import { CATEGORIE_POI, categoriaDelPoi, celleDelRiquadro, riquadroCella, queryPoiNuovi, poiDallaRisposta, poiLungoIlPercorso, riquadroDelPercorso, nomePoi, nomeDelTipo, leggiCategorie, salvaCategorie } from '../lib/poiPianificatore.js';
+import { CATEGORIE_POI, celleDelRiquadro, riquadroCella, queryPoiNuovi, poiDallaRisposta, poiLungoIlPercorso, riquadroDelPercorso, nomePoi, leggiCategorie, salvaCategorie } from '../lib/poiPianificatore.js';
 
 const GIORNI_CELLA = 30;
 const ATTESA_MS = 1200; // dopo l'ultimo cambio del percorso
@@ -34,9 +32,9 @@ async function poiNuovi(riquadro, segnale) {
   return tutti;
 }
 
-// → { aggiorna(linea), categorie, imposta(chiave, acceso), poiAl(point), apri(poi), lungo(), tutti(), rimuovi() }
-// alCambio({ lungo, tutti, mancanti }): i POI lungo il percorso sono cambiati; passa(poi): «Passa di qui»
-export function creaPoiGl(mappa, maplibregl, { alCambio = () => {}, passa = () => {}, prima = null } = {}) {
+// → { aggiorna(linea), categorie, imposta(chiave, acceso), poiAl(point), lungo(), tutti(), rimuovi() }
+// alCambio({ lungo, tutti, mancanti }): i POI lungo il percorso sono cambiati (i comandi del punto toccato stanno nel fumetto del pianificatore)
+export function creaPoiGl(mappa, maplibregl, { alCambio = () => {}, prima = null } = {}) {
   let categorie = leggiCategorie();
   let tutti = [];
   let lungo = [];
@@ -44,7 +42,6 @@ export function creaPoiGl(mappa, maplibregl, { alCambio = () => {}, passa = () =
   let attesa = null;
   let segnale = { annullato: false };
   let rimossa = false;
-  let popup = null;
 
   for (const c of CATEGORIE_POI) aggiungiImmagine(mappa, `poi|${c.chiave}`, POI_L, POI_A, (ctx) => disegnaPoi(ctx, c));
   mappa.addSource('poi', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -100,34 +97,11 @@ export function creaPoiGl(mappa, maplibregl, { alCambio = () => {}, passa = () =
       salvaCategorie(categorie);
       ricalcola();
     },
-    // il POI toccato (un tocco sull'icona apre i dettagli: le icone dei POI, a differenza della fauna, si toccano)
+    // il POI toccato (le icone dei POI, a differenza della fauna, si toccano: il pianificatore apre il fumetto)
     poiAl(punto) {
       if (!mappa.getLayer('poi')) return null;
       const f = mappa.queryRenderedFeatures([[punto.x - 14, punto.y - 34], [punto.x + 14, punto.y + 6]], { layers: ['poi'] })[0];
       return f ? lungo.find((p) => p.id === f.properties.id) ?? null : null;
-    },
-    apri(poi) {
-      popup?.remove();
-      const c = categoriaDelPoi(poi);
-      const dettagli = [
-        poi.nome ? nomeDelTipo(poi.tipo) : '',
-        poi.tipo === 'cima' && Number.isFinite(poi.quota) ? `${migliaia(poi.quota)} m` : '',
-        poi.potabile === false ? 'non potabile' : '',
-        poi.stagionale ? 'stagionale' : '',
-        TIPI_PUNTO[poi.tipo]?.gruppo === 'rifugi' && poi.posti ? `${poi.posti} posti` : '',
-      ].filter(Boolean);
-      popup = new maplibregl.Popup({ offset: [0, -30], maxWidth: '280px', closeButton: true })
-        .setLngLat([poi.lon, poi.lat])
-        .setHTML(`<div class="popup-poi"><b>${escapeHtml(poi.nome ?? nomeDelTipo(poi.tipo))}</b>
-          <span class="tenue piccolo">${escapeHtml(dettagli.join(' · '))}</span>
-          <span class="tenue piccolo">${poi.distanzaM < 30 ? 'sul percorso' : `a ${poi.distanzaM} m dal percorso`} · km ${String(poi.km).replace('.', ',')}</span>
-          <button type="button" class="bottone primario piccolo" data-passa>Passa di qui</button></div>`)
-        .addTo(mappa);
-      popup.getElement().querySelector('[data-passa]')?.addEventListener('click', () => {
-        popup.remove();
-        passa(poi);
-      });
-      return c;
     },
     lungo: () => lungo.filter((p) => categorie.has(p.categoria)),
     tutti: () => tutti,
@@ -136,7 +110,6 @@ export function creaPoiGl(mappa, maplibregl, { alCambio = () => {}, passa = () =
       rimossa = true;
       clearTimeout(attesa);
       segnale.annullato = true;
-      popup?.remove();
       if (mappa.getLayer('poi')) mappa.removeLayer('poi');
       if (mappa.getSource('poi')) mappa.removeSource('poi');
     },

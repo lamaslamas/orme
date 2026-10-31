@@ -2,7 +2,6 @@
 // id, la posizione e un nome che si trova da solo); tra due tappe un tratto calcolato da BRouter (src/lib/brouter.js).
 import { distanzaKm } from './geo.js';
 import { creaBase } from './modificaTraccia.js';
-import { posizioneSullaTraccia } from './lungoIlPercorso.js';
 
 const arr = (n) => Number(Number(n).toFixed(6));
 let contatore = 0;
@@ -260,4 +259,94 @@ export function aggancioDelleTappe(tappe, tratti) {
     const p = prima ?? dopo;
     return p ? { p: [p[0], p[1]], distanzaM: Math.round(distanzaM(t.p, p)) } : { p: null, distanzaM: 0 };
   });
+}
+
+// --- i comandi del fumetto (tocco sulla mappa o su una tappa), il giro ad anello e le forbici ---
+const kmPer = (a, b) => distanzaKm(a, b) * 1000;
+
+// «Aggiungi al percorso»: la posizione più logica per un punto nuovo = quella che allunga meno il percorso (in linea d'aria),
+// mai prima della partenza. → indice dove inserirlo (1…n)
+export function posizionePiuLogica(tappe, p) {
+  const n = tappe.length;
+  if (n < 2) return n;
+  let migliore = { i: n, costo: kmPer(tappe[n - 1].p, p) };
+  for (let i = 1; i < n; i++) {
+    const costo = kmPer(tappe[i - 1].p, p) + kmPer(p, tappe[i].p) - kmPer(tappe[i - 1].p, tappe[i].p);
+    if (costo < migliore.costo) migliore = { i, costo };
+  }
+  return migliore.i;
+}
+// libero: il tratto che arriva al punto è «fuori sentiero»
+export const inserisciIn = (tappe, i, p, extra = {}, libero = false) => {
+  const k = Math.max(0, Math.min(tappe.length, i));
+  return [...tappe.slice(0, k), nuovaTappa(p, { ...extra, libero: k === 0 ? false : Boolean(libero) }), ...tappe.slice(k)];
+};
+export const aggiungiAlPercorso = (tappe, p, extra = {}, libero = false) => inserisciIn(tappe, posizionePiuLogica(tappe, p), p, extra, libero);
+// «Imposta come partenza» per un punto nuovo: il tratto verso la vecchia partenza è libero se così si è scelto
+export const comePartenza = (tappe, p, extra = {}, libero = false) => [nuovaTappa(p, { ...extra, libero: false }), ...tappe.map((t, j) => (j === 0 ? { ...t, libero: Boolean(libero), pos: undefined } : t))];
+export const comeArrivo = (tappe, p, extra = {}, libero = false) => [...tappe, nuovaTappa(p, { ...extra, libero: tappe.length ? Boolean(libero) : false })];
+// una tappa che c'è già diventa la partenza o l'arrivo
+export const tappaComePartenza = (tappe, i) => muovi(tappe, i, 0);
+export const tappaComeArrivo = (tappe, i) => muovi(tappe, i, tappe.length - 1);
+// il tratto che arriva alla tappa i (non la prima) è «fuori sentiero» oppure no
+export const impostaLibero = (tappe, i, libero) => tappe.map((t, j) => (j === i && j > 0 ? { ...t, libero: Boolean(libero) } : t));
+
+// Forbici: si taglia sul tratto k (tra la tappa k e la k+1) nel punto p e si tiene una parte: 'inizio' = dalla partenza al taglio,
+// 'fine' = dal taglio all'arrivo. Il taglio diventa l'arrivo o la partenza
+export function taglia(tappe, k, p, tieni) {
+  if (k < 0 || k >= tappe.length - 1) return tappe;
+  if (tieni === 'inizio') return [...tappe.slice(0, k + 1), nuovaTappa(p)];
+  return [nuovaTappa(p), ...tappe.slice(k + 1)].map((t, j) => (j === 0 ? { ...t, libero: false } : t));
+}
+
+// Giro ad anello: la tappa finale è la partenza (non è una tappa vera: non si vede e non si sposta)
+export const ID_CHIUSURA = 'chiusura';
+export const chiusuraAnello = (tappe) => ({ ...tappe[0], id: ID_CHIUSURA, libero: false, nome: null, nomeManuale: false, luoghi: null, poi: null, pos: undefined });
+// la lista che si calcola: con l'anello, la partenza si ripete in fondo (servono almeno due tappe)
+export const tappeConAnello = (tappe, anello) => (anello && tappe.length >= 2 ? [...tappe, chiusuraAnello(tappe)] : tappe);
+
+// Quanto del ritorno ripassa dove si è già passati all'andata: la quota (0…1) dei suoi punti a meno di `sogliaM` dall'andata
+export function sovrapposizione(andata, ritorno, sogliaM = 25) {
+  if (!andata?.length || !ritorno?.length) return 0;
+  const lat0 = andata[0][1];
+  const kx = Math.cos((lat0 * Math.PI) / 180);
+  const s2 = (sogliaM / 111_195) ** 2;
+  const A = andata.map(([x, y]) => [x * kx, y]);
+  let dentro = 0;
+  for (const [rx, ry] of ritorno) {
+    const px = rx * kx;
+    let vicino = false;
+    for (let i = 1; i < A.length && !vicino; i++) {
+      const [ax, ay] = A[i - 1];
+      const dx = A[i][0] - ax;
+      const dy = A[i][1] - ay;
+      // fuori dal riquadro del segmento (più la soglia) non serve calcolare
+      const m = sogliaM / 111_195;
+      if (px < Math.min(ax, A[i][0]) - m || px > Math.max(ax, A[i][0]) + m || ry < Math.min(ay, A[i][1]) - m || ry > Math.max(ay, A[i][1]) + m) continue;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (ry - ay) * dy) / l2)) : 0;
+      vicino = (ax + t * dx - px) ** 2 + (ay + t * dy - ry) ** 2 <= s2;
+    }
+    if (vicino) dentro++;
+  }
+  return dentro / ritorno.length;
+}
+
+// Il punto più vicino a p sulle linee (un tratto per linea): → { indice, p: [lon, lat], distanzaM }; indice -1 se non ce ne sono
+export function proiettaSuTratti(tratti, [lon, lat]) {
+  const kx = Math.cos((lat * Math.PI) / 180);
+  let migliore = { indice: -1, p: null, distanzaM: Infinity };
+  tratti.forEach((linea, indice) => {
+    for (let i = 1; i < linea.length; i++) {
+      const [ax, ay] = [(linea[i - 1][0] - lon) * kx, linea[i - 1][1] - lat];
+      const [bx, by] = [(linea[i][0] - lon) * kx, linea[i][1] - lat];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      const d = Math.hypot(ax + t * dx, ay + t * dy) * 111_195;
+      if (d < migliore.distanzaM) migliore = { indice, p: [linea[i - 1][0] + t * (linea[i][0] - linea[i - 1][0]), linea[i - 1][1] + t * (linea[i][1] - linea[i - 1][1])], distanzaM: d };
+    }
+  });
+  return migliore;
 }

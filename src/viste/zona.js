@@ -33,17 +33,18 @@ import { profiloDaTerrain } from './quote.js';
 const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // avanzamento(testo): messaggi brevi per chi aspetta; chiusa(): true se la schermata non c'è più
-export async function scaricaZona(centro, raggio, { avanzamento = () => {}, chiusa = () => false } = {}) {
+export async function scaricaZona(centro, raggio, { avanzamento = () => {}, chiusa = () => false, segnale = null } = {}) {
   avanzamento(`Cerco i percorsi entro ${raggio} km…`);
   // Overpass a volte è occupato: un secondo tentativo dopo qualche secondo
   let json;
   try {
-    json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 120000 });
-  } catch {
+    json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 120000, segnale });
+  } catch (e) {
+    if (e?.name === 'AbortError') throw e;
     if (chiusa()) return null;
     avanzamento('OpenStreetMap è occupato, riprovo…');
     await attendi(5000);
-    json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 120000 });
+    json = await interrogaOverpass(queryIntorno(centro, raggio), { timeoutMs: 120000, segnale });
   }
   const esistenti = new Set((await tuttiISentieri()).filter((s) => s.parco !== ID_INTORNO).map((s) => s.id));
   // nella stessa risposta anche i sentieri non segnati delle aree protette

@@ -12,11 +12,12 @@ export const TEMPO_MAX_MS = 25_000;
 // escursionistici costano 1 + preferenza volte (parametro del profilo, da 0,1 a 2; di base 0,2).
 // Non troppo: con 2 conviene tornare indietro sul segnato invece di fare un tratto di strada
 export const PREFERENZA_SEGNATI = 0.6;
-export function urlBrouter(punti, profilo = PROFILO_ESCURSIONE, { preferenzaSegnati = null } = {}) {
+// alternativa: 0 = il percorso migliore, 1-3 = le alternative di BRouter (per un anello che non ripassa dall'andata)
+export function urlBrouter(punti, profilo = PROFILO_ESCURSIONE, { preferenzaSegnati = null, alternativa = 0 } = {}) {
   const lonlats = punti.map(([lon, lat]) => `${lon.toFixed(6)},${lat.toFixed(6)}`).join('|');
   // la preferenza per i sentieri segnati è un parametro del profilo escursionistico, non di quello MTB
   const extra = preferenzaSegnati && profilo === PROFILO_ESCURSIONE ? `&profile:hiking_routes_preference=${preferenzaSegnati}` : '';
-  return `${URL_BROUTER}?lonlats=${encodeURIComponent(lonlats)}&profile=${profilo}&alternativeidx=0&format=geojson${extra}`;
+  return `${URL_BROUTER}?lonlats=${encodeURIComponent(lonlats)}&profile=${profilo}&alternativeidx=${alternativa}&format=geojson${extra}`;
 }
 
 // "highway=path surface=ground" → { highway: 'path', surface: 'ground' }
@@ -54,12 +55,12 @@ export function interpretaBrouter(json) {
   };
 }
 
-export async function calcolaPercorso(punti, { fetchFn = fetch, preferenzaSegnati = null, profilo = PROFILO_ESCURSIONE } = {}) {
+export async function calcolaPercorso(punti, { fetchFn = fetch, preferenzaSegnati = null, profilo = PROFILO_ESCURSIONE, alternativa = 0 } = {}) {
   if (punti.length < 2) throw new Error('Servono almeno due punti.');
   let risposta;
   try {
     // senza risposta entro 25 secondi si rinuncia (il disegno offre la mano libera)
-    risposta = await fetchFn(urlBrouter(punti, profilo, { preferenzaSegnati }), { signal: AbortSignal.timeout(TEMPO_MAX_MS) });
+    risposta = await fetchFn(urlBrouter(punti, profilo, { preferenzaSegnati, alternativa }), { signal: AbortSignal.timeout(TEMPO_MAX_MS) });
   } catch {
     throw new Error('Il server dei sentieri (BRouter) non risponde: controlla la connessione.');
   }

@@ -13,3 +13,11 @@ describe('profilo secondo l\'attività', () => {
     expect(mtb).not.toContain('hiking_routes_preference');
   });
 });
+
+describe('alternative di BRouter', () => {
+  it('di base il percorso migliore, a richiesta un\'alternativa', async () => {
+    const { urlBrouter } = await import('../src/lib/brouter.js');
+    expect(urlBrouter([[13.8, 41.8], [13.81, 41.8]])).toContain('alternativeidx=0');
+    expect(urlBrouter([[13.8, 41.8], [13.81, 41.8]], undefined, { alternativa: 2 })).toContain('alternativeidx=2');
+  });
+});

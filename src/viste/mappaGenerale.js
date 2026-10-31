@@ -74,39 +74,60 @@ let testoZona = '';
 let zonaCompletata = false;
 const sullaMappa = () => /^#?\/?(\?|$)/.test(location.hash.replace(/^#/, ''));
 let rivalutaBottone = null; // della mappa aperta: mostra il pulsante solo dove serve
-function scriviZona(testo) {
+let fermaZona = null; // AbortController del lavoro in corso: «Ferma la ricerca» lo interrompe subito
+// testo: l'avanzamento (mentre lavora il pulsante diventa «Ferma la ricerca») o, con finale, un esito che resta qualche secondo
+function scriviZona(testo, finale = false) {
   testoZona = testo;
   const b = document.querySelector('#cercaZona');
   if (!b) return;
-  b.querySelector('span').textContent = testo || 'Cerca percorsi qui';
-  b.disabled = Boolean(testo);
+  const lavora = Boolean(fermaZona) && Boolean(testo) && !finale;
+  b.querySelector('span').textContent = lavora ? 'Ferma la ricerca' : testo || 'Cerca percorsi qui';
+  b.title = lavora ? testo : '';
+  b.disabled = Boolean(testo) && !lavora;
+  b.classList.toggle('in-corso', lavora);
   if (testo) b.hidden = false;
   else rivalutaBottone?.();
 }
 const ridisegna = () => sullaMappa() && window.dispatchEvent(new HashChangeEvent('hashchange'));
 function avviaZona(centro, raggio) {
   if (lavoroZona) return;
+  const ferma = (fermaZona = new AbortController());
+  const fermata = () => ferma.signal.aborted;
   lavoroZona = (async () => {
     try {
-      const n = await scaricaZona(centro, raggio, { avanzamento: scriviZona });
-      scriviZona(n ? '' : 'Nessun percorso segnato qui');
+      const n = await scaricaZona(centro, raggio, { avanzamento: (t) => scriviZona(t), chiusa: fermata, segnale: ferma.signal });
+      scriviZona(n ? '' : 'Nessun percorso segnato qui', true);
       ridisegna();
       zonaCompletata = false;
-      await avviaCompletamento(true);
+      await avviaCompletamento(true, ferma);
     } catch (e) {
-      console.warn('Zona', e);
-      scriviZona('OpenStreetMap non risponde, riprova');
+      if (fermata() || e?.name === 'AbortError') {
+        // i percorsi già trovati restano; si ridisegna con quelli
+        scriviZona('Ricerca fermata', true);
+        ridisegna();
+      } else {
+        console.warn('Zona', e);
+        scriviZona('OpenStreetMap non risponde, riprova', true);
+      }
     } finally {
       lavoroZona = null;
+      fermaZona = null;
       if (testoZona) setTimeout(() => scriviZona(''), 4000);
     }
   })();
 }
-async function avviaCompletamento(dentroLavoro = false) {
+async function avviaCompletamento(dentroLavoro = false, ferma = null) {
   if (zonaCompletata || (lavoroZona && !dentroLavoro)) return;
   zonaCompletata = true;
-  const cambiata = await completaZona({ avanzamento: scriviZona, chiusa: () => false }).catch(() => false);
-  if (cambiata) ridisegna();
+  const mio = ferma ?? (fermaZona = new AbortController());
+  const cambiata = await completaZona({ avanzamento: (t) => scriviZona(t), chiusa: () => mio.signal.aborted }).catch(() => false);
+  if (!ferma && fermaZona === mio) fermaZona = null;
+  if (mio.signal.aborted) {
+    zonaCompletata = false;
+    scriviZona('Ricerca fermata', true);
+    setTimeout(() => scriviZona(''), 3000);
+  }
+  if (cambiata || mio.signal.aborted) ridisegna();
 }
 import { creaFaunaHome } from './faunaHome.js';
 import { creaFoglioVia } from './foglioVia.js';
@@ -832,6 +853,8 @@ export async function vistaMappaGenerale(app, idParco = null) {
   });
   aggiornaBottoneZona();
   bottoneZona.addEventListener('click', () => {
+    // mentre cerca il pulsante è «Ferma la ricerca»: interrompe subito (i percorsi già trovati restano)
+    if (fermaZona) return fermaZona.abort();
     const c = mappa.getCenter();
     // i percorsi della zona non sono di un parco: il filtro del parco li nasconderebbe
     if (filtri.parco) {

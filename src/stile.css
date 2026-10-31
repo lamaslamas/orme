@@ -2166,126 +2166,169 @@ a.modifica-carta {
 .pannello-heatmap.ridotto .heat-testa > .heat-conto { white-space: normal; flex: 0 1 auto; line-height: 1.15; }
 .togli-specie { border: 0; background: var(--bordo); color: var(--testo); width: 22px; height: 22px; border-radius: 50%; font-size: 15px; line-height: 1; cursor: pointer; margin-left: 4px; vertical-align: middle; padding: 0; }
 
-/* --- Pianificatore (pagina MapLibre) --- */
+/* --- Pianificatore (pagina MapLibre), sul modello del pianificatore web di Komoot ---
+   Computer: pannello «Il tuo percorso» a sinistra, barra degli strumenti sopra la mappa, barra dei numeri sotto.
+   Telefono: X e Salva in alto, strumenti in una colonna a destra, tendina dal basso con la barra dei numeri sempre visibile. */
 body.pianificatore .cima { display: none; }
 body.pianificatore main { padding: 0; }
 .pian-mappa, .pian-mappa.maplibregl-map { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); z-index: 1; }
-.pian-sopra { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 10px); left: 10px; right: 10px; display: flex; gap: 8px; align-items: flex-start; pointer-events: none; }
-.pian-sopra > * { pointer-events: auto; }
-.pian-sopra > .pill-mappa.tondo { width: 44px; min-height: 44px; flex: none; }
-.pian-cerca { flex: 1; position: relative; min-width: 0; }
-.pian-cerca .ricerca { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); }
-.pian-cerca .ricerca input { flex: 1; min-width: 0; border: 0; background: none; color: inherit; font: inherit; outline: none; }
-.pian-cerca .risultati-luogo { position: absolute; left: 0; right: 0; top: 50px; z-index: 2; }
-.pian-opzioni { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 62px); left: 10px; right: 10px; display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: none; }
-.pian-opzioni .chip-scorciatoia { white-space: nowrap; flex: none; box-shadow: var(--ombra); }
-.pian-opzioni .chip-scorciatoia:disabled { opacity: 0.45; }
-.pian-sep { width: 1px; height: 22px; background: var(--bordo); flex: none; }
-.pian-strumenti { position: fixed; z-index: 1001; right: 10px; top: calc(env(safe-area-inset-top) + 112px); display: grid; gap: 8px; }
-.pian-strumenti .pill-mappa.tondo { width: 44px; min-height: 44px; }
-.pian-strumenti .pill-mappa:disabled { opacity: 0.4; }
-.pian-sugg { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 108px); left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 999px; max-width: calc(100vw - 140px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.86rem; font-weight: 600; pointer-events: none; text-align: center; }
+.pianificatore .maplibregl-ctrl-bottom-left { margin-bottom: 0; }
+
+/* strumenti */
+.pian-barra { display: contents; }
+.pian-barra .pill-mappa { z-index: 1001; min-height: 44px; }
+.pian-barra .pill-mappa.tondo, .pian-barra .pill-mappa.pian-icona { width: 44px; padding: 0; justify-content: center; }
+.pian-barra .pill-mappa:disabled { opacity: 0.4; }
+.pian-barra .pill-mappa[aria-pressed="true"] { background: var(--verde); color: #fff; border-color: transparent; }
+.pian-barra .testo { display: none; }
+.pian-x { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 10px; }
+.pian-salva { position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 10px; background: var(--verde) !important; color: #fff !important; border-color: transparent !important; }
+.pian-attrezzi { position: fixed; z-index: 1001; right: 10px; top: calc(env(safe-area-inset-top) + 62px); display: grid; gap: 8px; }
+.pian-livelli, .pian-categorie { position: fixed; z-index: 1002; top: calc(env(safe-area-inset-top) + 62px); right: 64px; width: min(310px, calc(100vw - 84px)); padding: 14px; border-radius: 16px; background: var(--sfondo); border: var(--bordo-vetro); box-shadow: var(--ombra-alta); }
+.pian-livelli[hidden], .pian-categorie[hidden] { display: none; }
+.pian-livelli h3 { margin: 0 0 8px; font-size: 0.82rem; font-weight: 700; color: var(--testo-tenue); text-transform: uppercase; letter-spacing: 0.03em; }
+.pian-livelli h3:not(:first-child) { margin-top: 14px; }
+.pian-basi { display: flex; gap: 6px; flex-wrap: wrap; }
+.pian-basi .chip-scorciatoia[aria-pressed="true"], .pian-categorie .chip-scorciatoia[aria-pressed="true"] { border-color: var(--verde); background: var(--verde); color: #fff; }
+.pian-voce { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; font-weight: 600; cursor: pointer; }
+.pian-categorie { display: flex; flex-wrap: wrap; gap: 6px; }
+.pian-categorie .chip-scorciatoia { gap: 6px; }
+.pian-categorie .chip-scorciatoia img { display: block; }
+.pian-categorie .chip-scorciatoia[aria-pressed="false"] { opacity: 0.55; background: none; color: inherit; }
+
+/* interruttore (Giro ad anello, Tratto fuori sentiero, livelli) */
+.pian-interruttore { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 44px; height: 26px; margin: 0; border-radius: 999px; background: var(--bordo); border: 0; cursor: pointer; transition: background 0.15s; }
+.pian-interruttore::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); transition: transform 0.15s; }
+.pian-interruttore:checked { background: var(--verde); }
+.pian-interruttore:checked::after { transform: translateX(18px); }
+.pian-interruttore:focus-visible { outline: 2px solid var(--verde); outline-offset: 2px; }
+
+/* messaggi e suggerimento */
+.pian-sugg { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 100px); left: 10px; margin: 0; padding: 8px 14px; border-radius: 999px; max-width: calc(100vw - 84px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.86rem; font-weight: 600; pointer-events: none; }
 .pian-sugg[hidden], .pian-sugg:empty { display: none; }
-.pian-foglio { position: fixed; z-index: 1040; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); max-height: 42dvh; overflow: auto; overscroll-behavior: contain; padding: 0 16px 12px; background: var(--sfondo); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro); }
-.pian-foglio.aperto { max-height: 80dvh; }
-.pian-foglio:not(.aperto) .pian-tappe, .pian-foglio:not(.aperto) .pian-titolo-tappe { display: none; }
-.pian-maniglia { display: block; width: 100%; min-height: 28px; border: 0; background: none; cursor: pointer; padding: 8px 0; }
-.pian-foglio .bottone.pieno { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 8px; }
-.pian-foglio .disegno-profilo svg { height: 56px; }
-.pian-tappa { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 3px solid var(--verde, #0f6e56); color: #0f6e56; font: 800 12px/1 system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); cursor: grab; }
+.pian-hint { position: fixed; z-index: 1003; top: calc(env(safe-area-inset-top) + 150px); left: 50%; transform: translateX(-50%); margin: 0; padding: 10px 16px; border-radius: 999px; max-width: calc(100vw - 100px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); font-size: 0.88rem; font-weight: 700; text-align: center; pointer-events: none; }
+.pian-hint[hidden] { display: none; }
+.pian-fauna-stato { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 62px); left: 58px; margin: 0; padding: 6px 12px; border-radius: 999px; max-width: calc(100vw - 130px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.8rem; font-weight: 700; pointer-events: none; }
+.pian-fauna-stato[hidden] { display: none; }
+body.pianificatore.fauna-aperta .pian-sugg { display: none; }
+
+/* la tendina (telefono) e il pannello (computer) */
+.pian-foglio { position: fixed; z-index: 1040; left: 0; right: 0; bottom: calc(var(--altezza-barra) + env(safe-area-inset-bottom)); max-height: 72dvh; display: flex; flex-direction: column; background: var(--sfondo); border-radius: 22px 22px 0 0; box-shadow: var(--ombra-alta); border-top: var(--bordo-vetro); }
+.pian-maniglia { display: block; flex: none; width: 100%; min-height: 28px; border: 0; background: none; cursor: pointer; padding: 8px 0; }
+.pian-maniglia .foglio-maniglia { display: block; width: 44px; height: 5px; margin: 0 auto; border-radius: 3px; }
+.pian-barra-numeri { flex: none; padding: 0 16px 8px; }
+.pian-pannello { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 16px 14px; }
+.pian-foglio:not(.aperto) .pian-pannello { display: none; }
+.pian-foglio .disegno-profilo svg { height: 52px; }
+.pian-barra-numeri .profilo-fonte, .pian-barra-numeri .profilo-tratto { display: none; }
+.pian-fonte { margin: 8px 0 0; }
+.pian-barra-numeri .profilo-dati { margin: 2px 0 0; }
+.disegno-numeri { grid-template-columns: repeat(4, 1fr); }
+.pian-testa { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0 10px; }
+.pian-testa h2 { margin: 0; font-size: 1.3rem; }
+.pian-testa .chip-scorciatoia { min-height: 36px; padding: 0 12px; font-size: 0.85rem; }
+.pian-attivita { display: flex; gap: 6px; }
+.pian-aggiungi { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 16px; margin-top: 8px; border-radius: 999px; border: 1px solid var(--bordo); background: none; color: var(--testo); font: inherit; font-weight: 600; cursor: pointer; }
+.pian-aggiungi:hover { background: var(--bordo); }
+.pian-cerca { position: relative; margin-top: 8px; }
+.pian-cerca .ricerca { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--bordo); background: none; }
+.pian-cerca .ricerca input { flex: 1; min-width: 0; border: 0; background: none; color: inherit; font: inherit; outline: none; }
+.pian-cerca .risultati-luogo { position: static; margin-top: 6px; box-shadow: none; background: var(--scheda-piena); }
+.pian-anello { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; margin-top: 6px; font-weight: 700; cursor: pointer; }
+.pian-avviso { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: #3b2a12; border: 1px solid #8a6420; color: #ffe3b3; font-size: 0.86rem; line-height: 1.35; }
+.pian-avviso[hidden] { display: none; }
+.pian-avviso .bottone { min-height: 38px; }
+
+/* tappe */
+.pian-tappa { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 3px solid var(--verde, #0f6e56); color: #0f6e56; font: 800 13px/1 system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35); cursor: grab; touch-action: none; }
+.pian-tappa::before { content: ''; position: absolute; inset: -5px; border-radius: 50%; } /* area di tocco di 44 px */
+.pian-tappa:active { cursor: grabbing; }
 .pian-tappa.prima { background: #1f9d55; border-color: #fff; color: #fff; }
 .pian-tappa.ultima { background: #c0392b; border-color: #fff; color: #fff; }
-.pian-tappa.piccola { width: 24px; height: 24px; font-size: 11px; border-width: 2px; cursor: default; flex: none; box-shadow: none; }
+.pian-tappa.piccola { width: 26px; height: 26px; font-size: 11px; border-width: 2px; cursor: default; flex: none; box-shadow: none; }
+.pian-tappa.piccola::before { display: none; }
 .pian-segno-profilo { width: 16px; height: 16px; border-radius: 50%; background: #ef9f27; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); }
+.pian-tappe { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
+.pian-tappe li { position: relative; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 8px 0 4px; border: 1px solid var(--bordo); border-radius: 999px; background: var(--sfondo); transition: transform 0.12s; }
+.pian-tappe li.trascinata { z-index: 3; transition: none; box-shadow: var(--ombra); opacity: 0.95; }
+.pian-presa { display: grid; place-items: center; width: 32px; height: 40px; flex: none; font-size: 1.25rem; line-height: 1; color: var(--testo-tenue); cursor: grab; touch-action: none; border-radius: 8px; }
+.pian-presa:active, .pian-presa:focus-visible { background: var(--bordo); cursor: grabbing; }
+.pian-nome { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.25; text-align: left; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 6px 0; cursor: pointer; }
+.pian-nome-testo { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pian-km { font-size: 0.76rem; font-weight: 500; color: var(--testo-tenue); }
+.pian-nome-campo { flex: 1; min-width: 0; min-height: 38px; border: 1px solid var(--verde); border-radius: 10px; background: var(--sfondo); color: inherit; font: inherit; font-weight: 600; padding: 0 10px; }
+.pian-togli { width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--testo-tenue); cursor: pointer; display: grid; place-items: center; }
+.pian-togli:hover { background: var(--bordo); }
+.pian-togli svg { width: 16px; height: 16px; }
+
+/* fumetto (tocco sulla mappa, su una tappa o sulle forbici) */
+.pian-fumetto .maplibregl-popup-content { min-width: 230px; padding: 14px 14px 12px; border-radius: 16px; background: var(--sfondo); color: var(--testo); box-shadow: var(--ombra-alta); }
+.pian-fumetto .maplibregl-popup-close-button { color: var(--testo-tenue); font-size: 22px; padding: 2px 8px; }
+.pian-fumetto.maplibregl-popup-anchor-bottom .maplibregl-popup-tip, .pian-fumetto.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip, .pian-fumetto.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip { border-top-color: var(--sfondo); }
+.pian-fumetto.maplibregl-popup-anchor-top .maplibregl-popup-tip, .pian-fumetto.maplibregl-popup-anchor-top-left .maplibregl-popup-tip, .pian-fumetto.maplibregl-popup-anchor-top-right .maplibregl-popup-tip { border-bottom-color: var(--sfondo); }
+.pian-fumetto.maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: var(--sfondo); }
+.pian-fumetto.maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: var(--sfondo); }
+.fumetto-pian { display: grid; gap: 6px; }
+.fumetto-pian h3 { margin: 0 24px 0 0; font-size: 1.1rem; line-height: 1.25; }
+.fumetto-pian .coord { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--testo-tenue); }
+.fumetto-pian .avviso { margin: 0; padding: 8px 10px; border-radius: 10px; background: #3b2a12; border: 1px solid #8a6420; color: #ffe3b3; font-size: 0.84rem; line-height: 1.35; }
+.fumetto-pian .bottone { justify-content: center; min-height: 40px; width: 100%; }
+.fumetto-pian .pian-voce { min-height: 36px; padding-top: 4px; font-size: 0.9rem; }
+
+/* con la Fauna aperta il pannello si riduce e quello della Fauna sta nel posto libero: mai sovrapposti */
+@media (max-width: 1023.98px) {
+  body.pianificatore.fauna-aperta .pian-foglio { top: calc(env(safe-area-inset-top) + 108px); bottom: auto; left: 10px; right: 70px; max-height: none; border-radius: 16px; overflow: hidden; }
+  body.pianificatore.fauna-aperta .pian-foglio > :not(.pian-barra-numeri) { display: none !important; }
+  body.pianificatore.fauna-aperta .pian-barra-numeri { padding-top: 8px; }
+  body.pianificatore.fauna-aperta .pian-barra-numeri > :not(.disegno-numeri) { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .pian-mappa, .pian-mappa.maplibregl-map { left: var(--larghezza-nav); bottom: 0; }
+  .pian-barra { position: fixed; z-index: 1001; top: 16px; left: calc(var(--larghezza-nav) + 432px); right: 16px; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+  .pian-barra > * { pointer-events: auto; }
+  .pian-x, .pian-salva, .pian-attrezzi { position: static; }
+  .pian-attrezzi { display: flex; flex-wrap: nowrap; gap: 6px; order: 1; }
+  .pian-barra { gap: 6px; }
+  .pian-barra .pill-mappa { gap: 6px; font-size: 0.9rem; }
+  .pian-salva { order: 2; margin-left: auto; }
+  .pian-x { order: 3; }
+  .pian-barra .pill-mappa.pian-icona { width: auto; padding: 0 12px; }
+  .pian-salva { padding: 0 16px; }
+  .pian-barra .testo { display: inline; }
+  .pian-livelli, .pian-categorie { top: 70px; right: auto; left: calc(var(--larghezza-nav) + 432px + 170px); }
+  .pian-sugg { top: 70px; left: calc(var(--larghezza-nav) + 432px); }
+  .pian-fauna-stato { top: 70px; left: calc(var(--larghezza-nav) + 432px); }
+  .pian-hint { left: calc(50% + 216px); top: 124px; }
+  .pian-foglio { display: contents; }
+  .pian-maniglia { display: none; }
+  .pian-foglio:not(.aperto) .pian-pannello { display: block; }
+  .pian-pannello { position: fixed; z-index: 1040; left: calc(var(--larghezza-nav) + 16px); top: 16px; width: 400px; max-height: calc(100dvh - 32px); padding: 16px; border-radius: 20px; background: var(--sfondo); box-shadow: var(--ombra-alta); border: var(--bordo-vetro); }
+  .pian-barra-numeri { position: fixed; z-index: 1040; left: calc(var(--larghezza-nav) + 432px); right: 16px; bottom: 16px; padding: 12px 20px; border-radius: 20px; background: var(--sfondo); box-shadow: var(--ombra-alta); border: var(--bordo-vetro); display: grid; grid-template-columns: minmax(300px, auto) 1fr; gap: 4px 28px; align-items: center; }
+  .pian-barra-numeri #pianFondo { grid-column: 1 / -1; }
+  .pian-barra-numeri .disegno-numeri { margin: 0; }
+  .pian-barra-numeri .disegno-profilo svg { height: 48px; }
+  .pian-barra-numeri .pian-fondo { margin-top: 2px; }
+  .pian-barra-numeri .pian-fondo-legenda { margin: 4px 0 0; }
+  body.pianificatore.fauna-aperta .pian-pannello { overflow: hidden; }
+  body.pianificatore.fauna-aperta .pian-pannello > :not(.pian-testa) { display: none !important; }
+  body.pianificatore.fauna-aperta .pian-testa { margin-bottom: 0; }
+}
+
+/* fondo del percorso */
 .pian-fondo { display: flex; height: 9px; border-radius: 5px; overflow: hidden; margin-top: 6px; }
 .pian-fondo i { display: block; min-width: 1px; }
 .pian-fondo-legenda { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; font-size: 0.75rem; color: var(--testo-tenue); }
 .pian-fondo-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; }
-.pian-tappe { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 4px; }
-.pian-tappe li { display: flex; align-items: center; gap: 10px; min-height: 44px; }
-.pian-nome { flex: 1; min-width: 0; text-align: left; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 8px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-.pian-azioni-tappa { display: flex; gap: 2px; }
-.pian-azioni-tappa button { width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--testo-tenue); font-size: 0.8rem; cursor: pointer; display: grid; place-items: center; }
-.pian-azioni-tappa button:hover:not(:disabled) { background: var(--bordo); }
-.pian-azioni-tappa button:disabled { opacity: 0.3; }
-.pian-azioni-tappa svg { width: 16px; height: 16px; }
-.pianificatore .maplibregl-ctrl-bottom-left { margin-bottom: 0; }
-@media (min-width: 1024px) {
-  .pian-foglio { left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; bottom: 16px; max-height: calc(100dvh - 140px); border-radius: 20px; }
-  .pian-foglio:not(.aperto) .pian-tappe, .pian-foglio:not(.aperto) .pian-titolo-tappe { display: grid; }
-  .pian-maniglia { display: none; }
-  .pian-mappa, .pian-mappa.maplibregl-map { left: var(--larghezza-nav); bottom: 0; }
-  .pian-sopra { left: calc(var(--larghezza-nav) + 420px); max-width: 520px; }
-  .pian-opzioni { left: calc(var(--larghezza-nav) + 420px); right: auto; }
-  .pian-sugg { left: calc(50% + 210px); }
-}
-.pian-opzioni .chip-scorciatoia { padding: 0 11px; font-size: 0.84rem; min-height: 38px; }
-/* «Niente acqua né rifugi entro 300 m» senza icona finiva nella colonna stretta dell'icona e si tagliava in «N…» */
 
-/* riordino delle tappe con la maniglia, nomi con il km */
-.pian-presa { display: grid; place-items: center; width: 32px; height: 40px; flex: none; font-size: 1.25rem; line-height: 1; color: var(--testo-tenue); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 8px; }
-.pian-presa:active, .pian-presa:focus-visible { background: var(--bordo); cursor: grabbing; }
-.pian-tappe li { position: relative; transition: transform 0.12s; background: var(--sfondo); }
-.pian-tappe li.trascinata { z-index: 3; transition: none; box-shadow: var(--ombra); border-radius: 12px; opacity: 0.95; }
-.pian-nome { display: flex; flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.25; }
-.pian-nome-testo { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pian-km { font-size: 0.76rem; font-weight: 500; color: var(--testo-tenue); }
-.pian-nome-campo { flex: 1; min-width: 0; min-height: 38px; border: 1px solid var(--verde); border-radius: 10px; background: var(--sfondo); color: inherit; font: inherit; font-weight: 600; padding: 0 10px; }
-
-/* Fauna nel pianificatore */
-.pian-fauna-stato { position: fixed; z-index: 1001; top: calc(env(safe-area-inset-top) + 106px); left: 10px; margin: 0; padding: 6px 12px; border-radius: 999px; max-width: calc(100vw - 80px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra); font-size: 0.8rem; font-weight: 700; pointer-events: none; }
-.pian-fauna-stato[hidden] { display: none; }
-.pian-opzioni .chip-scorciatoia svg { width: 16px; height: 16px; }
-.pian-fauna-icona { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: #fff; border: 2px solid #7c6cf0; box-shadow: 0 1px 4px rgba(37, 50, 56, 0.4); margin-bottom: 6px; }
-.pian-fauna-icona img { transform: rotate(45deg); width: 18px; height: 18px; }
-.pian-fauna-icona.sfumata { border-style: dashed; background: rgba(241, 236, 255, 0.85); opacity: 0.85; }
-.pian-fauna-icona b { position: absolute; transform: rotate(45deg); right: -9px; top: -9px; min-width: 16px; padding: 0 4px; border-radius: 8px; background: #5b4b9a; color: #fff; font-size: 10px; line-height: 16px; text-align: center; }
-.pianificatore .fauna-heat:empty { display: none; }
-body.pianificatore .foglio-fauna { z-index: 1050; }
-.pian-strumenti .pill-mappa[aria-pressed="true"] { background: var(--verde); color: #fff; border-color: transparent; }
-
-/* POI e fauna lungo il percorso nel pianificatore */
-.pian-categorie { position: fixed; z-index: 1002; top: calc(env(safe-area-inset-top) + 112px); right: 64px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; padding: 10px; border-radius: 16px; background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); }
-.pian-categorie[hidden] { display: none; }
-.pian-categorie .chip-scorciatoia { gap: 6px; }
-.pian-categorie .chip-scorciatoia img { display: block; }
-.pian-categorie .chip-scorciatoia[aria-pressed="false"] { opacity: 0.55; }
-.pian-categorie .chip-scorciatoia[aria-pressed="true"] { border-color: var(--verde); }
-.pian-poi { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 2px; }
-.pian-poi li { display: flex; align-items: center; gap: 10px; min-height: 44px; }
-.pian-poi-nome { flex: 1; min-width: 0; display: grid; font-weight: 600; line-height: 1.25; }
-.pian-poi-nome > span.pian-km, .pian-km { font-size: 0.76rem; font-weight: 500; color: var(--testo-tenue); }
-.pian-poi .link { flex: none; font-size: 0.85rem; min-height: 36px; }
-.pian-fauna-riga { display: grid; gap: 2px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 12px; background: var(--scheda-piena); font-size: 0.86rem; line-height: 1.35; }
+/* fauna lungo il percorso */
+.pian-fauna-riga { display: grid; gap: 2px; margin: 8px 0 2px; padding: 8px 10px; border-radius: 12px; background: var(--scheda-piena); font-size: 0.86rem; line-height: 1.35; }
 .pian-fauna-riga[hidden] { display: none; }
 .pian-fauna-tratto { font-weight: 700; color: #8a6a00; }
 :root[data-scuro] .pian-fauna-tratto { color: #f4c542; }
-.popup-poi { display: grid; gap: 4px; padding: 2px 4px; }
-.popup-poi .bottone { margin-top: 4px; min-height: 40px; }
-.pianificatore:not(.fauna-aperta) .pian-foglio:not(.aperto) .pian-poi, .pianificatore .pian-foglio:not(.aperto) .pian-titolo-poi { display: none; }
-@media (min-width: 1024px) {
-  .pian-foglio:not(.aperto) .pian-poi { display: grid !important; }
-  .pian-foglio:not(.aperto) .pian-titolo-poi:not([hidden]) { display: block !important; }
-  .pian-categorie { left: calc(var(--larghezza-nav) + 420px); }
-}
+.pianificatore .fauna-heat:empty { display: none; }
+body.pianificatore .foglio-fauna { z-index: 1050; }
 
-/* --- Pianificatore: tappe da prendere con il dito, pannelli che non si sovrappongono, niente testo selezionato --- */
-.pian-tappa { width: 34px; height: 34px; font-size: 13px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-.pian-tappa::before { content: ''; position: absolute; inset: -5px; border-radius: 50%; } /* area di tocco di 44 px */
-.pian-tappa:active { cursor: grabbing; }
-.pian-tappa.piccola { width: 24px; height: 24px; font-size: 11px; cursor: default; }
-.pian-tappa.piccola::before { display: none; }
-.pian-hint { position: fixed; z-index: 1003; top: calc(env(safe-area-inset-top) + 160px); left: 50%; transform: translateX(-50%); margin: 0; padding: 10px 16px; border-radius: 999px; max-width: calc(100vw - 100px); background: var(--vetro-forte); -webkit-backdrop-filter: var(--sfocatura); backdrop-filter: var(--sfocatura); box-shadow: var(--ombra-alta); font-size: 0.88rem; font-weight: 700; text-align: center; pointer-events: none; }
-.pian-hint[hidden] { display: none; }
-.pian-avviso { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; padding: 8px 10px; border-radius: 12px; background: #3b2a12; border: 1px solid #8a6420; color: #ffe3b3; font-size: 0.86rem; line-height: 1.35; }
-.pian-avviso[hidden] { display: none; }
-.pian-avviso .bottone { min-height: 38px; }
-/* con la Fauna aperta il foglio del pianificatore si riduce alla barra con i numeri (in alto) e il pannello Fauna sta sotto: mai sovrapposti */
-body.pianificatore.fauna-aperta .pian-foglio { top: calc(env(safe-area-inset-top) + 164px); bottom: auto; left: 10px; right: 70px; max-height: none; border-radius: 16px; padding: 4px 12px 8px; overflow: hidden; }
-body.pianificatore.fauna-aperta .pian-foglio > :not(.disegno-numeri):not(.pian-avviso) { display: none !important; }
-@media (min-width: 1024px) {
-  body.pianificatore.fauna-aperta .pian-foglio { top: 16px; left: calc(var(--larghezza-nav) + 16px); right: auto; width: 400px; }
-}
 /* trascinando un pannello non si seleziona il testo: maniglie, intestazioni, numeri e pulsanti (restano selezionabili i campi in cui si scrive) */
-.pian-foglio, .pian-foglio *, .foglio-fauna, .foglio-fauna *, .trascinabile, .trascinabile *, .pian-opzioni, .pian-strumenti, .pian-sugg, .pian-fauna-stato, .pian-categorie, .pian-categorie * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.pian-foglio input, .foglio-fauna input, .trascinabile input, .trascinabile textarea, .trascinabile select { -webkit-user-select: text; user-select: text; }
+.pian-foglio, .pian-foglio *, .pian-pannello, .pian-pannello *, .pian-barra-numeri, .pian-barra-numeri *, .pian-barra, .pian-barra *, .pian-livelli, .pian-livelli *, .pian-fumetto, .pian-fumetto *,
+.foglio-fauna, .foglio-fauna *, .trascinabile, .trascinabile *, .pian-sugg, .pian-fauna-stato, .pian-categorie, .pian-categorie * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.pian-foglio input[type="search"], .pian-foglio input[type="text"], .pian-pannello input[type="search"], .pian-nome-campo, .foglio-fauna input, .trascinabile input, .trascinabile textarea, .trascinabile select { -webkit-user-select: text; user-select: text; }
