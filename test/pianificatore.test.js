@@ -297,3 +297,63 @@ describe('pianificatore: giro ad anello', () => {
     expect(proiettaSuTratti([], [0, 0]).indice).toBe(-1);
   });
 });
+
+import { spostaId, inserisciNelTratto } from '../src/lib/pianificatore.js';
+
+describe('pianificatore: trascinare sposta sempre quello che si è preso', () => {
+  const nuove = () => [t(13.8, 41.8), t(13.82, 41.8), t(13.84, 41.8), t(13.86, 41.8)];
+  const ids = (l) => l.map((x) => x.id);
+  const A = (l) => l[0].p.join(',');
+  // gli stati da provare: all'inizio, dopo aver riordinato, dopo Annulla, dopo Ripeti
+  function stati() {
+    const s = creaStoria(nuove());
+    const r = [['inizio', s.ora()]];
+    s.vai(muovi(s.ora(), 2, 1));
+    r.push(['riordinate', s.ora()]);
+    s.annulla();
+    r.push(['annulla', s.ora()]);
+    s.ripeti();
+    r.push(['ripeti', s.ora()]);
+    return r;
+  }
+
+  it('trascinando la tappa 2 si sposta la 2 e A resta dov\'è (anche dopo riordino, Annulla e Ripeti)', () => {
+    for (const [nome, l] of stati()) {
+      const daPrendere = l[2];
+      const dopo = spostaId(l, daPrendere.id, [14, 42]);
+      expect(dopo.find((x) => x.id === daPrendere.id).p, nome).toEqual([14, 42]);
+      expect(A(dopo), nome).toBe(A(l));
+      expect(ids(dopo), nome).toEqual(ids(l));
+      // le altre non si muovono
+      l.forEach((x, i) => x.id !== daPrendere.id && expect(dopo[i].p, nome).toEqual(x.p));
+    }
+  });
+  it('trascinando un punto della linea tra la 2 e la 3 nasce una tappa tra la 2 e la 3 e A non si muove (anche dopo riordino, Annulla e Ripeti)', () => {
+    for (const [nome, l] of stati()) {
+      const percorso = ids(l); // gli id che il percorso calcolato ricorda: il tratto k va da percorso[k] a percorso[k+1]
+      const k = 2; // tra la tappa 2 e la tappa 3
+      const dopo = inserisciNelTratto(l, percorso, k, [13.85, 41.81]);
+      expect(dopo, nome).toHaveLength(l.length + 1);
+      expect(dopo[3].p, nome).toEqual([13.85, 41.81]);
+      expect(dopo[2].id, nome).toBe(percorso[2]);
+      expect(dopo[4].id, nome).toBe(percorso[3]);
+      expect(A(dopo), nome).toBe(A(l));
+    }
+  });
+  it('se l\'elenco è cambiato dopo il calcolo, la tappa nuova va dopo quella che la linea collegava', () => {
+    const l = nuove();
+    const calcolati = ids(l);
+    const riordinate = muovi(l, 3, 0); // D diventa la prima
+    const dopo = inserisciNelTratto(riordinate, calcolati, 1, [13.83, 41.81]); // tra la 1 e la 2 di prima
+    const i1 = dopo.findIndex((x) => x.id === calcolati[1]);
+    expect(dopo[i1 + 1].p).toEqual([13.83, 41.81]);
+    expect(dopo[0].id).toBe(calcolati[3]);
+    // una tappa tolta nel frattempo: niente da inserire
+    expect(inserisciNelTratto(togli(l, 1), calcolati, 1, [1, 1])).toHaveLength(3);
+  });
+  it('un id che non c\'è non cambia niente', () => {
+    const l = nuove();
+    expect(spostaId(l, 'x', [1, 1])).toBe(l);
+    expect(inserisciNelTratto(l, null, 0, [1, 1])).toBe(l);
+  });
+});

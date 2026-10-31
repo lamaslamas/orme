@@ -38,9 +38,9 @@ import { ANIMALI } from '../lib/costanti.js';
 import { NOMI_IT } from './faunaComune.js';
 import { escapeHtml, durata, codici } from '../lib/formato.js';
 import {
-  nuovaTappa, etichetta, inserisciDopo, sposta, togli, muovi, rinomina, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
+  nuovaTappa, etichetta, togli, muovi, rinomina, creaStoria, trattoPiuVicino, fondoDaTerreno, preferenzaPer, chiaveTratto, nomeDellaTappa, kmTesto, kmDelleTappe,
   tappeDaTraccia, tappeDaPunti, tagliaCode, aggancioDelleTappe, DISTANZA_MASSIMA_AGGANCIO_M,
-  aggiungiAlPercorso, comePartenza, comeArrivo, tappaComePartenza, tappaComeArrivo, impostaLibero, taglia, tappeConAnello, ID_CHIUSURA, sovrapposizione, proiettaSuTratti,
+  spostaId, inserisciNelTratto, aggiungiAlPercorso, comePartenza, comeArrivo, tappaComePartenza, tappaComeArrivo, impostaLibero, taglia, tappeConAnello, ID_CHIUSURA, sovrapposizione, proiettaSuTratti,
 } from '../lib/pianificatore.js';
 
 const COLORE = '#0f6e56';
@@ -326,11 +326,10 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
         m.on('dragend', () => {
           mappa.getSource('elastico')?.setData(vuoto());
           setTimeout(() => (trascinando = null), 80); // il click che segue il rilascio non aggiunge una tappa
-          const k = indiceDi();
-          if (k < 0) return;
+          if (indiceDi() < 0) return;
           const ll = m.getLngLat();
           agganciate.delete(t.id);
-          cambia(sposta(storia.ora(), k, [ll.lng, ll.lat]));
+          cambia(spostaId(storia.ora(), t.id, [ll.lng, ll.lat])); // la tappa presa, per id: le altre non si muovono
         });
         marcatori.set(t.id, m);
       } else {
@@ -459,7 +458,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     });
     disegnaTappe();
     mappa.getSource('linea')?.setData({ type: 'FeatureCollection', features: fatti.map((t, i) => lineaGeo(t.coordinate, { seg: i, libero: Boolean(t.libero) })) });
-    risultato = { linea, terreno: unisciTerreno(fatti), tratti: fatti, pezziQuote: null, fonte: null, misure: misureDeiPezzi([linea]) };
+    risultato = { linea, ids: tappe.map((t) => t.id), terreno: unisciTerreno(fatti), tratti: fatti, pezziQuote: null, fonte: null, misure: misureDeiPezzi([linea]) };
     // una tappa a più di 200 m da ogni sentiero e strada: il fumetto lo dice e propone «Tratto fuori sentiero» (una volta per tappa)
     if (lontana >= 0) {
       const chiave = `${tappe[lontana].id}:${tappe[lontana].p.join(',')}`;
@@ -765,6 +764,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     if (!dito || Math.hypot(dito.x - e.point.x, dito.y - e.point.y) > 30) return scrivi(tratti.length ? 'Tocca la linea del percorso dove vuoi tagliare' : 'Il percorso da tagliare non c\'è ancora');
     scrivi('');
     const k = vicino.indice;
+    const idPrima = risultato.ids?.[k];
     const f = apriFumetto(vicino.p, '<div class="fumetto-pian"><h3>Taglia qui</h3><button type="button" class="bottone primario" data-f="tieni-inizio">Tieni la parte dalla partenza a qui</button><button type="button" class="bottone primario" data-f="tieni-fine">Tieni la parte da qui all\'arrivo</button><button type="button" class="bottone" data-f="annulla">Non tagliare</button></div>');
     collegaFumetto(f, (az) => {
       chiudiFumetto();
@@ -772,7 +772,8 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       // con l'anello il ritorno è un tratto vero: tagliando l'anello si apre
       const tutte = tappeConAnello(storia.ora(), anello).map((t) => (t.id === ID_CHIUSURA ? { ...t, id: nuovaTappa(t.p).id } : t));
       impostaAnello(false);
-      cambia(taglia(tutte, k, vicino.p, az === 'tieni-inizio' ? 'inizio' : 'fine'));
+      const kk = tutte.findIndex((t) => t.id === idPrima); // per id: l'elenco può essere cambiato
+      if (kk >= 0) cambia(taglia(tutte, kk, vicino.p, az === 'tieni-inizio' ? 'inizio' : 'fine'));
       impostaForbici(false);
     });
   }
@@ -809,29 +810,37 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   let trascinando = null; // { k, ... }
   function iniziaTrascinamento(e) {
     if (forbici) return; // con le forbici un tocco sulla linea taglia
-    const tappe = storia.ora();
-    if (tappe.length < 2) return;
-    const seg = e.features?.[0]?.properties?.seg;
-    const k = Number.isInteger(seg) ? seg : trattoPiuVicino(risultato?.tratti?.map((t) => t.coordinate) ?? [], [e.lngLat.lng, e.lngLat.lat]).indice;
-    const tratti = tappe.length - 1 + (nEt() > tappe.length ? 1 : 0); // con l'anello c'è anche il ritorno alla partenza
-    if (k < 0 || k >= tratti) return;
+    // un segnaposto sta sopra la linea: prendere lui trascina lui (lo fa MapLibre), non la linea
+    if (e.originalEvent?.target?.closest?.('.pian-tappa, .maplibregl-popup')) return;
+    const ids = risultato?.ids;
+    if (!ids || storia.ora().length < 2) return;
+    // il tratto più vicino al dito (non il primo che capita sotto: la linea può ripassare vicino a se stessa)
+    const k = trattoPiuVicino(risultato.tratti.map((t) => t.coordinate), [e.lngLat.lng, e.lngLat.lat]).indice;
+    if (k < 0 || k >= ids.length - 1) return;
     chiudiFumetto();
     e.preventDefault();
     mappa.dragPan.disable();
     trascinando = { k, mosso: false };
+    // gli estremi del tratto, per id: sono quelli collegati dalla linea che si è presa, anche se l'elenco intanto è cambiato
+    const dove = (id) => {
+      const t = id === ID_CHIUSURA ? storia.ora()[0] : storia.ora().find((x) => x.id === id);
+      return t ? doveStaLaTappa(t) : null;
+    };
+    const [da, a] = [dove(ids[k]), dove(ids[k + 1])];
     const muovi = (ev) => {
       trascinando.mosso = true;
       trascinando.p = [ev.lngLat.lng, ev.lngLat.lat];
-      mappa.getSource('elastico')?.setData({ type: 'FeatureCollection', features: [lineaGeo([doveStaLaTappa(tappe[k]), trascinando.p, doveStaLaTappa(tappe[k + 1] ?? tappe[0])])] });
+      mappa.getSource('elastico')?.setData({ type: 'FeatureCollection', features: [lineaGeo([da, trascinando.p, a].filter(Boolean))] });
     };
-    const fine = (ev) => {
+    const fine = () => {
       mappa.off('mousemove', muovi);
       mappa.off('touchmove', muovi);
       mappa.dragPan.enable();
       mappa.getSource('elastico')?.setData(vuoto());
       const t = trascinando;
       setTimeout(() => (trascinando = null), 50); // il click che segue il rilascio non aggiunge una tappa
-      if (t?.mosso && t.p) cambia(inserisciDopo(storia.ora(), t.k, t.p));
+      // una tappa nuova tra le due che la linea collegava
+      if (t?.mosso && t.p) cambia(inserisciNelTratto(storia.ora(), ids, t.k, t.p));
     };
     mappa.on('mousemove', muovi);
     mappa.on('touchmove', muovi);

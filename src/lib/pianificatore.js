@@ -351,3 +351,17 @@ export function proiettaSuTratti(tratti, [lon, lat]) {
   });
   return migliore;
 }
+
+// --- trascinare una tappa o la linea: sempre quella che si è presa, anche dopo aver riordinato o dopo Annulla e Ripeti ---
+// Si lavora per id, non per posizione: l'elenco può essere cambiato tra il calcolo del percorso (che ricorda gli id delle tappe,
+// uno per ogni punto di collegamento) e il gesto.
+// Sposta la tappa con quell'id; le altre, A compresa, restano dove sono
+export function spostaId(tappe, id, p) {
+  const i = tappe.findIndex((t) => t.id === id);
+  return i < 0 ? tappe : sposta(tappe, i, p);
+}
+// Il tratto k del percorso calcolato va dalla tappa ids[k] alla ids[k+1]: il punto trascinato diventa una tappa nuova subito dopo ids[k]
+export function inserisciNelTratto(tappe, ids, k, p) {
+  const i = tappe.findIndex((t) => t.id === ids?.[k]);
+  return i < 0 ? tappe : inserisciDopo(tappe, i, p);
+}
