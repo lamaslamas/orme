@@ -156,6 +156,11 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
             <button type="button" class="chip-scorciatoia" data-attivita="trekking">Trekking</button>
             <button type="button" class="chip-scorciatoia" data-attivita="mtb">MTB</button>
           </div>
+          <button type="button" class="pian-menu-bottone" data-azione="menu" aria-label="Menu del percorso" aria-expanded="false" aria-haspopup="true">${ICONE.altro}</button>
+          <div class="pian-menu" id="pianMenu" role="menu" hidden>
+            <button type="button" role="menuitem" data-azione="ricomincia">Ricomincia</button>
+            <button type="button" role="menuitem" data-azione="elimina-bozza"${esistente || sorgente ? ' hidden' : ''}>Elimina bozza</button>
+          </div>
         </div>
         <div class="pian-avviso" id="pianAvviso" role="alert" hidden></div>
         <ol class="pian-tappe" id="pianTappe"></ol>
@@ -332,7 +337,9 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
         m.setLngLat(doveStaLaTappa(t));
         const el = m.getElement();
         const nuovo = elementoMarcatore(i, nEt());
-        el.className = nuovo.className;
+        // le classi di MapLibre (maplibregl-marker: è lei che lo posiziona) restano: si cambiano solo prima e ultima
+        el.classList.toggle('prima', nuovo.classList.contains('prima'));
+        el.classList.toggle('ultima', nuovo.classList.contains('ultima'));
         el.textContent = nuovo.textContent;
         el.setAttribute('aria-label', nuovo.getAttribute('aria-label'));
       }
@@ -458,7 +465,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
       const chiave = `${tappe[lontana].id}:${tappe[lontana].p.join(',')}`;
       if (!avvisate.has(chiave)) {
         avvisate.add(chiave);
-        apriFumettoTappa(tappe[lontana].id, `La tappa è a ${vere[lontana].distanzaM} m dal sentiero o dalla strada più vicini: il percorso non ci arriva. Puoi fare quel tratto fuori sentiero.`);
+        apriFumettoTappa(tappe[lontana].id, `La tappa è a ${vere[lontana].distanzaM} m dal sentiero o dalla strada più vicini: il percorso non ci arriva. Se vuoi andarci comunque, attiva «Tratto fuori sentiero».`);
       }
     }
     suggerisciTrascinare();
@@ -713,11 +720,11 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     const n = storia.ora().length;
     const d = distanzaDaStrade(p);
     const lontano = d != null && d > DISTANZA_MASSIMA_AGGANCIO_M;
-    const avviso = lontano ? `A ${Number.isFinite(d) ? `circa ${Math.round(d / 10) * 10} m` : 'più di 200 m'} dal sentiero o dalla strada più vicini: il percorso non ci arriva. Puoi fare quel tratto fuori sentiero.` : '';
+    const avviso = lontano ? `A ${Number.isFinite(d) ? `circa ${Math.round(d / 10) * 10} m` : 'più di 200 m'} dal sentiero o dalla strada più vicini: il percorso non ci arriva. Se vuoi andarci comunque, attiva «Tratto fuori sentiero».` : '';
     const bottoni = n === 0
       ? '<button type="button" class="bottone primario" data-f="partenza">Imposta come partenza</button>'
       : '<button type="button" class="bottone primario" data-f="aggiungi">Aggiungi al percorso</button><button type="button" class="bottone" data-f="partenza">Imposta come partenza</button><button type="button" class="bottone" data-f="arrivo">Imposta come arrivo</button>';
-    const f = apriFumetto(p, `<div class="fumetto-pian"><h3>${escapeHtml(titolo)}</h3>${dettaglio ? `<span class="coord">${escapeHtml(dettaglio)}</span>` : ''}<span class="coord">${coordinateTesto(p)}</span>${avviso ? `<p class="avviso">${escapeHtml(avviso)}</p>` : ''}${bottoni}${n ? interruttoreLibero(lontano) : ''}</div>`);
+    const f = apriFumetto(p, `<div class="fumetto-pian"><h3>${escapeHtml(titolo)}</h3>${dettaglio ? `<span class="coord">${escapeHtml(dettaglio)}</span>` : ''}<span class="coord">${coordinateTesto(p)}</span>${avviso ? `<p class="avviso">${escapeHtml(avviso)}</p>` : ''}${bottoni}${n ? interruttoreLibero(false) : ''}</div>`);
     collegaFumetto(f, (az, el) => {
       const libero = Boolean(el.querySelector('[data-f="libero"]')?.checked);
       const tappe = storia.ora();
@@ -970,6 +977,27 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     else if (azione === 'aggiungi-tappa') {
       scrivi('Cerca un luogo o tocca la mappa');
       campo.focus();
+    } else if (azione === 'menu') {
+      const box = $('#pianMenu');
+      box.hidden = !box.hidden;
+      b.setAttribute('aria-expanded', String(!box.hidden));
+    } else if (azione === 'ricomincia') {
+      chiudiMenu();
+      chiudiFumetto();
+      if (!storia.ora().length) return scrivi('Il percorso è già vuoto');
+      // si può recuperare con «Annulla»
+      impostaAnello(false);
+      cambia([]);
+      scrivi('Percorso svuotato: con «Annulla» lo ritrovi');
+      setTimeout(() => $('#pianSugg')?.textContent.startsWith('Percorso svuotato') && aggiorna(), 4000);
+    } else if (azione === 'elimina-bozza') {
+      chiudiMenu();
+      if (!confirm('Eliminare la bozza del percorso? Non si può recuperare.')) return;
+      chiudiFumetto();
+      impostaAnello(false);
+      cancellaBozza();
+      storia.azzera([]);
+      aggiorna();
     } else if (azione === 'forbici') {
       chiudiFumetto();
       impostaForbici(!forbici);
@@ -1008,6 +1036,15 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     anello = e.target.checked;
     aggiorna();
   });
+  function chiudiMenu() {
+    $('#pianMenu').hidden = true;
+    $('[data-azione="menu"]').setAttribute('aria-expanded', 'false');
+  }
+  // un tocco fuori dal menu lo chiude
+  const fuoriDalMenu = (e) => {
+    if (!$('#pianMenu').hidden && !e.target.closest('.pian-menu, .pian-menu-bottone')) chiudiMenu();
+  };
+  document.addEventListener('click', fuoriDalMenu);
   function chiudiCategorie() {
     $('#pianCategorie').hidden = true;
     const b = $('[data-azione="categorie"]');
@@ -1142,7 +1179,9 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
   // all'apertura: la traccia da modificare o il percorso a tappe si inquadra; altrimenti la vista della mappa da cui si è venuti
   if (tappeIniziali.length > 1) {
     const [s, o, n, e] = riquadroDelPercorso(tappeIniziali.map((t) => t.p), 0.002);
-    mappa.fitBounds([[o, s], [e, n]], { padding: { top: 110, bottom: 260, left: 30, right: 30 }, maxZoom: 15, animate: false });
+    // sul computer il pannello copre la sinistra, la barra dei numeri il fondo; sul telefono la tendina il fondo
+    const largo = window.innerWidth >= 1024;
+    mappa.fitBounds([[o, s], [e, n]], { padding: largo ? { top: 80, bottom: 170, left: 450, right: 50 } : { top: 110, bottom: 260, left: 30, right: 70 }, maxZoom: 15, animate: false });
   } else if (tappeIniziali.length === 1) mappa.jumpTo({ center: tappeIniziali[0].p, zoom: 14 });
   else if (apertura?.centro) mappa.jumpTo({ center: [apertura.centro[1], apertura.centro[0]], zoom: (apertura.zoom ?? 13) - 1 });
   aggiorna();
@@ -1159,6 +1198,7 @@ export async function vistaPianificatore(app, id = null, sorgente = null) {
     faunaPannello.chiudi();
     app.removeEventListener('click', suClick);
     app.removeEventListener('change', suCambio);
+    document.removeEventListener('click', fuoriDalMenu);
     chiudiFumetto();
     for (const m of marcatori.values()) m.remove();
     segnoProfilo?.remove();

@@ -26,6 +26,7 @@ import { avviaMigrazione } from './viste/migrazione.js';
 import { impostaBanner } from './viste/banner.js';
 import { preparaLibreria } from './viste/mappaVettoriale.js';
 import { collegaVisore } from './viste/visore.js';
+import { collegaSceltaBozza } from './viste/sceltaBozza.js';
 import { preparaInstallazione } from './viste/installa.js';
 import { preparaTema } from './viste/tema.js';
 import { stato } from './stato.js';
@@ -41,6 +42,7 @@ const app = document.getElementById('app');
 ascoltaInterazioni(); // il lavoro in sottofondo si ferma mentre si tocca
 segna('script principale in esecuzione');
 collegaVisore();
+collegaSceltaBozza();
 preparaInstallazione();
 preparaTema();
 // quando arriva una versione nuova dell'app (il service worker prende il controllo), la pagina si

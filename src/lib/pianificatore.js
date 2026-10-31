@@ -201,7 +201,8 @@ export function tappeDaTraccia(pezzi, puntiControllo = null) {
       const sulla = migliore.d <= 60;
       posizioni.push(sulla ? base.cum[migliore.i] : undefined);
       if (sulla) minimo = base.cum[migliore.i];
-      punti.push({ p: sulla ? base.linea[migliore.i] : p, libero: false });
+      // il tratto «fuori sentiero» scelto in precedenza resta tale (mai per la partenza)
+      punti.push({ p: sulla ? base.linea[migliore.i] : p, libero: punti.length > 0 && Boolean(x.libero) });
     }
   } else {
     const n = Math.max(1, Math.round(base.totaleM / INTERVALLO_TAPPE_M));
@@ -213,7 +214,7 @@ export function tappeDaTraccia(pezzi, puntiControllo = null) {
     });
     posizioni = punti.map((_, k) => (k === 0 ? 0 : k === punti.length - 1 ? base.totaleM : posizioni[k]));
   }
-  const tappe = punti.map((x, k) => nuovaTappa(x.p, { pos: posizioni[k], libero: false, nome: lungo?.[k]?.nomeManuale ? lungo[k].nome ?? null : null, nomeManuale: Boolean(lungo?.[k]?.nomeManuale) }));
+  const tappe = punti.map((x, k) => nuovaTappa(x.p, { pos: posizioni[k], libero: Boolean(x.libero), nome: lungo?.[k]?.nomeManuale ? lungo[k].nome ?? null : null, nomeManuale: Boolean(lungo?.[k]?.nomeManuale) }));
   return { base, tappe };
 }
 
